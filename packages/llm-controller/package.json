@@ -1,0 +1,17 @@
+{
+  "name": "@relay/llm-controller",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@relay/protocol": "workspace:*",
+    "@relay/runtime": "workspace:*",
+    "@google/genai": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
