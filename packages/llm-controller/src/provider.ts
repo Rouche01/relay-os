@@ -1,5 +1,5 @@
 import { EngineAction } from "@relay/protocol";
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI, Type, Schema, HarmCategory, HarmBlockThreshold } from "@google/genai";
 
 export interface LLMProvider {
   generateActions(prompt: string): Promise<EngineAction[]>;
@@ -18,7 +18,10 @@ export class GeminiProvider implements LLMProvider {
       items: {
         type: Type.OBJECT,
         properties: {
-          type: { type: Type.STRING },
+          type: { 
+            type: Type.STRING,
+            enum: ["navigate", "click", "input", "extract"]
+          },
           params: {
             type: Type.OBJECT,
             properties: {
@@ -41,17 +44,36 @@ export class GeminiProvider implements LLMProvider {
     };
 
     try {
-      const response = await this.ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
+      const response =
+        await this.ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: {
           responseMimeType: "application/json",
           responseSchema: actionSchema,
           temperature: 0.1,
+          safetySettings: [
+            {
+              category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+              threshold: HarmBlockThreshold.BLOCK_NONE,
+            },
+            {
+              category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+              threshold: HarmBlockThreshold.BLOCK_NONE,
+            },
+            {
+              category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+              threshold: HarmBlockThreshold.BLOCK_NONE,
+            },
+            {
+              category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+              threshold: HarmBlockThreshold.BLOCK_NONE,
+            },
+          ]
         }
       });
 
-      return JSON.parse(response.text) as EngineAction[];
+      return JSON.parse(response.text || "[]") as EngineAction[];
     } catch (e) {
       console.error("Failed to parse LLM response", e);
       return [];

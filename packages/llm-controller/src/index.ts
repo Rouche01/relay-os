@@ -5,10 +5,10 @@ import { LLMProvider } from "./provider";
 export * from "./provider";
 
 export class LLMController implements AppController {
-  constructor(private provider: LLMProvider) {}
+  constructor(private provider: LLMProvider) { }
 
   async onStageStart(stage: StageDefinition, engine: ExecutionEngine): Promise<void> {
-    const snapshotResult = await engine.execute({ type: "snapshot" } as any);
+    const snapshotResult = await engine.execute({ type: "snapshot", params: {} } as any);
     if (!snapshotResult.success) {
       throw new Error("Engine failed to provide snapshot");
     }
@@ -41,7 +41,7 @@ For "navigate", you must provide a "url".`;
   }
 
   async onFeedbackApplied(stage: StageDefinition, feedback: FeedbackResponse, engine: ExecutionEngine): Promise<void> {
-    const snapshotResult = await engine.execute({ type: "snapshot" } as any);
+    const snapshotResult = await engine.execute({ type: "snapshot", params: {} } as any);
     const { title, url, text } = snapshotResult.data;
 
     const prompt = `You are an autonomous agent interacting with a browser.

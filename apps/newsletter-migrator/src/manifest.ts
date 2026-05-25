@@ -5,7 +5,7 @@ export const NewsletterMigratorManifest: AgenticAppManifest = {
   version: "1.0.0",
   description: "Migrates subscribers between newsletter platforms (Substack to Mailchimp)",
   author: "Relay OS Built-in",
-  
+
   triggers: [
     {
       pattern: "migrate substack",
@@ -21,7 +21,7 @@ export const NewsletterMigratorManifest: AgenticAppManifest = {
   stages: [
     {
       name: "LOGIN",
-      description: "Navigate to Substack sign in and prompt user for credentials",
+      description: "Navigate to Substack sign in at https://substack.com/sign-in and prompt user for credentials",
       engine: "browser",
       feedback_points: [
         {

@@ -13,8 +13,10 @@
   },
   "dependencies": {
     "@relay/protocol": "workspace:*",
+    "@relay/engines-browser": "workspace:*",
     "@relay/runtime": "workspace:*",
-    "@relay/engines-browser": "workspace:*"
+    "@relay/llm-controller": "workspace:*",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "typescript": "^5.6.2",

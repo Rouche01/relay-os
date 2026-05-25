@@ -13,5 +13,5 @@ export interface BrowserActionParams {
 
 export interface BrowserEngineAction extends EngineAction {
   type: "navigate" | "click" | "input" | "extract" | "snapshot";
-  params?: BrowserActionParams;
+  params: BrowserActionParams;
 }

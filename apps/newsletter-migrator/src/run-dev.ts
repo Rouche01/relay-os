@@ -1,4 +1,5 @@
 import { NewsletterMigratorApp } from "./index";
+import "dotenv/config";
 import * as readline from "readline";
 import { FeedbackRequest, AgentRuntimeEvent } from "@relay/protocol";
 
