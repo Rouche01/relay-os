@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: p1-telegram-adapter
     content: packages/adapters-telegram — Approve / Edit / Abort mapped to FeedbackResponse; allowlisted user only
-    status: pending
+    status: completed
   - id: p1-community-app
     content: apps/community-engager — manifest + scout/draft/approve/execute stages; port types from stylens-ops
     status: pending

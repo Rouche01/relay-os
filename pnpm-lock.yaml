@@ -65,6 +65,22 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/adapters-telegram:
+    dependencies:
+      '@relay/feedback-broker':
+        specifier: workspace:*
+        version: link:../feedback-broker
+      '@relay/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   packages/engines-browser:
     dependencies:
       '@relay/protocol':
