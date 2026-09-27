@@ -1,19 +1,15 @@
 /**
  * CommunityEngager domain types (draft queue + scoring).
  * App-local until a second consumer needs the same shapes.
+ * Lifecycle status comes from @relay/action-store.
  */
+
+import type { ActionStatus } from "@relay/action-store";
+
+export type { ActionStatus };
 
 /** Promo intensity for community drafts. Default to 0–1; 2 is rare. */
 export type PromoIntensity = 0 | 1 | 2;
-
-export type ActionStatus =
-  | "proposed"
-  | "pending_approval"
-  | "approved"
-  | "edited"
-  | "aborted"
-  | "posted"
-  | "failed";
 
 export type CommunityPlatform = "reddit";
 
@@ -40,6 +36,7 @@ export interface CommunityDraft {
   intensity: PromoIntensity;
   score: OpportunityScore;
   rationale: string;
+  /** Mirrors ActionRecord.status when persisted */
   status: ActionStatus;
   createdAt: string;
   utmCampaign?: string;

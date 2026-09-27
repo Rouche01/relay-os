@@ -1,5 +1,5 @@
 {
-  "name": "@relay/apps-community-engager",
+  "name": "@relay/action-store",
   "version": "0.1.0",
   "private": true,
   "main": "dist/index.js",
@@ -9,10 +9,6 @@
     "dev": "tsc -w",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
-  },
-  "dependencies": {
-    "@relay/protocol": "workspace:*",
-    "@relay/action-store": "workspace:*"
   },
   "devDependencies": {
     "typescript": "6.0.3",

@@ -12,8 +12,8 @@ todos:
     content: packages/feedback-broker — in-process broker that routes FeedbackRequest ↔ adapters; CLI adapter first
     status: completed
   - id: p0-action-store
-    content: packages/action-store (or runtime plugin) — persist draft queue + status machine proposed→posted under .data/
-    status: pending
+    content: "packages/action-store — ActionStore port + FileJson driver; Postgres-ready factory"
+    status: completed
   - id: p1-telegram-adapter
     content: packages/adapters-telegram — Approve / Edit / Abort mapped to FeedbackResponse; allowlisted user only
     status: pending
@@ -177,9 +177,11 @@ flowchart LR
   - Subscribe to `FEEDBACK_REQUESTED` / call `provideFeedback`
   - Adapter interface: `present(req) → Promise<FeedbackResponse>`
   - Ship **CLI adapter** for local testing (print prompt; stdin Approve / Abort / `edit: …`)
-4. **Action store**
-  - Persist drafts + status: `proposed` → `pending_approval` → `approved` | `edited` | `aborted` → `posted` | `failed`
-  - v1: JSON/SQLite under `.data/` (same idea as stylens-ops plan)
+4. **Action store** (`packages/action-store`)
+   - Port: `ActionStore` + `ActionRecord<TPayload>` (app-owned payload)
+   - Shared lifecycle: `proposed` → `pending_approval` → `approved` | `edited` | `aborted` → `posted` | `failed`
+   - v1 driver: `FileJsonActionStore` under `.data/`; factory reserves `postgres` for later
+   - Apps depend on the interface only — swap driver via `createActionStore` / env
 
 **Exit criteria:** Fixture agent pauses; CLI abort stops without execute; edit updates draft text before resume.
 

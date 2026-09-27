@@ -17,6 +17,9 @@ importers:
 
   apps/community-engager:
     dependencies:
+      '@relay/action-store':
+        specifier: workspace:*
+        version: link:../../packages/action-store
       '@relay/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -45,6 +48,15 @@ importers:
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/action-store:
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
