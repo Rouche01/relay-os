@@ -211,6 +211,9 @@ export class AgentRuntime extends EventEmitter {
         aborted: true,
       });
       this.emit(AgentRuntimeEvent.FEEDBACK_APPLIED, { stage: stage.name, response });
+      if (this.controller?.onFeedbackApplied) {
+        await this.controller.onFeedbackApplied(stage, response, engine);
+      }
       throw new AgentAbortError();
     }
 

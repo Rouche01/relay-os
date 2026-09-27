@@ -149,10 +149,7 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
       requestId: pending.request.id,
       agentId: pending.request.agentId,
       action: parsed.action,
-      value:
-        parsed.action === "proceed"
-          ? (pending.request.context?.body ?? true)
-          : false,
+      value: parsed.action === "proceed" ? true : false,
     };
 
     await this.client.answerCallbackQuery(
@@ -199,7 +196,7 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
         requestId: pending.request.id,
         agentId: pending.request.agentId,
         action: "proceed",
-        value: pending.request.context?.body ?? true,
+        value: true,
       };
       await this.clearKeyboard(pending);
       this.settle(pending, response);

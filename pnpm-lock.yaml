@@ -20,9 +20,21 @@ importers:
       '@relay/action-store':
         specifier: workspace:*
         version: link:../../packages/action-store
+      '@relay/adapters-telegram':
+        specifier: workspace:*
+        version: link:../../packages/adapters-telegram
+      '@relay/feedback-broker':
+        specifier: workspace:*
+        version: link:../../packages/feedback-broker
       '@relay/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@relay/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
     devDependencies:
       '@types/node':
         specifier: ^22.0.0

@@ -95,7 +95,7 @@ export class CliFeedbackAdapter implements FeedbackAdapter {
     if (lower === "" || ["approve", "a", "yes", "y"].includes(lower)) {
       return {
         action: "proceed",
-        value: request.context?.body ?? true,
+        value: true,
       };
     }
 

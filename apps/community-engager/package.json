@@ -8,11 +8,16 @@
     "build": "tsc",
     "dev": "tsc -w",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "start": "node dist/run-dev.js"
   },
   "dependencies": {
     "@relay/protocol": "workspace:*",
-    "@relay/action-store": "workspace:*"
+    "@relay/runtime": "workspace:*",
+    "@relay/action-store": "workspace:*",
+    "@relay/feedback-broker": "workspace:*",
+    "@relay/adapters-telegram": "workspace:*",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "typescript": "6.0.3",

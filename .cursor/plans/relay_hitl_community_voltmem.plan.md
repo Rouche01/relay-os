@@ -19,10 +19,10 @@ todos:
     status: completed
   - id: p1-community-app
     content: apps/community-engager — manifest + scout/draft/approve/execute stages; port types from stylens-ops
-    status: pending
+    status: completed
   - id: p1-scout-draft-stub
     content: Scout/drafter v1 with fixtures or mock threads; score ≥4 gate; intensity 0–1 default; no Reddit write yet
-    status: pending
+    status: completed
   - id: p1-e2e-cli-hitl
     content: E2E — spawn CommunityEngager → CLI/Telegram feedback → abort or approve → status transitions logged
     status: pending
