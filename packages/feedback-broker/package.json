@@ -1,0 +1,20 @@
+{
+  "name": "@relay/feedback-broker",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@relay/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "@types/node": "^22.0.0"
+  }
+}

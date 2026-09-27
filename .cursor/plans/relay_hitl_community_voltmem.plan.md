@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: p0-feedback-broker
     content: packages/feedback-broker — in-process broker that routes FeedbackRequest ↔ adapters; CLI adapter first
-    status: pending
+    status: completed
   - id: p0-action-store
     content: packages/action-store (or runtime plugin) — persist draft queue + status machine proposed→posted under .data/
     status: pending
