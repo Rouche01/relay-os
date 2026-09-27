@@ -87,11 +87,13 @@ Use this feedback to help complete the goal.`;
     }
   }
 
-  async onStageStart(stage: StageDefinition, engine: ExecutionEngine): Promise<void> {
+  async onStageStart(stage: StageDefinition, engine?: ExecutionEngine): Promise<void> {
+    if (!engine) return;
     await this.executeAutonomousLoop(stage, engine);
   }
 
-  async onFeedbackApplied(stage: StageDefinition, feedback: FeedbackResponse, engine: ExecutionEngine): Promise<void> {
+  async onFeedbackApplied(stage: StageDefinition, feedback: FeedbackResponse, engine?: ExecutionEngine): Promise<void> {
+    if (!engine) return;
     await this.executeAutonomousLoop(stage, engine, feedback);
   }
 }

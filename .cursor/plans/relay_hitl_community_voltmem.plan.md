@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: p0-runtime-harden
     content: Harden AgentRuntime — honor abort, freeform edit, skip optional feedback, persist WAITING_USER, stage context bag
-    status: pending
+    status: completed
   - id: p0-feedback-broker
     content: packages/feedback-broker — in-process broker that routes FeedbackRequest ↔ adapters; CLI adapter first
     status: pending
@@ -302,7 +302,7 @@ relay-os/
 ## Related
 
 - Architecture: `[ARCHITECTURE.md](../../ARCHITECTURE.md)` (supersede Phase 1 app priority: Community before Newsletter for this track)
-- stylens-ops plan: `~/Projects/stylens-ops/.cursor/plans/stylens_ops_community_hitl.plan.md`
+- stylens-ops plan: `~/Projects/stylens-ops/.cursor/plans/stylens_ops_community_hitl.pla.md`
 - VoltMem sidecar: `~/Projects/voltmem/docs/SIDECAR.md`
 - Notion experiment: Community HITL — Reddit fashion/styling → installs
 
