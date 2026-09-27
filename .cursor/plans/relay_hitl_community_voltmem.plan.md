@@ -25,13 +25,13 @@ todos:
     status: completed
   - id: p1-e2e-cli-hitl
     content: E2E — spawn CommunityEngager → CLI/Telegram feedback → abort or approve → status transitions logged
-    status: pending
+    status: completed
   - id: p2-voltmem-context
     content: packages/context-engine — VoltMem client wrapper (fail-open); profile for relay/community domains
-    status: pending
+    status: completed
   - id: p2-memory-write-read
     content: Write aborts/approvals/intensity outcomes to VoltMem; inject memory into drafter prompts
-    status: pending
+    status: completed
   - id: p2-reddit-read
     content: Wire Reddit read-only scout (allowlisted subs); respect sub rules; refuse low scores
     status: pending

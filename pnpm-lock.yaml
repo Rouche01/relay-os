@@ -23,6 +23,9 @@ importers:
       '@relay/adapters-telegram':
         specifier: workspace:*
         version: link:../../packages/adapters-telegram
+      '@relay/context-engine':
+        specifier: workspace:*
+        version: link:../../packages/context-engine
       '@relay/feedback-broker':
         specifier: workspace:*
         version: link:../../packages/feedback-broker
@@ -85,6 +88,19 @@ importers:
       '@relay/protocol':
         specifier: workspace:*
         version: link:../protocol
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/context-engine:
+    dependencies:
+      '@voltmem/client':
+        specifier: ^0.4.0
+        version: 0.4.0
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -215,6 +231,10 @@ packages:
 
   '@types/retry@0.12.0':
     resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
+
+  '@voltmem/client@0.4.0':
+    resolution: {integrity: sha512-3DZwgbWQ1Xrt46au62MsJDl+QboDIDo4Ot1Ft93vdbYW/eyeR6sQn7feHbrL/KPel7Q55Ty9OBWQAlgJuyx/8A==}
+    engines: {node: '>=18'}
 
   agent-base@7.1.4:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
@@ -620,6 +640,8 @@ snapshots:
       undici-types: 6.21.0
 
   '@types/retry@0.12.0': {}
+
+  '@voltmem/client@0.4.0': {}
 
   agent-base@7.1.4: {}
 

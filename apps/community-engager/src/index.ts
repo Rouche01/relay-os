@@ -1,5 +1,9 @@
 import { createActionStore, type ActionStore } from "@relay/action-store";
 import {
+  createContextEngine,
+  type ContextEngine,
+} from "@relay/context-engine";
+import {
   AgentRuntimeEvent,
   type AgentState,
   type FeedbackRequest,
@@ -12,6 +16,7 @@ import { createStubEngine } from "./stub-engine.js";
 
 export interface CommunityEngagerAppOptions {
   store?: ActionStore;
+  memory?: ContextEngine;
   agentId?: string;
   userId?: string;
   sessionId?: string;
@@ -20,13 +25,21 @@ export interface CommunityEngagerAppOptions {
 export class CommunityEngagerApp {
   private readonly runtime: AgentRuntime;
   private readonly store: ActionStore;
+  private readonly memory: ContextEngine;
   private readonly controller: CommunityEngagerController;
 
   constructor(options: CommunityEngagerAppOptions = {}) {
     this.store = options.store ?? createActionStore({ driver: "file" });
+    this.memory =
+      options.memory ??
+      createContextEngine({
+        agentId: options.agentId ?? "community-engager",
+        userId: options.userId,
+      });
 
     this.controller = new CommunityEngagerController({
       store: this.store,
+      memory: this.memory,
       getContext: () => this.runtime.getContext(),
     });
 
@@ -79,6 +92,10 @@ export class CommunityEngagerApp {
   getStore(): ActionStore {
     return this.store;
   }
+
+  getMemory(): ContextEngine {
+    return this.memory;
+  }
 }
 
 export * from "./types.js";
@@ -87,3 +104,4 @@ export * from "./manifest.js";
 export * from "./scout.js";
 export * from "./drafter.js";
 export * from "./executor.js";
+export * from "./memory.js";

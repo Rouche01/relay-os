@@ -2,6 +2,7 @@ import {
   createActionRecord,
   type ActionStore,
 } from "@relay/action-store";
+import type { ContextEngine } from "@relay/context-engine";
 import {
   isAbortResponse,
   isEditResponse,
@@ -16,6 +17,7 @@ import type { AppController } from "@relay/runtime";
 import { draftToFeedbackContext } from "./feedback-map.js";
 import { draftReply } from "./drafter.js";
 import { executeApproved } from "./executor.js";
+import { CommunityMemory } from "./memory.js";
 import { scoutOpportunities } from "./scout.js";
 import type { CommunityDraft } from "./types.js";
 import { isActionable, scoreTotal } from "./types.js";
@@ -24,11 +26,12 @@ const APP_ID = "community-engager";
 
 export interface CommunityControllerOptions {
   store: ActionStore;
+  memory: ContextEngine;
   getContext: () => AgentContext;
 }
 
 /**
- * Stage logic for CommunityEngager: scout → draft → HITL → dry-run execute → learn stub.
+ * Stage logic: scout → draft (+ memory) → HITL → dry-run execute → learn (VoltMem).
  */
 export class CommunityEngagerController implements AppController {
   constructor(private readonly options: CommunityControllerOptions) {}
@@ -76,6 +79,8 @@ export class CommunityEngagerController implements AppController {
       });
       ctx.currentDraft = draft;
       ctx.hitlOutcome = "aborted";
+      // Abort skips the learn stage — write memory here.
+      await this.writeHitlMemory(draft, "aborted");
       return;
     }
 
@@ -132,7 +137,20 @@ export class CommunityEngagerController implements AppController {
       throw new Error("No actionable opportunity to draft — scout returned none");
     }
 
-    const drafted = await draftReply(top);
+    const memoryBlock = await this.options.memory.rememberForPrompt(
+      `community reddit draft r/${top.subreddit} ${top.threadTitle} intensity feedback abort approve`,
+      { limit: 5 }
+    );
+    if (memoryBlock) {
+      console.log(`[draft] injected agent memory (${memoryBlock.split("\n").length} lines)`);
+    } else {
+      console.log(`[draft] no agent memory (engine=${this.options.memory.name})`);
+    }
+    ctx.agentMemory = memoryBlock;
+
+    const drafted = await draftReply(top, {
+      memoryBlock: memoryBlock || undefined,
+    });
     await this.options.store.put(
       createActionRecord({
         id: drafted.id,
@@ -146,7 +164,7 @@ export class CommunityEngagerController implements AppController {
     ctx.feedbackContext = draftToFeedbackContext(drafted);
     ctx.stageResults = {
       ...(ctx.stageResults ?? {}),
-      draft: { id: drafted.id },
+      draft: { id: drafted.id, memoryUsed: Boolean(memoryBlock) },
     };
     console.log(`[draft] pending_approval id=${drafted.id} intensity=${drafted.intensity}`);
   }
@@ -180,13 +198,45 @@ export class CommunityEngagerController implements AppController {
 
   private async runLearn(ctx: AgentContext): Promise<void> {
     const draft = ctx.currentDraft as CommunityDraft | undefined;
-    const outcome = ctx.hitlOutcome ?? draft?.status ?? "unknown";
-    console.log(
-      `[learn] stub — outcome=${outcome} draft=${draft?.id ?? "n/a"} (VoltMem later)`
-    );
+    const outcome = String(ctx.hitlOutcome ?? draft?.status ?? "unknown");
+    console.log(`[learn] outcome=${outcome} draft=${draft?.id ?? "n/a"}`);
+
+    if (draft && (outcome === "approved" || outcome === "edited")) {
+      await this.writeHitlMemory(draft, outcome);
+    }
+
     ctx.stageResults = {
       ...(ctx.stageResults ?? {}),
-      learn: { outcome, draftId: draft?.id },
+      learn: {
+        outcome,
+        draftId: draft?.id,
+        memoryAvailable: this.options.memory.available,
+      },
     };
+  }
+
+  private async writeHitlMemory(
+    draft: CommunityDraft,
+    outcome: "aborted" | "approved" | "edited"
+  ): Promise<void> {
+    const fact =
+      outcome === "aborted"
+        ? CommunityMemory.aborted("user aborted before post", {
+            subreddit: draft.subreddit,
+            intensity: draft.intensity,
+          })
+        : CommunityMemory.approved({
+            intensity: draft.intensity,
+            subreddit: draft.subreddit,
+            note: outcome === "edited" ? "human edited draft before approve" : undefined,
+          });
+
+    const ok = await this.options.memory.addFact(fact, {
+      domain: "outcome",
+      source: `relay:${APP_ID}`,
+    });
+    console.log(
+      `[learn] voltmem write ${ok ? "ok" : "skipped/fail-open"} (${outcome})`
+    );
   }
 }

@@ -9,7 +9,8 @@
     "dev": "tsc -w",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "start": "node dist/run-dev.js"
+    "start": "node dist/run-dev.js",
+    "e2e": "node dist/e2e-hitl.js"
   },
   "dependencies": {
     "@relay/protocol": "workspace:*",
@@ -17,6 +18,7 @@
     "@relay/action-store": "workspace:*",
     "@relay/feedback-broker": "workspace:*",
     "@relay/adapters-telegram": "workspace:*",
+    "@relay/context-engine": "workspace:*",
     "dotenv": "^16.4.5"
   },
   "devDependencies": {

@@ -11,6 +11,11 @@ async function main(): Promise<void> {
 
   const app = new CommunityEngagerApp();
   const runtime = app.getRuntime();
+  const memory = app.getMemory();
+  const healthy = await memory.health();
+  console.log(
+    `Memory: ${memory.name}${healthy ? " (sidecar ok)" : " (unavailable / fail-open)"}\n`
+  );
 
   const useTelegram = process.env.FEEDBACK_ADAPTER === "telegram";
   let telegram: TelegramFeedbackAdapter | undefined;
