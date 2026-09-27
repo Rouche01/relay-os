@@ -1,4 +1,10 @@
-export type EngineType = "browser" | "llm" | "api" | "code" | "data" | "comms";
+import { FeedbackRequest } from "./feedback";
+
+/**
+ * Execution engines an agentic app may declare.
+ * `"none"` — pure HITL gate (feedback only; no engine execute).
+ */
+export type EngineType = "browser" | "llm" | "api" | "code" | "data" | "comms" | "none";
 
 export interface ExecutionEngine {
   type: EngineType;
@@ -25,9 +31,7 @@ export interface AgentContext {
   agentId: string;
   userId: string;
   sessionId: string;
+  /** Stage result bag — e.g. approved draft id for execute */
+  stageResults?: Record<string, unknown>;
   [key: string]: any;
 }
-
-// Forward declare to avoid circular dependency, though in practice
-// these might live in feedback.ts and be imported.
-import { FeedbackRequest } from "./feedback";

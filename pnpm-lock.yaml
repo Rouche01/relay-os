@@ -15,6 +15,19 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  apps/community-engager:
+    dependencies:
+      '@relay/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   apps/newsletter-migrator:
     dependencies:
       '@relay/engines-browser':
@@ -66,7 +79,7 @@ importers:
     dependencies:
       '@google/genai':
         specifier: latest
-        version: 2.6.0
+        version: 2.24.0
       '@relay/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -99,8 +112,8 @@ importers:
 
 packages:
 
-  '@google/genai@2.6.0':
-    resolution: {integrity: sha512-HjoW3mPuEn7pnuKABJl9VbDoWDSF4nbwYKYvYYor7YjPeDxrrBxHzu2d1Prcd+BAuC4w+85UP6y7ZdcrQAoO7g==}
+  '@google/genai@2.24.0':
+    resolution: {integrity: sha512-bIu5eoxF1AaPWs9ivmUJGp1RpDHyapoODvWvnkzRDx2CTIW6UJXFhDdjj0BlRve3ZHMMuEkQBVrA/ALqpW4apA==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
@@ -510,7 +523,7 @@ packages:
 
 snapshots:
 
-  '@google/genai@2.6.0':
+  '@google/genai@2.24.0':
     dependencies:
       google-auth-library: 10.6.2
       p-retry: 4.6.2

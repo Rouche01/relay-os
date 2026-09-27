@@ -1,51 +1,51 @@
 ---
 name: Relay HITL + CommunityEngager + VoltMem
-overview: "Build Relay as a HITL agent runtime product, dogfood it with CommunityEngager (GoStylens Reddit ops), and wire VoltMem as the Context Engine memory layer — from protocol hardening through a standalone product slice. Skip consumer OS shell until the feedback loop is proven."
+overview: Build Relay as a HITL agent runtime product, dogfood it with CommunityEngager (GoStylens Reddit ops), and wire VoltMem as the Context Engine memory layer — from protocol hardening through a standalone product slice. Skip consumer OS shell until the feedback loop is proven.
 todos:
   - id: p0-protocol-harden
-    content: "Harden @relay/protocol — abort/edit actions, optional feedback, richer FeedbackRequest context, draft/status types shared with community"
-    status: pending
+    content: Harden @relay/protocol — abort/edit actions, optional feedback, richer FeedbackRequest context (community draft types live in apps/community-engager)
+    status: completed
   - id: p0-runtime-harden
-    content: "Harden AgentRuntime — honor abort, freeform edit, skip optional feedback, persist WAITING_USER, stage context bag"
+    content: Harden AgentRuntime — honor abort, freeform edit, skip optional feedback, persist WAITING_USER, stage context bag
     status: pending
   - id: p0-feedback-broker
-    content: "packages/feedback-broker — in-process broker that routes FeedbackRequest ↔ adapters; CLI adapter first"
+    content: packages/feedback-broker — in-process broker that routes FeedbackRequest ↔ adapters; CLI adapter first
     status: pending
   - id: p0-action-store
-    content: "packages/action-store (or runtime plugin) — persist draft queue + status machine proposed→posted under .data/"
+    content: packages/action-store (or runtime plugin) — persist draft queue + status machine proposed→posted under .data/
     status: pending
   - id: p1-telegram-adapter
-    content: "packages/adapters-telegram — Approve / Edit / Abort mapped to FeedbackResponse; allowlisted user only"
+    content: packages/adapters-telegram — Approve / Edit / Abort mapped to FeedbackResponse; allowlisted user only
     status: pending
   - id: p1-community-app
-    content: "apps/community-engager — manifest + scout/draft/approve/execute stages; port types from stylens-ops"
+    content: apps/community-engager — manifest + scout/draft/approve/execute stages; port types from stylens-ops
     status: pending
   - id: p1-scout-draft-stub
-    content: "Scout/drafter v1 with fixtures or mock threads; score ≥4 gate; intensity 0–1 default; no Reddit write yet"
+    content: Scout/drafter v1 with fixtures or mock threads; score ≥4 gate; intensity 0–1 default; no Reddit write yet
     status: pending
   - id: p1-e2e-cli-hitl
-    content: "E2E — spawn CommunityEngager → CLI/Telegram feedback → abort or approve → status transitions logged"
+    content: E2E — spawn CommunityEngager → CLI/Telegram feedback → abort or approve → status transitions logged
     status: pending
   - id: p2-voltmem-context
-    content: "packages/context-engine — VoltMem client wrapper (fail-open); profile for relay/community domains"
+    content: packages/context-engine — VoltMem client wrapper (fail-open); profile for relay/community domains
     status: pending
   - id: p2-memory-write-read
-    content: "Write aborts/approvals/intensity outcomes to VoltMem; inject memory into drafter prompts"
+    content: Write aborts/approvals/intensity outcomes to VoltMem; inject memory into drafter prompts
     status: pending
   - id: p2-reddit-read
-    content: "Wire Reddit read-only scout (allowlisted subs); respect sub rules; refuse low scores"
+    content: Wire Reddit read-only scout (allowlisted subs); respect sub rules; refuse low scores
     status: pending
   - id: p2-executor
-    content: "Reddit submit only after approved/edited; intensity-2 requires confirmation; UTM + idempotent job ids"
+    content: Reddit submit only after approved/edited; intensity-2 requires confirmation; UTM + idempotent job ids
     status: pending
   - id: p3-deploy-ops
-    content: "Deploy path — VoltMem sidecar + Telegram poller (Thinkpad systemd or CF webhook); env docs; link stylens-ops deploy notes"
+    content: Deploy path — VoltMem sidecar + Telegram poller (Thinkpad systemd or CF webhook); env docs; link stylens-ops deploy notes
     status: pending
   - id: p3-measure
-    content: "PostHog UTMs on intensity-2; log outcomes; close Notion community experiment with evidence"
+    content: PostHog UTMs on intensity-2; log outcomes; close Notion community experiment with evidence
     status: pending
   - id: p4-product-slice
-    content: "Productize — README, SDK surface, second adapter or second app stub; decide Relay vs stylens-ops ownership"
+    content: Productize — README, SDK surface, second adapter or second app stub; decide Relay vs stylens-ops ownership
     status: pending
 isProject: true
 ---
@@ -56,18 +56,20 @@ Canonical plan for this repo. Open while the `relay-os` workspace is active.
 
 ## Product framing
 
-**Layman differentiation (canonical copy):** root [`README.md`](../../README.md) — Relay vs n8n vs Loops.
+**Layman differentiation (canonical copy):** root `[README.md](../../README.md)` — Relay vs n8n vs Loops.
 
 > n8n: wire systems; optionally ask a human before this node.  
 > Loops: run an agent in a disciplined cycle until gates pass.  
 > Relay: run an agent that negotiates with a human through a protocol, then acts.
 
-| Piece | Role | Remains separate? |
-|-------|------|-------------------|
-| **Relay** | HITL protocol, agent runtime, feedback broker, engines | This product |
-| **VoltMem** | Current-truth memory for agents (`@voltmem/client` + sidecar) | Yes — sibling product at `~/Projects/voltmem` |
-| **CommunityEngager** | First agentic app (Reddit scout → draft → approve → post) | First-party app; ops deploy may stay thin in `stylens-ops` |
-| **gostylens-harness** | Voice, ICP, experiment design | Yes — strategy only |
+
+| Piece                 | Role                                                          | Remains separate?                                          |
+| --------------------- | ------------------------------------------------------------- | ---------------------------------------------------------- |
+| **Relay**             | HITL protocol, agent runtime, feedback broker, engines        | This product                                               |
+| **VoltMem**           | Current-truth memory for agents (`@voltmem/client` + sidecar) | Yes — sibling product at `~/Projects/voltmem`              |
+| **CommunityEngager**  | First agentic app (Reddit scout → draft → approve → post)     | First-party app; ops deploy may stay thin in `stylens-ops` |
+| **gostylens-harness** | Voice, ICP, experiment design                                 | Yes — strategy only                                        |
+
 
 **Hard rule (community):** nothing posts without human Approve (Edit allowed; Abort is first-class).
 
@@ -125,6 +127,8 @@ flowchart TB
   APP --> CE
 ```
 
+
+
 ### CommunityEngager stage map
 
 ```mermaid
@@ -142,13 +146,17 @@ flowchart LR
   learn -->|VoltMem write| done[COMPLETE]
 ```
 
-| Stage | Engine | Feedback |
-|-------|--------|----------|
-| `scout` | `api` or `llm` (+ later browser) | `progress` (optional) |
-| `draft` | `llm` | — |
-| `await_approval` | — (broker only) | `approval` + `freeform` edit; intensity-2 → extra `confirmation` |
-| `execute` | `api` (Reddit submit) | `error` on failure |
-| `learn` | `data` / context | write outcomes to VoltMem |
+
+
+
+| Stage            | Engine                           | Feedback                                                         |
+| ---------------- | -------------------------------- | ---------------------------------------------------------------- |
+| `scout`          | `api` or `llm` (+ later browser) | `progress` (optional)                                            |
+| `draft`          | `llm`                            | —                                                                |
+| `await_approval` | — (broker only)                  | `approval` + `freeform` edit; intensity-2 → extra `confirmation` |
+| `execute`        | `api` (Reddit submit)            | `error` on failure                                               |
+| `learn`          | `data` / context                 | write outcomes to VoltMem                                        |
+
 
 ## Implementation phases
 
@@ -157,24 +165,21 @@ flowchart LR
 **Goal:** Abort/edit/optional feedback work without Telegram or Reddit.
 
 1. **Protocol** (`packages/protocol`)
-   - Extend `FeedbackResponse.action` usage: `abort` | `proceed` | `retry`; document edit via `freeform` + `value`
-   - Allow stages with feedback but no engine (or `engine: "none"`) for pure HITL gates
-   - Add shared community-facing types if useful (`PromoIntensity`, draft status) — or keep in the app package; prefer app-local until reused
-   - Ensure `progress` does not block forever when `required: false`
-
+  - Extend `FeedbackResponse.action` usage: `abort` | `proceed` | `retry`; document edit via `freeform` + `value`
+  - Allow stages with feedback but no engine (or `engine: "none"`) for pure HITL gates
+  - Add shared community-facing types if useful (`PromoIntensity`, draft status) — or keep in the app package; prefer app-local until reused
+  - Ensure `progress` does not block forever when `required: false`
 2. **Runtime** (`packages/runtime`)
-   - On `action: "abort"` → terminate cleanly (`COMPLETE` or dedicated `ABORTED` if you add it to `AgentState`)
-   - Pass `FeedbackRequest.context` (thread URL, draft text, score, intensity) through to adapters
-   - Stage result bag on `AgentContext` so execute can load the approved draft by id
-
+  - On `action: "abort"` → terminate cleanly (`COMPLETE` or dedicated `ABORTED` if you add it to `AgentState`)
+  - Pass `FeedbackRequest.context` (thread URL, draft text, score, intensity) through to adapters
+  - Stage result bag on `AgentContext` so execute can load the approved draft by id
 3. **Feedback broker** (`packages/feedback-broker`)
-   - Subscribe to `FEEDBACK_REQUESTED` / call `provideFeedback`
-   - Adapter interface: `present(req) → Promise<FeedbackResponse>`
-   - Ship **CLI adapter** for local testing (print prompt; stdin Approve / Abort / `edit: …`)
-
+  - Subscribe to `FEEDBACK_REQUESTED` / call `provideFeedback`
+  - Adapter interface: `present(req) → Promise<FeedbackResponse>`
+  - Ship **CLI adapter** for local testing (print prompt; stdin Approve / Abort / `edit: …`)
 4. **Action store**
-   - Persist drafts + status: `proposed` → `pending_approval` → `approved` | `edited` | `aborted` → `posted` | `failed`
-   - v1: JSON/SQLite under `.data/` (same idea as stylens-ops plan)
+  - Persist drafts + status: `proposed` → `pending_approval` → `approved` | `edited` | `aborted` → `posted` | `failed`
+  - v1: JSON/SQLite under `.data/` (same idea as stylens-ops plan)
 
 **Exit criteria:** Fixture agent pauses; CLI abort stops without execute; edit updates draft text before resume.
 
@@ -183,22 +188,20 @@ flowchart LR
 **Goal:** Real HITL channel + agent skeleton with mock scout/draft.
 
 1. **Telegram adapter** (`packages/adapters-telegram`)
-   - BotFather token + `TELEGRAM_ALLOWLIST_USER_ID`
-   - Message: subreddit, thread URL, draft, intensity, score, rationale
-   - Inline **Approve** / **Abort**; reply `edit: …` for revisions
-   - Map to `FeedbackResponse`
-
+  - BotFather token + `TELEGRAM_ALLOWLIST_USER_ID`
+  - Message: subreddit, thread URL, draft, intensity, score, rationale
+  - Inline **Approve** / **Abort**; reply `edit: …` for revisions
+  - Map to `FeedbackResponse`
 2. **App** (`apps/community-engager`)
-   - Manifest with stages above; triggers e.g. `"engage community"`, `"scout reddit"`
-   - Port scoring helpers from `stylens-ops/src/shared/types.ts` (`scoreTotal`, `isActionable`)
-   - Scout/drafter: fixtures first (checked-in mock threads) so HITL works offline
-   - Executor: no-op or dry-run log until Phase 2 Reddit write
-   - `run-dev.ts`: runtime + broker + Telegram (or CLI) wiring
-
+  - Manifest with stages above; triggers e.g. `"engage community"`, `"scout reddit"`
+  - Port scoring helpers from `stylens-ops/src/shared/types.ts` (`scoreTotal`, `isActionable`)
+  - Scout/drafter: fixtures first (checked-in mock threads) so HITL works offline
+  - Executor: no-op or dry-run log until Phase 2 Reddit write
+  - `run-dev.ts`: runtime + broker + Telegram (or CLI) wiring
 3. **Boundary with stylens-ops**
-   - Prefer implementing the agent **here**; keep `stylens-ops` as deploy/env host *or* thin re-export once stable
-   - Point harness `integrations.md` at Relay community app when wired
-   - Do not duplicate Telegram bot long-term
+  - Prefer implementing the agent **here**; keep `stylens-ops` as deploy/env host *or* thin re-export once stable
+  - Point harness `integrations.md` at Relay community app when wired
+  - Do not duplicate Telegram bot long-term
 
 **Exit criteria:** You receive a real Telegram draft card and can Approve / Edit / Abort; store reflects status; nothing calls Reddit write.
 
@@ -207,23 +210,21 @@ flowchart LR
 **Goal:** Memory improves drafts; approved posts can go live.
 
 1. **Context engine** (`packages/context-engine`)
-   - Wrap `@voltmem/client` (file: or published); fail-open if sidecar down
-   - Env: `VOLTMEM_URL`, `VOLTMEM_API_KEY`, user/agent scope ids
-   - Domains to store (start concrete, tune profile in voltmem if needed):
-     - aborted pattern / reason
-     - approved intensity that worked
-     - subreddit rules notes
-     - voice constraints (from harness, summarized)
-
+  - Wrap `@voltmem/client` (file: or published); fail-open if sidecar down
+  - Env: `VOLTMEM_URL`, `VOLTMEM_API_KEY`, user/agent scope ids
+  - Domains to store (start concrete, tune profile in voltmem if needed):
+    - aborted pattern / reason
+    - approved intensity that worked
+    - subreddit rules notes
+    - voice constraints (from harness, summarized)
 2. **Write / read paths**
-   - After HITL: `add()` outcome facts
-   - Before draft: `search()` inject `[AGENT MEMORY]` into LLM drafter (via `llm-controller`)
-   - Session/short-term stays in runtime context; VoltMem is cross-run only
-
+  - After HITL: `add()` outcome facts
+  - Before draft: `search()` inject `[AGENT MEMORY]` into LLM drafter (via `llm-controller`)
+  - Session/short-term stays in runtime context; VoltMem is cross-run only
 3. **Reddit**
-   - Read scout for allowlisted fashion/styling subs (Responsible Builder / API access first)
-   - Score ≥ 4/5 to enqueue; default intensity 0–1; intensity 2 needs explicit confirmation feedback
-   - Executor: dedicated account; disclose when mentioning GoStylens; UTM on links; idempotent job ids
+  - Read scout for allowlisted fashion/styling subs (Responsible Builder / API access first)
+  - Score ≥ 4/5 to enqueue; default intensity 0–1; intensity 2 needs explicit confirmation feedback
+  - Executor: dedicated account; disclose when mentioning GoStylens; UTM on links; idempotent job ids
 
 **Exit criteria:** Aborting “spammy draft” reduces similar proposals next run; one approved post (or dry-run flag) succeeds with store → `posted`.
 
@@ -268,24 +269,26 @@ relay-os/
 
 ## Implementation order (do in sequence)
 
-1. Protocol + runtime abort/edit/optional feedback  
-2. Feedback broker + CLI adapter + action store  
-3. CommunityEngager manifest + fixture scout/draft  
-4. Telegram adapter E2E  
-5. VoltMem context engine + learn stage  
-6. Reddit read → then write executor  
-7. Deploy + measure  
-8. README / product slice  
+1. Protocol + runtime abort/edit/optional feedback
+2. Feedback broker + CLI adapter + action store
+3. CommunityEngager manifest + fixture scout/draft
+4. Telegram adapter E2E
+5. VoltMem context engine + learn stage
+6. Reddit read → then write executor
+7. Deploy + measure
+8. README / product slice
 
 ## Risks & mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Three repos stall progress | Freeze newsletter migrator + consumer OS; one vertical path |
-| Reddit API / policy blocks write | Ship HITL + fixtures + dry-run executor first; write last |
-| VoltMem profile mismatch | Fail-open; start with free-text facts; tune domains later |
+
+| Risk                                  | Mitigation                                                              |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| Three repos stall progress            | Freeze newsletter migrator + consumer OS; one vertical path             |
+| Reddit API / policy blocks write      | Ship HITL + fixtures + dry-run executor first; write last               |
+| VoltMem profile mismatch              | Fail-open; start with free-text facts; tune domains later               |
 | Duplicate bots in stylens-ops + Relay | Single Telegram adapter in Relay; stylens-ops becomes deploy or deleted |
-| Scope creep to full OS | Phase 4 gated on Phase 1 exit criteria |
+| Scope creep to full OS                | Phase 4 gated on Phase 1 exit criteria                                  |
+
 
 ## Success criteria (overall)
 
@@ -298,7 +301,8 @@ relay-os/
 
 ## Related
 
-- Architecture: [`ARCHITECTURE.md`](../../ARCHITECTURE.md) (supersede Phase 1 app priority: Community before Newsletter for this track)
+- Architecture: `[ARCHITECTURE.md](../../ARCHITECTURE.md)` (supersede Phase 1 app priority: Community before Newsletter for this track)
 - stylens-ops plan: `~/Projects/stylens-ops/.cursor/plans/stylens_ops_community_hitl.plan.md`
 - VoltMem sidecar: `~/Projects/voltmem/docs/SIDECAR.md`
 - Notion experiment: Community HITL — Reddit fashion/styling → installs
+
