@@ -6,6 +6,9 @@ export const NewsletterMigratorManifest: AgenticAppManifest = {
   description: "Migrates subscribers between newsletter platforms (Substack to Mailchimp)",
   author: "Relay OS Built-in",
 
+  // In the case of full-blown relay-OS implementation. 
+  // The trigger will be generated from intents (user request).
+  // For now, we'll use these triggers to start the agent.
   triggers: [
     {
       pattern: "migrate substack",

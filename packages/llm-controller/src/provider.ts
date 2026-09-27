@@ -1,51 +1,81 @@
 import { EngineAction } from "@relay/protocol";
-import { GoogleGenAI, Type, Schema, HarmCategory, HarmBlockThreshold } from "@google/genai";
+
+export interface LLMResponse {
+  actions: EngineAction[];
+  isComplete: boolean;
+}
 
 export interface LLMProvider {
-  generateActions(prompt: string): Promise<EngineAction[]>;
+  generateActions(prompt: string): Promise<LLMResponse>;
 }
 
 export class GeminiProvider implements LLMProvider {
-  private ai: GoogleGenAI;
+  // @google/genai is ESM-only; keep a lazy dynamic import under CJS emit.
+  private ai: any = null;
+  private genai: any = null;
+  private readonly apiKey?: string;
 
   constructor(apiKey?: string) {
-    this.ai = new GoogleGenAI({ apiKey: apiKey || process.env.GEMINI_API_KEY });
+    this.apiKey = apiKey || process.env.GEMINI_API_KEY;
   }
 
-  async generateActions(prompt: string): Promise<EngineAction[]> {
-    const actionSchema: Schema = {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          type: { 
-            type: Type.STRING,
-            enum: ["navigate", "click", "input", "extract"]
-          },
-          params: {
+  private async getClient(): Promise<{ ai: any; mod: any }> {
+    if (!this.genai) {
+      this.genai = await import("@google/genai");
+    }
+    if (!this.ai) {
+      this.ai = new this.genai.GoogleGenAI({ apiKey: this.apiKey });
+    }
+    return { ai: this.ai, mod: this.genai };
+  }
+
+  async generateActions(prompt: string): Promise<LLMResponse> {
+    const { ai, mod } = await this.getClient();
+    const { Type, HarmCategory, HarmBlockThreshold } = mod;
+
+    const actionSchema = {
+      type: Type.OBJECT,
+      properties: {
+        actions: {
+          type: Type.ARRAY,
+          items: {
             type: Type.OBJECT,
             properties: {
-              url: { type: Type.STRING },
-              target: {
+              type: { 
+                type: Type.STRING,
+                enum: ["navigate", "click", "input", "extract"]
+              },
+              params: {
                 type: Type.OBJECT,
                 properties: {
-                  role: { type: Type.STRING },
-                  name: { type: Type.STRING },
-                  text: { type: Type.STRING },
-                  placeholder: { type: Type.STRING }
+                  url: { type: Type.STRING },
+                  target: {
+                    type: Type.OBJECT,
+                    properties: {
+                      role: { type: Type.STRING },
+                      name: { type: Type.STRING },
+                      text: { type: Type.STRING },
+                      placeholder: { type: Type.STRING }
+                    }
+                  },
+                  value: { type: Type.STRING }
                 }
-              },
-              value: { type: Type.STRING }
-            }
+              }
+            },
+            required: ["type", "params"]
           }
         },
-        required: ["type", "params"]
-      }
+        isComplete: {
+          type: Type.BOOLEAN,
+          description: "Set to true if the goal description has been fully accomplished."
+        }
+      },
+      required: ["actions", "isComplete"]
     };
 
     try {
       const response =
-        await this.ai.models.generateContent({
+        await ai.models.generateContent({
           model: "gemini-2.5-flash",
           contents: prompt,
           config: {
@@ -73,10 +103,10 @@ export class GeminiProvider implements LLMProvider {
         }
       });
 
-      return JSON.parse(response.text || "[]") as EngineAction[];
+      return JSON.parse(response.text || `{"actions":[], "isComplete":false}`) as LLMResponse;
     } catch (e) {
       console.error("Failed to parse LLM response", e);
-      return [];
+      return { actions: [], isComplete: false };
     }
   }
 }

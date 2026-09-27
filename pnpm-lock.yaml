@@ -12,8 +12,8 @@ importers:
         specifier: 2.1.2
         version: 2.1.2
       typescript:
-        specifier: 5.6.2
-        version: 5.6.2
+        specifier: 6.0.3
+        version: 6.0.3
 
   apps/newsletter-migrator:
     dependencies:
@@ -34,11 +34,11 @@ importers:
         version: 16.6.1
     devDependencies:
       '@types/node':
-        specifier: ^20.0.0
-        version: 20.0.0
+        specifier: ^22.0.0
+        version: 22.20.4
       typescript:
-        specifier: ^5.6.2
-        version: 5.6.2
+        specifier: 6.0.3
+        version: 6.0.3
 
   packages/engines-browser:
     dependencies:
@@ -56,11 +56,11 @@ importers:
         version: 2.11.2(playwright-extra@4.3.6(playwright-core@1.60.0)(playwright@1.60.0))
     devDependencies:
       '@types/node':
-        specifier: ^20.0.0
-        version: 20.0.0
+        specifier: ^22.0.0
+        version: 22.20.4
       typescript:
-        specifier: ^5.6.2
-        version: 5.6.2
+        specifier: 6.0.3
+        version: 6.0.3
 
   packages/llm-controller:
     dependencies:
@@ -75,14 +75,14 @@ importers:
         version: link:../runtime
     devDependencies:
       typescript:
-        specifier: ^5.0.0
-        version: 5.6.2
+        specifier: 6.0.3
+        version: 6.0.3
 
   packages/protocol:
     devDependencies:
       typescript:
-        specifier: 5.6.2
-        version: 5.6.2
+        specifier: 6.0.3
+        version: 6.0.3
 
   packages/runtime:
     dependencies:
@@ -91,11 +91,11 @@ importers:
         version: link:../protocol
     devDependencies:
       '@types/node':
-        specifier: 20.0.0
-        version: 20.0.0
+        specifier: ^22.0.0
+        version: 22.20.4
       typescript:
-        specifier: 5.6.2
-        version: 5.6.2
+        specifier: 6.0.3
+        version: 6.0.3
 
 packages:
 
@@ -144,8 +144,8 @@ packages:
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
-  '@types/node@20.0.0':
-    resolution: {integrity: sha512-cD2uPTDnQQCVpmRefonO98/PPijuOnnEy5oytWJFPY1N9aJCz2wJ5kSGWO+zJoed2cY2JxQh6yBuUq4vIn61hw==}
+  '@types/node@22.20.4':
+    resolution: {integrity: sha512-zJRE40jpHtKqE/C4fgHrAKQLJuSpzEnP9ff9Y7YtoR3Wd2pwqzlekDeEuUQXjRd+QCYnVnNwuJYmhdk9XV8gvA==}
 
   '@types/retry@0.12.0':
     resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
@@ -477,10 +477,13 @@ packages:
     resolution: {integrity: sha512-Jb0rbU4iHEVQ18An/YfakdIv9rKnd3zUfSE117EngrfWXFHo3RndVH96US3GsT8VHpwTncPePDBT2t06PaFLrw==}
     hasBin: true
 
-  typescript@5.6.2:
-    resolution: {integrity: sha512-NW8ByodCSNCwZeghjN3o+JX5OFH0Ojg6sadjEKY4huZ52TqbJTJnDo5+Tw98lSy63NZvi4n+ez5m2u5d4PkZyw==}
+  typescript@6.0.3:
+    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
     hasBin: true
+
+  undici-types@6.21.0:
+    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
   universalify@2.0.1:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
@@ -546,7 +549,9 @@ snapshots:
 
   '@types/ms@2.1.0': {}
 
-  '@types/node@20.0.0': {}
+  '@types/node@22.20.4':
+    dependencies:
+      undici-types: 6.21.0
 
   '@types/retry@0.12.0': {}
 
@@ -785,7 +790,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.1
-      '@types/node': 20.0.0
+      '@types/node': 22.20.4
       long: 5.3.2
 
   puppeteer-extra-plugin-stealth@2.11.2(playwright-extra@4.3.6(playwright-core@1.60.0)(playwright@1.60.0)):
@@ -872,7 +877,9 @@ snapshots:
       turbo-windows-64: 2.1.2
       turbo-windows-arm64: 2.1.2
 
-  typescript@5.6.2: {}
+  typescript@6.0.3: {}
+
+  undici-types@6.21.0: {}
 
   universalify@2.0.1: {}
 

@@ -2,6 +2,9 @@
 node_modules/
 jspm_packages/
 web_modules/
+# Temporary local tooling
+.tmp-ts6/
+.pnpm-store/
 
 # Turborepo
 .turbo/
@@ -98,7 +101,8 @@ Thumbs.db
 
 # IDEs and editors
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
 *.suo
 *.ntvs*
 *.njsproj

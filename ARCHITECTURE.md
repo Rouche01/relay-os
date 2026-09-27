@@ -11,6 +11,14 @@ Build a browser-based operating system where:
 - **A universal protocol** defines how agentic apps declare capabilities, request feedback, and compose with each other
 - **Execution engines** (browser automation, LLM reasoning, API calls, code execution) are pluggable OS services
 
+### Positioning (layman)
+
+See the root [`README.md`](README.md) for a plain-language explanation of Relay vs n8n and Loops:
+
+> **n8n** wires systems and can optionally ask a human before a node.  
+> **Loops** run an agent in a disciplined cycle until gates pass.  
+> **Relay** runs an agent that negotiates with a human through a protocol, then acts.
+
 ---
 
 ## Architecture Overview

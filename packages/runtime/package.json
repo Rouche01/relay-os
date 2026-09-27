@@ -14,7 +14,7 @@
     "@relay/protocol": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "5.6.2",
-    "@types/node": "20.0.0"
+    "typescript": "6.0.3",
+    "@types/node": "^22.0.0"
   }
 }
