@@ -115,6 +115,41 @@ export class CommunityEngagerController implements AppController {
     return draftToFeedbackContext(draft);
   }
 
+  async shouldSkipFeedbackPoint(
+    stage: StageDefinition,
+    fp: FeedbackPoint,
+    context: AgentContext
+  ): Promise<boolean> {
+    if (stage.name !== "await_approval" || fp.type !== "confirmation") {
+      return false;
+    }
+    const draft = context.currentDraft as CommunityDraft | undefined;
+    // Intensity 2 only — skip confirmation for 0–1.
+    return !draft || draft.intensity < 2;
+  }
+
+  async buildFeedbackPrompt(
+    stage: StageDefinition,
+    fp: FeedbackPoint,
+    context: AgentContext
+  ): Promise<string | undefined> {
+    if (stage.name !== "await_approval") return undefined;
+    const draft = context.currentDraft as CommunityDraft | undefined;
+    if (!draft) return undefined;
+    if (fp.type === "confirmation") {
+      return (
+        `Intensity ${draft.intensity}: confirm GoStylens disclosure + UTM link are intentional before post. ` +
+        `Approve to confirm, or abort.`
+      );
+    }
+    if (fp.type === "approval" && draft.intensity === 2) {
+      return (
+        `${fp.description}\n\n⚠️ Intensity 2 draft — a second confirmation step will follow.`
+      );
+    }
+    return undefined;
+  }
+
   private async runScout(ctx: AgentContext): Promise<void> {
     const opportunities = await scoutOpportunities({ limit: 5 });
     console.log(`[scout] ${opportunities.length} actionable (score ≥ 4)`);

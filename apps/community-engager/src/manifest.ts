@@ -32,7 +32,7 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
   stages: [
     {
       name: "scout",
-      description: "Find actionable Reddit threads (fixtures offline)",
+      description: "Find actionable Reddit threads (live allowlist or fixtures)",
       engine: "api",
       feedback_points: [
         {
@@ -58,19 +58,25 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
             "Approve this draft, abort it, or reply edit: <revised text>",
           required: true,
         },
+        {
+          type: "confirmation",
+          description:
+            "Intensity 2 confirmation: disclose + UTM intentional?",
+          required: true,
+        },
       ],
     },
     {
       name: "execute",
-      description: "Post the approved/edited draft (dry-run until Reddit write is wired)",
+      description:
+        "Post approved/edited draft (REDDIT_DRY_RUN=true by default)",
       engine: "api",
     },
     {
       name: "learn",
-      description: "Record outcome for later VoltMem (noop stub)",
+      description: "Write HITL outcomes to VoltMem",
       engine: "data",
     },
   ],
-
   feedback_patterns: ["approval", "freeform", "progress", "confirmation", "error"],
 };

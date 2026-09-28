@@ -40,6 +40,8 @@ export interface CommunityDraft {
   status: ActionStatus;
   createdAt: string;
   utmCampaign?: string;
+  /** Reddit fullname for the link (t3_…) when scouted live */
+  redditThingId?: string;
 }
 
 export function scoreTotal(score: OpportunityScore): number {

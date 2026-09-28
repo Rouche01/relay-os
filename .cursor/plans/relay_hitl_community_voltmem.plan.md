@@ -34,10 +34,10 @@ todos:
     status: completed
   - id: p2-reddit-read
     content: Wire Reddit read-only scout (allowlisted subs); respect sub rules; refuse low scores
-    status: pending
+    status: completed
   - id: p2-executor
     content: Reddit submit only after approved/edited; intensity-2 requires confirmation; UTM + idempotent job ids
-    status: pending
+    status: completed
   - id: p3-deploy-ops
     content: Deploy path — VoltMem sidecar + Telegram poller (Thinkpad systemd or CF webhook); env docs; link stylens-ops deploy notes
     status: pending

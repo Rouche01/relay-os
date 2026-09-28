@@ -175,14 +175,33 @@ export class AgentRuntime extends EventEmitter {
     fp: FeedbackPoint,
     engine: ExecutionEngine | undefined
   ): Promise<void> {
+    if (this.controller?.shouldSkipFeedbackPoint) {
+      const skip = await this.controller.shouldSkipFeedbackPoint(
+        stage,
+        fp,
+        this.context
+      );
+      if (skip) return;
+    }
+
     const context = await this.resolveFeedbackContext(stage, fp);
     const requestId = this.createRequestId();
+
+    let prompt = fp.description;
+    if (this.controller?.buildFeedbackPrompt) {
+      const override = await this.controller.buildFeedbackPrompt(
+        stage,
+        fp,
+        this.context
+      );
+      if (override) prompt = override;
+    }
 
     const req: FeedbackRequest = {
       id: requestId,
       agentId: this.context.agentId,
       type: fp.type,
-      prompt: fp.description,
+      prompt,
       required: fp.required,
       context,
       timeout_ms: fp.timeout_ms ?? stage.timeout_ms,

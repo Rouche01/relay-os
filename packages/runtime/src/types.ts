@@ -20,4 +20,20 @@ export interface AppController {
     feedbackPoint: FeedbackPoint,
     context: AgentContext
   ): FeedbackContext | undefined | Promise<FeedbackContext | undefined>;
+
+  /**
+   * Optional: skip a feedback point (e.g. intensity-2 confirmation when intensity < 2).
+   */
+  shouldSkipFeedbackPoint?(
+    stage: StageDefinition,
+    feedbackPoint: FeedbackPoint,
+    context: AgentContext
+  ): boolean | Promise<boolean>;
+
+  /** Optional: override the prompt string shown to adapters. */
+  buildFeedbackPrompt?(
+    stage: StageDefinition,
+    feedbackPoint: FeedbackPoint,
+    context: AgentContext
+  ): string | undefined | Promise<string | undefined>;
 }
