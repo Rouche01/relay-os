@@ -13,11 +13,12 @@ Build a browser-based operating system where:
 
 ### Positioning (layman)
 
-See the root [`README.md`](README.md) for a plain-language explanation of Relay vs n8n and Loops:
+See the root [`README.md`](README.md) for plain-language Relay vs n8n vs Loops, and the **living todo + HITL + runtime** product stack:
 
 > **n8n** wires systems and can optionally ask a human before a node.  
 > **Loops** run an agent in a disciplined cycle until gates pass.  
-> **Relay** runs an agent that negotiates with a human through a protocol, then acts.
+> **Relay** runs an agent that negotiates with a human through a protocol, then acts.  
+> **Living todo** is a priority queue of agent jobs; each job plans a manifest, runs stages, and pauses the card when a human must decide.
 
 ---
 
