@@ -39,7 +39,7 @@ todos:
     content: Reddit submit only after approved/edited; intensity-2 requires confirmation; UTM + idempotent job ids
     status: completed
   - id: p3-deploy-ops
-    content: Deploy path — VoltMem sidecar + Telegram poller (Thinkpad systemd or CF webhook); env docs; link stylens-ops deploy notes
+    content: "Deploy path — owned by relay_thinkpad_deploy.plan.md (namespaced ThinkPad tree, VoltMem, systemd among other services, deploy/ runbook)"
     status: pending
   - id: p3-measure
     content: PostHog UTMs on intensity-2; log outcomes; close Notion community experiment with evidence
@@ -169,12 +169,14 @@ Context engine + memory write/read + Reddit read + gated executor.
 
 ### Phase 3 — Deploy & measure
 
-1. VoltMem sidecar (local Docker / later Fly) per voltmem `docs/SIDECAR.md`
-2. Telegram listener: Thinkpad `systemd` or Cloudflare webhook later
-3. PostHog UTMs on intensity-2; harness taxonomy events
+**Deploy (step-by-step):** [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md)
+
+1. Namespaced ThinkPad root + VoltMem sidecar + Telegram HITL via systemd (one service among many)
+2. Land `deploy/` runbook/units in this repo; stylens-ops deploy notes are historical only
+3. PostHog UTMs on intensity-2; harness taxonomy events (`p3-measure`)
 4. Close Notion experiment with evidence
 
-**Exit criteria:** Overnight scout → morning drafts without laptop babysitting (or documented sleep caveat).
+**Exit criteria:** Overnight scout → morning drafts without laptop babysitting (or documented sleep caveat). Cloudflare webhook remains a later escape hatch (see ThinkPad plan).
 
 ### Phase 4 — Product slice (docs / ownership)
 
@@ -241,6 +243,7 @@ Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.p
 
 ## Related
 
+- ThinkPad deploy: [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md)
 - Living todo shell: [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md)
 - README: [`README.md`](../../README.md)
 - Architecture: [`ARCHITECTURE.md`](../../ARCHITECTURE.md)
