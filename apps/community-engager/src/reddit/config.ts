@@ -40,18 +40,25 @@ export function allowlistedSubNames(): string[] {
   return ALLOWLISTED_SUBREDDITS.filter((s) => s.rulesOk).map((s) => s.name);
 }
 
+export type ScoutSource = "fixtures" | "reddit" | "browser" | "auto";
+
 export interface RedditEnvConfig {
   clientId?: string;
   clientSecret?: string;
   username?: string;
   password?: string;
   userAgent: string;
+  /** True when OAuth script-app credentials are present. */
   configured: boolean;
-  /** When true (default), never call write APIs. */
+  /** When true (default), never call write APIs / live browser post. */
   dryRun: boolean;
-  /** fixtures | reddit | auto */
-  scoutSource: "fixtures" | "reddit" | "auto";
+  /** fixtures | reddit | browser | auto */
+  scoutSource: ScoutSource;
   lpBaseUrl: string;
+  /** Playwright headless (default true). */
+  browserHeadless: boolean;
+  /** Delay between allowlisted subs during browser scout (ms). */
+  scoutDelayMs: number;
 }
 
 export function getRedditEnv(
@@ -64,19 +71,32 @@ export function getRedditEnv(
   const configured = Boolean(clientId && clientSecret && username && password);
   const dryRun = env.REDDIT_DRY_RUN !== "false" && env.REDDIT_DRY_RUN !== "0";
   const rawSource = (env.SCOUT_SOURCE ?? "auto").toLowerCase();
-  const scoutSource =
-    rawSource === "reddit" || rawSource === "fixtures" ? rawSource : "auto";
+  const scoutSource: ScoutSource =
+    rawSource === "reddit" ||
+    rawSource === "fixtures" ||
+    rawSource === "browser"
+      ? rawSource
+      : "auto";
+
+  const delayRaw = Number(env.REDDIT_SCOUT_DELAY_MS ?? "1500");
+  const scoutDelayMs =
+    Number.isFinite(delayRaw) && delayRaw >= 0 ? delayRaw : 1500;
 
   return {
     clientId,
     clientSecret,
     username,
     password,
-    userAgent: env.REDDIT_USER_AGENT ?? "relay-community-engager/0.1 by relay-os",
+    userAgent:
+      env.REDDIT_USER_AGENT ?? "relay-community-engager/0.1 by relay-os",
     configured,
     dryRun,
     scoutSource,
     lpBaseUrl: env.GOSTYLENS_LP_BASE_URL ?? "https://gostylens.app",
+    browserHeadless:
+      env.REDDIT_BROWSER_HEADLESS !== "false" &&
+      env.REDDIT_BROWSER_HEADLESS !== "0",
+    scoutDelayMs,
   };
 }
 

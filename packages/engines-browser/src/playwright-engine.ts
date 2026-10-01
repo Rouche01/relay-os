@@ -12,9 +12,23 @@ export class PlaywrightEngine implements ExecutionEngine {
   private context: BrowserContext | null = null;
   private page: Page | null = null;
   private headless: boolean;
+  private userAgent?: string;
 
-  constructor(options: { headless?: boolean } = {}) {
+  constructor(options: { headless?: boolean; userAgent?: string } = {}) {
     this.headless = options.headless ?? true;
+    this.userAgent = options.userAgent;
+  }
+
+  /** Expose the active page after launch (for structured page.evaluate extracts). */
+  async getPage(): Promise<Page> {
+    await this.ensureBrowser();
+    return this.page!;
+  }
+
+  /** Run a browser-context function (must be self-contained / serializable). */
+  async evaluate<T>(fn: () => T | Promise<T>): Promise<T> {
+    const page = await this.getPage();
+    return page.evaluate(fn);
   }
 
   async execute(action: BrowserEngineAction): Promise<EngineResult> {
@@ -86,7 +100,9 @@ export class PlaywrightEngine implements ExecutionEngine {
   private async ensureBrowser() {
     if (!this.browser) {
       this.browser = await chromium.launch({ headless: this.headless });
-      this.context = await this.browser.newContext();
+      this.context = await this.browser.newContext(
+        this.userAgent ? { userAgent: this.userAgent } : undefined
+      );
       this.page = await this.context.newPage();
     }
   }

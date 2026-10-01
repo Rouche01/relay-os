@@ -228,7 +228,7 @@ Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.p
 | Risk | Mitigation |
 |------|------------|
 | Three repos stall progress | Freeze newsletter migrator; one community vertical here |
-| Reddit API / policy blocks write | HITL + fixtures + dry-run first; write last |
+| Reddit API / policy blocks write | HITL + fixtures + dry-run first; write last; browser/JSON transport → [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md) |
 | VoltMem profile mismatch | Fail-open; free-text facts; tune domains later |
 | Duplicate bots in stylens-ops + Relay | Single Telegram adapter in Relay |
 | Mixing shell scope into this plan | Living todo tracked only in shell plan |
@@ -246,6 +246,7 @@ Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.p
 
 ## Related
 
+- Reddit browser / scrape transport (no API app): [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md)
 - ThinkPad deploy: [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md)
 - Living todo shell: [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md)
 - README: [`README.md`](../../README.md)

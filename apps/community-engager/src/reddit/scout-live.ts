@@ -1,13 +1,12 @@
 import { createHash } from "node:crypto";
 import type { CommunityDraft } from "../types.js";
-import { isActionable } from "../types.js";
 import { RedditClient } from "./client.js";
 import {
   allowlistedSubNames,
   getRedditEnv,
   type RedditEnvConfig,
 } from "./config.js";
-import { scoreRedditPost } from "./score.js";
+import { listingPostsToDrafts } from "./map-drafts.js";
 
 export interface LiveScoutOptions {
   limit?: number;
@@ -16,7 +15,7 @@ export interface LiveScoutOptions {
 }
 
 /**
- * Read-only Reddit scout over allowlisted subs.
+ * Read-only Reddit scout over allowlisted subs (OAuth).
  * Refuses low scores (< 4/5). Never writes.
  */
 export async function scoutRedditLive(
@@ -41,30 +40,10 @@ export async function scoutRedditLive(
       continue;
     }
 
-    for (const post of posts) {
-      const { score, rationale } = scoreRedditPost(post);
-      if (!isActionable(score)) continue;
-
-      const id = `reddit-${post.id}`;
-      drafts.push({
-        id,
-        platform: "reddit",
-        subreddit: post.subreddit,
-        threadUrl: post.permalink,
-        threadTitle: post.title,
-        draftText: "",
-        intensity: 0,
-        score,
-        rationale,
-        status: "proposed",
-        createdAt: new Date().toISOString(),
-        utmCampaign: `community_${post.subreddit}`,
-        redditThingId: post.name,
-      });
-
-      if (drafts.length >= limit) {
-        return drafts;
-      }
+    const mapped = listingPostsToDrafts(posts, limit - drafts.length);
+    drafts.push(...mapped);
+    if (drafts.length >= limit) {
+      return drafts;
     }
   }
 

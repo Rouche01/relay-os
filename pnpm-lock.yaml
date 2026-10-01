@@ -26,6 +26,9 @@ importers:
       '@relay/context-engine':
         specifier: workspace:*
         version: link:../../packages/context-engine
+      '@relay/engines-browser':
+        specifier: workspace:*
+        version: link:../../packages/engines-browser
       '@relay/feedback-broker':
         specifier: workspace:*
         version: link:../../packages/feedback-broker
@@ -148,7 +151,7 @@ importers:
     dependencies:
       '@google/genai':
         specifier: latest
-        version: 2.24.0
+        version: 2.25.0
       '@relay/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -181,8 +184,8 @@ importers:
 
 packages:
 
-  '@google/genai@2.24.0':
-    resolution: {integrity: sha512-bIu5eoxF1AaPWs9ivmUJGp1RpDHyapoODvWvnkzRDx2CTIW6UJXFhDdjj0BlRve3ZHMMuEkQBVrA/ALqpW4apA==}
+  '@google/genai@2.25.0':
+    resolution: {integrity: sha512-g1hyidWxahzIg+hh+lLqPeBJl+Fu6051we2QKhFXdWgE4yGYf8PWOS8S3mMAdpe3eLx3KCWmhQR7GWyd3LYT1A==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
@@ -596,7 +599,7 @@ packages:
 
 snapshots:
 
-  '@google/genai@2.24.0':
+  '@google/genai@2.25.0':
     dependencies:
       google-auth-library: 10.6.2
       p-retry: 4.6.2
