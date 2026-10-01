@@ -1,46 +1,48 @@
 ---
 name: Relay ThinkPad community deploy
-overview: Step-by-step dogfood deploy of CommunityEngager + Telegram HITL on a spare Linux ThinkPad, consuming VoltMem as a separate host program (reusable by other projects). Produces relay-os deploy/ units and runbook; VoltMem lives under its own /opt/voltmem namespace.
+overview: "Dogfood deploy of CommunityEngager + Telegram HITL on the ThinkPad is LIVE — /opt/voltmem + /opt/relay-community, systemd/timer, sibling VoltMem. Next handoff: HITL p3-measure."
 todos:
   - id: decide-layout
     content: Lock two roots — /opt/voltmem (shared infra) + /opt/relay-community (this app); system vs user systemd
-    status: pending
+    status: completed
   - id: tree-on-host
     content: Create both trees — voltmem/{deploy,data,env}; relay-community/{app,env,data/action-store,deploy,logs}
-    status: pending
+    status: completed
   - id: sync-workspace-slice
     content: Sync relay-os onto host under relay-community/app — full clone OK; optional sparse checkout of community-engager + required packages
-    status: pending
+    status: completed
   - id: voltmem-as-program
     content: Install VoltMem as its own program — Docker/compose under /opt/voltmem; container voltmem; 127.0.0.1:8080; volume /opt/voltmem/data; own unit or compose restart
-    status: pending
+    status: completed
   - id: env-secrets
     content: community.env under relay-community/env — Telegram, VOLTMEM_URL/KEY pointing at shared sidecar, Reddit DRY_RUN; FEEDBACK_ADAPTER=telegram. VoltMem API key only in /opt/voltmem/env
-    status: pending
+    status: completed
   - id: build-smoke
     content: pnpm install + build; manual node dist/run-dev.js until Telegram Approve/Abort works once against shared VoltMem
-    status: pending
+    status: completed
   - id: systemd-units
     content: relay-os deploy/ — examples + README landed; on host copy .example → .service/.timer, set User + absolute node path, install under /etc/systemd/system
-    status: pending
+    status: completed
   - id: enable-service
     content: Enable voltmem first, then relay-community; journalctl both; no linger unless user units; no global env
-    status: pending
+    status: completed
   - id: host-power-note
     content: Document host-level no-sleep/lid as server policy for all always-on services
-    status: pending
+    status: completed
   - id: overnight-timer
     content: If run-dev is one-shot — systemd timer for scout→draft; sleep caveat until CF webhook
-    status: pending
+    status: completed
   - id: handoff-measure
     content: Exit → p3-measure in HITL plan; stylens-ops/deploy historical only
-    status: pending
+    status: completed
 isProject: true
 ---
 
 # Relay — ThinkPad community deploy
 
-Canonical plan for **dogfood deployment** of CommunityEngager HITL on a Linux ThinkPad (or any always-on box). Open while wiring Phase 3 ops.
+Canonical plan for **dogfood deployment** of CommunityEngager HITL on a Linux ThinkPad (or any always-on box).
+
+**Status (2026-10-01): LIVE on host.** Layout, VoltMem sibling, env, Telegram smoke, and systemd/timer are in place. This doc remains the runbook + reference; active product work continues on HITL `p3-measure` and the living-todo shell.
 
 **Runtime / product plans stay separate:**
 
@@ -354,13 +356,13 @@ Document in `relay-os/deploy/README.md`:
 
 ## Multi-program coexistence checklist
 
-- [ ] `/opt/voltmem` independent of `/opt/relay-community`
-- [ ] Other projects may add `/opt/other-app` and call the same VoltMem URL
-- [ ] Separate systemd units / compose projects; no shared `EnvironmentFile`
-- [ ] Port `127.0.0.1:8080` reserved for VoltMem (or document remap)
-- [ ] Container name `voltmem` — not app-prefixed
-- [ ] Deleting or reinstalling Relay does not wipe VoltMem data
-- [ ] Relay failures do not restart VoltMem (and vice versa, unless you explicitly Want=)
+- [x] `/opt/voltmem` independent of `/opt/relay-community`
+- [x] Other projects may add `/opt/other-app` and call the same VoltMem URL
+- [x] Separate systemd units / compose projects; no shared `EnvironmentFile`
+- [x] Port `127.0.0.1:8080` reserved for VoltMem (or document remap)
+- [x] Container name `voltmem` — not app-prefixed
+- [x] Deleting or reinstalling Relay does not wipe VoltMem data
+- [x] Relay failures do not restart VoltMem (and vice versa, unless you explicitly Want=)
 
 ## Risks
 
@@ -377,13 +379,15 @@ Document in `relay-os/deploy/README.md`:
 
 ## Success criteria
 
-- [ ] VoltMem runs under `/opt/voltmem` with its own restart/data lifecycle
-- [ ] Relay community runs under `/opt/relay-community` and only *consumes* VoltMem over localhost
-- [ ] Manual Telegram HITL smoke passes
-- [ ] systemd/timer starts Relay without a login shell
-- [ ] `deploy/` in `relay-os` documents the sibling VoltMem layout
-- [ ] A second project could be pointed at the same sidecar without moving volumes
-- [ ] HITL `p3-deploy-ops` completable via this plan
+- [x] VoltMem runs under `/opt/voltmem` with its own restart/data lifecycle
+- [x] Relay community runs under `/opt/relay-community` and only *consumes* VoltMem over localhost
+- [x] Manual Telegram HITL smoke passes
+- [x] systemd/timer starts Relay without a login shell
+- [x] `deploy/` in `relay-os` documents the sibling VoltMem layout
+- [x] A second project could be pointed at the same sidecar without moving volumes
+- [x] HITL `p3-deploy-ops` completable via this plan
+
+**Host companions (not part of this plan’s todos):** Beszel under `/opt/beszel` for machine monitoring; Shoutrrr → separate Telegram alerts bot.
 
 ## Related
 

@@ -39,8 +39,8 @@ todos:
     content: Reddit submit only after approved/edited; intensity-2 requires confirmation; UTM + idempotent job ids
     status: completed
   - id: p3-deploy-ops
-    content: "Deploy path — owned by relay_thinkpad_deploy.plan.md (namespaced ThinkPad tree, VoltMem, systemd among other services, deploy/ runbook)"
-    status: pending
+    content: "Deploy path — owned by relay_thinkpad_deploy.plan.md (namespaced ThinkPad tree, VoltMem, systemd among other services, deploy/ runbook) — LIVE 2026-10-01"
+    status: completed
   - id: p3-measure
     content: PostHog UTMs on intensity-2; log outcomes; close Notion community experiment with evidence
     status: pending
@@ -85,15 +85,16 @@ Canonical plan for the **runtime dogfood** (protocol → CommunityEngager → Te
 
 ## Current state (baseline)
 
-Already in `relay-os` (Phases 0–2 largely landed):
+Already in `relay-os` (Phases 0–2 landed; Phase 3 **deploy** done):
 
 - Monorepo: protocol, runtime, feedback-broker, adapters-telegram, action-store, context-engine, llm-controller, engines-browser
 - `apps/community-engager` dogfood path
 - Skeleton `apps/newsletter-migrator` (parked)
+- **ThinkPad dogfood LIVE** — see [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md): `/opt/voltmem` + `/opt/relay-community`, Telegram HITL, systemd/timer, `deploy/` runbook
 
-Still open here: deploy/measure (Phase 3), product/ownership polish (Phase 4).
+Still open here: **measure** (Phase 3 remainder), product/ownership polish (Phase 4).
 
-Siblings: `stylens-ops`, `voltmem`, `gostylens-harness`.
+Siblings: `stylens-ops`, `voltmem`, `gostylens-harness`. Host also runs Beszel (monitoring; outside this plan).
 
 ## Target architecture
 
@@ -169,14 +170,14 @@ Context engine + memory write/read + Reddit read + gated executor.
 
 ### Phase 3 — Deploy & measure
 
-**Deploy (step-by-step):** [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md)
+**Deploy — done (2026-10-01):** [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md)
 
-1. Namespaced ThinkPad root + VoltMem sidecar + Telegram HITL via systemd (one service among many)
-2. Land `deploy/` runbook/units in this repo; stylens-ops deploy notes are historical only
-3. PostHog UTMs on intensity-2; harness taxonomy events (`p3-measure`)
+1. ~~Namespaced ThinkPad root + VoltMem sidecar + Telegram HITL via systemd (one service among many)~~
+2. ~~Land `deploy/` runbook/units in this repo; stylens-ops deploy notes are historical only~~
+3. PostHog UTMs on intensity-2; harness taxonomy events (`p3-measure`) — **next**
 4. Close Notion experiment with evidence
 
-**Exit criteria:** Overnight scout → morning drafts without laptop babysitting (or documented sleep caveat). Cloudflare webhook remains a later escape hatch (see ThinkPad plan).
+**Deploy exit criteria:** met (scheduled/timer runs on ThinkPad; Telegram HITL without laptop babysitting session). Cloudflare webhook remains a later escape hatch if needed.
 
 ### Phase 4 — Product slice (docs / ownership)
 
@@ -207,6 +208,7 @@ relay-os/
 │   └── engines-browser/
 └── .cursor/plans/
     ├── relay_hitl_community_voltmem.plan.md  ← this file
+    ├── relay_thinkpad_deploy.plan.md         ← ThinkPad dogfood (LIVE)
     └── relay_living_todo_shell.plan.md
 ```
 
@@ -216,7 +218,7 @@ relay-os/
 2. ~~Broker + CLI + action store~~
 3. ~~CommunityEngager + Telegram~~
 4. ~~VoltMem + Reddit~~
-5. Deploy + measure
+5. ~~Deploy (ThinkPad)~~ → **measure** (open)
 6. Product slice / ownership
 
 Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md).
@@ -238,7 +240,8 @@ Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.p
 - [x] Telegram is only a Feedback Broker adapter
 - [x] VoltMem influences at least one subsequent draft
 - [x] Approved posts only via executor after `approved`/`edited`
-- [ ] Deploy + measure path documented / running
+- [x] Deploy path documented / running (ThinkPad — [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md))
+- [ ] Measure path closed with evidence (PostHog UTMs + Notion experiment)
 - [ ] stylens-ops ownership decided
 
 ## Related

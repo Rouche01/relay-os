@@ -56,12 +56,12 @@ Not another AI Todoist. Not approve/deny-only (gotoHuman alone). Queue + review 
 
 ## Depends on
 
-From [`relay_hitl_community_voltmem.plan.md`](./relay_hitl_community_voltmem.plan.md) (mostly done):
+From [`relay_hitl_community_voltmem.plan.md`](./relay_hitl_community_voltmem.plan.md) (runtime done; **ThinkPad deploy LIVE** per [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md); measure still open):
 
 - `@relay/protocol` + `AgentRuntime` (`WAITING_USER`, abort/edit)
 - `feedback-broker` + CLI / Telegram adapters
 - `action-store`
-- `apps/community-engager` as first **job type**
+- `apps/community-engager` as first **job type** (dogfood running on host)
 - `context-engine` / VoltMem (optional for shell v1; required for smart drafts)
 
 ## Target architecture
@@ -152,7 +152,8 @@ relay-os/
 │   └── …
 └── .cursor/plans/
     ├── relay_living_todo_shell.plan.md      ← this file
-    └── relay_hitl_community_voltmem.plan.md ← runtime dogfood
+    ├── relay_hitl_community_voltmem.plan.md ← runtime dogfood
+    └── relay_thinkpad_deploy.plan.md        ← host deploy (LIVE)
 ```
 
 ## Success criteria
@@ -167,4 +168,5 @@ relay-os/
 
 - README product stack: [`README.md`](../../README.md)
 - Community + VoltMem plan: [`relay_hitl_community_voltmem.plan.md`](./relay_hitl_community_voltmem.plan.md)
+- ThinkPad deploy (LIVE): [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md)
 - Architecture: [`ARCHITECTURE.md`](../../ARCHITECTURE.md)
