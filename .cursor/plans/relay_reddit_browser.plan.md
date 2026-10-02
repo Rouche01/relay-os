@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: p3-browser-execute
     content: Executor transport=browser — comment via structured/semantic first, vision escape hatch if composer flaky; DRY_RUN + Approve + idempotent jobs
-    status: pending
+    status: completed
   - id: p3-oauth-optional
     content: Keep RedditClient OAuth as optional fast path when REDDIT_CLIENT_* present; auto prefers browser (HITL path) then OAuth then fixtures
     status: pending

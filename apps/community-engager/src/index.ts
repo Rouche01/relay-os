@@ -109,3 +109,4 @@ export * from "./reddit/config.js";
 export * from "./reddit/cookies.js";
 export * from "./reddit/browser-login.js";
 export * from "./reddit/browser-session.js";
+export * from "./reddit/browser-comment.js";

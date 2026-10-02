@@ -1,0 +1,6 @@
+{
+  "ok": true,
+  "dryRun": true,
+  "jobId": "post:reddit-smoke:6f8e7224c87b1a9d",
+  "log": "[dry-run] Would post to r/femalefashionadvice\n  transport: browser (REDDIT_TRANSPORT=auto)\n  oauthConfigured: false hasUserPass: false\n  cookieDir: /Users/richardemate/Projects/relay-os/apps/community-engager/.data/cookies/reddit\n  storageState: missing\n  jobId: post:reddit-smoke:6f8e7224c87b1a9d\n  thread: https://www.reddit.com/r/femalefashionadvice/comments/fixture/\n  thing: t3_smoke\n  intensity: 0\n  text:\nhello gostylens"
+}

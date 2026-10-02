@@ -5,6 +5,7 @@ import type { CommunityDraft } from "./types.js";
 import { RedditClient } from "./reddit/client.js";
 import { getRedditEnv, resolveWriteTransport } from "./reddit/config.js";
 import { hasStorageState } from "./reddit/cookies.js";
+import { postCommentBrowser } from "./reddit/browser-comment.js";
 import { executeJobId } from "./reddit/scout-live.js";
 
 export interface ExecuteResult {
@@ -20,6 +21,8 @@ export interface ExecuteOptions {
   /** Override dry-run (default from REDDIT_DRY_RUN). */
   dryRun?: boolean;
   dataDir?: string;
+  /** Browser path: attempt login if jar missing (default true when user/pass set). */
+  loginIfNeeded?: boolean;
 }
 
 /**
@@ -28,7 +31,6 @@ export interface ExecuteOptions {
  * Idempotent via job id under `{dataDir}/jobs/`.
  *
  * Transport (`REDDIT_TRANSPORT` / auto): browser preferred; oauth when configured.
- * Browser live comment lands in plan p2/p3 — until then dry-run or oauth only.
  */
 export async function executeApproved(
   draft: CommunityDraft,
@@ -133,13 +135,35 @@ export async function executeApproved(
   }
 
   if (writeTransport === "browser") {
-    return {
-      ok: false,
-      dryRun: false,
-      jobId,
-      error:
-        "browser execute not implemented yet (cookie login + comment = plan p2/p3). Keep REDDIT_DRY_RUN=true or set REDDIT_TRANSPORT=oauth when an API app is approved.",
-    };
+    try {
+      const posted = await postCommentBrowser({
+        threadUrl: draft.threadUrl,
+        text,
+        cfg,
+        loginIfNeeded: opts.loginIfNeeded,
+      });
+      if (!posted.ok) {
+        return {
+          ok: false,
+          dryRun: false,
+          jobId,
+          error: posted.error ?? "browser comment failed",
+        };
+      }
+      const result: ExecuteResult = {
+        ok: true,
+        dryRun: false,
+        jobId,
+        postedUrl: posted.permalink,
+        log: `[posted:browser] ${posted.permalink ?? draft.threadUrl}`,
+      };
+      console.log(result.log);
+      await writeJob(jobPath, result);
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      return { ok: false, dryRun: false, jobId, error };
+    }
   }
 
   return {
