@@ -123,8 +123,7 @@ export function isOauthScoutSource(source: ScoutSource): boolean {
 
 /**
  * Resolve which write path execute should use (ignoring dry-run).
- * `auto`: prefer browser (HITL path); fall back to oauth when configured.
- * Browser may rely on cookies later (p2) even without user/pass in env.
+ * `auto`: prefer browser (HITL); oauth only when no user/pass (API-app-only setup).
  */
 export function resolveWriteTransport(
   cfg: RedditEnvConfig
@@ -133,9 +132,27 @@ export function resolveWriteTransport(
   if (t === "browser") return "browser";
   if (t === "oauth") return cfg.oauthConfigured ? "oauth" : "none";
   if (t === "json" || t === "fixtures") return "none";
-  // auto
-  if (cfg.oauthConfigured && !cfg.hasUserPass) return "oauth";
+  // auto — HITL browser first; OAuth when that's the only viable write path
+  if (cfg.hasUserPass) return "browser";
+  if (cfg.oauthConfigured) return "oauth";
   return "browser";
+}
+
+/**
+ * Ordered write attempts for `auto` (and explicit transports as a one-item list).
+ * Used so OAuth remains an optional fast path after browser failure.
+ */
+export function resolveWriteTransportChain(
+  cfg: RedditEnvConfig
+): Array<"browser" | "oauth"> {
+  const t = cfg.transport;
+  if (t === "browser") return ["browser"];
+  if (t === "oauth") return cfg.oauthConfigured ? ["oauth"] : [];
+  if (t === "json" || t === "fixtures") return [];
+  // auto
+  const chain: Array<"browser" | "oauth"> = ["browser"];
+  if (cfg.oauthConfigured) chain.push("oauth");
+  return chain;
 }
 
 export function getRedditEnv(

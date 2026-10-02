@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: p3-oauth-optional
     content: Keep RedditClient OAuth as optional fast path when REDDIT_CLIENT_* present; auto prefers browser (HITL path) then OAuth then fixtures
-    status: pending
+    status: completed
   - id: p4-json-scout-optional
     content: Optional only — public *.json scout if browser blocked/unavailable; never the primary dogfood path
     status: pending

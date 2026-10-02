@@ -21,8 +21,8 @@ export class RedditClient {
   private tokenExpiresAt = 0;
 
   constructor(private readonly cfg: RedditEnvConfig) {
-    if (!cfg.configured) {
-      throw new Error("Reddit credentials not configured");
+    if (!cfg.oauthConfigured && !cfg.configured) {
+      throw new Error("Reddit OAuth credentials not configured (REDDIT_CLIENT_*)");
     }
   }
 
