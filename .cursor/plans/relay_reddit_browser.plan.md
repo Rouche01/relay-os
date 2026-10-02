@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: p2-browser-login
     content: Login via Playwright; prefer LLMController/semantic locators; vision agent (Stagehand/Browser Use/etc.) only if auth wall fails; Telegram pause for 2FA; persist jar
-    status: pending
+    status: completed
   - id: p3-browser-execute
     content: Executor transport=browser — comment via structured/semantic first, vision escape hatch if composer flaky; DRY_RUN + Approve + idempotent jobs
     status: pending

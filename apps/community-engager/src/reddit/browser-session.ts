@@ -21,6 +21,8 @@ export interface CreateRedditBrowserOptions {
    * Login flows that refresh auth should set false and clear jar first.
    */
   useStoredSession?: boolean;
+  /** Override headless (e.g. headed login for 2FA). */
+  headless?: boolean;
 }
 
 /**
@@ -33,7 +35,7 @@ export async function createRedditBrowserEngine(
   sessionLoaded: boolean;
   storagePath: string;
 }> {
-  const { cfg, useStoredSession = true } = opts;
+  const { cfg, useStoredSession = true, headless } = opts;
   const storagePath = storageStatePath(cfg);
   let sessionLoaded = false;
   let storageState: Awaited<ReturnType<typeof loadStorageState>> | undefined;
@@ -47,7 +49,7 @@ export async function createRedditBrowserEngine(
   }
 
   const engine = new PlaywrightEngine({
-    headless: cfg.browserHeadless,
+    headless: headless ?? cfg.browserHeadless,
     userAgent: browserUserAgent(cfg),
     storageState: storageState ?? undefined,
   });
