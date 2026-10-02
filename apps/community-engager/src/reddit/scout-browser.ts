@@ -1,10 +1,10 @@
-import { PlaywrightEngine } from "@relay/engines-browser";
 import type { CommunityDraft } from "../types.js";
 import {
   allowlistedSubNames,
   getRedditEnv,
   type RedditEnvConfig,
 } from "./config.js";
+import { createRedditBrowserEngine } from "./browser-session.js";
 import {
   extractListingRowsFromDocument,
   LISTING_READY_SELECTOR,
@@ -19,25 +19,16 @@ export interface BrowserScoutOptions {
   cfg?: RedditEnvConfig;
   /** Delay between subreddit navigations (ms). */
   delayMs?: number;
+  /** Load cookie jar if present (default true). */
+  useStoredSession?: boolean;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Default UA when env still has the placeholder bot string — www.reddit is
- * friendlier to a normal Chrome UA for anonymous listing.
- */
-function browserUserAgent(cfg: RedditEnvConfig): string {
-  const ua = cfg.userAgent;
-  if (!ua || /relay-community-engager/i.test(ua)) {
-    return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-  }
-  return ua;
-}
-
-/**
  * Read-only Reddit scout via Playwright + structured extract (shreddit-post attrs).
  * No OAuth app required. Refuses low scores (< 4/5). Never writes.
+ * Restores cookie jar when available (AUTHED browse).
  */
 export async function scoutRedditBrowser(
   opts: BrowserScoutOptions = {}
@@ -48,10 +39,13 @@ export async function scoutRedditBrowser(
   const delayMs = opts.delayMs ?? cfg.scoutDelayMs;
   const drafts: CommunityDraft[] = [];
 
-  const engine = new PlaywrightEngine({
-    headless: cfg.browserHeadless,
-    userAgent: browserUserAgent(cfg),
+  const { engine, sessionLoaded } = await createRedditBrowserEngine({
+    cfg,
+    useStoredSession: opts.useStoredSession ?? true,
   });
+  if (sessionLoaded) {
+    console.log("[scout:browser] using stored Reddit session");
+  }
 
   try {
     const page = await engine.getPage();
@@ -62,7 +56,10 @@ export async function scoutRedditBrowser(
       console.log(`[scout:browser] r/${sub} → ${url}`);
 
       try {
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+        await page.goto(url, {
+          waitUntil: "domcontentloaded",
+          timeout: 45_000,
+        });
         await page.waitForSelector(LISTING_READY_SELECTOR, { timeout: 30_000 });
 
         const rows = await page.evaluate(extractListingRowsFromDocument);

@@ -1,7 +1,11 @@
 import { isActionable } from "./types.js";
 import type { CommunityDraft } from "./types.js";
 import { FIXTURE_THREADS, fixtureToDraftSkeleton } from "./fixtures/threads.js";
-import { getRedditEnv, type ScoutSource } from "./reddit/config.js";
+import {
+  getRedditEnv,
+  isOauthScoutSource,
+  type ScoutSource,
+} from "./reddit/config.js";
 import { scoutRedditBrowser } from "./reddit/scout-browser.js";
 import { scoutRedditLive } from "./reddit/scout-live.js";
 
@@ -17,7 +21,8 @@ export interface ScoutOptions {
 /**
  * Opportunity finder.
  * - browser: Playwright + structured extract (no OAuth app)
- * - reddit: OAuth allowlisted live read (requires REDDIT_CLIENT_*)
+ * - reddit | oauth: OAuth allowlisted live read (requires REDDIT_CLIENT_*)
+ * - json: reserved (Phase 4) — falls through
  * - fixtures: offline HITL dogfood
  * - auto: browser → oauth (if configured) → fixtures
  */
@@ -28,8 +33,18 @@ export async function scoutOpportunities(
   const source = opts.source ?? cfg.scoutSource;
   const limit = opts.limit ?? 5;
 
-  if (source === "browser" || source === "auto") {
-    console.log("[scout] source=browser (Playwright / www.reddit extract, score ≥ 4)");
+  if (source === "json") {
+    console.warn(
+      "[scout] SCOUT_SOURCE=json is not implemented yet (Phase 4); continuing auto-style fallbacks"
+    );
+  }
+
+  const tryBrowser =
+    source === "browser" || source === "auto" || source === "json";
+  if (tryBrowser) {
+    console.log(
+      "[scout] source=browser (Playwright / www.reddit extract, score ≥ 4)"
+    );
     try {
       const live = await scoutRedditBrowser({ limit, cfg });
       if (live.length > 0) return live;
@@ -42,21 +57,27 @@ export async function scoutOpportunities(
     }
   }
 
-  if (
-    source === "reddit" ||
-    (source === "auto" && cfg.configured)
-  ) {
-    if (source === "reddit" && !cfg.configured) {
-      throw new Error("SCOUT_SOURCE=reddit but REDDIT_* OAuth credentials are missing");
+  const tryOauth =
+    isOauthScoutSource(source) ||
+    (source === "auto" && cfg.oauthConfigured) ||
+    (source === "json" && cfg.oauthConfigured);
+
+  if (tryOauth) {
+    if (isOauthScoutSource(source) && !cfg.oauthConfigured) {
+      throw new Error(
+        "SCOUT_SOURCE=reddit|oauth but REDDIT_CLIENT_* OAuth credentials are missing"
+      );
     }
     console.log("[scout] source=reddit (OAuth allowlisted subs, score ≥ 4)");
     try {
       const live = await scoutRedditLive({ limit, cfg });
       if (live.length > 0) return live;
-      console.warn("[scout] oauth reddit returned 0 actionable; falling back to fixtures");
+      console.warn(
+        "[scout] oauth reddit returned 0 actionable; falling back to fixtures"
+      );
     } catch (err) {
       console.warn("[scout] oauth reddit failed:", err);
-      if (source === "reddit") throw err;
+      if (isOauthScoutSource(source)) throw err;
     }
   }
 

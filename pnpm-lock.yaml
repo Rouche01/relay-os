@@ -41,6 +41,9 @@ importers:
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
+      playwright:
+        specifier: ^1.43.0
+        version: 1.60.0
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -151,7 +154,7 @@ importers:
     dependencies:
       '@google/genai':
         specifier: latest
-        version: 2.25.0
+        version: 2.26.0
       '@relay/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -184,8 +187,8 @@ importers:
 
 packages:
 
-  '@google/genai@2.25.0':
-    resolution: {integrity: sha512-g1hyidWxahzIg+hh+lLqPeBJl+Fu6051we2QKhFXdWgE4yGYf8PWOS8S3mMAdpe3eLx3KCWmhQR7GWyd3LYT1A==}
+  '@google/genai@2.26.0':
+    resolution: {integrity: sha512-jWDSHEcO7+khDmE5K+RzxFfnrIe6BdMbND1CWfLl7yPPD2v2SmTbHnKJ8sNFVN9e/M8BRaIp0M4DWKgnbpJmtQ==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
@@ -599,7 +602,7 @@ packages:
 
 snapshots:
 
-  '@google/genai@2.25.0':
+  '@google/genai@2.26.0':
     dependencies:
       google-auth-library: 10.6.2
       p-retry: 4.6.2

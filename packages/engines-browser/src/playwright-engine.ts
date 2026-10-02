@@ -1,10 +1,25 @@
-import { Browser, BrowserContext, Page } from "playwright";
+import {
+  Browser,
+  BrowserContext,
+  BrowserContextOptions,
+  Page,
+} from "playwright";
 import { chromium } from "playwright-extra";
 import stealthPlugin from "puppeteer-extra-plugin-stealth";
 import { ExecutionEngine, EngineResult } from "@relay/protocol";
 import { BrowserEngineAction, SemanticLocator } from "./types";
 
 chromium.use(stealthPlugin());
+
+export interface PlaywrightEngineOptions {
+  headless?: boolean;
+  userAgent?: string;
+  /**
+   * Playwright storageState — file path or in-memory object.
+   * Used when creating the browser context (AUTHED session restore).
+   */
+  storageState?: BrowserContextOptions["storageState"];
+}
 
 export class PlaywrightEngine implements ExecutionEngine {
   public type = "browser" as const;
@@ -13,10 +28,12 @@ export class PlaywrightEngine implements ExecutionEngine {
   private page: Page | null = null;
   private headless: boolean;
   private userAgent?: string;
+  private storageState?: BrowserContextOptions["storageState"];
 
-  constructor(options: { headless?: boolean; userAgent?: string } = {}) {
+  constructor(options: PlaywrightEngineOptions = {}) {
     this.headless = options.headless ?? true;
     this.userAgent = options.userAgent;
+    this.storageState = options.storageState;
   }
 
   /** Expose the active page after launch (for structured page.evaluate extracts). */
@@ -25,10 +42,21 @@ export class PlaywrightEngine implements ExecutionEngine {
     return this.page!;
   }
 
+  async getContext(): Promise<BrowserContext> {
+    await this.ensureBrowser();
+    return this.context!;
+  }
+
   /** Run a browser-context function (must be self-contained / serializable). */
   async evaluate<T>(fn: () => T | Promise<T>): Promise<T> {
     const page = await this.getPage();
     return page.evaluate(fn);
+  }
+
+  /** Persist current context to a Playwright storageState file. */
+  async saveStorageState(filePath: string): Promise<void> {
+    const context = await this.getContext();
+    await context.storageState({ path: filePath });
   }
 
   async execute(action: BrowserEngineAction): Promise<EngineResult> {
@@ -38,28 +66,33 @@ export class PlaywrightEngine implements ExecutionEngine {
 
       switch (action.type) {
         case "navigate": {
-          if (!action.params.url) throw new Error("URL is required for navigate action.");
+          if (!action.params.url)
+            throw new Error("URL is required for navigate action.");
           await page.goto(action.params.url, { waitUntil: "domcontentloaded" });
           return { success: true, data: { url: page.url() } };
         }
-        
+
         case "click": {
-          if (!action.params.target) throw new Error("Target is required for click action.");
+          if (!action.params.target)
+            throw new Error("Target is required for click action.");
           const locator = this.resolveLocator(page, action.params.target);
           await locator.click();
           return { success: true };
         }
 
         case "input": {
-          if (!action.params.target) throw new Error("Target is required for input action.");
-          if (action.params.value === undefined) throw new Error("Value is required for input action.");
+          if (!action.params.target)
+            throw new Error("Target is required for input action.");
+          if (action.params.value === undefined)
+            throw new Error("Value is required for input action.");
           const locator = this.resolveLocator(page, action.params.target);
           await locator.fill(action.params.value);
           return { success: true };
         }
 
         case "extract": {
-          if (!action.params?.target) throw new Error("Target is required for extract action.");
+          if (!action.params?.target)
+            throw new Error("Target is required for extract action.");
           const locator = this.resolveLocator(page, action.params.target);
           const text = await locator.textContent();
           return { success: true, data: { text: text?.trim() || "" } };
@@ -68,16 +101,15 @@ export class PlaywrightEngine implements ExecutionEngine {
         case "snapshot": {
           const title = await page.title();
           const url = page.url();
-          // To keep it simple for now, we return the innerText and the HTML.
-          // Gemini 2.5 has a massive context window so it can handle the raw HTML,
-          // but we will also provide innerText for quick context.
           const text = await page.evaluate(() => document.body.innerText);
           const html = await page.content();
           return { success: true, data: { title, url, text, html } };
         }
 
         default:
-          throw new Error(`Unsupported browser action type: ${(action as any).type}`);
+          throw new Error(
+            `Unsupported browser action type: ${(action as any).type}`
+          );
       }
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -100,15 +132,16 @@ export class PlaywrightEngine implements ExecutionEngine {
   private async ensureBrowser() {
     if (!this.browser) {
       this.browser = await chromium.launch({ headless: this.headless });
-      this.context = await this.browser.newContext(
-        this.userAgent ? { userAgent: this.userAgent } : undefined
-      );
+      const contextOpts: BrowserContextOptions = {};
+      if (this.userAgent) contextOpts.userAgent = this.userAgent;
+      if (this.storageState) contextOpts.storageState = this.storageState;
+      this.context = await this.browser.newContext(contextOpts);
       this.page = await this.context.newPage();
     }
   }
 
   async healthCheck(): Promise<boolean> {
-    return true; // Simple health check
+    return true;
   }
 
   async teardown(): Promise<void> {

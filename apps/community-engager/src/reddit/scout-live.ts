@@ -22,8 +22,8 @@ export async function scoutRedditLive(
   opts: LiveScoutOptions = {}
 ): Promise<CommunityDraft[]> {
   const cfg = opts.cfg ?? getRedditEnv();
-  if (!cfg.configured) {
-    throw new Error("scoutRedditLive requires REDDIT_* credentials");
+  if (!cfg.oauthConfigured && !cfg.configured) {
+    throw new Error("scoutRedditLive requires REDDIT_* OAuth credentials");
   }
 
   const client = new RedditClient(cfg);

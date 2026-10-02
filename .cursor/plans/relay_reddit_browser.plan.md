@@ -7,10 +7,10 @@ todos:
     status: completed
   - id: p1-env-config
     content: Extend reddit/config + .env.example — REDDIT_TRANSPORT, SCOUT_SOURCE=browser|oauth|json|fixtures|auto, cookie dir, username/password without OAuth client id; depend on @relay/engines-browser
-    status: pending
+    status: completed
   - id: p2-cookie-store
     content: Port HITL cookie save/load/delete pattern — .data/cookies/reddit/; wire Playwright storageState or setCookie
-    status: pending
+    status: completed
   - id: p2-browser-login
     content: Login via Playwright; prefer LLMController/semantic locators; vision agent (Stagehand/Browser Use/etc.) only if auth wall fails; Telegram pause for 2FA; persist jar
     status: pending
