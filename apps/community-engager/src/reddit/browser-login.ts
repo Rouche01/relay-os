@@ -13,6 +13,10 @@ export const REDDIT_LOGIN_URL = "https://www.reddit.com/login/";
 
 export interface BrowserLoginOptions {
   cfg?: RedditEnvConfig;
+  /** Override env username (HITL credential feedback). */
+  username?: string;
+  /** Override env password (HITL credential feedback). */
+  password?: string;
   /**
    * Headed recommended for first login / 2FA.
    * Default follows cfg.browserHeadless; set REDDIT_LOGIN_HEADED=true to force headed.
@@ -22,7 +26,7 @@ export interface BrowserLoginOptions {
   clearJar?: boolean;
   /**
    * Called when login hits a challenge / 2FA / CAPTCHA wall.
-   * Default: CLI readline pause. Plug Telegram FeedbackRequest here later.
+   * Default: CLI readline pause. Telegram path: complete in headed browser while we poll.
    */
   onChallenge?: (info: { url: string; hint: string }) => Promise<void>;
   /** Max ms to wait after credentials for success or challenge. */
@@ -151,16 +155,15 @@ export async function loginRedditBrowser(
   opts: BrowserLoginOptions = {}
 ): Promise<BrowserLoginResult> {
   const cfg = opts.cfg ?? getRedditEnv();
-  if (!cfg.hasUserPass) {
+  const username = (opts.username ?? cfg.username)?.trim();
+  const password = opts.password ?? cfg.password;
+  if (!username || !password) {
     return {
       ok: false,
       error:
-        "REDDIT_USERNAME and REDDIT_PASSWORD are required for browser login (no API app needed)",
+        "Reddit username and password required (HITL credential feedback or REDDIT_USERNAME / REDDIT_PASSWORD)",
     };
   }
-
-  const username = cfg.username!;
-  const password = cfg.password!;
   const clearJar = opts.clearJar ?? true;
   const postSubmitTimeoutMs = opts.postSubmitTimeoutMs ?? 20_000;
   const challengeTimeoutMs = opts.challengeTimeoutMs ?? 300_000;

@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: p4b-ensure-session-hitl
     content: "Sketch→impl: ensure_session stage — credential FeedbackRequest via Telegram/CLI when jar missing; skip if jar/env; Playwright login + saveSession; OTP second credential point; env optional override; align stage.engine with browser (see HITL plan Phase 4a)"
-    status: pending
+    status: completed
   - id: p4a-crosslink-manifest-engines
     content: "Track sibling: relay_hitl Phase 4a — manifest-driven engine bind (no stub map); do with/after ensure_session so scout/execute engine labels match browser path"
     status: pending
@@ -93,7 +93,7 @@ comment: Playwright → LLM/semantic → (fail) → vision agent → permalink
 |-------|--------|
 | Scout | Playwright structured extract → optional `*.json` → OAuth → fixtures (`SCOUT_SOURCE=auto`) |
 | Execute | Browser comment (cookie jar / env login) or OAuth; `REDDIT_DRY_RUN` default |
-| Login | Env `REDDIT_USERNAME`/`PASSWORD` + CLI `onChallenge`; **not** yet `credential` FeedbackRequest |
+| Login | `ensure_session` — jar skip, env login, or HITL `credential` FeedbackRequest (Telegram/CLI); OTP point reserved (v1 skips; 2FA via headed + onChallenge) |
 | Cookie jar | `.data/cookies/reddit/` via Playwright `storageState` |
 | Browser engine | Wired via `@relay/engines-browser` |
 | ThinkPad slice | Still needs engines-browser + Chromium + cookie dir (Phase 4 deploy) |
@@ -194,7 +194,7 @@ Prefer **storageState** if it maps cleanly to Playwright; keep JSON cookie expor
 
 ## Phase 4b — `ensure_session` via credential HITL (sketch → impl)
 
-**Why:** Protocol already has `FeedbackType: "credential"` (NewsletterMigrator LOGIN/VERIFY_OTP pattern). CommunityEngager still requires env vars + CLI `onChallenge`. Overnight / ThinkPad re-auth should pause on Telegram like Approve, not demand secrets in `community.env`.
+**Status:** shipped (v1). OTP dedicated feedback skipped; 2FA still via `REDDIT_LOGIN_HEADED` + login `onChallenge`.
 
 **Non-goals (v1):** vision agent for login; storing plaintext passwords in VoltMem or action-store; mid-comment credential re-prompt (fail clear / re-run instead).
 
@@ -380,7 +380,7 @@ packages/llm-controller/   # reuse for login/comment when needed
 3. ~~Cookie store + env login~~
 4. ~~Browser execute (dry-run path)~~
 5. ~~Optional JSON fallback~~
-6. **`ensure_session` credential HITL** ← next (Phase 4b); align with HITL plan **Phase 4a** (manifest-driven engines — no stub map)
+6. ~~`ensure_session` credential HITL~~ (Phase 4b) — next: HITL plan **Phase 4a** (manifest-driven engines — drop stubs) + deploy/smoke
 7. ThinkPad deploy slice (engines-browser + cookie dir + re-auth docs)
 8. Smoke (local dogfood + ThinkPad)
 

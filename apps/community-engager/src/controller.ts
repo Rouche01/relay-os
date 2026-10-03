@@ -18,6 +18,14 @@ import { draftToFeedbackContext } from "./feedback-map.js";
 import { draftReply } from "./drafter.js";
 import { executeApproved } from "./executor.js";
 import { CommunityMemory } from "./memory.js";
+import { loginRedditBrowser } from "./reddit/browser-login.js";
+import { getRedditEnv, type RedditEnvConfig } from "./reddit/config.js";
+import {
+  isLoginCredentialPoint,
+  isOtpCredentialPoint,
+  parseCredentialValue,
+} from "./reddit/credentials.js";
+import { hasStorageState } from "./reddit/cookies.js";
 import { scoutOpportunities } from "./scout.js";
 import type { CommunityDraft } from "./types.js";
 import { isActionable, scoreTotal } from "./types.js";
@@ -30,8 +38,16 @@ export interface CommunityControllerOptions {
   getContext: () => AgentContext;
 }
 
+type EnsureSessionResult = {
+  ok: boolean;
+  source?: "jar" | "env" | "hitl" | "deferred";
+  storagePath?: string;
+  error?: string;
+  challenged?: boolean;
+};
+
 /**
- * Stage logic: scout → draft (+ memory) → HITL → dry-run execute → learn (VoltMem).
+ * Stage logic: ensure_session → scout → draft → HITL → execute → learn.
  */
 export class CommunityEngagerController implements AppController {
   constructor(private readonly options: CommunityControllerOptions) {}
@@ -40,6 +56,9 @@ export class CommunityEngagerController implements AppController {
     const ctx = this.options.getContext();
 
     switch (stage.name) {
+      case "ensure_session":
+        await this.runEnsureSessionStart(ctx);
+        break;
       case "scout":
         await this.runScout(ctx);
         break;
@@ -64,6 +83,11 @@ export class CommunityEngagerController implements AppController {
     feedback: FeedbackResponse,
     _engine?: ExecutionEngine
   ): Promise<void> {
+    if (stage.name === "ensure_session") {
+      await this.applyEnsureSessionFeedback(feedback);
+      return;
+    }
+
     if (stage.name !== "await_approval") return;
 
     const ctx = this.options.getContext();
@@ -106,9 +130,25 @@ export class CommunityEngagerController implements AppController {
 
   async buildFeedbackContext(
     stage: StageDefinition,
-    _fp: FeedbackPoint,
+    fp: FeedbackPoint,
     context: AgentContext
   ): Promise<FeedbackContext | undefined> {
+    if (stage.name === "ensure_session") {
+      return {
+        title: "Reddit session",
+        url: "https://www.reddit.com/login/",
+        details: [
+          { label: "Stage", value: "ensure_session" },
+          {
+            label: "Hint",
+            value: isOtpCredentialPoint(fp.description)
+              ? "Paste the one-time code only"
+              : "Line 1: username · Line 2: password",
+          },
+        ],
+        meta: { kind: isOtpCredentialPoint(fp.description) ? "otp" : "login" },
+      };
+    }
     if (stage.name !== "await_approval") return undefined;
     const draft = context.currentDraft as CommunityDraft | undefined;
     if (!draft) return undefined;
@@ -120,6 +160,9 @@ export class CommunityEngagerController implements AppController {
     fp: FeedbackPoint,
     context: AgentContext
   ): Promise<boolean> {
+    if (stage.name === "ensure_session") {
+      return this.shouldSkipEnsureSessionFeedback(fp, context);
+    }
     if (stage.name !== "await_approval" || fp.type !== "confirmation") {
       return false;
     }
@@ -133,6 +176,19 @@ export class CommunityEngagerController implements AppController {
     fp: FeedbackPoint,
     context: AgentContext
   ): Promise<string | undefined> {
+    if (stage.name === "ensure_session") {
+      if (isOtpCredentialPoint(fp.description)) {
+        return (
+          "Reddit asked for a verification code. Reply with the OTP only " +
+          "(or abort to cancel)."
+        );
+      }
+      return (
+        "Reddit browser session needed (no cookie jar). " +
+        "Reply with username on the first line and password on the second. " +
+        "Abort to cancel. Do not use Approve — send the credentials as text."
+      );
+    }
     if (stage.name !== "await_approval") return undefined;
     const draft = context.currentDraft as CommunityDraft | undefined;
     if (!draft) return undefined;
@@ -148,6 +204,133 @@ export class CommunityEngagerController implements AppController {
       );
     }
     return undefined;
+  }
+
+  private async runEnsureSessionStart(ctx: AgentContext): Promise<void> {
+    const cfg = getRedditEnv();
+    const force =
+      process.env.REDDIT_ENSURE_SESSION === "true" ||
+      process.env.REDDIT_ENSURE_SESSION === "1";
+
+    if (await hasStorageState(cfg)) {
+      const result: EnsureSessionResult = { ok: true, source: "jar" };
+      this.setEnsureSession(ctx, result);
+      console.log("[ensure_session] cookie jar present — skip login");
+      return;
+    }
+
+    if (cfg.hasUserPass) {
+      console.log("[ensure_session] env credentials — logging in…");
+      const login = await loginRedditBrowser({ cfg, clearJar: true });
+      if (!login.ok) {
+        throw new Error(login.error ?? "ensure_session env login failed");
+      }
+      this.setEnsureSession(ctx, {
+        ok: true,
+        source: "env",
+        storagePath: login.storagePath,
+        challenged: login.challenged,
+      });
+      return;
+    }
+
+    if (!force && !this.sessionRequiredForRun(cfg)) {
+      this.setEnsureSession(ctx, { ok: true, source: "deferred" });
+      console.log(
+        "[ensure_session] deferred (dry-run / non-browser write) — no HITL login"
+      );
+      return;
+    }
+
+    // HITL credential feedback will run next.
+    console.log("[ensure_session] waiting for HITL credentials…");
+  }
+
+  private async shouldSkipEnsureSessionFeedback(
+    fp: FeedbackPoint,
+    context: AgentContext
+  ): Promise<boolean> {
+    if (fp.type !== "credential") return true;
+
+    const prior = context.stageResults?.ensure_session as
+      | EnsureSessionResult
+      | undefined;
+
+    if (isOtpCredentialPoint(fp.description)) {
+      // v1: 2FA/CAPTCHA via headed browser + login onChallenge; dedicated OTP ask later
+      return true;
+    }
+
+    if (isLoginCredentialPoint(fp.description)) {
+      if (prior?.ok && (prior.source === "jar" || prior.source === "env" || prior.source === "hitl")) {
+        return true;
+      }
+      if (prior?.source === "deferred") return true;
+      return false;
+    }
+
+    return true;
+  }
+
+  private async applyEnsureSessionFeedback(
+    feedback: FeedbackResponse
+  ): Promise<void> {
+    const ctx = this.options.getContext();
+
+    if (isAbortResponse(feedback)) {
+      this.setEnsureSession(ctx, {
+        ok: false,
+        error: "aborted",
+      });
+      return;
+    }
+
+    const creds = parseCredentialValue(feedback.value);
+    if (!creds) {
+      throw new Error(
+        "ensure_session: expected credential value as username\\npassword (or { username, password })"
+      );
+    }
+
+    // Never log password / full credential payload.
+    console.log(`[ensure_session] HITL login as u/${creds.username}…`);
+
+    const cfg = getRedditEnv();
+    const login = await loginRedditBrowser({
+      cfg,
+      username: creds.username,
+      password: creds.password,
+      clearJar: true,
+    });
+
+    if (!login.ok) {
+      throw new Error(login.error ?? "ensure_session HITL login failed");
+    }
+
+    this.setEnsureSession(ctx, {
+      ok: true,
+      source: "hitl",
+      storagePath: login.storagePath,
+      challenged: login.challenged,
+    });
+  }
+
+  /**
+   * Live browser write needs a jar. Dry-run and oauth-only writes do not.
+   * Force with REDDIT_ENSURE_SESSION=true to prep a jar via HITL even when dry-run.
+   */
+  private sessionRequiredForRun(cfg: RedditEnvConfig): boolean {
+    if (cfg.dryRun) return false;
+    if (cfg.transport === "oauth" && cfg.oauthConfigured) return false;
+    if (cfg.transport === "fixtures" || cfg.transport === "json") return false;
+    return cfg.transport === "browser" || cfg.transport === "auto";
+  }
+
+  private setEnsureSession(ctx: AgentContext, result: EnsureSessionResult): void {
+    ctx.stageResults = {
+      ...(ctx.stageResults ?? {}),
+      ensure_session: result,
+    };
   }
 
   private async runScout(ctx: AgentContext): Promise<void> {

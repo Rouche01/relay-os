@@ -37,6 +37,10 @@ export class CliFeedbackAdapter implements FeedbackAdapter {
   async present(request: FeedbackRequest): Promise<FeedbackResponse> {
     this.printRequest(request);
 
+    if (request.type === "credential") {
+      return this.presentCredential(request);
+    }
+
     const line = (await this.ask("> ")).trim();
     const parsed = await this.parseLine(line, request);
 
@@ -44,6 +48,65 @@ export class CliFeedbackAdapter implements FeedbackAdapter {
       requestId: request.id,
       agentId: request.agentId,
       ...parsed,
+    };
+  }
+
+  private async presentCredential(
+    request: FeedbackRequest
+  ): Promise<FeedbackResponse> {
+    const out = this.output;
+    const otpOnly = /\b(otp|2fa|verification code|one-time)\b/i.test(
+      request.prompt
+    );
+
+    out.write(
+      otpOnly
+        ? "\n  Enter OTP (or abort):\n"
+        : "\n  Enter Reddit username, then password (or abort):\n"
+    );
+
+    if (otpOnly) {
+      const code = (await this.ask("  OTP> ")).trim();
+      if (["abort", "x", "no", "n"].includes(code.toLowerCase())) {
+        return {
+          requestId: request.id,
+          agentId: request.agentId,
+          action: "abort",
+          value: false,
+        };
+      }
+      return {
+        requestId: request.id,
+        agentId: request.agentId,
+        action: "proceed",
+        value: code,
+      };
+    }
+
+    const username = (await this.ask("  username> ")).trim();
+    if (["abort", "x", "no", "n"].includes(username.toLowerCase())) {
+      return {
+        requestId: request.id,
+        agentId: request.agentId,
+        action: "abort",
+        value: false,
+      };
+    }
+    const password = (await this.ask("  password> ")).trim();
+    if (["abort", "x", "no", "n"].includes(password.toLowerCase())) {
+      return {
+        requestId: request.id,
+        agentId: request.agentId,
+        action: "abort",
+        value: false,
+      };
+    }
+
+    return {
+      requestId: request.id,
+      agentId: request.agentId,
+      action: "proceed",
+      value: `${username}\n${password}`,
     };
   }
 

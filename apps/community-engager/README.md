@@ -7,22 +7,24 @@ First Relay dogfood app: scout allowlisted Reddit fashion/styling threads, draft
 Related plans:
 
 - [HITL + CommunityEngager + VoltMem](../../.cursor/plans/relay_hitl_community_voltmem.plan.md)
-- [Reddit browser / scrape transport](../../.cursor/plans/relay_reddit_browser.plan.md) — **next:** Phase 4b `ensure_session` (credential via Telegram/CLI)
+- [Reddit browser / scrape transport](../../.cursor/plans/relay_reddit_browser.plan.md) — Phase 4b `ensure_session` (credential via Telegram/CLI)
 - [ThinkPad deploy](../../.cursor/plans/relay_thinkpad_deploy.plan.md)
 
 ## Workflow
 
-Ensure session (cookie jar or HITL login — *planned*), scout finds, draft proposes, you decide, execute only if approved, memory learns.
+Ensure session (cookie jar, env, or HITL login), scout finds, draft proposes, you decide, execute only if approved, memory learns.
 
 ```mermaid
 flowchart TD
   Start([Start CommunityEngager]) --> EnsJar
 
-  subgraph Ens["0. Ensure session — planned"]
+  subgraph Ens["0. Ensure session"]
     EnsJar{Cookie jar?}
     EnsJar -->|yes| EnsSkip[Skip]
-    EnsJar -->|no| EnsCred[credential FeedbackRequest]
+    EnsJar -->|env user/pass| EnsEnv[Env login]
+    EnsJar -->|else| EnsCred[credential FeedbackRequest]
     EnsCred --> EnsLogin[Playwright login + save jar]
+    EnsEnv --> S1
     EnsSkip --> S1
     EnsLogin --> S1
   end
@@ -94,7 +96,7 @@ flowchart TD
 
 | Stage | What happens |
 |-------|----------------|
-| `ensure_session` | *Planned* — cookie jar or HITL `credential` login (see plan Phase 4b) |
+| `ensure_session` | Cookie jar, env login, or HITL `credential` (skipped when dry-run unless `REDDIT_ENSURE_SESSION=true`) |
 | `scout` | Find actionable threads (browser → json → oauth → fixtures) |
 | `draft` | Write a reply; may pull VoltMem context |
 | `await_approval` | You Approve / Edit / Abort (Telegram or CLI) |

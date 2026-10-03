@@ -236,13 +236,24 @@ export class AgentRuntime extends EventEmitter {
       throw new AgentAbortError();
     }
 
-    if (isEditResponse(response)) {
+    if (isEditResponse(response) && (fp.type === "approval" || fp.type === "freeform")) {
       this.applyEditToContext(stage, response, context);
     }
 
     this.setStageResult(stage.name, {
-      feedback: response,
-      ...(isEditResponse(response) ? { editedBody: response.value } : {}),
+      feedback:
+        fp.type === "credential"
+          ? {
+              requestId: response.requestId,
+              agentId: response.agentId,
+              action: response.action ?? "proceed",
+              // Never persist credential secrets in stageResults
+              redacted: true,
+            }
+          : response,
+      ...(isEditResponse(response) && (fp.type === "approval" || fp.type === "freeform")
+        ? { editedBody: response.value }
+        : {}),
     });
 
     this.emit(AgentRuntimeEvent.FEEDBACK_APPLIED, { stage: stage.name, response });

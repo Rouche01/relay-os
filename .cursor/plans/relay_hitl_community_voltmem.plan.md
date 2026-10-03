@@ -293,7 +293,7 @@ Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.p
 
 ## Related
 
-- Reddit browser / scrape transport (no API app): [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md) — next: **Phase 4b `ensure_session`** (credential FeedbackRequest); pairs with **Phase 4a manifest-driven engines** above
+- Reddit browser / scrape transport (no API app): [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md) — **Phase 4b `ensure_session` done**; next sibling: **Phase 4a** manifest-driven engines + deploy/smoke
 - ThinkPad deploy: [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md)
 - Living todo shell: [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md)
 - README: [`README.md`](../../README.md)

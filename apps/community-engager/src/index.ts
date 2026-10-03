@@ -49,6 +49,7 @@ export class CommunityEngagerApp {
         api: createStubEngine("api"),
         llm: createStubEngine("llm"),
         data: createStubEngine("data"),
+        browser: createStubEngine("browser"),
       },
       {
         agentId: options.agentId ?? "community-engager-1",
@@ -110,4 +111,5 @@ export * from "./reddit/cookies.js";
 export * from "./reddit/browser-login.js";
 export * from "./reddit/browser-session.js";
 export * from "./reddit/browser-comment.js";
+export * from "./reddit/credentials.js";
 export * from "./reddit/scout-json.js";

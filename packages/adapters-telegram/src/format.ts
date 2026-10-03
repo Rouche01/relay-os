@@ -48,21 +48,29 @@ export function formatFeedbackMessage(request: FeedbackRequest): string {
   }
 
   lines.push("");
-  lines.push("<i>Approve / Abort below, or reply:</i> <code>edit: …</code>");
+  if (request.type === "credential") {
+    lines.push(
+      "<i>Reply with credentials (not Approve):</i> username on line 1, password on line 2 — or <code>abort</code>"
+    );
+  } else {
+    lines.push("<i>Approve / Abort below, or reply:</i> <code>edit: …</code>");
+  }
 
   return truncate(lines.join("\n"), MAX_TG);
 }
 
-export function approveAbortKeyboard(requestId: string): unknown {
+export function approveAbortKeyboard(requestId: string, type?: string): unknown {
   // callback_data max 64 bytes — keep ids short
-  return {
-    inline_keyboard: [
-      [
-        { text: "✅ Approve", callback_data: `r:ok:${requestId}` },
-        { text: "🛑 Abort", callback_data: `r:no:${requestId}` },
-      ],
-    ],
-  };
+  const buttons =
+    type === "credential"
+      ? [[{ text: "🛑 Abort", callback_data: `r:no:${requestId}` }]]
+      : [
+          [
+            { text: "✅ Approve", callback_data: `r:ok:${requestId}` },
+            { text: "🛑 Abort", callback_data: `r:no:${requestId}` },
+          ],
+        ];
+  return { inline_keyboard: buttons };
 }
 
 /** Extract request id from callback_data `r:ok:<id>` / `r:no:<id>`. */

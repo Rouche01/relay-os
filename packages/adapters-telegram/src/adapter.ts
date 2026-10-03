@@ -83,7 +83,7 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
       text,
       parse_mode: "HTML",
       disable_web_page_preview: true,
-      reply_markup: approveAbortKeyboard(request.id),
+      reply_markup: approveAbortKeyboard(request.id, request.type),
     });
 
     return new Promise<FeedbackResponse>((resolve, reject) => {
@@ -184,6 +184,35 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
         agentId: pending.request.agentId,
         action: "proceed",
         value: edited,
+      };
+      await this.clearKeyboard(pending);
+      this.settle(pending, response);
+      return;
+    }
+
+    // Credential / freeform: accept raw reply as the value (do not require edit:)
+    if (
+      pending.request.type === "credential" ||
+      pending.request.type === "freeform" ||
+      pending.request.type === "choice"
+    ) {
+      const lower = text.toLowerCase();
+      if (["abort", "x", "no", "n"].includes(lower)) {
+        const response: FeedbackResponse = {
+          requestId: pending.request.id,
+          agentId: pending.request.agentId,
+          action: "abort",
+          value: false,
+        };
+        await this.clearKeyboard(pending);
+        this.settle(pending, response);
+        return;
+      }
+      const response: FeedbackResponse = {
+        requestId: pending.request.id,
+        agentId: pending.request.agentId,
+        action: "proceed",
+        value: text,
       };
       await this.clearKeyboard(pending);
       this.settle(pending, response);

@@ -26,14 +26,36 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
     "community.approve",
     "community.execute",
   ],
-  engines_required: ["api", "llm", "data"],
+  engines_required: ["browser", "api", "llm", "data"],
   permissions: ["community.reddit.read", "community.reddit.write"],
 
   stages: [
     {
+      name: "ensure_session",
+      description:
+        "Ensure Reddit browser cookie jar (skip if present; else HITL credential login or env)",
+      engine: "browser",
+      feedback_points: [
+        {
+          type: "credential",
+          description:
+            "Reddit username and password (reply username on one line, password on the next)",
+          required: true,
+          timeout_ms: 600_000,
+        },
+        {
+          type: "credential",
+          description:
+            "Reddit 2FA / email verification code (OTP) if prompted after login",
+          required: true,
+          timeout_ms: 300_000,
+        },
+      ],
+    },
+    {
       name: "scout",
       description: "Find actionable Reddit threads (live allowlist or fixtures)",
-      engine: "api",
+      engine: "browser",
       feedback_points: [
         {
           type: "progress",
@@ -70,7 +92,7 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
       name: "execute",
       description:
         "Post approved/edited draft (REDDIT_DRY_RUN=true by default)",
-      engine: "api",
+      engine: "browser",
     },
     {
       name: "learn",
@@ -78,5 +100,12 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
       engine: "data",
     },
   ],
-  feedback_patterns: ["approval", "freeform", "progress", "confirmation", "error"],
+  feedback_patterns: [
+    "credential",
+    "approval",
+    "freeform",
+    "progress",
+    "confirmation",
+    "error",
+  ],
 };
