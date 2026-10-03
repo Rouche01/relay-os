@@ -47,6 +47,9 @@ todos:
   - id: p4-product-slice
     content: Productize — SDK surface, second adapter or second app stub; decide Relay vs stylens-ops ownership (README living-todo story points at shell plan)
     status: pending
+  - id: p4a-manifest-driven-engines
+    content: "Declarative engines: manifest truth for stage.engine + engines_required; runtime validates/binds from registry (no stub map in index); controller = policy only; align scout/execute with browser; pairs with ensure_session in reddit browser plan"
+    status: pending
 isProject: true
 ---
 
@@ -131,6 +134,8 @@ Living-todo queue and in-card UI attach to `FB` / `APP` in the [shell plan](./re
 
 ### CommunityEngager stage map
 
+Compact stage list (see the full scout → HITL → execute diagram in [`apps/community-engager/README.md`](../../apps/community-engager/README.md)):
+
 ```mermaid
 flowchart LR
   scout[scout]
@@ -189,6 +194,47 @@ Context engine + memory write/read + Reddit read + gated executor.
 
 **Exit criteria:** New agentic app + Telegram HITL without reading stylens-ops.
 
+### Phase 4a — Manifest-driven engines (declarative > imperative)
+
+**Thesis:** The manifest should be the source of truth for *what* runs (stages, engines, feedback). Host `index.ts` should not hand-roll a stub `engines` map that ignores real work. Controller keeps *policy* (score gate, Approve, dry-run, memory writes) — not reinventing transport.
+
+**Why now:** CommunityEngager already does scout/execute via Playwright + Reddit helpers while the manifest still says `engine: "api"` and `index.ts` injects stubs that the controller ignores (`_engine`). That drift fights the Relay story (“agent negotiates through a protocol”).
+
+**Do (in scope)**
+
+| Change | Detail |
+|--------|--------|
+| Manifest truth | Align `stage.engine` + `engines_required` with reality (`browser` for scout/execute once primary; `llm` draft; `data` learn; `none` HITL; add `ensure_session` + `credential` per reddit browser Phase 4b) |
+| Runtime bind | Validate provided engines ⊇ `engines_required`; optional **engine registry/factory** so apps pass factories once, runtime fills from manifest |
+| Thin host | `CommunityEngagerApp` stops constructing stub api/llm/data unless a stage truly has no backend |
+| Controller role | `onStageStart` orchestrates domain logic *using* the resolved engine when useful; no parallel “secret” I/O path that contradicts `stage.engine` |
+
+**Don’t (out of scope / anti-pattern)**
+
+- Encoding score thresholds, allowlists, or draft prompts as opaque manifest JSON — those stay typed modules
+- Making the manifest a full workflow DSL (n8n clone) — stages + engines + feedback_points is enough
+- Blocking ThinkPad smoke / dry-run dogfood on a perfect registry — ship 4b + smoke first if needed; 4a can land in parallel
+
+**Suggested shape (sketch)**
+
+```ts
+// Host supplies implementations (or factories), not one-off stubs
+const engines = bindEngines(CommunityEngagerManifest, {
+  browser: () => new PlaywrightEngine(/* … */),
+  llm: () => createLlmEngine(/* … */),  // or keep draft in controller until LLM engine exists
+  data: () => createDataEngine(memory),
+  api: () => createRedditApiEngine(/* optional OAuth */),
+});
+
+new AgentRuntime(manifest, engines, ctx, controller);
+```
+
+Runtime: on start, assert every `engines_required` key exists; `resolveEngine` unchanged.
+
+**Order relative to reddit browser plan:** implement alongside or right after **Phase 4b `ensure_session`** (credential HITL is itself manifest-declared). Prefer fixing `stage.engine` labels when adding `ensure_session` so we don’t add another stub.
+
+**Exit criteria:** No unused stub engines for required stages; `manifest.stages[].engine` matches the code path that actually runs; second app can copy the pattern without reading CommunityEngager internals.
+
 ## Suggested package / app layout
 
 ```text
@@ -219,7 +265,8 @@ relay-os/
 3. ~~CommunityEngager + Telegram~~
 4. ~~VoltMem + Reddit~~
 5. ~~Deploy (ThinkPad)~~ → **measure** (open)
-6. Product slice / ownership
+6. **Manifest-driven engines (Phase 4a)** + reddit browser **4b ensure_session** (see sibling plan)
+7. Product slice / ownership
 
 Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md).
 
@@ -246,7 +293,7 @@ Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.p
 
 ## Related
 
-- Reddit browser / scrape transport (no API app): [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md)
+- Reddit browser / scrape transport (no API app): [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md) — next: **Phase 4b `ensure_session`** (credential FeedbackRequest); pairs with **Phase 4a manifest-driven engines** above
 - ThinkPad deploy: [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md)
 - Living todo shell: [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md)
 - README: [`README.md`](../../README.md)

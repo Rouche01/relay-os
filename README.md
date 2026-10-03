@@ -108,7 +108,7 @@ We’re proving the full stack end-to-end:
 4. Act only after approval (or stop on abort)  
 5. Remember outcomes via [VoltMem](https://github.com/Rouche01/voltmem)  
 
-First dogfood app: **CommunityEngager** (GoStylens community HITL).
+First dogfood app: **CommunityEngager** (GoStylens community HITL) — workflow diagram: [`apps/community-engager/README.md`](apps/community-engager/README.md).
 
 **Plans:**
 

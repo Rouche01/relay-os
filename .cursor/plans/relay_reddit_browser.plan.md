@@ -23,11 +23,17 @@ todos:
   - id: p4-json-scout-optional
     content: Optional only — public *.json scout if browser blocked/unavailable; never the primary dogfood path
     status: completed
+  - id: p4b-ensure-session-hitl
+    content: "Sketch→impl: ensure_session stage — credential FeedbackRequest via Telegram/CLI when jar missing; skip if jar/env; Playwright login + saveSession; OTP second credential point; env optional override; align stage.engine with browser (see HITL plan Phase 4a)"
+    status: pending
+  - id: p4a-crosslink-manifest-engines
+    content: "Track sibling: relay_hitl Phase 4a — manifest-driven engine bind (no stub map); do with/after ensure_session so scout/execute engine labels match browser path"
+    status: pending
   - id: p4-deploy-slice
-    content: Update ThinkPad deploy — include engines-browser + Chromium deps from Phase 1; cookie dir under /opt/relay-community/data; document re-auth
+    content: Update ThinkPad deploy — include engines-browser + Chromium deps from Phase 1; cookie dir under /opt/relay-community/data; document re-auth via HITL credential (not env-only)
     status: pending
   - id: p5-smoke
-    content: Local + ThinkPad smoke — browser scout live threads; dry-run browser execute after Approve; then gated live comment
+    content: Local + ThinkPad smoke — browser scout live threads; dry-run browser execute after Approve; then gated live comment; ensure_session credential pause when jar absent
     status: pending
 isProject: true
 ---
@@ -81,14 +87,16 @@ login:   Playwright → LLM/semantic → (fail) → vision agent → cookies
 comment: Playwright → LLM/semantic → (fail) → vision agent → permalink
 ```
 
-## Current state
+## Current state (as of p4-json)
 
 | Piece | Today |
 |-------|--------|
-| Scout | OAuth `listNew` or fixtures (`SCOUT_SOURCE=auto`) |
-| Execute | OAuth `api/comment` or dry-run log |
-| Browser engine | Exists; **not** wired to CommunityEngager |
-| ThinkPad slice | Explicitly **excludes** `engines-browser` — **must change in Phase 1** |
+| Scout | Playwright structured extract → optional `*.json` → OAuth → fixtures (`SCOUT_SOURCE=auto`) |
+| Execute | Browser comment (cookie jar / env login) or OAuth; `REDDIT_DRY_RUN` default |
+| Login | Env `REDDIT_USERNAME`/`PASSWORD` + CLI `onChallenge`; **not** yet `credential` FeedbackRequest |
+| Cookie jar | `.data/cookies/reddit/` via Playwright `storageState` |
+| Browser engine | Wired via `@relay/engines-browser` |
+| ThinkPad slice | Still needs engines-browser + Chromium + cookie dir (Phase 4 deploy) |
 
 ## Target architecture
 
@@ -164,6 +172,8 @@ REDDIT_BROWSER_HEADLESS=true
 
 ## Phase 2 — Cookie jar + login (HITL pattern)
 
+**Status:** cookie jar + Playwright login **shipped** (env + CLI challenge). **Remaining:** wire login secrets through protocol `credential` FeedbackRequest (see Phase 4b).
+
 Port from HITL `services/bot-service/utils.ts`:
 
 | HITL | Relay |
@@ -172,15 +182,117 @@ Port from HITL `services/bot-service/utils.ts`:
 | `saveSessionCookies` / `retrieve` / `delete` | same helpers under `apps/community-engager/src/reddit/cookies.ts` |
 | AUTH clears old jar; AUTHED injects | login refreshes; execute (and optionally scout) loads |
 
-Login flow:
+Login flow (current + target):
 
 1. Navigate Reddit login (Playwright + stealth)
-2. Fill username/password — semantic locators / LLMController first
-3. If challenge / CAPTCHA / unknown UI → vision-agent escape hatch **or** FeedbackRequest (Telegram) pause for human
+2. Fill username/password — from env today; from HITL `credential` after Phase 4b
+3. If challenge / CAPTCHA / unknown UI → second `credential` (OTP) via Feedback Broker, or headed browser + confirmation; vision escape hatch last
 4. On success → persist cookies / storageState
 5. Teardown browser
 
 Prefer **storageState** if it maps cleanly to Playwright; keep JSON cookie export for HITL-style debugging.
+
+## Phase 4b — `ensure_session` via credential HITL (sketch → impl)
+
+**Why:** Protocol already has `FeedbackType: "credential"` (NewsletterMigrator LOGIN/VERIFY_OTP pattern). CommunityEngager still requires env vars + CLI `onChallenge`. Overnight / ThinkPad re-auth should pause on Telegram like Approve, not demand secrets in `community.env`.
+
+**Non-goals (v1):** vision agent for login; storing plaintext passwords in VoltMem or action-store; mid-comment credential re-prompt (fail clear / re-run instead).
+
+### Target stage order
+
+```text
+ensure_session → scout → draft → await_approval → execute → learn
+```
+
+```mermaid
+flowchart TD
+  Start([Start]) --> ES[ensure_session]
+  ES --> Jar{Cookie jar present?}
+  Jar -->|yes| Skip[Skip credential feedback]
+  Jar -->|no| Cred[FeedbackRequest type=credential]
+  Cred --> Wait[WAITING_USER]
+  Wait --> TG[Telegram / CLI: username + password]
+  TG --> Login[Playwright login]
+  Login --> Chal{2FA / challenge?}
+  Chal -->|yes| OTP[FeedbackRequest credential: OTP]
+  OTP --> Wait2[WAITING_USER]
+  Wait2 --> FinishLogin[Complete login + saveSession]
+  Chal -->|no| FinishLogin
+  FinishLogin --> Scout
+  Skip --> Scout
+  Scout --> Draft --> HITL[await_approval]
+  HITL -->|Approve| Exec[execute uses jar]
+  HITL -->|Abort| Learn
+  Exec --> Learn --> Done([Done])
+```
+
+### Manifest sketch
+
+```ts
+{
+  name: "ensure_session",
+  description: "Ensure Reddit browser session (cookie jar or HITL login)",
+  engine: "browser", // or "none" if login is entirely in controller
+  feedback_points: [
+    {
+      type: "credential",
+      description: "Reddit username and password",
+      required: true,
+    },
+    {
+      type: "credential",
+      description: "Reddit 2FA / email code if prompted",
+      required: false, // skip unless login detected challenge
+    },
+  ],
+}
+```
+
+Runtime already loops: `FEEDBACK_REQUESTED` → wait → `onFeedbackApplied` (same as approval).
+
+### Controller hooks
+
+| Hook | Behavior |
+|------|----------|
+| `shouldSkipFeedbackPoint` | Skip credential ask if `hasStorageState(cfg)` **or** env user/pass present and policy is “env wins” |
+| `buildFeedbackPrompt` / `buildFeedbackContext` | “Reddit login needed…” + reddit.com/login |
+| `onFeedbackApplied` (`ensure_session`) | Parse credentials → `loginRedditBrowser` → persist jar |
+| Challenge mid-login | Second `credential` feedback for OTP via broker (not bare CLI `onChallenge`) |
+
+**Credential payload convention (pick one):**
+
+- `value: "username\\npassword"`, or
+- `meta: { username, password }`
+
+Telegram needs a small credential UX (two prompts or one multi-line message). CLI same.
+
+### Where env fits
+
+| Source | Role |
+|--------|------|
+| Cookie jar | Preferred — no prompt |
+| HITL `credential` | Primary when jar missing |
+| `REDDIT_USERNAME` / `PASSWORD` | Optional bootstrap / unattended after jar exists |
+| `REDDIT_LOGIN_HEADED` | Hard CAPTCHA; human finishes in browser; HITL only for secrets |
+
+Unattended timer: jar must already exist. If jar expired → next run pauses on Telegram for re-auth.
+
+### Execute path change
+
+Today: `ensureBrowserSession` → env login.  
+After: execute assumes jar from `ensure_session`; auth wall mid-comment → clear error (re-run for re-auth), not mid-stage credential in v1.
+
+### Delivery order
+
+1. Manifest `ensure_session` + `shouldSkipFeedbackPoint` (jar / env) + Telegram/CLI credential ask → login → save jar
+2. Scout/execute prefer jar from that stage; env optional
+3. OTP as second credential point
+4. CAPTCHA: headed browser + “Continue when done” confirmation feedback (not secret)
+
+### Security
+
+- Persist **cookies / storageState only** — never write password to VoltMem or action-store logs
+- Redact credential feedback values in any debug emit
 
 ## Phase 3 — Browser execute
 
@@ -199,13 +311,13 @@ Extend `executeApproved`:
 
 ## Phase 4 — Optional JSON + deploy
 
-1. **Optional only:** `scout-json.ts` (`old.reddit.com/…/new.json`) if Playwright is unavailable or repeatedly blocked — not the primary path.
+1. ~~**Optional only:** `scout-json.ts`~~ — **done** (fail-open when 403/blocked).
 2. Update [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md) / runbook:
    - Add `packages/engines-browser` to workspace slice (**required from Phase 1**, not deferred)
    - Install Chromium deps on host
    - Cookie dir under `/opt/relay-community/data/cookies/reddit`
-   - Document “re-auth when jar expires” (Telegram alert or failed execute → human)
-3. systemd timer unchanged; only login needs a human
+   - Document “re-auth when jar expires” → **Phase 4b credential HITL** (Telegram), not env-only
+3. systemd timer unchanged; only login / re-auth needs a human
 
 ## Phase 5 — Smoke
 
@@ -247,7 +359,7 @@ packages/llm-controller/   # reuse for login/comment when needed
 |------|------------|
 | ToS / anti-bot | Allowlist only; low rate; HITL always; dry-run default |
 | Headless detection | Existing stealth plugin; headed for first login if needed |
-| Cookie expiry | Detect auth wall on execute → FeedbackRequest re-login |
+| Cookie expiry | Detect auth wall → next run `ensure_session` credential HITL (Phase 4b); fail clear mid-execute in v1 |
 | UI churn | Structured extract + semantic/LLM; vision only as escape hatch |
 | Vision cost/nondeterminism | Never use VLM as default scout; validate extracted ids/permalinks |
 | Deploy size | Chromium required once browser scout is primary (accept cost) |
@@ -263,9 +375,15 @@ packages/llm-controller/   # reuse for login/comment when needed
 
 ## Build order
 
-1. ~~OAuth scout/execute~~ (already done; blocked on app)
-2. **Playwright interactive scout + env** ← start here
-3. Cookie store + login
-4. Browser execute (dry-run then live)
-5. Optional JSON fallback + deploy notes
-6. Smoke
+1. ~~OAuth scout/execute~~ (done; app approval still blocked)
+2. ~~Playwright interactive scout + env~~
+3. ~~Cookie store + env login~~
+4. ~~Browser execute (dry-run path)~~
+5. ~~Optional JSON fallback~~
+6. **`ensure_session` credential HITL** ← next (Phase 4b); align with HITL plan **Phase 4a** (manifest-driven engines — no stub map)
+7. ThinkPad deploy slice (engines-browser + cookie dir + re-auth docs)
+8. Smoke (local dogfood + ThinkPad)
+
+## Relationship to manifest-driven engines
+
+Host stubs in `index.ts` + controller-owned Playwright while the manifest says `engine: "api"` is technical debt. Fix by declaring real engines in the manifest and binding them in the runtime — see [`relay_hitl_community_voltmem.plan.md`](./relay_hitl_community_voltmem.plan.md) **Phase 4a**. Prefer landing engine-label truth when adding `ensure_session`, not as a separate rewrite after smoke.
