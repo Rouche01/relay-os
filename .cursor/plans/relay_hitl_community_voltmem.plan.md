@@ -49,7 +49,7 @@ todos:
     status: pending
   - id: p4a-manifest-driven-engines
     content: "Declarative engines: manifest truth for stage.engine + engines_required; runtime validates/binds from registry (no stub map in index); controller = policy only; align scout/execute with browser; pairs with ensure_session in reddit browser plan"
-    status: pending
+    status: completed
 isProject: true
 ---
 
@@ -196,6 +196,8 @@ Context engine + memory write/read + Reddit read + gated executor.
 
 ### Phase 4a — Manifest-driven engines (declarative > imperative)
 
+**Status:** shipped — `bindEngines()` in `@relay/runtime`; CommunityEngager uses `createCommunityEngines()` (Playwright + llm draft + data/VoltMem; api optional); stubs removed; AgentRuntime asserts engines on construct.
+
 **Thesis:** The manifest should be the source of truth for *what* runs (stages, engines, feedback). Host `index.ts` should not hand-roll a stub `engines` map that ignores real work. Controller keeps *policy* (score gate, Approve, dry-run, memory writes) — not reinventing transport.
 
 **Why now:** CommunityEngager already does scout/execute via Playwright + Reddit helpers while the manifest still says `engine: "api"` and `index.ts` injects stubs that the controller ignores (`_engine`). That drift fights the Relay story (“agent negotiates through a protocol”).
@@ -265,8 +267,9 @@ relay-os/
 3. ~~CommunityEngager + Telegram~~
 4. ~~VoltMem + Reddit~~
 5. ~~Deploy (ThinkPad)~~ → **measure** (open)
-6. **Manifest-driven engines (Phase 4a)** + reddit browser **4b ensure_session** (see sibling plan)
-7. Product slice / ownership
+6. ~~Manifest-driven engines (Phase 4a)~~ + ~~reddit browser 4b ensure_session~~
+7. Product slice / ownership / measure
+8. ThinkPad deploy slice + smoke (reddit browser plan)
 
 Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md).
 
@@ -293,7 +296,7 @@ Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.p
 
 ## Related
 
-- Reddit browser / scrape transport (no API app): [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md) — **Phase 4b `ensure_session` done**; next sibling: **Phase 4a** manifest-driven engines + deploy/smoke
+- Reddit browser / scrape transport (no API app): [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md) — **4b ensure_session** + **4a engines** done; next: deploy/smoke
 - ThinkPad deploy: [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md)
 - Living todo shell: [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md)
 - README: [`README.md`](../../README.md)

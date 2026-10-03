@@ -15,6 +15,7 @@ import {
   isEditResponse,
 } from "@relay/protocol";
 import { AppController } from "./types";
+import { assertEnginesForManifest } from "./bind-engines";
 
 /** Thrown internally to unwind the stage loop on human abort. */
 class AgentAbortError extends Error {
@@ -46,6 +47,7 @@ export class AgentRuntime extends EventEmitter {
     private controller?: AppController
   ) {
     super();
+    assertEnginesForManifest(manifest, engines);
     this.context = {
       ...initialContext,
       stageResults: { ...(initialContext.stageResults ?? {}) },

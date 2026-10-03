@@ -52,7 +52,7 @@ type EnsureSessionResult = {
 export class CommunityEngagerController implements AppController {
   constructor(private readonly options: CommunityControllerOptions) {}
 
-  async onStageStart(stage: StageDefinition, _engine?: ExecutionEngine): Promise<void> {
+  async onStageStart(stage: StageDefinition, engine?: ExecutionEngine): Promise<void> {
     const ctx = this.options.getContext();
 
     switch (stage.name) {
@@ -63,7 +63,7 @@ export class CommunityEngagerController implements AppController {
         await this.runScout(ctx);
         break;
       case "draft":
-        await this.runDraft(ctx);
+        await this.runDraft(ctx, engine);
         break;
       case "await_approval":
         break;
@@ -71,7 +71,7 @@ export class CommunityEngagerController implements AppController {
         await this.runExecute(ctx);
         break;
       case "learn":
-        await this.runLearn(ctx);
+        await this.runLearn(ctx, engine);
         break;
       default:
         console.warn(`[community] unknown stage: ${stage.name}`);
@@ -348,7 +348,10 @@ export class CommunityEngagerController implements AppController {
     };
   }
 
-  private async runDraft(ctx: AgentContext): Promise<void> {
+  private async runDraft(
+    ctx: AgentContext,
+    engine?: ExecutionEngine
+  ): Promise<void> {
     const opportunities = (ctx.opportunities as CommunityDraft[] | undefined) ?? [];
     const top = opportunities.find((d) => isActionable(d.score));
     if (!top) {
@@ -366,9 +369,25 @@ export class CommunityEngagerController implements AppController {
     }
     ctx.agentMemory = memoryBlock;
 
-    const drafted = await draftReply(top, {
-      memoryBlock: memoryBlock || undefined,
-    });
+    let drafted: CommunityDraft;
+    if (engine?.type === "llm") {
+      const result = await engine.execute({
+        type: "draft_reply",
+        params: {
+          draft: top,
+          overrides: { memoryBlock: memoryBlock || undefined },
+        },
+      });
+      if (!result.success || !result.data?.draft) {
+        throw new Error(result.error ?? "llm draft_reply failed");
+      }
+      drafted = result.data.draft as CommunityDraft;
+    } else {
+      drafted = await draftReply(top, {
+        memoryBlock: memoryBlock || undefined,
+      });
+    }
+
     await this.options.store.put(
       createActionRecord({
         id: drafted.id,
@@ -414,13 +433,16 @@ export class CommunityEngagerController implements AppController {
     }
   }
 
-  private async runLearn(ctx: AgentContext): Promise<void> {
+  private async runLearn(
+    ctx: AgentContext,
+    engine?: ExecutionEngine
+  ): Promise<void> {
     const draft = ctx.currentDraft as CommunityDraft | undefined;
     const outcome = String(ctx.hitlOutcome ?? draft?.status ?? "unknown");
     console.log(`[learn] outcome=${outcome} draft=${draft?.id ?? "n/a"}`);
 
     if (draft && (outcome === "approved" || outcome === "edited")) {
-      await this.writeHitlMemory(draft, outcome);
+      await this.writeHitlMemory(draft, outcome, engine);
     }
 
     ctx.stageResults = {
@@ -435,7 +457,8 @@ export class CommunityEngagerController implements AppController {
 
   private async writeHitlMemory(
     draft: CommunityDraft,
-    outcome: "aborted" | "approved" | "edited"
+    outcome: "aborted" | "approved" | "edited",
+    engine?: ExecutionEngine
   ): Promise<void> {
     const fact =
       outcome === "aborted"
@@ -449,10 +472,23 @@ export class CommunityEngagerController implements AppController {
             note: outcome === "edited" ? "human edited draft before approve" : undefined,
           });
 
-    const ok = await this.options.memory.addFact(fact, {
-      domain: "outcome",
-      source: `relay:${APP_ID}`,
-    });
+    let ok: boolean;
+    if (engine?.type === "data") {
+      const result = await engine.execute({
+        type: "add_fact",
+        params: {
+          text: fact,
+          domain: "outcome",
+          source: `relay:${APP_ID}`,
+        },
+      });
+      ok = result.success;
+    } else {
+      ok = await this.options.memory.addFact(fact, {
+        domain: "outcome",
+        source: `relay:${APP_ID}`,
+      });
+    }
     console.log(
       `[learn] voltmem write ${ok ? "ok" : "skipped/fail-open"} (${outcome})`
     );

@@ -11,8 +11,8 @@ import {
 } from "@relay/protocol";
 import { AgentRuntime } from "@relay/runtime";
 import { CommunityEngagerController } from "./controller.js";
+import { createCommunityEngines } from "./engines.js";
 import { CommunityEngagerManifest } from "./manifest.js";
-import { createStubEngine } from "./stub-engine.js";
 
 export interface CommunityEngagerAppOptions {
   store?: ActionStore;
@@ -43,14 +43,11 @@ export class CommunityEngagerApp {
       getContext: () => this.runtime.getContext(),
     });
 
+    const engines = createCommunityEngines({ memory: this.memory });
+
     this.runtime = new AgentRuntime(
       CommunityEngagerManifest,
-      {
-        api: createStubEngine("api"),
-        llm: createStubEngine("llm"),
-        data: createStubEngine("data"),
-        browser: createStubEngine("browser"),
-      },
+      engines,
       {
         agentId: options.agentId ?? "community-engager-1",
         userId: options.userId ?? "user-1",
@@ -102,6 +99,7 @@ export class CommunityEngagerApp {
 export * from "./types.js";
 export * from "./feedback-map.js";
 export * from "./manifest.js";
+export * from "./engines.js";
 export * from "./scout.js";
 export * from "./drafter.js";
 export * from "./executor.js";

@@ -26,7 +26,8 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
     "community.approve",
     "community.execute",
   ],
-  engines_required: ["browser", "api", "llm", "data"],
+  engines_required: ["browser", "llm", "data"],
+  engines_optional: ["api"],
   permissions: ["community.reddit.read", "community.reddit.write"],
 
   stages: [

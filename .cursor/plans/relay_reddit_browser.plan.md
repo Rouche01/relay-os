@@ -28,7 +28,7 @@ todos:
     status: completed
   - id: p4a-crosslink-manifest-engines
     content: "Track sibling: relay_hitl Phase 4a — manifest-driven engine bind (no stub map); do with/after ensure_session so scout/execute engine labels match browser path"
-    status: pending
+    status: completed
   - id: p4-deploy-slice
     content: Update ThinkPad deploy — include engines-browser + Chromium deps from Phase 1; cookie dir under /opt/relay-community/data; document re-auth via HITL credential (not env-only)
     status: pending
@@ -380,9 +380,10 @@ packages/llm-controller/   # reuse for login/comment when needed
 3. ~~Cookie store + env login~~
 4. ~~Browser execute (dry-run path)~~
 5. ~~Optional JSON fallback~~
-6. ~~`ensure_session` credential HITL~~ (Phase 4b) — next: HITL plan **Phase 4a** (manifest-driven engines — drop stubs) + deploy/smoke
-7. ThinkPad deploy slice (engines-browser + cookie dir + re-auth docs)
-8. Smoke (local dogfood + ThinkPad)
+6. ~~`ensure_session` credential HITL~~ (Phase 4b)
+7. ~~Manifest-driven engines (Phase 4a)~~ — next: **deploy slice** + **smoke**
+8. ThinkPad deploy slice (engines-browser + cookie dir + re-auth docs)
+9. Smoke (local dogfood + ThinkPad)
 
 ## Relationship to manifest-driven engines
 

@@ -1,4 +1,4 @@
-import { AgentRuntime, AppController } from "@relay/runtime";
+import { AgentRuntime, AppController, bindEngines } from "@relay/runtime";
 import { PlaywrightEngine } from "@relay/engines-browser";
 import { FeedbackResponse, AgentState, FeedbackRequest, AgentRuntimeEvent } from "@relay/protocol";
 import { LLMController, GeminiProvider } from "@relay/llm-controller";
@@ -17,7 +17,9 @@ export class NewsletterMigratorApp {
 
     this.runtime = new AgentRuntime(
       NewsletterMigratorManifest,
-      { browser: this.engine },
+      bindEngines(NewsletterMigratorManifest, {
+        browser: () => this.engine,
+      }),
       { agentId: "newsletter-migrator-1", userId: "user-1", sessionId: "sess-1" },
       this.controller
     );
