@@ -6,7 +6,15 @@ export const HELP_RE =
   /\b(how (do|can|should)|advice|help|tips?|suggest|recommend|looking for|struggle|can't figure|build a|capsule|system|wardrobe)\b/i;
 const QUESTION_RE = /\?/;
 const BRAND_ONLY_RE = /\b(what brand|best brand|buy this|haul)\b/i;
+/** Sticky / recurring threads that look like “help” but aren’t single-OP opportunities. */
+export const MEGATHREAD_RE =
+  /\b(daily questions?\s+thread|weekly\s+questions|megathread|simple questions?\s+thread|outfit feedback thread|waywt)\b/i;
 const FRESH_MS = 48 * 60 * 60 * 1000;
+
+/** True for Daily Questions / WAYWT / megathreads — skip as engage targets. */
+export function isMegathread(title: string): boolean {
+  return MEGATHREAD_RE.test(title);
+}
 
 /**
  * Heuristic opportunity score for live Reddit posts.
@@ -19,10 +27,13 @@ export function scoreRedditPost(post: RedditListingPost): {
   const text = `${post.title}\n${post.selftext}`;
   const policy = getSubredditPolicy(post.subreddit);
   const ageMs = Date.now() - post.createdUtc * 1000;
+  const mega = isMegathread(post.title);
 
-  const problemFit = HELP_RE.test(text);
+  // Megathreads match “questions” heuristics but are not one-shot help posts.
+  const problemFit = !mega && HELP_RE.test(text);
   const wantsHelp =
-    QUESTION_RE.test(text) || HELP_RE.test(text) || /\b(please|any ideas)\b/i.test(text);
+    !mega &&
+    (QUESTION_RE.test(text) || HELP_RE.test(text) || /\b(please|any ideas)\b/i.test(text));
   const rulesOk = policy?.rulesOk ?? false;
   const freshnessOk = ageMs >= 0 && ageMs <= FRESH_MS;
   const valueWithoutApp =
@@ -37,6 +48,7 @@ export function scoreRedditPost(post: RedditListingPost): {
   };
 
   const bits: string[] = [];
+  if (mega) bits.push("skipped megathread/daily");
   if (problemFit) bits.push("problem-fit language");
   if (wantsHelp) bits.push("asks for help");
   if (rulesOk) bits.push(`r/${post.subreddit} allowlisted`);

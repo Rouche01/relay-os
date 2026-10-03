@@ -390,7 +390,22 @@ export class CommunityEngagerController implements AppController {
 
   private async runScout(ctx: AgentContext): Promise<void> {
     const result = await scoutOpportunities({ limit: 5 });
-    const opportunities = result.drafts;
+    let opportunities = result.drafts;
+
+    // Don't re-queue threads we already drafted / decided on this machine.
+    const prior = await this.options.store.list({
+      appId: APP_ID,
+      limit: 500,
+    });
+    const seen = new Set(prior.map((r) => r.id));
+    const before = opportunities.length;
+    opportunities = opportunities.filter((d) => !seen.has(d.id));
+    if (before !== opportunities.length) {
+      console.log(
+        `[scout] skipped ${before - opportunities.length} already-seen draft(s) in action-store`
+      );
+    }
+
     console.log(
       `[scout] ${opportunities.length} actionable (score ≥ 4) via ${result.source}`
     );
@@ -408,6 +423,7 @@ export class CommunityEngagerController implements AppController {
         source: result.source,
         blocked: result.blocked,
         timedOut: result.timedOut,
+        skippedSeen: before - opportunities.length,
       },
     };
 

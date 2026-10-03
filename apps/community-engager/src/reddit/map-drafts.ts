@@ -1,12 +1,13 @@
 import type { CommunityDraft } from "../types.js";
 import { isActionable, scoreTotal } from "../types.js";
 import type { RedditListingPost } from "./client.js";
-import { HELP_RE, scoreRedditPost } from "./score.js";
+import { HELP_RE, isMegathread, scoreRedditPost } from "./score.js";
 
 export interface ListingScoreStats {
   scanned: number;
   actionable: number;
   nearMiss: number;
+  megathreads: number;
 }
 
 /** Map scored listing posts into draft skeletons (shared by OAuth + browser scout). */
@@ -14,15 +15,20 @@ export function listingPostsToDrafts(
   posts: RedditListingPost[],
   limit: number
 ): CommunityDraft[] {
+  const ranked = posts
+    .filter((post) => !isMegathread(post.title))
+    .map((post) => {
+      const { score, rationale } = scoreRedditPost(post);
+      return { post, score, rationale, total: scoreTotal(score) };
+    })
+    .filter((r) => isActionable(r.score))
+    // Best fits first — feed order pins stickies/dailies at the top.
+    .sort((a, b) => b.total - a.total);
+
   const drafts: CommunityDraft[] = [];
-
-  for (const post of posts) {
-    const { score, rationale } = scoreRedditPost(post);
-    if (!isActionable(score)) continue;
-
-    const id = `reddit-${post.id}`;
+  for (const { post, score, rationale } of ranked) {
     drafts.push({
-      id,
+      id: `reddit-${post.id}`,
       platform: "reddit",
       subreddit: post.subreddit,
       threadUrl: post.permalink,
@@ -36,7 +42,6 @@ export function listingPostsToDrafts(
       utmCampaign: `community_${post.subreddit}`,
       redditThingId: post.name,
     });
-
     if (drafts.length >= limit) break;
   }
 
@@ -47,7 +52,12 @@ export function listingPostsToDrafts(
 export function scoreListingStats(posts: RedditListingPost[]): ListingScoreStats {
   let actionable = 0;
   let nearMiss = 0;
+  let megathreads = 0;
   for (const post of posts) {
+    if (isMegathread(post.title)) {
+      megathreads += 1;
+      continue;
+    }
     const { score } = scoreRedditPost(post);
     const total = scoreTotal(score);
     if (total >= 4) actionable += 1;
@@ -55,7 +65,7 @@ export function scoreListingStats(posts: RedditListingPost[]): ListingScoreStats
       nearMiss += 1;
     }
   }
-  return { scanned: posts.length, actionable, nearMiss };
+  return { scanned: posts.length, actionable, nearMiss, megathreads };
 }
 
 /**
@@ -68,6 +78,7 @@ export function pickDeepReadCandidates(
 ): RedditListingPost[] {
   if (max <= 0) return [];
   const ranked = posts
+    .filter((post) => !isMegathread(post.title))
     .map((post) => {
       const { score } = scoreRedditPost(post);
       const total = scoreTotal(score);

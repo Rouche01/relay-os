@@ -285,7 +285,7 @@ export async function scoutRedditBrowser(
 
         const stats = scoreListingStats(posts);
         console.log(
-          `[scout:browser] r/${sub} scanned=${stats.scanned} actionable=${stats.actionable} nearMiss=${stats.nearMiss}`
+          `[scout:browser] r/${sub} scanned=${stats.scanned} actionable=${stats.actionable} nearMiss=${stats.nearMiss} megathreads=${stats.megathreads}`
         );
 
         const mapped = listingPostsToDrafts(posts, limit - drafts.length);
