@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: p4-json-scout-optional
     content: Optional only — public *.json scout if browser blocked/unavailable; never the primary dogfood path
-    status: pending
+    status: completed
   - id: p4-deploy-slice
     content: Update ThinkPad deploy — include engines-browser + Chromium deps from Phase 1; cookie dir under /opt/relay-community/data; document re-auth
     status: pending

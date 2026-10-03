@@ -7,6 +7,7 @@ import {
   type ScoutSource,
 } from "./reddit/config.js";
 import { scoutRedditBrowser } from "./reddit/scout-browser.js";
+import { scoutRedditJson } from "./reddit/scout-json.js";
 import { scoutRedditLive } from "./reddit/scout-live.js";
 
 export interface ScoutOptions {
@@ -21,10 +22,10 @@ export interface ScoutOptions {
 /**
  * Opportunity finder.
  * - browser: Playwright + structured extract (no OAuth app)
+ * - json: public *.json listings (no browser / no API app) — escape hatch
  * - reddit | oauth: OAuth allowlisted live read (requires REDDIT_CLIENT_*)
- * - json: reserved (Phase 4) — falls through
  * - fixtures: offline HITL dogfood
- * - auto: browser → oauth (if configured) → fixtures
+ * - auto: browser → json → oauth (if configured) → fixtures
  */
 export async function scoutOpportunities(
   opts: ScoutOptions = {}
@@ -33,14 +34,7 @@ export async function scoutOpportunities(
   const source = opts.source ?? cfg.scoutSource;
   const limit = opts.limit ?? 5;
 
-  if (source === "json") {
-    console.warn(
-      "[scout] SCOUT_SOURCE=json is not implemented yet (Phase 4); continuing auto-style fallbacks"
-    );
-  }
-
-  const tryBrowser =
-    source === "browser" || source === "auto" || source === "json";
+  const tryBrowser = source === "browser" || source === "auto";
   if (tryBrowser) {
     console.log(
       "[scout] source=browser (Playwright / www.reddit extract, score ≥ 4)"
@@ -52,7 +46,22 @@ export async function scoutOpportunities(
     } catch (err) {
       console.warn("[scout] browser scout failed:", err);
       if (source === "browser") {
-        console.warn("[scout] SCOUT_SOURCE=browser — falling back to fixtures");
+        console.warn("[scout] SCOUT_SOURCE=browser — falling back toward fixtures");
+      }
+    }
+  }
+
+  const tryJson = source === "json" || source === "auto" || source === "browser";
+  if (tryJson) {
+    console.log("[scout] source=json (public *.json listings, score ≥ 4)");
+    try {
+      const live = await scoutRedditJson({ limit, cfg });
+      if (live.length > 0) return live;
+      console.warn("[scout] json returned 0 actionable");
+    } catch (err) {
+      console.warn("[scout] json scout failed:", err);
+      if (source === "json") {
+        console.warn("[scout] SCOUT_SOURCE=json — falling back toward fixtures");
       }
     }
   }
@@ -60,7 +69,7 @@ export async function scoutOpportunities(
   const tryOauth =
     isOauthScoutSource(source) ||
     (source === "auto" && cfg.oauthConfigured) ||
-    (source === "json" && cfg.oauthConfigured);
+    ((source === "json" || source === "browser") && cfg.oauthConfigured);
 
   if (tryOauth) {
     if (isOauthScoutSource(source) && !cfg.oauthConfigured) {
