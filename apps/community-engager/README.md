@@ -58,10 +58,10 @@ flowchart TD
     Src -->|fail| SF[Fixtures]
     SB --> Wall
     Wall -->|no| Score
-    Wall -. headed · planned .-> Human
-    Wall -. headless · planned .-> Blocked
-    Human -. planned .-> Score
-    Blocked -. planned .-> Score
+    Wall -->|HITL on| Human
+    Wall -->|unattended| Blocked
+    Human -->|Approve · save jar| Score
+    Blocked --> Score
     SJ --> Score
     SO --> Score
     SF --> Score
@@ -108,7 +108,7 @@ flowchart TD
 | Stage | What happens |
 |-------|----------------|
 | `ensure_session` | Cookie jar, env login, or HITL `credential` (skipped when dry-run unless `REDDIT_ENSURE_SESSION=true`) |
-| `scout` | Find actionable threads (browser → json → oauth → fixtures); *planned:* detect anti-bot interstitial fast and escalate |
+| `scout` | Find actionable threads (browser → json → oauth → fixtures); anti-bot wall → headed browser + Telegram/CLI Approve (never auto-solved) |
 | `draft` | Write a reply; may pull VoltMem context |
 | `await_approval` | You Approve / Edit / Abort (Telegram or CLI) |
 | `execute` | Dry-run log, or live browser/oauth post |

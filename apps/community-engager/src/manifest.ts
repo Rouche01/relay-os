@@ -134,13 +134,21 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
     },
     {
       name: "scout",
-      description: "Find actionable Reddit threads (live allowlist or fixtures)",
+      description:
+        "Find actionable Reddit threads; on anti-bot wall, pause for human CAPTCHA in headed browser",
       engine: "browser",
       feedback_points: [
         {
           type: "progress",
           description: "Scouting opportunities…",
           required: false,
+        },
+        {
+          type: "confirmation",
+          description:
+            "Reddit anti-bot challenge: solve CAPTCHA in the open browser, then Approve (Abort skips jar save)",
+          required: true,
+          timeout_ms: 600_000,
         },
       ],
     },

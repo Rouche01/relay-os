@@ -83,6 +83,14 @@ export interface RedditEnvConfig {
   browserHeadless: boolean;
   /** Delay between allowlisted subs during browser scout (ms). */
   scoutDelayMs: number;
+  /** Max time per sub during browser scout (ms). Default 12s. */
+  scoutSubBudgetMs: number;
+  /**
+   * When true, a detected interstitial opens a headed browser and pauses
+   * for human Approve via Telegram/CLI (solve in the window, then Approve).
+   * Default: on when scout is headed or REDDIT_LOGIN_HEADED; off for unattended headless.
+   */
+  interstitialHitl: boolean;
   /** App data root (jobs, cookies). Default `.data`. */
   dataDir: string;
   /** Cookie / storageState directory for browser session. */
@@ -174,6 +182,21 @@ export function getRedditEnv(
   const scoutDelayMs =
     Number.isFinite(delayRaw) && delayRaw >= 0 ? delayRaw : 1500;
 
+  const budgetRaw = Number(env.REDDIT_SCOUT_SUB_BUDGET_MS ?? "12000");
+  const scoutSubBudgetMs =
+    Number.isFinite(budgetRaw) && budgetRaw >= 3000 ? budgetRaw : 12_000;
+
+  const browserHeadless =
+    env.REDDIT_BROWSER_HEADLESS !== "false" &&
+    env.REDDIT_BROWSER_HEADLESS !== "0";
+  const loginHeaded =
+    env.REDDIT_LOGIN_HEADED === "true" || env.REDDIT_LOGIN_HEADED === "1";
+  const hitlRaw = (env.REDDIT_INTERSTITIAL_HITL ?? "").toLowerCase();
+  let interstitialHitl: boolean;
+  if (hitlRaw === "false" || hitlRaw === "0") interstitialHitl = false;
+  else if (hitlRaw === "true" || hitlRaw === "1") interstitialHitl = true;
+  else interstitialHitl = !browserHeadless || loginHeaded;
+
   const dataDir = path.resolve(
     process.cwd(),
     env.REDDIT_DATA_DIR?.trim() || ".data"
@@ -197,10 +220,10 @@ export function getRedditEnv(
     scoutSource,
     transport,
     lpBaseUrl: env.GOSTYLENS_LP_BASE_URL ?? "https://gostylens.app",
-    browserHeadless:
-      env.REDDIT_BROWSER_HEADLESS !== "false" &&
-      env.REDDIT_BROWSER_HEADLESS !== "0",
+    browserHeadless,
     scoutDelayMs,
+    scoutSubBudgetMs,
+    interstitialHitl,
     dataDir,
     cookieDir,
   };

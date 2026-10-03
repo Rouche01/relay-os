@@ -4,12 +4,17 @@ export interface AppController {
   /** Invoked when a stage begins execution. `engine` is undefined for `engine: "none"`. */
   onStageStart?(stage: StageDefinition, engine?: ExecutionEngine): Promise<void>;
 
-  /** Invoked when a user has provided feedback for a stage. */
+  /**
+   * Invoked when a user has provided feedback for a stage.
+   * Return `false` on an abort response to soft-abort: record the abort for
+   * that feedback point but continue the stage loop (e.g. skip a CAPTCHA
+   * challenge without killing the run). Default / `void` = hard abort.
+   */
   onFeedbackApplied?(
     stage: StageDefinition,
     feedback: FeedbackResponse,
     engine?: ExecutionEngine
-  ): Promise<void>;
+  ): void | boolean | Promise<void | boolean>;
 
   /**
    * Optional: build adapter-facing context for a feedback point

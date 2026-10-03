@@ -19,13 +19,19 @@ import { draftReply } from "./drafter.js";
 import { executeApproved } from "./executor.js";
 import { CommunityMemory } from "./memory.js";
 import { loginRedditBrowser } from "./reddit/browser-login.js";
+import { createRedditBrowserEngine } from "./reddit/browser-session.js";
 import { getRedditEnv, type RedditEnvConfig } from "./reddit/config.js";
 import {
   isLoginCredentialPoint,
   isOtpCredentialPoint,
   parseCredentialValue,
 } from "./reddit/credentials.js";
-import { hasStorageState } from "./reddit/cookies.js";
+import { hasStorageState, storageStatePath } from "./reddit/cookies.js";
+import { detectInterstitial } from "./reddit/interstitial.js";
+import {
+  clearInterstitialSession,
+  setInterstitialSession,
+} from "./reddit/interstitial-session.js";
 import { scoutOpportunities } from "./scout.js";
 import type { CommunityDraft } from "./types.js";
 import { isActionable, scoreTotal } from "./types.js";
@@ -90,10 +96,14 @@ export class CommunityEngagerController implements AppController {
     stage: StageDefinition,
     feedback: FeedbackResponse,
     _engine?: ExecutionEngine
-  ): Promise<void> {
+  ): Promise<void | boolean> {
     if (stage.name === "ensure_session") {
       await this.applyEnsureSessionFeedback(feedback);
       return;
+    }
+
+    if (stage.name === "scout") {
+      return this.applyInterstitialFeedback(feedback);
     }
 
     if (stage.name !== "await_approval") return;
@@ -157,6 +167,28 @@ export class CommunityEngagerController implements AppController {
         meta: { kind: isOtpCredentialPoint(fp.description) ? "otp" : "login" },
       };
     }
+    if (stage.name === "scout" && fp.type === "confirmation") {
+      const challenge = context.interstitialChallenge as
+        | { url?: string; subreddit?: string; blockedSubs?: string[] }
+        | undefined;
+      return {
+        title: "Reddit anti-bot challenge",
+        url: challenge?.url,
+        details: [
+          { label: "Subreddit", value: challenge?.subreddit ?? "?" },
+          {
+            label: "Blocked",
+            value: (challenge?.blockedSubs ?? []).map((s) => `r/${s}`).join(", "),
+          },
+          {
+            label: "Hint",
+            value:
+              "Solve the CAPTCHA in the open browser window, then Approve. Abort skips without saving cookies (run continues).",
+          },
+        ],
+        meta: { kind: "interstitial" },
+      };
+    }
     if (stage.name !== "await_approval") return undefined;
     const draft = context.currentDraft as CommunityDraft | undefined;
     if (!draft) return undefined;
@@ -170,6 +202,10 @@ export class CommunityEngagerController implements AppController {
   ): Promise<boolean> {
     if (stage.name === "ensure_session") {
       return this.shouldSkipEnsureSessionFeedback(fp, context);
+    }
+    if (stage.name === "scout" && fp.type === "confirmation") {
+      // Only pause when we opened a headed challenge window.
+      return !context.interstitialChallenge;
     }
     if (stage.name !== "await_approval" || fp.type !== "confirmation") {
       return false;
@@ -195,6 +231,17 @@ export class CommunityEngagerController implements AppController {
         "Reddit browser session needed (no cookie jar). " +
         "Reply with username on the first line and password on the second. " +
         "Abort to cancel. Do not use Approve — send the credentials as text."
+      );
+    }
+    if (stage.name === "scout" && fp.type === "confirmation") {
+      const challenge = context.interstitialChallenge as
+        | { subreddit?: string; url?: string }
+        | undefined;
+      return (
+        `Reddit challenged the browser (r/${challenge?.subreddit ?? "?"}). ` +
+        `A headed window is open on the challenge page — solve the CAPTCHA there, then Approve. ` +
+        `Abort skips saving cookies; the run continues with whatever we already scouted. ` +
+        `We never auto-solve CAPTCHAs.`
       );
     }
     if (stage.name !== "await_approval") return undefined;
@@ -342,8 +389,11 @@ export class CommunityEngagerController implements AppController {
   }
 
   private async runScout(ctx: AgentContext): Promise<void> {
-    const opportunities = await scoutOpportunities({ limit: 5 });
-    console.log(`[scout] ${opportunities.length} actionable (score ≥ 4)`);
+    const result = await scoutOpportunities({ limit: 5 });
+    const opportunities = result.drafts;
+    console.log(
+      `[scout] ${opportunities.length} actionable (score ≥ 4) via ${result.source}`
+    );
     for (const d of opportunities) {
       console.log(
         `  - [${scoreTotal(d.score)}/5] r/${d.subreddit} · ${d.threadTitle}`
@@ -352,8 +402,128 @@ export class CommunityEngagerController implements AppController {
     ctx.opportunities = opportunities;
     ctx.stageResults = {
       ...(ctx.stageResults ?? {}),
-      scout: { count: opportunities.length, ids: opportunities.map((d) => d.id) },
+      scout: {
+        count: opportunities.length,
+        ids: opportunities.map((d) => d.id),
+        source: result.source,
+        blocked: result.blocked,
+        timedOut: result.timedOut,
+      },
     };
+
+    await this.maybeEscalateInterstitial(ctx, result.blocked);
+  }
+
+  /**
+   * If browser scout hit an anti-bot wall and HITL is enabled, open a headed
+   * window on the challenge and set interstitialChallenge so the scout
+   * confirmation feedback point pauses for Telegram/CLI Approve.
+   */
+  private async maybeEscalateInterstitial(
+    ctx: AgentContext,
+    blocked: Array<{ subreddit: string; url: string; reason: string }>
+  ): Promise<void> {
+    const cfg = getRedditEnv();
+    if (blocked.length === 0) return;
+
+    if (!cfg.interstitialHitl) {
+      console.warn(
+        `[scout] ${blocked.length} sub(s) blocked by interstitial — unattended mode ` +
+          `(set REDDIT_INTERSTITIAL_HITL=true or run headed to escalate via Telegram/CLI)`
+      );
+      return;
+    }
+
+    const first = blocked[0]!;
+    console.log(
+      `[scout] escalating interstitial for r/${first.subreddit} — opening headed browser`
+    );
+
+    const { engine, storagePath } = await createRedditBrowserEngine({
+      cfg,
+      useStoredSession: true,
+      headless: false,
+    });
+
+    try {
+      const page = await engine.getPage();
+      await page.goto(first.url, {
+        waitUntil: "domcontentloaded",
+        timeout: 15_000,
+      });
+      const wall = await detectInterstitial(page);
+      if (!wall.challenged) {
+        // Challenge already cleared (jar / race) — persist and continue.
+        await engine.saveStorageState(storagePath);
+        await engine.teardown();
+        console.log(
+          `[scout] challenge page cleared without HITL — saved jar → ${storagePath}`
+        );
+        return;
+      }
+    } catch (err) {
+      console.warn("[scout] failed to open interstitial window:", err);
+      try {
+        await engine.teardown();
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+
+    setInterstitialSession({
+      engine,
+      storagePath,
+      url: first.url,
+      subreddit: first.subreddit,
+      blockedSubs: blocked.map((b) => b.subreddit),
+    });
+    ctx.interstitialChallenge = {
+      url: first.url,
+      subreddit: first.subreddit,
+      blockedSubs: blocked.map((b) => b.subreddit),
+      storagePath: storageStatePath(cfg),
+    };
+  }
+
+  /**
+   * Approve → save cookie jar after human solved CAPTCHA in the headed window.
+   * Abort → soft-abort (return false): tear down without saving; run continues.
+   */
+  private async applyInterstitialFeedback(
+    feedback: FeedbackResponse
+  ): Promise<boolean | void> {
+    const ctx = this.options.getContext();
+
+    if (isAbortResponse(feedback)) {
+      await clearInterstitialSession(false);
+      delete ctx.interstitialChallenge;
+      console.warn(
+        "[scout] interstitial HITL aborted — cookies not saved; continuing run"
+      );
+      ctx.stageResults = {
+        ...(ctx.stageResults ?? {}),
+        scout: {
+          ...((ctx.stageResults?.scout as object) ?? {}),
+          interstitial: "skipped",
+        },
+      };
+      return false; // soft abort
+    }
+
+    const saved = await clearInterstitialSession(true);
+    delete ctx.interstitialChallenge;
+    ctx.stageResults = {
+      ...(ctx.stageResults ?? {}),
+      scout: {
+        ...((ctx.stageResults?.scout as object) ?? {}),
+        interstitial: saved ? "cleared" : "save_failed",
+        storagePath: saved,
+      },
+    };
+    console.log(
+      "[scout] interstitial HITL approved — jar saved; later stages reuse cookies"
+    );
   }
 
   private async runDraft(

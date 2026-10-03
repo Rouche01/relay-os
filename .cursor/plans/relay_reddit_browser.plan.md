@@ -31,7 +31,7 @@ todos:
     status: completed
   - id: p4c-interstitial-detect
     content: "Anti-bot interstitial: classify 'Prove your humanity'/reCAPTCHA in ~2s, per-sub time budget, blocked vs timeout outcomes; headed → confirmation FeedbackRequest + persist jar; headless → fail open + one Telegram notice. Never auto-solve CAPTCHAs."
-    status: pending
+    status: completed
   - id: p4-deploy-slice
     content: Update ThinkPad deploy — include engines-browser + Chromium deps from Phase 1; cookie dir under /opt/relay-community/data; document re-auth via HITL credential (not env-only)
     status: pending
@@ -322,7 +322,9 @@ Extend `executeApproved`:
    - Document “re-auth when jar expires” → **Phase 4b credential HITL** (Telegram), not env-only
 3. systemd timer unchanged; only login / re-auth needs a human
 
-## Phase 4c — Anti-bot interstitial: detect fast, escalate to human
+## Phase 4c — Anti-bot interstitial: detect fast, escalate to human ✅ shipped
+
+**Shipped:** `detectInterstitial()` after each `goto`; per-sub budget `REDDIT_SCOUT_SUB_BUDGET_MS` (default 12s). Blocked ≠ timeout in scout results. When `interstitialHitl` (headed / `REDDIT_LOGIN_HEADED` / `REDDIT_INTERSTITIAL_HITL=true`), opens a headed window and pauses on scout `confirmation` FeedbackRequest (Telegram/CLI). Approve → `saveStorageState`; Abort → soft-abort (runtime continues). Unattended headless: warn once, fail open, no hang. Never auto-solves.
 
 **Observed (2026-10-03, headed local run):** anonymous `www.reddit.com/r/{sub}/new/` served a “Prove your humanity” reCAPTCHA page. Scout hung for minutes, then fell through to JSON (403/DNS) and finally fixtures.
 
@@ -413,8 +415,8 @@ packages/llm-controller/   # reuse for login/comment when needed
 5. ~~Optional JSON fallback~~
 6. ~~`ensure_session` credential HITL~~ (Phase 4b)
 7. ~~Manifest-driven engines (Phase 4a)~~
-8. **Interstitial detect + escalate (Phase 4c)** ← next (job isolation landed, HITL plan Phase 5)
-9. ThinkPad deploy slice (engines-browser + cookie dir + re-auth docs)
+8. ~~Interstitial detect + escalate (Phase 4c)~~
+9. **ThinkPad deploy slice** ← next (engines-browser + cookie dir + re-auth docs)
 10. Smoke (local dogfood + ThinkPad)
 
 ## Relationship to manifest-driven engines

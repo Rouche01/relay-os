@@ -6,7 +6,10 @@ import {
   isOauthScoutSource,
   type ScoutSource,
 } from "./reddit/config.js";
-import { scoutRedditBrowser } from "./reddit/scout-browser.js";
+import {
+  scoutRedditBrowser,
+  type BrowserScoutBlocked,
+} from "./reddit/scout-browser.js";
 import { scoutRedditJson } from "./reddit/scout-json.js";
 import { scoutRedditLive } from "./reddit/scout-live.js";
 
@@ -19,6 +22,13 @@ export interface ScoutOptions {
   source?: ScoutSource;
 }
 
+export interface ScoutResult {
+  drafts: CommunityDraft[];
+  source: ScoutSource | "fixtures";
+  blocked: BrowserScoutBlocked[];
+  timedOut: string[];
+}
+
 /**
  * Opportunity finder.
  * - browser: Playwright + structured extract (no OAuth app)
@@ -29,10 +39,12 @@ export interface ScoutOptions {
  */
 export async function scoutOpportunities(
   opts: ScoutOptions = {}
-): Promise<CommunityDraft[]> {
+): Promise<ScoutResult> {
   const cfg = getRedditEnv();
   const source = opts.source ?? cfg.scoutSource;
   const limit = opts.limit ?? 5;
+  let blocked: BrowserScoutBlocked[] = [];
+  let timedOut: string[] = [];
 
   const tryBrowser = source === "browser" || source === "auto";
   if (tryBrowser) {
@@ -41,7 +53,18 @@ export async function scoutOpportunities(
     );
     try {
       const live = await scoutRedditBrowser({ limit, cfg });
-      if (live.length > 0) return live;
+      blocked = live.blocked;
+      timedOut = live.timedOut;
+      if (live.blocked.length > 0) {
+        console.warn(
+          `[scout] browser blocked ${live.blocked.length} sub(s): ${live.blocked
+            .map((b) => `r/${b.subreddit}`)
+            .join(", ")}`
+        );
+      }
+      if (live.drafts.length > 0) {
+        return { drafts: live.drafts, source: "browser", blocked, timedOut };
+      }
       console.warn("[scout] browser returned 0 actionable");
     } catch (err) {
       console.warn("[scout] browser scout failed:", err);
@@ -56,7 +79,9 @@ export async function scoutOpportunities(
     console.log("[scout] source=json (public *.json listings, score ≥ 4)");
     try {
       const live = await scoutRedditJson({ limit, cfg });
-      if (live.length > 0) return live;
+      if (live.length > 0) {
+        return { drafts: live, source: "json", blocked, timedOut };
+      }
       console.warn("[scout] json returned 0 actionable");
     } catch (err) {
       console.warn("[scout] json scout failed:", err);
@@ -80,7 +105,9 @@ export async function scoutOpportunities(
     console.log("[scout] source=reddit (OAuth allowlisted subs, score ≥ 4)");
     try {
       const live = await scoutRedditLive({ limit, cfg });
-      if (live.length > 0) return live;
+      if (live.length > 0) {
+        return { drafts: live, source: "oauth", blocked, timedOut };
+      }
       console.warn(
         "[scout] oauth reddit returned 0 actionable; falling back to fixtures"
       );
@@ -95,5 +122,10 @@ export async function scoutOpportunities(
   const filtered = opts.includeRejected
     ? drafts
     : drafts.filter((d) => isActionable(d.score));
-  return filtered.slice(0, limit);
+  return {
+    drafts: filtered.slice(0, limit),
+    source: "fixtures",
+    blocked,
+    timedOut,
+  };
 }

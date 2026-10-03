@@ -397,10 +397,18 @@ export class AgentRuntime extends EventEmitter {
         aborted: true,
       });
       this.emit(AgentRuntimeEvent.FEEDBACK_APPLIED, { stage: stage.name, response });
+      let hardAbort = true;
       if (this.controller?.onFeedbackApplied) {
-        await this.controller.onFeedbackApplied(stage, response, engine);
+        const cont = await this.controller.onFeedbackApplied(
+          stage,
+          response,
+          engine
+        );
+        // Explicit false → soft abort (continue the run).
+        if (cont === false) hardAbort = false;
       }
-      throw new AgentAbortError();
+      if (hardAbort) throw new AgentAbortError();
+      return;
     }
 
     if (isEditResponse(response) && (fp.type === "approval" || fp.type === "freeform")) {
