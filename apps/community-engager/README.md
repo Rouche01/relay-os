@@ -67,7 +67,7 @@ flowchart TD
     SF --> Score
   end
 
-  Score --> Queue[/Job queue · one per opportunity · planned/]
+  Score --> Queue[/Job queue · one runtime per opportunity/]
   Queue --> Job
 
   subgraph Loop["3. Per-job loop — serial, isolated"]
@@ -93,9 +93,9 @@ flowchart TD
     TxQ -->|browser| EB --> Rec
     TxQ -->|oauth fallback| EO --> Rec
     Rec --> JobLearn --> More
-    Draft -. error · planned .-> Fail
-    EB -. error · planned .-> Fail
-    Fail -. planned .-> More
+    Draft -. error .-> Fail
+    EB -. error .-> Fail
+    Fail --> More
     More -->|yes| Job
   end
 
@@ -114,7 +114,7 @@ flowchart TD
 | `execute` | Dry-run log, or live browser/oauth post |
 | `learn` | Persist outcome to VoltMem |
 
-Today the run drafts only the single top opportunity. Phase 5 turns each actionable opportunity into its own job so one failure or abort cannot end the run.
+`ensure_session` and `scout` run once on the parent manifest. The `jobs` stage **fans out** into the nested `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. A job that fails or gets aborted is recorded and the queue moves on. Budget with `COMMUNITY_MAX_JOBS` (default 3) and `COMMUNITY_JOB_DELAY_MS` (default 1500).
 
 ### Rules that matter
 

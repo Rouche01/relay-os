@@ -21,6 +21,9 @@ export interface CommunityEnginesOptions {
 
 /**
  * Manifest-bound engines for CommunityEngager.
+ * Parent manifest nests CommunityJobManifest via fanout; bindEngines walks
+ * nested engines_required so one bind covers the whole tree.
+ *
  * Browser sessions for scout/login/comment still use per-op
  * `createRedditBrowserEngine` (short-lived); the bound browser engine is the
  * declared capability + default Playwright config for the app.
@@ -29,18 +32,18 @@ export function createCommunityEngines(
   options: CommunityEnginesOptions
 ): Record<string, ExecutionEngine> {
   const cfg = options.cfg ?? getRedditEnv();
+
   const providers: EngineProviders = {
-    browser: () =>
-      new PlaywrightEngine({
-        headless: cfg.browserHeadless,
-        userAgent: browserUserAgent(cfg),
-      }),
-    llm: () => createLlmDraftEngine(),
-    data: () => createDataEngine(options.memory),
+    browser: new PlaywrightEngine({
+      headless: cfg.browserHeadless,
+      userAgent: browserUserAgent(cfg),
+    }),
+    llm: createLlmDraftEngine(),
+    data: createDataEngine(options.memory),
   };
 
   if (cfg.oauthConfigured) {
-    providers.api = () => createRedditApiCapabilityEngine(cfg);
+    providers.api = createRedditApiCapabilityEngine(cfg);
   }
 
   return bindEngines(CommunityEngagerManifest, providers);

@@ -22,7 +22,10 @@ export interface AgenticAppManifest {
   stages: StageDefinition[];
   feedback_patterns: FeedbackType[];
 
-  // Composition
+  /**
+   * Names of nested manifests this app composes (documentation / discovery).
+   * Runtime nesting is declared per-stage via `StageDefinition.fanout`.
+   */
   composes_with?: string[];
 }
 
@@ -33,14 +36,42 @@ export interface IntentTrigger {
   confidence_threshold?: number;
 }
 
+/**
+ * Expand one stage into N isolated child runtimes (one per work item).
+ * Each child runs a flat nested manifest; a child abort/fail does not abort the parent.
+ * v1: serial only — no recursive fanout inside children.
+ */
+export interface FanoutDefinition {
+  /** Nested child manifest (inline). */
+  manifest: AgenticAppManifest;
+  /** Parent context key holding the work-items array. */
+  from: string;
+  /**
+   * Child context key for the current item (default `"item"`).
+   * Apps that need a domain name (e.g. `"opportunity"`) set this explicitly.
+   */
+  itemKey?: string;
+  /** Max children this run. Omit = process every item in `from`. */
+  max?: number;
+  /** v1 supports serial only. */
+  mode?: "serial";
+  /** Pause between children (ms). */
+  delay_ms?: number;
+}
+
 export interface StageDefinition {
   name: string;
   description: string;
   /**
    * Engine that runs this stage.
-   * Use `"none"` for pure HITL gates (await_approval) — feedback only, no execute.
+   * Use `"none"` for pure HITL gates and for fanout queue stages.
    */
   engine: EngineType;
+  /**
+   * When set, the runtime fans this stage out into one child AgentRuntime
+   * per item in `context[fanout.from]`, each running `fanout.manifest`.
+   */
+  fanout?: FanoutDefinition;
   feedback_points?: FeedbackPoint[];
   timeout_ms?: number;
 }

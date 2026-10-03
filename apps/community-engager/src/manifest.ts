@@ -1,10 +1,89 @@
 import { AgenticAppManifest } from "@relay/protocol";
 
-export const CommunityEngagerManifest: AgenticAppManifest = {
-  name: "CommunityEngager",
+/**
+ * Nested job manifest: one opportunity, start to finish.
+ * Embedded by CommunityEngagerManifest via `stages[].fanout`.
+ * Runs in its own AgentRuntime so an abort or failure is scoped to that job.
+ */
+export const CommunityJobManifest: AgenticAppManifest = {
+  name: "CommunityEngagerJob",
   version: "0.1.0",
   description:
-    "Scout Reddit fashion/styling threads, draft helpful replies, pause for human Approve/Edit/Abort, then execute.",
+    "Draft a reply for one scouted opportunity, pause for human Approve/Edit/Abort, then execute and learn.",
+  author: "Relay OS Built-in",
+
+  triggers: [
+    {
+      pattern: "engage thread",
+      description: "Run the HITL loop for a single scouted thread",
+      examples: ["engage thread", "draft reply for this thread"],
+    },
+  ],
+
+  capabilities: [
+    "community.draft",
+    "community.approve",
+    "community.execute",
+  ],
+  engines_required: ["llm", "browser", "data"],
+  engines_optional: ["api"],
+  permissions: ["community.reddit.read", "community.reddit.write"],
+
+  stages: [
+    {
+      name: "draft",
+      description: "Draft a helpful reply for this opportunity",
+      engine: "llm",
+    },
+    {
+      name: "await_approval",
+      description: "Human Approve / Edit / Abort before any post",
+      engine: "none",
+      feedback_points: [
+        {
+          type: "approval",
+          description:
+            "Approve this draft, abort it, or reply edit: <revised text>",
+          required: true,
+        },
+        {
+          type: "confirmation",
+          description:
+            "Intensity 2 confirmation: disclose + UTM intentional?",
+          required: true,
+        },
+      ],
+    },
+    {
+      name: "execute",
+      description:
+        "Post approved/edited draft (REDDIT_DRY_RUN=true by default)",
+      engine: "browser",
+    },
+    {
+      name: "learn",
+      description: "Write HITL outcomes to VoltMem",
+      engine: "data",
+    },
+  ],
+  feedback_patterns: [
+    "approval",
+    "freeform",
+    "confirmation",
+    "progress",
+    "error",
+  ],
+};
+
+/**
+ * Parent manifest: session + scout once, then fan out one nested job
+ * runtime per actionable opportunity (CommunityJobManifest).
+ */
+export const CommunityEngagerManifest: AgenticAppManifest = {
+  name: "CommunityEngager",
+  version: "0.3.0",
+  description:
+    "Scout Reddit fashion/styling threads and run one isolated HITL job per opportunity.",
   author: "Relay OS Built-in",
 
   triggers: [
@@ -66,47 +145,28 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
       ],
     },
     {
-      name: "draft",
-      description: "Draft a helpful reply for the top actionable opportunity",
-      engine: "llm",
-    },
-    {
-      name: "await_approval",
-      description: "Human Approve / Edit / Abort before any post",
-      engine: "none",
-      feedback_points: [
-        {
-          type: "approval",
-          description:
-            "Approve this draft, abort it, or reply edit: <revised text>",
-          required: true,
-        },
-        {
-          type: "confirmation",
-          description:
-            "Intensity 2 confirmation: disclose + UTM intentional?",
-          required: true,
-        },
-      ],
-    },
-    {
-      name: "execute",
+      name: "jobs",
       description:
-        "Post approved/edited draft (REDDIT_DRY_RUN=true by default)",
-      engine: "browser",
-    },
-    {
-      name: "learn",
-      description: "Write HITL outcomes to VoltMem",
-      engine: "data",
+        "One isolated nested job per opportunity (draft → HITL → execute → learn)",
+      engine: "none",
+      fanout: {
+        manifest: CommunityJobManifest,
+        from: "opportunities",
+        itemKey: "opportunity",
+        mode: "serial",
+        // Defaults; CommunityEngagerApp may override via FanoutHost + env
+        max: 3,
+        delay_ms: 1_500,
+      },
     },
   ],
   feedback_patterns: [
     "credential",
     "approval",
     "freeform",
-    "progress",
     "confirmation",
+    "progress",
     "error",
   ],
+  composes_with: ["CommunityEngagerJob"],
 };

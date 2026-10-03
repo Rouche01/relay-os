@@ -413,7 +413,7 @@ packages/llm-controller/   # reuse for login/comment when needed
 5. ~~Optional JSON fallback~~
 6. ~~`ensure_session` credential HITL~~ (Phase 4b)
 7. ~~Manifest-driven engines (Phase 4a)~~
-8. **Interstitial detect + escalate (Phase 4c)** — after job isolation lands (HITL plan Phase 5)
+8. **Interstitial detect + escalate (Phase 4c)** ← next (job isolation landed, HITL plan Phase 5)
 9. ThinkPad deploy slice (engines-browser + cookie dir + re-auth docs)
 10. Smoke (local dogfood + ThinkPad)
 

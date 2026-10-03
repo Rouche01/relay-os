@@ -36,6 +36,11 @@ export interface CommunityControllerOptions {
   store: ActionStore;
   memory: ContextEngine;
   getContext: () => AgentContext;
+  /**
+   * Single opportunity this controller is responsible for (job runtimes).
+   * Omit for the run-level runtime, which scouts the queue instead.
+   */
+  opportunity?: CommunityDraft;
 }
 
 type EnsureSessionResult = {
@@ -66,6 +71,9 @@ export class CommunityEngagerController implements AppController {
         await this.runDraft(ctx, engine);
         break;
       case "await_approval":
+        break;
+      case "jobs":
+        // Fanout handled by AgentRuntime; nothing for the parent controller.
         break;
       case "execute":
         await this.runExecute(ctx);
@@ -352,11 +360,10 @@ export class CommunityEngagerController implements AppController {
     ctx: AgentContext,
     engine?: ExecutionEngine
   ): Promise<void> {
-    const opportunities = (ctx.opportunities as CommunityDraft[] | undefined) ?? [];
-    const top = opportunities.find((d) => isActionable(d.score));
-    if (!top) {
-      throw new Error("No actionable opportunity to draft — scout returned none");
-    }
+    const top =
+      this.options.opportunity ??
+      (ctx.opportunity as CommunityDraft | undefined) ??
+      this.pickFromQueue(ctx);
 
     const memoryBlock = await this.options.memory.rememberForPrompt(
       `community reddit draft r/${top.subreddit} ${top.threadTitle} intensity feedback abort approve`,
@@ -404,6 +411,16 @@ export class CommunityEngagerController implements AppController {
       draft: { id: drafted.id, memoryUsed: Boolean(memoryBlock) },
     };
     console.log(`[draft] pending_approval id=${drafted.id} intensity=${drafted.intensity}`);
+  }
+
+  /** Fallback for a single-runtime run (no job queue): take the top opportunity. */
+  private pickFromQueue(ctx: AgentContext): CommunityDraft {
+    const opportunities = (ctx.opportunities as CommunityDraft[] | undefined) ?? [];
+    const top = opportunities.find((d) => isActionable(d.score));
+    if (!top) {
+      throw new Error("No actionable opportunity to draft — scout returned none");
+    }
+    return top;
   }
 
   private async runExecute(ctx: AgentContext): Promise<void> {

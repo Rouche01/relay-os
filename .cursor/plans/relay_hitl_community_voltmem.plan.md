@@ -52,10 +52,13 @@ todos:
     status: completed
   - id: p5-job-isolation
     content: "Per-opportunity jobs: one job per actionable opportunity (today only the top draft runs); own id/status/action-store record; error boundary so one failure or abort cannot kill the run; serial execution; run summary of per-job outcomes"
-    status: pending
+    status: completed
   - id: p6-subreddit-discovery
     content: "Subreddit discovery: read-only research proposes candidate subs → HITL approval → memory-backed allowlist in VoltMem (rules + outcome history); scout reads learned list with static seed as fallback; occasional exploration slot"
     status: pending
+  - id: p7-nested-manifest-fanout
+    content: "Protocol + runtime nested manifests: StageDefinition.fanout expands into N isolated child AgentRuntimes (serial); parent manifest nests job manifest; CommunityEngager migrates off app-owned queue; second app can copy fanout only"
+    status: completed
 isProject: true
 ---
 
@@ -243,7 +246,13 @@ Runtime: on start, assert every `engines_required` key exists; `resolveEngine` u
 
 **Exit criteria:** No unused stub engines for required stages; `manifest.stages[].engine` matches the code path that actually runs; second app can copy the pattern without reading CommunityEngager internals.
 
-### Phase 5 — Per-opportunity jobs + fault isolation
+### Phase 5 — Per-opportunity jobs + fault isolation ✅ shipped
+
+**Shipped shape:** manifest split into `CommunityEngagerManifest` (run: `ensure_session` → `scout`) and `CommunityJobManifest` (job: `draft` → `await_approval` → `execute` → `learn`). `CommunityEngagerApp.run()` starts the run runtime, then `runCommunityJobs` (`src/job-queue.ts`) creates one `AgentRuntime` + one controller per actionable opportunity, serially, each with its own broker attach/detach. `CommunityEngagerController` takes an `opportunity` option so a job controller drafts exactly its own thread (the `opportunities.find(isActionable)` path survives only as the single-runtime fallback).
+
+Isolation comes from the runtime already containing stage errors as `FAILED` and aborts as `ABORTED`; the queue records the outcome and moves on. Jobs outside the stage loop (factory/broker faults) are caught by the queue itself. `RunSummary` / `formatRunSummary` report per-job outcomes plus `runState`, `scouted`, `skipped`. Budget: `COMMUNITY_MAX_JOBS` (default 3), `COMMUNITY_JOB_DELAY_MS` (default 1500).
+
+E2E (`src/e2e-hitl.ts`, pinned to `SCOUT_SOURCE=fixtures`) now proves isolation directly: scenario 4 aborts job 1 while job 2 still posts; scenario 5 injects a store fault into job 1 and job 2 still posts.
 
 **Problem (observed 2026-10-03):** a run produces **at most one draft**. `runDraft` takes `opportunities.find(isActionable)` and discards the rest, so four of five scouted threads are thrown away. Worse, any stage throw (`runExecute` on a failed post, draft with no actionable opportunity) puts the whole agent in `FAILED`, and an abort unwinds the entire run.
 
@@ -297,6 +306,43 @@ discover (read-only) → score candidates → HITL approve → promote into memo
 
 **Exit criteria:** scout reads subs from memory with the static list as fallback; a newly discovered sub requires explicit human approval before any draft targets it; per-sub outcomes visibly influence later ranking.
 
+### Phase 7 — Nested manifests (`StageDefinition.fanout`) ✅ shipped
+
+**Shipped:** `FanoutDefinition` on `StageDefinition` in `@relay/protocol`. `@relay/runtime` expands a fanout stage into N serial child `AgentRuntime`s via `FanoutHost` (create controller, broker attach/detach, max/delay overrides). Results land in `stageResults[stage]` + `ctx.fanoutSummary`. Recursive fanout rejected in v1. `bindEngines` / `assertEnginesForManifest` walk nested manifests.
+
+CommunityEngager: one parent `CommunityEngagerManifest` nests `CommunityJobManifest` on the `jobs` stage; `CommunityEngagerApp` is a thin `FanoutHost` and `run()` is just `runtime.start()`. App-local `job-queue.ts` is now summary formatting only.
+
+**Thesis:** Phase 5 proved the pattern in CommunityEngager (`job-queue.ts`). A second app (newsletter batch, living-todo cards, …) will need the same “scout once → N isolated HITL jobs”. Lift that into the protocol so nesting is declarative.
+
+**Shape (product sense nested, engine sense siblings):**
+
+```text
+ParentManifest
+  stage A → stage B → stage jobs { fanout: { manifest: ChildManifest, from: "items" } }
+                              ↓
+                    child AgentRuntime × N (flat ChildManifest each)
+```
+
+Each child is its own `AgentRuntime` with a flat stage list. No recursive fanout in v1. Serial only.
+
+**Do**
+
+| Change | Detail |
+|--------|--------|
+| Protocol | `FanoutDefinition` on `StageDefinition.fanout` (`manifest`, `from`, `itemKey?`, `max?`, `mode: "serial"`, `delay_ms?`) |
+| Runtime | On a fanout stage: read `ctx[from]`, spawn children, contain errors, write `FanoutSummary` to `stageResults` |
+| Host hooks | `FanoutHost` — create child controller, attach/detach broker, optional max/delay overrides |
+| CommunityEngager | One parent manifest nests `CommunityJobManifest`; `app.run()` is just `runtime.start()` |
+| Engines | `assertEnginesForManifest` walks nested fanout manifests |
+
+**Don't**
+
+- Parallel fanout (shared cookie jar / rate limits)
+- Recursive nesting
+- Merging parent+child into one linear stage list (loses isolation)
+
+**Exit criteria:** CommunityEngager has a single parent manifest with an inline nested job manifest; E2E isolation scenarios still pass; a second app can copy fanout without importing `job-queue.ts`.
+
 ## Suggested package / app layout
 
 ```text
@@ -328,11 +374,12 @@ relay-os/
 4. ~~VoltMem + Reddit~~
 5. ~~Deploy (ThinkPad)~~ → **measure** (open)
 6. ~~Manifest-driven engines (Phase 4a)~~ + ~~reddit browser 4b ensure_session~~
-7. **Per-opportunity jobs + fault isolation (Phase 5)** ← next
-8. Interstitial detect + escalate (reddit browser Phase 4c)
-9. Subreddit discovery + memory allowlist (Phase 6)
-10. ThinkPad deploy slice + smoke (reddit browser plan)
-11. Product slice / ownership / measure
+7. ~~Per-opportunity jobs + fault isolation (Phase 5)~~
+8. ~~Nested manifests / fanout (Phase 7)~~
+9. **Interstitial detect + escalate (reddit browser Phase 4c)** ← next
+10. Subreddit discovery + memory allowlist (Phase 6)
+11. ThinkPad deploy slice + smoke (reddit browser plan)
+12. Product slice / ownership / measure
 
 Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md).
 
@@ -345,7 +392,7 @@ Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.p
 | VoltMem profile mismatch | Fail-open; free-text facts; tune domains later |
 | Duplicate bots in stylens-ops + Relay | Single Telegram adapter in Relay |
 | Mixing shell scope into this plan | Living todo tracked only in shell plan |
-| One bad thread kills the run | Per-opportunity jobs + error boundaries (Phase 5) |
+| One bad thread kills the run | Per-opportunity jobs + nested fanout (Phases 5–7) |
 | Agent posts into an unvetted sub | Discovery proposes; allowlist stays a human-gated write boundary (Phase 6) |
 
 ## Success criteria (this plan)

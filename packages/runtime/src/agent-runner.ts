@@ -16,6 +16,14 @@ import {
 } from "@relay/protocol";
 import { AppController } from "./types";
 import { assertEnginesForManifest } from "./bind-engines";
+import {
+  fanoutSleep,
+  itemIdOf,
+  resolveFanoutOutcome,
+  summarizeFanout,
+  type FanoutChildResult,
+  type FanoutHost,
+} from "./fanout";
 
 /** Thrown internally to unwind the stage loop on human abort. */
 class AgentAbortError extends Error {
@@ -44,7 +52,9 @@ export class AgentRuntime extends EventEmitter {
     private manifest: AgenticAppManifest,
     private engines: Record<string, ExecutionEngine>,
     initialContext: AgentContext,
-    private controller?: AppController
+    private controller?: AppController,
+    /** Required when the manifest has a `fanout` stage. Not passed to children (no recursive fanout). */
+    private fanoutHost?: FanoutHost
   ) {
     super();
     assertEnginesForManifest(manifest, engines);
@@ -60,6 +70,10 @@ export class AgentRuntime extends EventEmitter {
 
   public getContext(): AgentContext {
     return this.context;
+  }
+
+  public getManifest(): AgenticAppManifest {
+    return this.manifest;
   }
 
   /** Read a value previously stored for a stage (e.g. approved draft). */
@@ -163,6 +177,11 @@ export class AgentRuntime extends EventEmitter {
       await this.controller.onStageStart(stage, engine);
     }
 
+    if (stage.fanout) {
+      await this.executeFanout(stage);
+      return;
+    }
+
     if (!stage.feedback_points?.length) {
       return;
     }
@@ -170,6 +189,152 @@ export class AgentRuntime extends EventEmitter {
     for (const fp of stage.feedback_points) {
       await this.handleFeedbackPoint(stage, fp, engine);
     }
+  }
+
+  /**
+   * Expand `stage.fanout` into N isolated child AgentRuntimes (serial).
+   * Child abort/fail is recorded; the parent continues.
+   */
+  private async executeFanout(stage: StageDefinition): Promise<void> {
+    const fanout = stage.fanout!;
+    if (!this.fanoutHost) {
+      throw new Error(
+        `Stage "${stage.name}" declares fanout but AgentRuntime was constructed without a FanoutHost`
+      );
+    }
+    if (fanout.mode && fanout.mode !== "serial") {
+      throw new Error(
+        `Stage "${stage.name}" fanout mode "${fanout.mode}" is not supported (v1: serial only)`
+      );
+    }
+
+    const raw = this.context[fanout.from];
+    if (raw !== undefined && !Array.isArray(raw)) {
+      throw new Error(
+        `Fanout stage "${stage.name}": context.${fanout.from} must be an array`
+      );
+    }
+    const items = (raw as unknown[] | undefined) ?? [];
+
+    const overrides = this.fanoutHost.resolveFanoutConfig?.(stage) ?? {};
+    const max = overrides.max ?? fanout.max ?? items.length;
+    const delayMs = overrides.delayMs ?? fanout.delay_ms ?? 0;
+    const queue = items.slice(0, Math.max(0, max));
+    const itemKey = fanout.itemKey ?? "item";
+    const children: FanoutChildResult[] = [];
+
+    for (let i = 0; i < queue.length; i++) {
+      const item = queue[i]!;
+      const label =
+        this.fanoutHost.describeItem?.(item, i) ??
+        itemIdOf(item) ??
+        `#${i + 1}`;
+      console.log(
+        `\n=== Fanout ${stage.name} ${i + 1}/${queue.length} · ${label} ===`
+      );
+
+      children.push(
+        await this.runFanoutChild(stage, item, i, itemKey, label)
+      );
+
+      if (i < queue.length - 1 && delayMs > 0) {
+        await fanoutSleep(delayMs);
+      }
+    }
+
+    const summary = summarizeFanout(stage.name, items.length, children);
+    this.setStageResult(stage.name, summary);
+    this.context.fanoutSummary = summary;
+    console.log(
+      `[fanout] ${stage.name} complete=${summary.complete} aborted=${summary.aborted} failed=${summary.failed} skipped=${summary.skipped}`
+    );
+  }
+
+  private async runFanoutChild(
+    stage: StageDefinition,
+    item: unknown,
+    index: number,
+    itemKey: string,
+    label: string
+  ): Promise<FanoutChildResult> {
+    const fanout = stage.fanout!;
+    const base = {
+      index,
+      itemId: itemIdOf(item),
+    };
+
+    let child: AgentRuntime | undefined;
+    let runtimeError: string | undefined;
+
+    try {
+      const ref: { runtime?: AgentRuntime } = {};
+      const childController = await this.fanoutHost!.createChildController(
+        stage,
+        item,
+        index,
+        () => {
+          if (!ref.runtime) {
+            throw new Error("fanout child runtime accessed before initialisation");
+          }
+          return ref.runtime.getContext();
+        }
+      );
+
+      child = new AgentRuntime(
+        fanout.manifest,
+        this.engines,
+        {
+          agentId: `${this.context.agentId}-${stage.name}-${index + 1}`,
+          userId: this.context.userId,
+          sessionId: this.context.sessionId,
+          [itemKey]: item,
+        },
+        childController
+        // no fanoutHost — children cannot nest further in v1
+      );
+      ref.runtime = child;
+
+      child.on(AgentRuntimeEvent.ERROR, (err: unknown) => {
+        runtimeError = err instanceof Error ? err.message : String(err);
+      });
+
+      await this.fanoutHost!.onChildStart?.(child, item, index);
+      await child.start();
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      console.warn(`[fanout] ${label} failed outside the stage loop: ${error}`);
+      return { ...base, state: "FAILED", outcome: "failed", error };
+    } finally {
+      if (child) await this.fanoutHost!.onChildEnd?.(child, item, index);
+    }
+
+    const ctx = child.getContext();
+    const state = child.getState();
+    const outcome = resolveFanoutOutcome(state, ctx.hitlOutcome);
+    let execError: string | undefined;
+    if (
+      outcome === "failed" &&
+      typeof ctx.executeResult === "object" &&
+      ctx.executeResult &&
+      "error" in ctx.executeResult
+    ) {
+      const e = (ctx.executeResult as { error?: unknown }).error;
+      if (e != null) execError = String(e);
+    }
+
+    const result: FanoutChildResult = {
+      ...base,
+      state,
+      outcome,
+      hitlOutcome: ctx.hitlOutcome,
+      executeResult: ctx.executeResult,
+      error: outcome === "failed" ? runtimeError ?? execError : undefined,
+    };
+
+    console.log(
+      `[fanout] ${label} → ${outcome}${result.error ? ` (${result.error})` : ""}`
+    );
+    return result;
   }
 
   private async handleFeedbackPoint(
@@ -337,3 +502,5 @@ export class AgentRuntime extends EventEmitter {
     this.emit(AgentRuntimeEvent.STATE_CHANGED, { state: newState });
   }
 }
+
+export type { FanoutHost, FanoutChildResult };

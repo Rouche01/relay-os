@@ -2,6 +2,7 @@ import type {
   AgenticAppManifest,
   EngineType,
   ExecutionEngine,
+  StageDefinition,
 } from "@relay/protocol";
 
 export type BoundEngineType = Exclude<EngineType, "none">;
@@ -13,6 +14,8 @@ export type EngineProviders = Partial<Record<BoundEngineType, EngineProvider>>;
 
 /**
  * Resolve manifest `engines_required` (+ optional) against host providers.
+ * Also walks nested `stage.fanout.manifest` engines so a parent that nests
+ * a child must bind engines for both.
  * Throws if a required engine is missing or a stage references an unbound engine.
  */
 export function bindEngines(
@@ -20,21 +23,21 @@ export function bindEngines(
   providers: EngineProviders
 ): Record<string, ExecutionEngine> {
   const engines: Record<string, ExecutionEngine> = {};
+  const required = collectEngineTypes(manifest, "required");
+  const optional = collectEngineTypes(manifest, "optional");
 
-  for (const type of manifest.engines_required) {
-    if (type === "none") continue;
+  for (const type of required) {
     const provider = providers[type];
     if (!provider) {
       throw new Error(
         `Manifest "${manifest.name}" requires engine "${type}" but no provider was bound`
       );
     }
-    const engine = resolveProvider(provider, type);
-    engines[type] = engine;
+    engines[type] = resolveProvider(provider, type);
   }
 
-  for (const type of manifest.engines_optional ?? []) {
-    if (type === "none" || engines[type]) continue;
+  for (const type of optional) {
+    if (engines[type]) continue;
     const provider = providers[type];
     if (!provider) continue;
     engines[type] = resolveProvider(provider, type);
@@ -49,8 +52,7 @@ export function assertEnginesForManifest(
   manifest: AgenticAppManifest,
   engines: Record<string, ExecutionEngine>
 ): void {
-  for (const type of manifest.engines_required) {
-    if (type === "none") continue;
+  for (const type of collectEngineTypes(manifest, "required")) {
     if (!engines[type]) {
       throw new Error(
         `Manifest "${manifest.name}" requires engine "${type}" but it is missing from the engines map`
@@ -78,16 +80,60 @@ function resolveProvider(
   return engine;
 }
 
+/** Walk parent + nested fanout manifests for engines_required / optional. */
+function collectEngineTypes(
+  manifest: AgenticAppManifest,
+  kind: "required" | "optional"
+): BoundEngineType[] {
+  const seen = new Set<BoundEngineType>();
+  const walk = (m: AgenticAppManifest) => {
+    const list =
+      kind === "required" ? m.engines_required : (m.engines_optional ?? []);
+    for (const type of list) {
+      if (type !== "none") seen.add(type);
+    }
+    for (const stage of m.stages) {
+      if (stage.fanout?.manifest) {
+        walk(stage.fanout.manifest);
+      }
+    }
+  };
+  walk(manifest);
+  return [...seen];
+}
+
 function assertStagesBound(
   manifest: AgenticAppManifest,
-  engines: Record<string, ExecutionEngine>
+  engines: Record<string, ExecutionEngine>,
+  seen: Set<string> = new Set()
 ): void {
+  // Guard against accidental cyclic nesting.
+  if (seen.has(manifest.name)) return;
+  seen.add(manifest.name);
+
   for (const stage of manifest.stages) {
-    if (stage.engine === "none") continue;
-    if (!engines[stage.engine]) {
-      throw new Error(
-        `Stage "${stage.name}" requires engine "${stage.engine}" which was not bound`
-      );
+    assertStageEngine(stage, engines, manifest.name);
+    if (stage.fanout?.manifest) {
+      if (stage.fanout.manifest.stages.some((s) => s.fanout)) {
+        throw new Error(
+          `Nested manifest "${stage.fanout.manifest.name}" declares fanout — recursive fanout is not supported in v1`
+        );
+      }
+      assertEnginesForManifest(stage.fanout.manifest, engines);
+      assertStagesBound(stage.fanout.manifest, engines, seen);
     }
+  }
+}
+
+function assertStageEngine(
+  stage: StageDefinition,
+  engines: Record<string, ExecutionEngine>,
+  manifestName: string
+): void {
+  if (stage.engine === "none") return;
+  if (!engines[stage.engine]) {
+    throw new Error(
+      `Stage "${stage.name}" (manifest "${manifestName}") requires engine "${stage.engine}" which was not bound`
+    );
   }
 }
