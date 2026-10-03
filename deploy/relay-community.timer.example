@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Relay CommunityEngager once each morning
+Documentation=file:///opt/relay-community/app/deploy/README.md
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+Persistent=true
+Unit=relay-community.service
+
+[Install]
+WantedBy=timers.target

@@ -1,6 +1,6 @@
 ---
 name: Relay ThinkPad community deploy
-overview: "Dogfood deploy of CommunityEngager + Telegram HITL on the ThinkPad is LIVE — /opt/voltmem + /opt/relay-community, systemd/timer, sibling VoltMem. Next handoff: HITL p3-measure."
+overview: "Dogfood deploy of CommunityEngager + Telegram HITL on the ThinkPad is LIVE — /opt/voltmem + /opt/relay-community, systemd/timer, sibling VoltMem. Browser slice (engines-browser + Chromium + cookie dir + HITL re-auth) documented in deploy/. Next handoff: HITL p3-measure / Phase 6 discovery."
 todos:
   - id: decide-layout
     content: Lock two roots — /opt/voltmem (shared infra) + /opt/relay-community (this app); system vs user systemd
@@ -42,7 +42,9 @@ isProject: true
 
 Canonical plan for **dogfood deployment** of CommunityEngager HITL on a Linux ThinkPad (or any always-on box).
 
-**Status (2026-10-01): LIVE on host.** Layout, VoltMem sibling, env, Telegram smoke, and systemd/timer are in place. This doc remains the runbook + reference; active product work continues on HITL `p3-measure` and the living-todo shell.
+**Status (2026-10-01): LIVE on host.** Layout, VoltMem sibling, env, Telegram smoke, and systemd/timer are in place.
+
+**Browser slice (2026-10-03):** `deploy/` in-repo now requires `@relay/engines-browser` + Chromium, cookie jar under `/opt/relay-community/data/cookies/reddit`, and re-auth via HITL (`ensure_session` / interstitial Approve) — not env-password-only. See [`deploy/README.md`](../../deploy/README.md) and [`deploy/SMOKE.md`](../../deploy/SMOKE.md).
 
 **Runtime / product plans stay separate:**
 
@@ -99,7 +101,9 @@ This plan covers: Relay community host layout, **VoltMem as a sibling program**,
 ├── env/
 │   └── community.env                 # Telegram, Reddit, VOLTMEM_URL/KEY (client)
 ├── data/
-│   └── action-store/                 # FileJson — Relay state only
+│   ├── action-store/                 # FileJson — Relay state only
+│   ├── jobs/                         # idempotent execute records
+│   └── cookies/reddit/               # Playwright storageState (HITL re-auth)
 ├── deploy/                           # copies of relay units (or symlink to repo)
 └── logs/
 ```
@@ -113,9 +117,12 @@ CommunityEngager needs:
 
 - `apps/community-engager`
 - `packages/protocol`, `runtime`, `action-store`, `feedback-broker`, `adapters-telegram`, `context-engine`
+- `packages/engines-browser` (**required** — Playwright scout / login / comment)
 - npm `@voltmem/client` (HTTP client only — does **not** embed the Python engine)
 
-**Not required:** `newsletter-migrator`, `engines-browser`, living-todo UI, most docs.
+**Not required:** `newsletter-migrator`, living-todo UI, most docs.
+
+**Host extras for browser path:** Chromium via `playwright install chromium` (+ `install-deps` on Linux); writable `data/cookies/reddit` + `data/jobs`.
 
 **v1:** full `relay-os` clone under `app/` is fine.
 
@@ -171,7 +178,7 @@ flowchart TB
 
 ```bash
 sudo mkdir -p /opt/voltmem/{env,data,deploy,logs}
-sudo mkdir -p /opt/relay-community/{app,env,data/action-store,deploy,logs}
+sudo mkdir -p /opt/relay-community/{app,env,data/action-store,data/jobs,data/cookies/reddit,deploy,logs}
 sudo chown -R "$USER:$USER" /opt/voltmem /opt/relay-community
 ```
 

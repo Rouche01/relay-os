@@ -116,3 +116,38 @@ export function listingUrl(subreddit: string, sort: "new" | "hot" = "new"): stri
 
 /** Wait target for feed hydration (custom element, not CSS class soup). */
 export const LISTING_READY_SELECTOR = "shreddit-post";
+
+/**
+ * Full OP body from a post permalink page (www.reddit).
+ * Runs in the browser via page.evaluate — must stay self-contained.
+ */
+export function extractPostBodyFromDocument(): {
+  id: string;
+  title: string;
+  selftext: string;
+} {
+  const el = document.querySelector("shreddit-post");
+  const name = el?.getAttribute("id") || "";
+  const id = name.replace(/^t3_/, "");
+  const title = (el?.getAttribute("post-title") || document.title || "").trim();
+
+  let selftext = "";
+  const slots = [
+    '[slot="text-body"]',
+    '[property="schema:articleBody"]',
+    'div[data-click-id="text"]',
+    ".RichTextJSON-root",
+  ];
+  for (const sel of slots) {
+    const node = document.querySelector(sel);
+    const t = node?.textContent?.trim() ?? "";
+    if (t.length > selftext.length) selftext = t;
+  }
+  if (!selftext && el) {
+    const t = el.textContent?.trim() ?? "";
+    // Avoid dumping the entire thread chrome; keep a bounded excerpt.
+    if (t.length > 80) selftext = t.slice(0, 4000);
+  }
+
+  return { id, title, selftext };
+}

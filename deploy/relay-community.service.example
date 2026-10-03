@@ -1,0 +1,29 @@
+[Unit]
+Description=Relay CommunityEngager (one-shot scout → Telegram HITL → dry-run/execute)
+Documentation=file:///opt/relay-community/app/deploy/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=CHANGE_ME
+Group=CHANGE_ME
+WorkingDirectory=/opt/relay-community/app/apps/community-engager
+EnvironmentFile=/opt/relay-community/env/community.env
+# systemd does not inherit nvm — use `which node` absolute path:
+ExecStart=/usr/bin/node /opt/relay-community/app/apps/community-engager/dist/run-dev.js
+Nice=10
+TimeoutStartSec=45min
+# Playwright / Chromium may need a writable cache under the service user home
+Environment=HOME=/home/CHANGE_ME
+Environment=XDG_CACHE_HOME=/opt/relay-community/data/.cache
+
+# Hardening (keep cookies + data writable)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/relay-community/data /opt/relay-community/logs /opt/relay-community/env
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

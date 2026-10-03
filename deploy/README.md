@@ -1,0 +1,180 @@
+# Relay Community — ThinkPad deploy
+
+Dogfood layout for **CommunityEngager** + Telegram HITL on an always-on Linux box (ThinkPad).
+
+Sibling plans:
+
+- Host history / VoltMem layout: [`.cursor/plans/relay_thinkpad_deploy.plan.md`](../.cursor/plans/relay_thinkpad_deploy.plan.md)
+- Browser transport + cookies: [`.cursor/plans/relay_reddit_browser.plan.md`](../.cursor/plans/relay_reddit_browser.plan.md)
+- Smoke checklist: [`SMOKE.md`](./SMOKE.md)
+
+## Layout
+
+```text
+/opt/voltmem/                         # SHARED sidecar (own program)
+├── env/sidecar.env
+├── data/
+└── deploy/docker-compose.yml
+
+/opt/relay-community/                 # THIS APP ONLY
+├── app/                              # relay-os clone
+├── env/community.env                 # secrets (chmod 600)
+├── data/
+│   ├── action-store/                 # FileJson actions (optional override)
+│   ├── jobs/                         # idempotent execute records
+│   └── cookies/reddit/               # Playwright storageState jars
+├── deploy/                           # copies of units from this folder
+└── logs/
+```
+
+## Workspace slice (required packages)
+
+CommunityEngager needs:
+
+| Path | Why |
+|------|-----|
+| `apps/community-engager` | App |
+| `packages/protocol` | Manifest / feedback |
+| `packages/runtime` | AgentRuntime + fanout |
+| `packages/action-store` | Draft lifecycle |
+| `packages/feedback-broker` | HITL broker |
+| `packages/adapters-telegram` | Telegram Approve/Abort |
+| `packages/context-engine` | VoltMem client |
+| `packages/engines-browser` | **Required** — Playwright scout / login / comment |
+
+Optional: `packages/llm-controller` (login/comment semantic helpers).
+
+**Not required:** `newsletter-migrator`, living-todo UI.
+
+Full clone under `/opt/relay-community/app` is fine for v1.
+
+## One-time host setup
+
+### 1. Trees
+
+```bash
+sudo mkdir -p /opt/voltmem/{env,data,deploy,logs}
+sudo mkdir -p /opt/relay-community/{app,env,data/action-store,data/jobs,data/cookies/reddit,deploy,logs}
+sudo chown -R "$USER:$USER" /opt/voltmem /opt/relay-community
+chmod 700 /opt/relay-community/env /opt/relay-community/data/cookies
+```
+
+### 2. Sync + build
+
+```bash
+git clone <relay-os-url> /opt/relay-community/app
+cd /opt/relay-community/app
+pnpm install
+pnpm --filter @relay/apps-community-engager... build
+```
+
+### 3. Chromium (Playwright)
+
+Browser scout/login/execute need a Chromium binary **and** OS libs:
+
+```bash
+cd /opt/relay-community/app
+pnpm --filter @relay/engines-browser exec playwright install chromium
+pnpm --filter @relay/engines-browser exec playwright install-deps chromium
+# or: sudo npx playwright install-deps chromium
+```
+
+Headless timer runs use `REDDIT_BROWSER_HEADLESS=true` (default). First cookie jar / CAPTCHA pass needs a human (see re-auth below).
+
+### 4. Env
+
+```bash
+cp /opt/relay-community/app/deploy/community.env.example /opt/relay-community/env/community.env
+chmod 600 /opt/relay-community/env/community.env
+# edit: Telegram, VoltMem, Reddit paths, DRY_RUN=true
+```
+
+ThinkPad paths that matter:
+
+```bash
+REDDIT_DATA_DIR=/opt/relay-community/data
+REDDIT_COOKIE_DIR=/opt/relay-community/data/cookies/reddit
+FEEDBACK_ADAPTER=telegram
+REDDIT_DRY_RUN=true
+SCOUT_SOURCE=auto
+REDDIT_TRANSPORT=auto
+REDDIT_BROWSER_HEADLESS=true
+# Unattended timers: leave interstitial HITL off (default when headless)
+# Prep jar interactively once — see "Re-auth" below
+```
+
+### 5. Manual smoke (before systemd)
+
+```bash
+cd /opt/relay-community/app/apps/community-engager
+set -a && source /opt/relay-community/env/community.env && set +a
+node dist/run-dev.js
+```
+
+Expect Telegram HITL for drafts; dry-run execute logs only. See [`SMOKE.md`](./SMOKE.md).
+
+### 6. systemd units
+
+`run-dev.js` is a **one-shot** (scout → jobs → exit), not a daemon.
+
+```bash
+cd /opt/relay-community/app/deploy
+cp relay-community.service.example relay-community.service
+cp relay-community.timer.example relay-community.timer
+
+which node   # systemd cannot see nvm — paste absolute path into ExecStart
+whoami
+```
+
+Edit `relay-community.service`: set `User=` / `Group=` and absolute `node` in `ExecStart=`.
+
+```bash
+sudo cp relay-community.service /etc/systemd/system/
+sudo cp relay-community.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start relay-community.service
+journalctl -u relay-community.service -n 80 --no-pager
+```
+
+Optional schedule (default 07:00 local):
+
+```bash
+sudo systemctl enable --now relay-community.timer
+systemctl list-timers | grep relay
+```
+
+## Re-auth when the cookie jar expires
+
+Do **not** rely on `REDDIT_PASSWORD` in env for day-to-day (optional bootstrap only). Prefer HITL:
+
+1. **Missing jar / live write needs session** — run once with Telegram:
+   ```bash
+   # in community.env for this one-shot:
+   REDDIT_ENSURE_SESSION=true
+   FEEDBACK_ADAPTER=telegram
+   # optional visible browser on the box (needs display / x11):
+   # REDDIT_LOGIN_HEADED=true
+   ```
+   Or: `pnpm --filter @relay/apps-community-engager login:reddit` with env loaded.
+
+2. **“Prove your humanity” on scout** — interactive pass:
+   ```bash
+   REDDIT_INTERSTITIAL_HITL=true
+   # headed window on the host + Telegram Approve after you solve
+   ```
+   Approve saves `storageState` under `REDDIT_COOKIE_DIR`. Timers stay headless and reuse the jar; they must **not** set `REDDIT_INTERSTITIAL_HITL` (unattended = fail open, no hang).
+
+3. Jar files: `{account}.storage.json` under `/opt/relay-community/data/cookies/reddit/` — keep permissions tight (`chmod 700` on the directory).
+
+## Host power
+
+If Telegram long-poll or morning timers must fire, disable suspend / lid-close sleep at the **machine** level (shared server policy — not app config).
+
+## Safety
+
+| Rule | Value |
+|------|--------|
+| Dry-run default | `REDDIT_DRY_RUN=true` until you intentionally flip |
+| Nothing posts without Approve | Abort skips execute |
+| CAPTCHAs | Never auto-solved; human in headed browser only |
+| Secrets | Only in `/opt/relay-community/env/community.env` (mode 600) |

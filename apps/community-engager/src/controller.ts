@@ -426,15 +426,26 @@ export class CommunityEngagerController implements AppController {
     const cfg = getRedditEnv();
     if (blocked.length === 0) return;
 
+    // Rate-limit pages need cool-down, not a CAPTCHA solve in a headed window.
+    const captchaBlocked = blocked.filter((b) => b.reason !== "rate_limit");
+    const rateLimited = blocked.filter((b) => b.reason === "rate_limit");
+    if (rateLimited.length > 0) {
+      console.warn(
+        `[scout] rate-limited on ${rateLimited.map((b) => `r/${b.subreddit}`).join(", ")} — ` +
+          `wait several minutes; raise REDDIT_SCOUT_DELAY_MS / lower REDDIT_SCOUT_MAX_SUBS`
+      );
+    }
+    if (captchaBlocked.length === 0) return;
+
     if (!cfg.interstitialHitl) {
       console.warn(
-        `[scout] ${blocked.length} sub(s) blocked by interstitial — unattended mode ` +
+        `[scout] ${captchaBlocked.length} sub(s) blocked by interstitial — unattended mode ` +
           `(set REDDIT_INTERSTITIAL_HITL=true or run headed to escalate via Telegram/CLI)`
       );
       return;
     }
 
-    const first = blocked[0]!;
+    const first = captchaBlocked[0]!;
     console.log(
       `[scout] escalating interstitial for r/${first.subreddit} — opening headed browser`
     );
@@ -476,12 +487,12 @@ export class CommunityEngagerController implements AppController {
       storagePath,
       url: first.url,
       subreddit: first.subreddit,
-      blockedSubs: blocked.map((b) => b.subreddit),
+      blockedSubs: captchaBlocked.map((b) => b.subreddit),
     });
     ctx.interstitialChallenge = {
       url: first.url,
       subreddit: first.subreddit,
-      blockedSubs: blocked.map((b) => b.subreddit),
+      blockedSubs: captchaBlocked.map((b) => b.subreddit),
       storagePath: storageStatePath(cfg),
     };
   }

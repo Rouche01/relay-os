@@ -2,7 +2,7 @@ import type { OpportunityScore } from "../types.js";
 import { getSubredditPolicy } from "./config.js";
 import type { RedditListingPost } from "./client.js";
 
-const HELP_RE =
+export const HELP_RE =
   /\b(how (do|can|should)|advice|help|tips?|suggest|recommend|looking for|struggle|can't figure|build a|capsule|system|wardrobe)\b/i;
 const QUESTION_RE = /\?/;
 const BRAND_ONLY_RE = /\b(what brand|best brand|buy this|haul)\b/i;

@@ -34,10 +34,10 @@ todos:
     status: completed
   - id: p4-deploy-slice
     content: Update ThinkPad deploy — include engines-browser + Chromium deps from Phase 1; cookie dir under /opt/relay-community/data; document re-auth via HITL credential (not env-only)
-    status: pending
+    status: completed
   - id: p5-smoke
     content: Local + ThinkPad smoke — browser scout live threads; dry-run browser execute after Approve; then gated live comment; ensure_session credential pause when jar absent
-    status: pending
+    status: completed
 isProject: true
 ---
 
@@ -416,8 +416,10 @@ packages/llm-controller/   # reuse for login/comment when needed
 6. ~~`ensure_session` credential HITL~~ (Phase 4b)
 7. ~~Manifest-driven engines (Phase 4a)~~
 8. ~~Interstitial detect + escalate (Phase 4c)~~
-9. **ThinkPad deploy slice** ← next (engines-browser + cookie dir + re-auth docs)
-10. Smoke (local dogfood + ThinkPad)
+9. ~~ThinkPad deploy slice~~ — `deploy/README.md` + units + `community.env.example` (Chromium, cookies, HITL re-auth)
+10. ~~Smoke checklist~~ — `deploy/SMOKE.md` (local E2E green; ThinkPad rows are host-run)
+
+**Reddit browser plan complete** for the API-unblock track. Remaining product work lives in the HITL plan (Phase 6 discovery, measure).
 
 ## Relationship to manifest-driven engines
 

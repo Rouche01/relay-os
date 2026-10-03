@@ -6,9 +6,9 @@ First Relay dogfood app: scout allowlisted Reddit fashion/styling threads, draft
 
 Related plans:
 
-- [HITL + CommunityEngager + VoltMem](../../.cursor/plans/relay_hitl_community_voltmem.plan.md) — Phase 5 per-opportunity jobs, Phase 6 subreddit discovery
-- [Reddit browser / scrape transport](../../.cursor/plans/relay_reddit_browser.plan.md) — Phase 4b `ensure_session`, Phase 4c anti-bot interstitial
-- [ThinkPad deploy](../../.cursor/plans/relay_thinkpad_deploy.plan.md)
+- [HITL + CommunityEngager + VoltMem](../../.cursor/plans/relay_hitl_community_voltmem.plan.md) — nested fanout jobs; next Phase 6 discovery
+- [Reddit browser / scrape transport](../../.cursor/plans/relay_reddit_browser.plan.md) — browser scout, ensure_session, interstitial HITL
+- [ThinkPad deploy](../../.cursor/plans/relay_thinkpad_deploy.plan.md) · runbook [`deploy/README.md`](../../deploy/README.md) · [`deploy/SMOKE.md`](../../deploy/SMOKE.md)
 
 ## Workflow
 

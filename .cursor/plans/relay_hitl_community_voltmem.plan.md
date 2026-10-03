@@ -377,8 +377,8 @@ relay-os/
 7. ~~Per-opportunity jobs + fault isolation (Phase 5)~~
 8. ~~Nested manifests / fanout (Phase 7)~~
 9. ~~Interstitial detect + escalate (reddit browser Phase 4c)~~
-10. **ThinkPad deploy slice + local/ThinkPad smoke** ← next
-11. Subreddit discovery + memory allowlist (Phase 6)
+10. ~~ThinkPad deploy slice + smoke docs~~ (`deploy/`)
+11. **Subreddit discovery + memory allowlist (Phase 6)** ← next
 12. Product slice / ownership / measure
 
 Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md).

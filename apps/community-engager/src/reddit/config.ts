@@ -81,8 +81,16 @@ export interface RedditEnvConfig {
   lpBaseUrl: string;
   /** Playwright headless (default true). */
   browserHeadless: boolean;
-  /** Delay between allowlisted subs during browser scout (ms). */
+  /** Base delay between allowlisted subs during browser scout (ms). */
   scoutDelayMs: number;
+  /** Random extra delay 0…jitter added to scoutDelayMs (human pacing). */
+  scoutDelayJitterMs: number;
+  /** Cap how many allowlisted subs to visit this run (default all). */
+  scoutMaxSubs: number;
+  /** Scroll rounds on each /new feed to load more posts (human browse depth). */
+  scoutScrollRounds: number;
+  /** Max thread deep-reads per sub (open permalink for full OP body). */
+  scoutDeepReadMax: number;
   /** Max time per sub during browser scout (ms). Default 12s. */
   scoutSubBudgetMs: number;
   /**
@@ -178,13 +186,31 @@ export function getRedditEnv(
   const scoutSource = parseScoutSource(env.SCOUT_SOURCE ?? "auto");
   const transport = parseTransport(env.REDDIT_TRANSPORT ?? "auto");
 
-  const delayRaw = Number(env.REDDIT_SCOUT_DELAY_MS ?? "1500");
+  // Default 8s base — 1.5s across 4 subs looks automated and trips IP walls.
+  const delayRaw = Number(env.REDDIT_SCOUT_DELAY_MS ?? "8000");
   const scoutDelayMs =
-    Number.isFinite(delayRaw) && delayRaw >= 0 ? delayRaw : 1500;
+    Number.isFinite(delayRaw) && delayRaw >= 0 ? delayRaw : 8000;
 
-  const budgetRaw = Number(env.REDDIT_SCOUT_SUB_BUDGET_MS ?? "12000");
+  const jitterRaw = Number(env.REDDIT_SCOUT_DELAY_JITTER_MS ?? "4000");
+  const scoutDelayJitterMs =
+    Number.isFinite(jitterRaw) && jitterRaw >= 0 ? jitterRaw : 4000;
+
+  const maxSubsRaw = Number(env.REDDIT_SCOUT_MAX_SUBS ?? "0");
+  const scoutMaxSubs =
+    Number.isFinite(maxSubsRaw) && maxSubsRaw > 0 ? Math.floor(maxSubsRaw) : 0;
+
+  const scrollRaw = Number(env.REDDIT_SCOUT_SCROLL_ROUNDS ?? "4");
+  const scoutScrollRounds =
+    Number.isFinite(scrollRaw) && scrollRaw >= 0 ? Math.floor(scrollRaw) : 4;
+
+  const deepRaw = Number(env.REDDIT_SCOUT_DEEP_READ_MAX ?? "5");
+  const scoutDeepReadMax =
+    Number.isFinite(deepRaw) && deepRaw >= 0 ? Math.floor(deepRaw) : 5;
+
+  // Deeper browse needs more wall-clock per sub (scroll + deep-reads).
+  const budgetRaw = Number(env.REDDIT_SCOUT_SUB_BUDGET_MS ?? "45000");
   const scoutSubBudgetMs =
-    Number.isFinite(budgetRaw) && budgetRaw >= 3000 ? budgetRaw : 12_000;
+    Number.isFinite(budgetRaw) && budgetRaw >= 3000 ? budgetRaw : 45_000;
 
   const browserHeadless =
     env.REDDIT_BROWSER_HEADLESS !== "false" &&
@@ -222,6 +248,10 @@ export function getRedditEnv(
     lpBaseUrl: env.GOSTYLENS_LP_BASE_URL ?? "https://gostylens.app",
     browserHeadless,
     scoutDelayMs,
+    scoutDelayJitterMs,
+    scoutMaxSubs,
+    scoutScrollRounds,
+    scoutDeepReadMax,
     scoutSubBudgetMs,
     interstitialHitl,
     dataDir,

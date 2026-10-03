@@ -3,6 +3,7 @@ import type { Page } from "playwright";
 export type InterstitialReason =
   | "humanity_wall"
   | "captcha_widget"
+  | "rate_limit"
   | "unknown";
 
 export interface InterstitialDetection {
@@ -20,10 +21,17 @@ const HUMANITY_PHRASES = [
   "please complete a security check",
 ];
 
+const RATE_LIMIT_PHRASES = [
+  "whoa there, pardner",
+  "too many requests",
+  "far too many requests",
+  "from your ip address recently",
+];
+
 /**
- * Classify a Reddit page as an anti-bot interstitial.
+ * Classify a Reddit page as an anti-bot interstitial or IP rate limit.
  * Fast (~page.evaluate once) — call right after goto, before waitForSelector.
- * Never attempts to solve the challenge.
+ * Never attempts to solve challenges.
  */
 export async function detectInterstitial(
   page: Page
@@ -45,6 +53,14 @@ export async function detectInterstitial(
     });
 
     const blob = `${info.title}\n${info.bodyText}`.toLowerCase();
+
+    if (RATE_LIMIT_PHRASES.some((p) => blob.includes(p))) {
+      return {
+        challenged: true,
+        reason: "rate_limit",
+        title: info.title,
+      };
+    }
     if (HUMANITY_PHRASES.some((p) => blob.includes(p))) {
       return {
         challenged: true,
@@ -63,4 +79,9 @@ export async function detectInterstitial(
   } catch {
     return { challenged: false };
   }
+}
+
+/** Rate-limit walls need cool-down, not a CAPTCHA solve. */
+export function isRateLimit(detection: InterstitialDetection): boolean {
+  return detection.challenged && detection.reason === "rate_limit";
 }
