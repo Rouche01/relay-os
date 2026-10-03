@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
       turbo:
         specifier: 2.1.2
         version: 2.1.2
@@ -162,6 +165,9 @@ importers:
         specifier: workspace:*
         version: link:../runtime
     devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
       typescript:
         specifier: 6.0.3
         version: 6.0.3
