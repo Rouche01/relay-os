@@ -29,6 +29,9 @@ todos:
   - id: p4a-crosslink-manifest-engines
     content: "Track sibling: relay_hitl Phase 4a — manifest-driven engine bind (no stub map); do with/after ensure_session so scout/execute engine labels match browser path"
     status: completed
+  - id: p4c-interstitial-detect
+    content: "Anti-bot interstitial: classify 'Prove your humanity'/reCAPTCHA in ~2s, per-sub time budget, blocked vs timeout outcomes; headed → confirmation FeedbackRequest + persist jar; headless → fail open + one Telegram notice. Never auto-solve CAPTCHAs."
+    status: pending
   - id: p4-deploy-slice
     content: Update ThinkPad deploy — include engines-browser + Chromium deps from Phase 1; cookie dir under /opt/relay-community/data; document re-auth via HITL credential (not env-only)
     status: pending
@@ -319,6 +322,32 @@ Extend `executeApproved`:
    - Document “re-auth when jar expires” → **Phase 4b credential HITL** (Telegram), not env-only
 3. systemd timer unchanged; only login / re-auth needs a human
 
+## Phase 4c — Anti-bot interstitial: detect fast, escalate to human
+
+**Observed (2026-10-03, headed local run):** anonymous `www.reddit.com/r/{sub}/new/` served a “Prove your humanity” reCAPTCHA page. Scout hung for minutes, then fell through to JSON (403/DNS) and finally fixtures.
+
+**Root cause of the hang (not the CAPTCHA itself):** `scoutRedditBrowser` spends up to 45s `goto` + 30s `waitForSelector(LISTING_READY_SELECTOR)` **per allowlisted sub** before failing open. An interstitial never satisfies the selector, so every sub burns the full budget.
+
+**Hard rule:** we do **not** auto-solve CAPTCHAs — no third-party solver services, no heuristic bypass. It is an arms race, it is ToS-hostile, and it contradicts the product thesis (a human is already in the loop). Relay escalates instead.
+
+### Do
+
+| Change | Detail |
+|--------|--------|
+| Fast detect | Classify the page right after `goto`: title/body matches `Prove your humanity` / `verify you are human`, or a reCAPTCHA/hCaptcha iframe is present → return `blocked` in ~2s instead of waiting out the selector |
+| Per-sub budget | Cap total time per sub (e.g. ~12s); treat `blocked` and `timeout` as distinct outcomes in the scout result |
+| Interactive escalation | Headed run → emit a `confirmation` FeedbackRequest (“solve the challenge in the open window, then Approve”), then **persist `storageState`** so the earned trust carries to later runs |
+| Unattended escalation | Headless/timer run → never block; mark sub blocked, fail open to next source, send one Telegram notice that a human pass is needed |
+| Lower trigger rate | Prefer an authenticated jar (`ensure_session`) over anonymous browse; keep `REDDIT_SCOUT_DELAY_MS` honest; realistic UA/viewport (already via stealth) |
+
+### Don't
+
+- CAPTCHA-solving APIs / ML solvers of any kind
+- Retry-looping the same blocked sub inside one run
+- Treating `blocked` as a generic error — it needs its own signal so scout can report “Reddit challenged us” vs “extract shape broke”
+
+**Exit criteria:** a challenged sub costs seconds, not minutes; headed runs offer a one-time human pass that persists via cookie jar; unattended runs degrade quietly with one notification.
+
 ## Phase 5 — Smoke
 
 | Check | Pass |
@@ -327,6 +356,7 @@ Extend `executeApproved`:
 | E2E HITL approve | dry-run execute log shows browser intent |
 | ThinkPad | same with `community.env`; Chromium + cookies writable |
 | Live (manual flip) | one Approve → real comment; job idempotent on retry |
+| Interstitial | challenged sub detected in seconds; run continues or escalates (Phase 4c) |
 
 ## File touch map (expected)
 
@@ -358,6 +388,7 @@ packages/llm-controller/   # reuse for login/comment when needed
 | Risk | Mitigation |
 |------|------------|
 | ToS / anti-bot | Allowlist only; low rate; HITL always; dry-run default |
+| CAPTCHA interstitial | Detect fast + escalate to human (Phase 4c); authenticated jar lowers trigger rate; never auto-solve |
 | Headless detection | Existing stealth plugin; headed for first login if needed |
 | Cookie expiry | Detect auth wall → next run `ensure_session` credential HITL (Phase 4b); fail clear mid-execute in v1 |
 | UI churn | Structured extract + semantic/LLM; vision only as escape hatch |
@@ -381,9 +412,10 @@ packages/llm-controller/   # reuse for login/comment when needed
 4. ~~Browser execute (dry-run path)~~
 5. ~~Optional JSON fallback~~
 6. ~~`ensure_session` credential HITL~~ (Phase 4b)
-7. ~~Manifest-driven engines (Phase 4a)~~ — next: **deploy slice** + **smoke**
-8. ThinkPad deploy slice (engines-browser + cookie dir + re-auth docs)
-9. Smoke (local dogfood + ThinkPad)
+7. ~~Manifest-driven engines (Phase 4a)~~
+8. **Interstitial detect + escalate (Phase 4c)** — after job isolation lands (HITL plan Phase 5)
+9. ThinkPad deploy slice (engines-browser + cookie dir + re-auth docs)
+10. Smoke (local dogfood + ThinkPad)
 
 ## Relationship to manifest-driven engines
 

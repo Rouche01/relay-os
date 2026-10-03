@@ -50,6 +50,12 @@ todos:
   - id: p4a-manifest-driven-engines
     content: "Declarative engines: manifest truth for stage.engine + engines_required; runtime validates/binds from registry (no stub map in index); controller = policy only; align scout/execute with browser; pairs with ensure_session in reddit browser plan"
     status: completed
+  - id: p5-job-isolation
+    content: "Per-opportunity jobs: one job per actionable opportunity (today only the top draft runs); own id/status/action-store record; error boundary so one failure or abort cannot kill the run; serial execution; run summary of per-job outcomes"
+    status: pending
+  - id: p6-subreddit-discovery
+    content: "Subreddit discovery: read-only research proposes candidate subs → HITL approval → memory-backed allowlist in VoltMem (rules + outcome history); scout reads learned list with static seed as fallback; occasional exploration slot"
+    status: pending
 isProject: true
 ---
 
@@ -237,6 +243,60 @@ Runtime: on start, assert every `engines_required` key exists; `resolveEngine` u
 
 **Exit criteria:** No unused stub engines for required stages; `manifest.stages[].engine` matches the code path that actually runs; second app can copy the pattern without reading CommunityEngager internals.
 
+### Phase 5 — Per-opportunity jobs + fault isolation
+
+**Problem (observed 2026-10-03):** a run produces **at most one draft**. `runDraft` takes `opportunities.find(isActionable)` and discards the rest, so four of five scouted threads are thrown away. Worse, any stage throw (`runExecute` on a failed post, draft with no actionable opportunity) puts the whole agent in `FAILED`, and an abort unwinds the entire run.
+
+**Thesis:** one opportunity = one job, with its own id, status, and failure boundary. A bad thread must not take down the run; a human abort must scope to that draft only.
+
+**Do**
+
+| Change | Detail |
+|--------|--------|
+| Job identity | Each actionable opportunity gets a job id + action-store record; reuse the existing idempotent file under `{dataDir}/jobs/` but keyed per opportunity, not per run |
+| Error boundary | A job that throws is marked `failed` with its error; the queue continues to the next job |
+| Scoped abort | Abort kills that job only; remaining jobs still get their own HITL turn |
+| Run summary | End of run reports per-job outcomes (`approved` / `edited` / `aborted` / `failed` / `skipped`) instead of a single agent state |
+| Serial execution | Process jobs one at a time with the existing scout delay — rate limiting and anti-bot risk both argue against concurrency; one browser context is easier to reason about |
+
+**Shape:** prefer **one `AgentRuntime` per opportunity** with a thin outer queue owning the list. That keeps the runtime's linear stage model honest and matches what the living-todo shell wants to render (a queue of jobs, each with its own HITL card). Looping inside the controller with `try/catch` is less work but muddles "one agent, many jobs".
+
+**Don't**
+
+- Parallel posting (ban risk, and the cookie jar is shared state)
+- Swallowing errors silently — a failed job must be visible in the store and the run summary
+- Re-scouting per job; scout once, queue the results
+
+**Exit criteria:** a run with 5 actionable opportunities produces 5 jobs; one failing or aborted job leaves the others unaffected; retry of the run is idempotent per job.
+
+### Phase 6 — Subreddit discovery + memory-backed allowlist
+
+**Thesis:** stop hardcoding `ALLOWLISTED_SUBREDDITS`. Let the agent research candidate subs, but keep the human as the gate for anything we might *post* into.
+
+**Boundary that matters:** discovery is **read-only and proposal-based**. The allowlist stays a *write* gate — posting into an unvetted sub is how the account gets banned, since rules differ wildly and some ban self-promo outright.
+
+```text
+discover (read-only) → score candidates → HITL approve → promote into memory-backed allowlist
+```
+
+**Do**
+
+| Change | Detail |
+|--------|--------|
+| Discovery lane | Read-only pass that proposes candidate subs (topic fit, activity, question density, rules text) |
+| HITL promotion | Candidates surface as a `choice` / `approval` feedback point; only approved subs become postable |
+| Memory as source of truth | Store ranked subs in VoltMem with evidence + rules notes (`CommunityMemory.subredditRules` already exists); scout reads the learned list instead of the hardcoded array |
+| Outcome feedback | Approve/abort history per sub feeds the ranking, so bad subs decay without manual pruning |
+| Periodic exploration | Mostly exploit known-good subs; occasionally spend one run slot on a candidate — gives "research new opportunities" without a separate schedule |
+
+**Don't**
+
+- Auto-promote a discovered sub to postable
+- Let discovery widen scope during a normal run (it is its own lane, budgeted separately)
+- Drop the hardcoded list before memory can serve a usable allowlist — keep it as the seed/fallback
+
+**Exit criteria:** scout reads subs from memory with the static list as fallback; a newly discovered sub requires explicit human approval before any draft targets it; per-sub outcomes visibly influence later ranking.
+
 ## Suggested package / app layout
 
 ```text
@@ -268,8 +328,11 @@ relay-os/
 4. ~~VoltMem + Reddit~~
 5. ~~Deploy (ThinkPad)~~ → **measure** (open)
 6. ~~Manifest-driven engines (Phase 4a)~~ + ~~reddit browser 4b ensure_session~~
-7. Product slice / ownership / measure
-8. ThinkPad deploy slice + smoke (reddit browser plan)
+7. **Per-opportunity jobs + fault isolation (Phase 5)** ← next
+8. Interstitial detect + escalate (reddit browser Phase 4c)
+9. Subreddit discovery + memory allowlist (Phase 6)
+10. ThinkPad deploy slice + smoke (reddit browser plan)
+11. Product slice / ownership / measure
 
 Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md).
 
@@ -282,6 +345,8 @@ Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.p
 | VoltMem profile mismatch | Fail-open; free-text facts; tune domains later |
 | Duplicate bots in stylens-ops + Relay | Single Telegram adapter in Relay |
 | Mixing shell scope into this plan | Living todo tracked only in shell plan |
+| One bad thread kills the run | Per-opportunity jobs + error boundaries (Phase 5) |
+| Agent posts into an unvetted sub | Discovery proposes; allowlist stays a human-gated write boundary (Phase 6) |
 
 ## Success criteria (this plan)
 

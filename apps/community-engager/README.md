@@ -6,13 +6,15 @@ First Relay dogfood app: scout allowlisted Reddit fashion/styling threads, draft
 
 Related plans:
 
-- [HITL + CommunityEngager + VoltMem](../../.cursor/plans/relay_hitl_community_voltmem.plan.md)
-- [Reddit browser / scrape transport](../../.cursor/plans/relay_reddit_browser.plan.md) — Phase 4b `ensure_session` (credential via Telegram/CLI)
+- [HITL + CommunityEngager + VoltMem](../../.cursor/plans/relay_hitl_community_voltmem.plan.md) — Phase 5 per-opportunity jobs, Phase 6 subreddit discovery
+- [Reddit browser / scrape transport](../../.cursor/plans/relay_reddit_browser.plan.md) — Phase 4b `ensure_session`, Phase 4c anti-bot interstitial
 - [ThinkPad deploy](../../.cursor/plans/relay_thinkpad_deploy.plan.md)
 
 ## Workflow
 
-Ensure session (cookie jar, env, or HITL login), scout finds, draft proposes, you decide, execute only if approved, memory learns.
+Ensure session, pick target subs, scout, queue one job per opportunity, then for each job: draft, you decide, execute only if approved, memory learns.
+
+Dotted edges and *planned* labels are designed but not yet implemented — see the plan links above.
 
 ```mermaid
 flowchart TD
@@ -24,72 +26,81 @@ flowchart TD
     EnsJar -->|env user/pass| EnsEnv[Env login]
     EnsJar -->|else| EnsCred[credential FeedbackRequest]
     EnsCred --> EnsLogin[Playwright login + save jar]
-    EnsEnv --> S1
-    EnsSkip --> S1
-    EnsLogin --> S1
   end
 
-  subgraph Scout["1. Scout"]
-    S1[Allowlisted fashion subs]
-    S2{SCOUT_SOURCE / auto}
-    S2 -->|browser| SB[Playwright DOM extract]
-    S2 -->|json| SJ[Public *.json if allowed]
-    S2 -->|oauth| SO[Reddit API if CLIENT_*]
-    S2 -->|fail| SF[Fixtures]
-    SB --> Score
+  EnsSkip --> Subs
+  EnsEnv --> Subs
+  EnsLogin --> Subs
+
+  subgraph Targets["1. Target subs"]
+    Seed[Static allowlist seed]
+    Mem[(VoltMem ranked subs)]
+    Subs[Subs to scout]
+    Research[Read-only discovery]
+    Propose{{HITL approve new sub}}
+    Seed --> Subs
+    Mem -. planned .-> Subs
+    Research -. planned .-> Propose
+    Propose -. planned .-> Mem
+  end
+
+  Subs --> Src
+
+  subgraph Scout["2. Scout"]
+    Src{SCOUT_SOURCE / auto}
+    Wall{Anti-bot interstitial?}
+    Human[[Human solves challenge · save jar]]
+    Blocked[Mark sub blocked · notify · next sub]
+    Score[Score ≥ 4 / 5]
+    Src -->|browser| SB[Playwright DOM extract]
+    Src -->|json| SJ[Public *.json if allowed]
+    Src -->|oauth| SO[Reddit API if CLIENT_*]
+    Src -->|fail| SF[Fixtures]
+    SB --> Wall
+    Wall -->|no| Score
+    Wall -. headed · planned .-> Human
+    Wall -. headless · planned .-> Blocked
+    Human -. planned .-> Score
+    Blocked -. planned .-> Score
     SJ --> Score
     SO --> Score
     SF --> Score
-    Score[Score ≥ 4 / 5] --> Opp[Top opportunities]
   end
 
-  S1 --> S2
-  Opp --> Draft
+  Score --> Queue[/Job queue · one per opportunity · planned/]
+  Queue --> Job
 
-  subgraph Draft["2. Draft"]
-    D1[Pick top thread]
-    D2[Drafter + VoltMem context]
-    D3[Draft reply text]
-    D1 --> D2 --> D3
-  end
-
-  Draft --> HITL
-
-  subgraph HITL["3. Await approval — hard gate"]
-    H1[Telegram or CLI]
-    H2{Human decision}
-    H1 --> H2
-    H2 -->|Approve| OK[status = approved]
-    H2 -->|Edit: …| ED[Update draft text]
-    H2 -->|Abort| AB[Stop — no post]
-    ED --> OK
-  end
-
-  OK --> Exec
-  AB --> LearnAbort[Learn: write abort to VoltMem]
-  LearnAbort --> EndAbort([Done — nothing posted])
-
-  subgraph Exec["4. Execute"]
+  subgraph Loop["3. Per-job loop — serial, isolated"]
+    Job[Next job]
+    Draft[Draft reply + VoltMem context]
+    Gate{Human decision}
     DryQ{REDDIT_DRY_RUN?}
-    DryQ -->|true default| DR[Log would-post only]
-    DryQ -->|false| TxQ{Transport chain}
-    TxQ -->|browser| EB[Cookie jar / login → comment on thread]
-    TxQ -->|oauth fallback| EO[API comment if CLIENT_*]
-    EB --> Posted[Permalink + job id]
-    EO --> Posted
-    DR --> Job[Idempotent job file]
-    Posted --> Job
+    Dry[Log would-post only]
+    TxQ{Transport chain}
+    EB[Browser comment on thread]
+    EO[OAuth API comment if CLIENT_*]
+    Rec[Idempotent job record]
+    JobLearn[Write outcome to VoltMem]
+    Fail[Mark this job failed]
+    More{More jobs?}
+
+    Job --> Draft --> Gate
+    Gate -->|Approve| DryQ
+    Gate -->|Edit: …| DryQ
+    Gate -->|Abort| JobLearn
+    DryQ -->|true default| Dry --> Rec
+    DryQ -->|false| TxQ
+    TxQ -->|browser| EB --> Rec
+    TxQ -->|oauth fallback| EO --> Rec
+    Rec --> JobLearn --> More
+    Draft -. error · planned .-> Fail
+    EB -. error · planned .-> Fail
+    Fail -. planned .-> More
+    More -->|yes| Job
   end
 
-  Job --> Learn
-
-  subgraph Learn["5. Learn"]
-    L1[Write outcome to VoltMem]
-    L2[Influences future drafts]
-    L1 --> L2
-  end
-
-  Learn --> End([Done])
+  More -->|no| Summary[Run summary · per-job outcomes]
+  Summary --> End([Done])
 ```
 
 ### Stages (short)
@@ -97,11 +108,13 @@ flowchart TD
 | Stage | What happens |
 |-------|----------------|
 | `ensure_session` | Cookie jar, env login, or HITL `credential` (skipped when dry-run unless `REDDIT_ENSURE_SESSION=true`) |
-| `scout` | Find actionable threads (browser → json → oauth → fixtures) |
+| `scout` | Find actionable threads (browser → json → oauth → fixtures); *planned:* detect anti-bot interstitial fast and escalate |
 | `draft` | Write a reply; may pull VoltMem context |
 | `await_approval` | You Approve / Edit / Abort (Telegram or CLI) |
 | `execute` | Dry-run log, or live browser/oauth post |
 | `learn` | Persist outcome to VoltMem |
+
+Today the run drafts only the single top opportunity. Phase 5 turns each actionable opportunity into its own job so one failure or abort cannot end the run.
 
 ### Rules that matter
 
@@ -111,6 +124,8 @@ flowchart TD
 | `REDDIT_DRY_RUN=true` | Safe default — logs only |
 | Browser first | Playwright + cookies; OAuth optional backup |
 | Allowlist + score ≥4 | Only certain subs / strong fits |
+| CAPTCHAs are never auto-solved | Detect, then escalate to a human or degrade quietly |
+| Discovery proposes, humans promote | A newly researched sub is not postable until approved |
 
 ## Quick start
 
