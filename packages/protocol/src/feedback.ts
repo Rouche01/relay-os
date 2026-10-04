@@ -9,9 +9,9 @@
  * the runtime must not block forever — auto-proceed on timeout or skip
  * if no adapter is listening.
  *
- * Context is app-agnostic. Domain apps map into it, e.g. CommunityEngager:
- *   draftId → subjectId, draftText → body, threadUrl → url,
- *   score/subreddit/… → details[].
+ * Context is app-agnostic. Domain apps map into it, e.g.:
+ *   artifact id → subjectId, editable text → body, link → url,
+ *   labels → details[]; opaque app fields → meta (e.g. credential kind).
  */
 
 export type FeedbackType =

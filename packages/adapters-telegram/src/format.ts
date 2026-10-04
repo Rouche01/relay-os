@@ -49,9 +49,16 @@ export function formatFeedbackMessage(request: FeedbackRequest): string {
 
   lines.push("");
   if (request.type === "credential") {
-    lines.push(
-      "<i>Reply with credentials (not Approve):</i> username on line 1, password on line 2 — or <code>abort</code>"
-    );
+    const kind = request.context?.meta?.kind;
+    if (kind === "otp" || kind === "secret") {
+      lines.push(
+        "<i>Reply with the secret (not Approve)</i> — or <code>abort</code>"
+      );
+    } else {
+      lines.push(
+        "<i>Reply with credentials (not Approve):</i> username on line 1, password on line 2 — or <code>abort</code>"
+      );
+    }
   } else {
     lines.push("<i>Approve / Abort below, or reply:</i> <code>edit: …</code>");
   }

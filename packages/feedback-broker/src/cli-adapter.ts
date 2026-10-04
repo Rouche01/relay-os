@@ -55,18 +55,16 @@ export class CliFeedbackAdapter implements FeedbackAdapter {
     request: FeedbackRequest
   ): Promise<FeedbackResponse> {
     const out = this.output;
-    const otpOnly = /\b(otp|2fa|verification code|one-time)\b/i.test(
-      request.prompt
-    );
+    const kind = credentialKind(request);
 
     out.write(
-      otpOnly
-        ? "\n  Enter OTP (or abort):\n"
-        : "\n  Enter Reddit username, then password (or abort):\n"
+      kind === "otp" || kind === "secret"
+        ? "\n  Enter secret (or abort):\n"
+        : "\n  Enter username, then password (or abort):\n"
     );
 
-    if (otpOnly) {
-      const code = (await this.ask("  OTP> ")).trim();
+    if (kind === "otp" || kind === "secret") {
+      const code = (await this.ask("  secret> ")).trim();
       if (["abort", "x", "no", "n"].includes(code.toLowerCase())) {
         return {
           requestId: request.id,
@@ -208,4 +206,22 @@ export class CliFeedbackAdapter implements FeedbackAdapter {
     }
     return lines.join("\n");
   }
+}
+
+/**
+ * Prefer `context.meta.kind` from the app (`login` | `otp` | `secret`).
+ * Prompt sniffing is only a fallback for older callers.
+ */
+function credentialKind(
+  request: FeedbackRequest
+): "login" | "otp" | "secret" {
+  const raw = request.context?.meta?.kind;
+  if (raw === "otp" || raw === "secret" || raw === "login") return raw;
+  if (/\b(otp|2fa|verification code|one-time)\b/i.test(request.prompt)) {
+    return "otp";
+  }
+  if (/\b(api[_ ]?key|token|secret)\b/i.test(request.prompt)) {
+    return "secret";
+  }
+  return "login";
 }
