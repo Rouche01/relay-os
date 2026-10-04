@@ -55,7 +55,7 @@ todos:
     status: completed
   - id: p6-subreddit-discovery
     content: "Subreddit discovery: read-only research proposes candidate subs → HITL approval → memory-backed allowlist in VoltMem (rules + outcome history); scout reads learned list with static seed as fallback; occasional exploration slot"
-    status: pending
+    status: completed
   - id: p7-nested-manifest-fanout
     content: "Protocol + runtime nested manifests: StageDefinition.fanout expands into N isolated child AgentRuntimes (serial); parent manifest nests job manifest; CommunityEngager migrates off app-owned queue; second app can copy fanout only"
     status: completed
@@ -278,33 +278,13 @@ E2E (`src/e2e-hitl.ts`, pinned to `SCOUT_SOURCE=fixtures`) now proves isolation 
 
 **Exit criteria:** a run with 5 actionable opportunities produces 5 jobs; one failing or aborted job leaves the others unaffected; retry of the run is idempotent per job.
 
-### Phase 6 — Subreddit discovery + memory-backed allowlist
+### Phase 6 — Subreddit discovery + memory-backed allowlist ✅ shipped
 
-**Thesis:** stop hardcoding `ALLOWLISTED_SUBREDDITS`. Let the agent research candidate subs, but keep the human as the gate for anything we might *post* into.
+**Thesis:** stop hardcoding `ALLOWLISTED_SUBREDDITS` as the only source. Let the agent research candidate subs, but keep the human as the gate for anything we might *post* into.
 
-**Boundary that matters:** discovery is **read-only and proposal-based**. The allowlist stays a *write* gate — posting into an unvetted sub is how the account gets banned, since rules differ wildly and some ban self-promo outright.
+**Shipped:** `discover` stage (read-only Reddit search + heuristic scoring) → `choice` HITL promote/skip → `.data/allowlist/subreddits.json` as operational source of truth (seed merged in) with VoltMem mirror facts; scout calls `AllowlistStore.pickScoutSubs` (ranked + optional exploration slot); learn/abort update per-sub scores. Never auto-promotes.
 
-```text
-discover (read-only) → score candidates → HITL approve → promote into memory-backed allowlist
-```
-
-**Do**
-
-| Change | Detail |
-|--------|--------|
-| Discovery lane | Read-only pass that proposes candidate subs (topic fit, activity, question density, rules text) |
-| HITL promotion | Candidates surface as a `choice` / `approval` feedback point; only approved subs become postable |
-| Memory as source of truth | Store ranked subs in VoltMem with evidence + rules notes (`CommunityMemory.subredditRules` already exists); scout reads the learned list instead of the hardcoded array |
-| Outcome feedback | Approve/abort history per sub feeds the ranking, so bad subs decay without manual pruning |
-| Periodic exploration | Mostly exploit known-good subs; occasionally spend one run slot on a candidate — gives "research new opportunities" without a separate schedule |
-
-**Don't**
-
-- Auto-promote a discovered sub to postable
-- Let discovery widen scope during a normal run (it is its own lane, budgeted separately)
-- Drop the hardcoded list before memory can serve a usable allowlist — keep it as the seed/fallback
-
-**Exit criteria:** scout reads subs from memory with the static list as fallback; a newly discovered sub requires explicit human approval before any draft targets it; per-sub outcomes visibly influence later ranking.
+**Next (Jev):** replace heuristic fit with typed Noul(goal + sub bio) + confidence → proposed list only — see [`jev_decide_integration_dd22a99c.plan.md`](./jev_decide_integration_dd22a99c.plan.md) Phase A. HITL promote remains the write gate. Discover stage gating: **auto-skip when postable allowlist is healthy**; force via env/`discover subreddits` trigger (same plan, “Discover stage gating”).
 
 ### Phase 7 — Nested manifests (`StageDefinition.fanout`) ✅ shipped
 
@@ -378,7 +358,7 @@ relay-os/
 8. ~~Nested manifests / fanout (Phase 7)~~
 9. ~~Interstitial detect + escalate (reddit browser Phase 4c)~~
 10. ~~ThinkPad deploy slice + smoke docs~~ (`deploy/`)
-11. **Subreddit discovery + memory allowlist (Phase 6)** ← next
+11. ~~Subreddit discovery + memory allowlist (Phase 6)~~
 12. Product slice / ownership / measure
 
 Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md).

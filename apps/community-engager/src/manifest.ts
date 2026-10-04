@@ -81,9 +81,9 @@ export const CommunityJobManifest: AgenticAppManifest = {
  */
 export const CommunityEngagerManifest: AgenticAppManifest = {
   name: "CommunityEngager",
-  version: "0.3.0",
+  version: "0.4.0",
   description:
-    "Scout Reddit fashion/styling threads and run one isolated HITL job per opportunity.",
+    "Discover fashion/styling subs (HITL promote), scout postable allowlist, run one isolated HITL job per opportunity.",
   author: "Relay OS Built-in",
 
   triggers: [
@@ -100,6 +100,7 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
   ],
 
   capabilities: [
+    "community.discover",
     "community.scout",
     "community.draft",
     "community.approve",
@@ -129,6 +130,21 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
             "Reddit 2FA / email verification code (OTP) if prompted after login",
           required: true,
           timeout_ms: 300_000,
+        },
+      ],
+    },
+    {
+      name: "discover",
+      description:
+        "Read-only research of candidate fashion/styling subreddits; human must promote before scout can post there",
+      engine: "none",
+      feedback_points: [
+        {
+          type: "choice",
+          description:
+            "Promote one discovered subreddit onto the allowlist, or skip",
+          required: true,
+          timeout_ms: 600_000,
         },
       ],
     },
@@ -170,6 +186,7 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
   ],
   feedback_patterns: [
     "credential",
+    "choice",
     "approval",
     "freeform",
     "confirmation",

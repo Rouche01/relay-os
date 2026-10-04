@@ -20,6 +20,11 @@ export interface ScoutOptions {
   includeRejected?: boolean;
   /** Force source; default follows SCOUT_SOURCE env (auto). */
   source?: ScoutSource;
+  /**
+   * Subs to scout (memory/allowlist-backed). When omitted, each transport
+   * falls back to the static seed allowlist.
+   */
+  subreddits?: string[];
 }
 
 export interface ScoutResult {
@@ -46,13 +51,20 @@ export async function scoutOpportunities(
   let blocked: BrowserScoutBlocked[] = [];
   let timedOut: string[] = [];
 
+  const subreddits = opts.subreddits;
+  if (subreddits?.length) {
+    console.log(
+      `[scout] subs=${subreddits.map((s) => `r/${s}`).join(", ")}`
+    );
+  }
+
   const tryBrowser = source === "browser" || source === "auto";
   if (tryBrowser) {
     console.log(
       "[scout] source=browser (Playwright / www.reddit extract, score ≥ 4)"
     );
     try {
-      const live = await scoutRedditBrowser({ limit, cfg });
+      const live = await scoutRedditBrowser({ limit, cfg, subreddits });
       blocked = live.blocked;
       timedOut = live.timedOut;
       if (live.blocked.length > 0) {
@@ -78,7 +90,7 @@ export async function scoutOpportunities(
   if (tryJson) {
     console.log("[scout] source=json (public *.json listings, score ≥ 4)");
     try {
-      const live = await scoutRedditJson({ limit, cfg });
+      const live = await scoutRedditJson({ limit, cfg, subreddits });
       if (live.length > 0) {
         return { drafts: live, source: "json", blocked, timedOut };
       }
@@ -104,7 +116,7 @@ export async function scoutOpportunities(
     }
     console.log("[scout] source=reddit (OAuth allowlisted subs, score ≥ 4)");
     try {
-      const live = await scoutRedditLive({ limit, cfg });
+      const live = await scoutRedditLive({ limit, cfg, subreddits });
       if (live.length > 0) {
         return { drafts: live, source: "oauth", blocked, timedOut };
       }

@@ -1,20 +1,19 @@
 # CommunityEngager
 
-First Relay dogfood app: scout allowlisted Reddit fashion/styling threads, draft a reply, **pause for human Approve / Edit / Abort**, then optionally post, then write outcomes to VoltMem.
+First Relay dogfood app: discover fashion/styling subreddits (HITL promote onto allowlist), scout postable subs, draft a reply, **pause for human Approve / Edit / Abort**, then optionally post, then write outcomes to VoltMem.
 
-**Hard rule:** nothing posts without human Approve (`REDDIT_DRY_RUN=true` by default).
+**Hard rule:** nothing posts without human Approve (`REDDIT_DRY_RUN=true` by default).  
+**Allowlist rule:** discovery only proposes; a sub is not postable until a human promotes it.
 
 Related plans:
 
-- [HITL + CommunityEngager + VoltMem](../../.cursor/plans/relay_hitl_community_voltmem.plan.md) — nested fanout jobs; next Phase 6 discovery
+- [HITL + CommunityEngager + VoltMem](../../.cursor/plans/relay_hitl_community_voltmem.plan.md) — Phase 6 discovery + nested fanout
 - [Reddit browser / scrape transport](../../.cursor/plans/relay_reddit_browser.plan.md) — browser scout, ensure_session, interstitial HITL
 - [ThinkPad deploy](../../.cursor/plans/relay_thinkpad_deploy.plan.md) · runbook [`deploy/README.md`](../../deploy/README.md) · [`deploy/SMOKE.md`](../../deploy/SMOKE.md)
 
 ## Workflow
 
-Ensure session, pick target subs, scout, queue one job per opportunity, then for each job: draft, you decide, execute only if approved, memory learns.
-
-Dotted edges and *planned* labels are designed but not yet implemented — see the plan links above.
+Ensure session → **discover** (optional / env) → scout allowlist → queue one job per opportunity → draft → you decide → execute only if approved → memory learns.
 
 ```mermaid
 flowchart TD
@@ -28,25 +27,30 @@ flowchart TD
     EnsCred --> EnsLogin[Playwright login + save jar]
   end
 
-  EnsSkip --> Subs
-  EnsEnv --> Subs
-  EnsLogin --> Subs
+  EnsSkip --> Discover
+  EnsEnv --> Discover
+  EnsLogin --> Discover
 
-  subgraph Targets["1. Target subs"]
-    Seed[Static allowlist seed]
-    Mem[(VoltMem ranked subs)]
-    Subs[Subs to scout]
-    Research[Read-only discovery]
-    Propose{{HITL approve new sub}}
-    Seed --> Subs
-    Mem -. planned .-> Subs
-    Research -. planned .-> Propose
-    Propose -. planned .-> Mem
+  subgraph Disco["1. Discover — read-only"]
+    Discover[Search related subs]
+    Discover --> ScoreCand[Score topic / activity / help density]
+    ScoreCand --> Propose{{choice: promote one or skip}}
+    Propose -->|promote| Allow[(.data/allowlist + VoltMem)]
+    Propose -->|skip| ScoutSubs
+    Allow --> ScoutSubs
   end
 
-  Subs --> Src
+  subgraph Targets["2. Target subs"]
+    Seed[Static allowlist seed]
+    Allow2[(Promoted allowlist)]
+    ScoutSubs[Ranked postable subs]
+    Seed --> ScoutSubs
+    Allow2 --> ScoutSubs
+  end
 
-  subgraph Scout["2. Scout"]
+  ScoutSubs --> Src
+
+  subgraph Scout["3. Scout"]
     Src{SCOUT_SOURCE / auto}
     Wall{Anti-bot interstitial?}
     Human[[Human solves challenge · save jar]]
@@ -70,7 +74,7 @@ flowchart TD
   Score --> Queue[/Job queue · one runtime per opportunity/]
   Queue --> Job
 
-  subgraph Loop["3. Per-job loop — serial, isolated"]
+  subgraph Loop["4. Per-job loop — serial, isolated"]
     Job[Next job]
     Draft[Draft reply + VoltMem context]
     Gate{Human decision}
@@ -107,14 +111,15 @@ flowchart TD
 
 | Stage | What happens |
 |-------|----------------|
-| `ensure_session` | Cookie jar, env login, or HITL `credential` (skipped when dry-run unless `REDDIT_ENSURE_SESSION=true`) |
-| `scout` | Find actionable threads (browser → json → oauth → fixtures); anti-bot wall → headed browser + Telegram/CLI Approve (never auto-solved) |
+| `ensure_session` | Cookie jar / HITL login before live browser work (skipped when dry-run unless `REDDIT_ENSURE_SESSION=true`) |
+| `discover` | Read-only subreddit research → `choice` HITL to promote onto allowlist (or skip) |
+| `scout` | Find actionable threads on **postable** allowlist (browser → json → oauth → fixtures); anti-bot wall → headed browser + Telegram/CLI Approve (never auto-solved) |
 | `draft` | Write a reply; may pull VoltMem context |
 | `await_approval` | You Approve / Edit / Abort (Telegram or CLI) |
 | `execute` | Dry-run log, or live browser/oauth post |
-| `learn` | Persist outcome to VoltMem |
+| `learn` | Persist outcome to VoltMem + allowlist ranking |
 
-`ensure_session` and `scout` run once on the parent manifest. The `jobs` stage **fans out** into the nested `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. A job that fails or gets aborted is recorded and the queue moves on. Budget with `COMMUNITY_MAX_JOBS` (default 3) and `COMMUNITY_JOB_DELAY_MS` (default 1500).
+`ensure_session`, `discover`, and `scout` run once on the parent manifest. The `jobs` stage **fans out** into the nested `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. A job that fails or gets aborted is recorded and the queue moves on. Budget with `COMMUNITY_MAX_JOBS` (default 3) and `COMMUNITY_JOB_DELAY_MS` (default 1500). Set `COMMUNITY_DISCOVER=false` to skip discovery.
 
 ### Rules that matter
 

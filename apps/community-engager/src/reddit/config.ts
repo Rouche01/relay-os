@@ -103,6 +103,20 @@ export interface RedditEnvConfig {
   dataDir: string;
   /** Cookie / storageState directory for browser session. */
   cookieDir: string;
+  /**
+   * When true, run the read-only discover stage before scout
+   * (propose candidates → HITL promote). Default true.
+   */
+  discoverEnabled: boolean;
+  /** Reddit subreddit search query for discovery. */
+  discoverQuery: string;
+  /** Max discovery candidates to propose per run. */
+  discoverMaxCandidates: number;
+  /**
+   * When true, scout reserves one slot for a human-promoted discovered sub
+   * (exploration among already-approved allowlist entries).
+   */
+  discoverExploreSlot: boolean;
 }
 
 function parseScoutSource(raw: string): ScoutSource {
@@ -232,6 +246,21 @@ export function getRedditEnv(
     env.REDDIT_COOKIE_DIR?.trim() || path.join(".data", "cookies", "reddit")
   );
 
+  const discoverRaw = (env.COMMUNITY_DISCOVER ?? "true").toLowerCase();
+  const discoverEnabled =
+    discoverRaw !== "false" && discoverRaw !== "0" && discoverRaw !== "off";
+  const discoverQuery =
+    env.COMMUNITY_DISCOVER_QUERY?.trim() ||
+    "fashion style advice wardrobe";
+  const discoverMaxRaw = Number(env.COMMUNITY_DISCOVER_MAX ?? "5");
+  const discoverMaxCandidates =
+    Number.isFinite(discoverMaxRaw) && discoverMaxRaw > 0
+      ? Math.floor(discoverMaxRaw)
+      : 5;
+  const exploreRaw = (env.COMMUNITY_DISCOVER_EXPLORE ?? "true").toLowerCase();
+  const discoverExploreSlot =
+    exploreRaw !== "false" && exploreRaw !== "0" && exploreRaw !== "off";
+
   return {
     clientId,
     clientSecret,
@@ -256,6 +285,10 @@ export function getRedditEnv(
     interstitialHitl,
     dataDir,
     cookieDir,
+    discoverEnabled,
+    discoverQuery,
+    discoverMaxCandidates,
+    discoverExploreSlot,
   };
 }
 

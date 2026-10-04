@@ -41,4 +41,13 @@ export interface AppController {
     feedbackPoint: FeedbackPoint,
     context: AgentContext
   ): string | undefined | Promise<string | undefined>;
+
+  /**
+   * Optional: dynamic options for `choice` feedback (overrides FeedbackPoint.options).
+   */
+  buildFeedbackOptions?(
+    stage: StageDefinition,
+    feedbackPoint: FeedbackPoint,
+    context: AgentContext
+  ): string[] | undefined | Promise<string[] | undefined>;
 }

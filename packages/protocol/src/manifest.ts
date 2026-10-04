@@ -86,4 +86,9 @@ export interface FeedbackPoint {
   required: boolean;
   /** Optional per-point timeout; falls back to stage / request default */
   timeout_ms?: number;
+  /**
+   * Static options for `choice` feedback.
+   * Prefer AppController.buildFeedbackOptions when options are dynamic.
+   */
+  options?: string[];
 }

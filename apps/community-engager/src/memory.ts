@@ -26,6 +26,23 @@ export const CommunityMemory = {
     return `Subreddit rules note for r/${subreddit}: ${note}`;
   },
 
+  discoveryProposed(subreddit: string, note: string, evidence?: string): string {
+    const bits = [
+      `Discovery proposed subreddit r/${subreddit} (not postable until human promotes)`,
+      note,
+    ];
+    if (evidence) bits.push(`evidence=${evidence}`);
+    return bits.join("; ");
+  },
+
+  allowlistPromoted(subreddit: string, note?: string): string {
+    const bits = [
+      `Human promoted r/${subreddit} onto the community allowlist (postable)`,
+    ];
+    if (note) bits.push(note);
+    return bits.join("; ");
+  },
+
   voiceConstraint(note: string): string {
     return `Voice constraint: ${note}`;
   },

@@ -364,6 +364,16 @@ export class AgentRuntime extends EventEmitter {
       if (override) prompt = override;
     }
 
+    let options = fp.options;
+    if (this.controller?.buildFeedbackOptions) {
+      const dynamic = await this.controller.buildFeedbackOptions(
+        stage,
+        fp,
+        this.context
+      );
+      if (dynamic !== undefined) options = dynamic;
+    }
+
     const req: FeedbackRequest = {
       id: requestId,
       agentId: this.context.agentId,
@@ -371,6 +381,7 @@ export class AgentRuntime extends EventEmitter {
       prompt,
       required: fp.required,
       context,
+      options,
       timeout_ms: fp.timeout_ms ?? stage.timeout_ms,
     };
 

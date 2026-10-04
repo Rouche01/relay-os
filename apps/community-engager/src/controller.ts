@@ -16,11 +16,19 @@ import {
 import type { AppController } from "@relay/runtime";
 import { draftToFeedbackContext } from "./feedback-map.js";
 import { draftReply } from "./drafter.js";
+import {
+  DISCOVER_SKIP_OPTION,
+  discoveryChoiceOptions,
+  parseDiscoveryChoice,
+  runDiscovery,
+} from "./discover.js";
 import { executeApproved } from "./executor.js";
+import { getAllowlistStore } from "./allowlist-store.js";
 import { CommunityMemory } from "./memory.js";
 import { loginRedditBrowser } from "./reddit/browser-login.js";
 import { createRedditBrowserEngine } from "./reddit/browser-session.js";
 import { getRedditEnv, type RedditEnvConfig } from "./reddit/config.js";
+import type { DiscoveryCandidate } from "./reddit/discover-subs.js";
 import {
   isLoginCredentialPoint,
   isOtpCredentialPoint,
@@ -58,7 +66,7 @@ type EnsureSessionResult = {
 };
 
 /**
- * Stage logic: ensure_session → scout → draft → HITL → execute → learn.
+ * Stage logic: ensure_session → discover → scout → draft → HITL → execute → learn.
  */
 export class CommunityEngagerController implements AppController {
   constructor(private readonly options: CommunityControllerOptions) {}
@@ -69,6 +77,9 @@ export class CommunityEngagerController implements AppController {
     switch (stage.name) {
       case "ensure_session":
         await this.runEnsureSessionStart(ctx);
+        break;
+      case "discover":
+        await this.runDiscover(ctx);
         break;
       case "scout":
         await this.runScout(ctx);
@@ -100,6 +111,10 @@ export class CommunityEngagerController implements AppController {
     if (stage.name === "ensure_session") {
       await this.applyEnsureSessionFeedback(feedback);
       return;
+    }
+
+    if (stage.name === "discover") {
+      return this.applyDiscoverFeedback(feedback);
     }
 
     if (stage.name === "scout") {
@@ -167,6 +182,27 @@ export class CommunityEngagerController implements AppController {
         meta: { kind: isOtpCredentialPoint(fp.description) ? "otp" : "login" },
       };
     }
+    if (stage.name === "discover" && fp.type === "choice") {
+      const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
+      return {
+        title: "Promote a discovered subreddit?",
+        body: candidates
+          .map(
+            (c) =>
+              `r/${c.name} · fit ${c.fitScore}/10 · ${c.subscribers} subs\n${c.note}`
+          )
+          .join("\n\n"),
+        details: [
+          { label: "Candidates", value: String(candidates.length) },
+          {
+            label: "Hint",
+            value:
+              "Reply with an option (e.g. r/fashionadvice) to promote, or none (skip). Abort also skips.",
+          },
+        ],
+        meta: { kind: "discover" },
+      };
+    }
     if (stage.name === "scout" && fp.type === "confirmation") {
       const challenge = context.interstitialChallenge as
         | { url?: string; subreddit?: string; blockedSubs?: string[] }
@@ -203,6 +239,10 @@ export class CommunityEngagerController implements AppController {
     if (stage.name === "ensure_session") {
       return this.shouldSkipEnsureSessionFeedback(fp, context);
     }
+    if (stage.name === "discover" && fp.type === "choice") {
+      const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
+      return candidates.length === 0;
+    }
     if (stage.name === "scout" && fp.type === "confirmation") {
       // Only pause when we opened a headed challenge window.
       return !context.interstitialChallenge;
@@ -233,6 +273,14 @@ export class CommunityEngagerController implements AppController {
         "Abort to cancel. Do not use Approve — send the credentials as text."
       );
     }
+    if (stage.name === "discover" && fp.type === "choice") {
+      const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
+      return (
+        `Found ${candidates.length} candidate subreddit(s). ` +
+        `Promote one onto the allowlist (so future scouts can draft there), ` +
+        `or choose "${DISCOVER_SKIP_OPTION}". Nothing is postable until you promote.`
+      );
+    }
     if (stage.name === "scout" && fp.type === "confirmation") {
       const challenge = context.interstitialChallenge as
         | { subreddit?: string; url?: string }
@@ -259,6 +307,71 @@ export class CommunityEngagerController implements AppController {
       );
     }
     return undefined;
+  }
+
+  async buildFeedbackOptions(
+    stage: StageDefinition,
+    fp: FeedbackPoint,
+    context: AgentContext
+  ): Promise<string[] | undefined> {
+    if (stage.name === "discover" && fp.type === "choice") {
+      const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
+      return discoveryChoiceOptions(candidates);
+    }
+    return undefined;
+  }
+
+  private async runDiscover(ctx: AgentContext): Promise<void> {
+    const result = await runDiscovery({
+      memory: this.options.memory,
+      store: getAllowlistStore(),
+    });
+    ctx.discoveryCandidates = result.candidates;
+    ctx.stageResults = {
+      ...(ctx.stageResults ?? {}),
+      discover: {
+        enabled: result.enabled,
+        count: result.candidates.length,
+        names: result.candidates.map((c) => c.name),
+        skippedReason: result.skippedReason,
+      },
+    };
+  }
+
+  private async applyDiscoverFeedback(
+    feedback: FeedbackResponse
+  ): Promise<boolean> {
+    // Soft-abort: skip promotion and continue to scout.
+    if (isAbortResponse(feedback)) {
+      console.log("[discover] aborted — no allowlist promotion");
+      return false;
+    }
+
+    const parsed = parseDiscoveryChoice(feedback.value);
+    if (parsed.action === "skip") {
+      console.log("[discover] skipped promotion");
+      return true;
+    }
+
+    const store = getAllowlistStore();
+    const promoted = await store.promote(parsed.name);
+    if (!promoted) {
+      console.warn(`[discover] promote failed for r/${parsed.name}`);
+      return true;
+    }
+
+    await this.options.memory.addFact(
+      CommunityMemory.allowlistPromoted(promoted.name, promoted.note),
+      { domain: "preference", source: `relay:${APP_ID}` }
+    );
+    await this.options.memory.addFact(
+      CommunityMemory.subredditRules(promoted.name, promoted.note),
+      { domain: "preference", source: `relay:${APP_ID}` }
+    );
+    console.log(
+      `[discover] promoted r/${promoted.name} → postable allowlist`
+    );
+    return true;
   }
 
   private async runEnsureSessionStart(ctx: AgentContext): Promise<void> {
@@ -389,7 +502,20 @@ export class CommunityEngagerController implements AppController {
   }
 
   private async runScout(ctx: AgentContext): Promise<void> {
-    const result = await scoutOpportunities({ limit: 5 });
+    const cfg = getRedditEnv();
+    const store = getAllowlistStore();
+    // When discover just ran with a max-subs cap, leave room for exploration.
+    const subreddits = await store.pickScoutSubs(
+      cfg.scoutMaxSubs,
+      cfg.discoverExploreSlot
+    );
+    console.log(
+      `[scout] allowlist (${subreddits.length}): ${subreddits
+        .map((s) => `r/${s}`)
+        .join(", ")}`
+    );
+
+    const result = await scoutOpportunities({ limit: 5, subreddits });
     let opportunities = result.drafts;
 
     // Don't re-queue threads we already drafted / decided on this machine.
@@ -706,5 +832,11 @@ export class CommunityEngagerController implements AppController {
     console.log(
       `[learn] voltmem write ${ok ? "ok" : "skipped/fail-open"} (${outcome})`
     );
+
+    try {
+      await getAllowlistStore().recordOutcome(draft.subreddit, outcome);
+    } catch (err) {
+      console.warn("[learn] allowlist outcome update failed:", err);
+    }
   }
 }
