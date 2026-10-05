@@ -140,6 +140,20 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
       engine: "none",
       feedback_points: [
         {
+          type: "credential",
+          description:
+            "Reddit login wall during discover: reply username on line 1, password on line 2",
+          required: true,
+          timeout_ms: 600_000,
+        },
+        {
+          type: "confirmation",
+          description:
+            "Reddit anti-bot challenge during discover: solve CAPTCHA in the open browser, then Approve (Abort skips discovery)",
+          required: true,
+          timeout_ms: 600_000,
+        },
+        {
           type: "choice",
           description:
             "Promote one discovered subreddit onto the allowlist, or skip",
@@ -158,6 +172,13 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
           type: "progress",
           description: "Scouting opportunities…",
           required: false,
+        },
+        {
+          type: "credential",
+          description:
+            "Reddit login wall during scout: reply username on line 1, password on line 2",
+          required: true,
+          timeout_ms: 600_000,
         },
         {
           type: "confirmation",

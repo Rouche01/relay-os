@@ -99,6 +99,24 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
     });
   }
 
+  /**
+   * Settle an in-flight present early (browser auto-detected clear, etc.).
+   */
+  cancelPresent(requestId: string, response: FeedbackResponse): void {
+    const pending = this.pendingByRequestId.get(requestId);
+    if (!pending) return;
+    void this.clearKeyboard(pending).finally(() => {
+      this.settle(pending, response);
+    });
+    void this.client
+      .sendMessage({
+        chat_id: this.chatId,
+        text: "✅ Auto-detected: challenge cleared in the browser — continuing.",
+        disable_web_page_preview: true,
+      })
+      .catch(() => undefined);
+  }
+
   private async pollLoop(): Promise<void> {
     while (this.running) {
       try {

@@ -1,4 +1,5 @@
 import type { ContextEngine } from "@relay/context-engine";
+import type { PlaywrightEngine } from "@relay/engines-browser";
 import {
   getAllowlistStore,
   type AllowlistStore,
@@ -10,6 +11,7 @@ import {
 } from "./reddit/config.js";
 import {
   discoverSubredditCandidates,
+  type DiscoverChallengeHandOff,
   type DiscoveryCandidate,
 } from "./reddit/discover-subs.js";
 
@@ -17,6 +19,8 @@ export interface DiscoverResult {
   enabled: boolean;
   candidates: DiscoveryCandidate[];
   skippedReason?: string;
+  /** Headed browser still open — controller must park it for HITL. */
+  challenge?: DiscoverChallengeHandOff;
 }
 
 /**
@@ -27,6 +31,8 @@ export async function runDiscovery(opts?: {
   cfg?: RedditEnvConfig;
   store?: AllowlistStore;
   memory?: ContextEngine;
+  /** Reuse a headed browser that just cleared CAPTCHA (same Chromium). */
+  adopt?: { engine: PlaywrightEngine; storagePath: string };
 }): Promise<DiscoverResult> {
   const cfg = opts?.cfg ?? getRedditEnv();
   if (!cfg.discoverEnabled) {
@@ -42,19 +48,34 @@ export async function runDiscovery(opts?: {
   const exclude = postable.map((e) => e.name);
 
   let candidates: DiscoveryCandidate[] = [];
+  let challenge: DiscoverChallengeHandOff | undefined;
   try {
-    candidates = await discoverSubredditCandidates({
+    const raw = await discoverSubredditCandidates({
       cfg,
       exclude,
       query: cfg.discoverQuery,
       limit: cfg.discoverMaxCandidates,
+      escalateCaptcha: cfg.interstitialHitl,
+      adopt: opts?.adopt,
     });
+    candidates = raw.candidates;
+    challenge = raw.challenge;
   } catch (err) {
     console.warn("[discover] failed:", err);
     return {
       enabled: true,
       candidates: [],
       skippedReason: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  // Don't persist proposals mid-CAPTCHA; retry after human clears the wall.
+  if (challenge) {
+    return {
+      enabled: true,
+      candidates: [],
+      challenge,
+      skippedReason: `blocked:${challenge.reason}`,
     };
   }
 
@@ -88,10 +109,7 @@ export const DISCOVER_SKIP_OPTION = "none (skip)";
 export function discoveryChoiceOptions(
   candidates: DiscoveryCandidate[]
 ): string[] {
-  return [
-    ...candidates.map((c) => `r/${c.name}`),
-    DISCOVER_SKIP_OPTION,
-  ];
+  return [...candidates.map((c) => `r/${c.name}`), DISCOVER_SKIP_OPTION];
 }
 
 export function parseDiscoveryChoice(
@@ -99,7 +117,6 @@ export function parseDiscoveryChoice(
 ): { action: "promote"; name: string } | { action: "skip" } {
   if (value == null) return { action: "skip" };
   if (typeof value === "boolean") {
-    // Telegram Approve without a typed option — treat as skip, not promote.
     return { action: "skip" };
   }
   const raw = String(value).trim();
@@ -120,7 +137,6 @@ export function parseDiscoveryChoice(
   ) {
     return { action: "skip" };
   }
-  // "approve r/foo" / "r/foo" / "foo"
   const cleaned = raw
     .replace(/^(approve|promote)\s*:?\s*/i, "")
     .replace(/^r\//i, "")

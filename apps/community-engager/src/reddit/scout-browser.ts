@@ -1,5 +1,7 @@
 import type { Page } from "playwright";
+import type { PlaywrightEngine } from "@relay/engines-browser";
 import type { CommunityDraft } from "../types.js";
+import { scoreTotal } from "../types.js";
 import type { RedditListingPost } from "./client.js";
 import {
   allowlistedSubNames,
@@ -31,10 +33,22 @@ export interface BrowserScoutBlocked {
   reason: string;
 }
 
+/** Headed (or current) browser left open on a CAPTCHA for HITL. */
+export interface ScoutChallengeHandOff {
+  engine: PlaywrightEngine;
+  storagePath: string;
+  url: string;
+  subreddit: string;
+  reason: string;
+  title?: string;
+}
+
 export interface BrowserScoutResult {
   drafts: CommunityDraft[];
   blocked: BrowserScoutBlocked[];
   timedOut: string[];
+  /** When set, engine was NOT torn down — controller owns HITL teardown. */
+  challenge?: ScoutChallengeHandOff;
 }
 
 export interface BrowserScoutOptions {
@@ -47,6 +61,16 @@ export interface BrowserScoutOptions {
   useStoredSession?: boolean;
   /** Total time budget per sub (default cfg.scoutSubBudgetMs). */
   subBudgetMs?: number;
+  /**
+   * On CAPTCHA/humanity wall, stop and hand off the live browser for HITL
+   * (default: cfg.interstitialHitl).
+   */
+  escalateCaptcha?: boolean;
+  /**
+   * Draft ids (`reddit-<id>`) already in the action-store — skipped so `limit`
+   * is counted in fresh opportunities for this run.
+   */
+  excludeIds?: Iterable<string>;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -141,11 +165,16 @@ export async function scoutRedditBrowser(
   const subBudgetMs = opts.subBudgetMs ?? cfg.scoutSubBudgetMs;
   const scrollRounds = cfg.scoutScrollRounds;
   const deepReadMax = cfg.scoutDeepReadMax;
+  const escalateCaptcha = opts.escalateCaptcha ?? cfg.interstitialHitl;
   const drafts: CommunityDraft[] = [];
   const blocked: BrowserScoutBlocked[] = [];
   const timedOut: string[] = [];
+  const excludeIds = new Set(opts.excludeIds ?? []);
 
-  const { engine, sessionLoaded } = await createRedditBrowserEngine({
+  // Fair share of *new* drafts per sub; `limit` is the run target after excludes.
+  const perSubCap = Math.max(1, Math.ceil(limit / Math.max(1, subs.length)));
+
+  const { engine, sessionLoaded, storagePath } = await createRedditBrowserEngine({
     cfg,
     useStoredSession: opts.useStoredSession ?? true,
   });
@@ -154,8 +183,13 @@ export async function scoutRedditBrowser(
   }
   console.log(
     `[scout:browser] pacing base=${delayMs}ms jitter=0…${jitterMs}ms ` +
-      `subs=${subs.length} scroll=${scrollRounds} deepRead≤${deepReadMax}`
+      `subs=${subs.length} scroll=${scrollRounds} deepRead≤${deepReadMax} ` +
+      `perSub≤${perSubCap} limit=${limit} exclude=${excludeIds.size}`
   );
+
+  let challenge: ScoutChallengeHandOff | undefined;
+  /** When true, finally must not teardown — HITL owns the window. */
+  let handOffEngine = false;
 
   try {
     const page = await engine.getPage();
@@ -170,6 +204,28 @@ export async function scoutRedditBrowser(
     } catch (err) {
       console.warn("[scout:browser] warm-up navigation failed:", err);
     }
+
+    const handOffCaptcha = (
+      sub: string,
+      url: string,
+      wall: InterstitialDetection
+    ): boolean => {
+      if (isRateLimit(wall) || !escalateCaptcha) return false;
+      challenge = {
+        engine,
+        storagePath,
+        url: page.url() || url,
+        subreddit: sub,
+        reason: wall.reason ?? "interstitial",
+        title: wall.title,
+      };
+      handOffEngine = true;
+      console.log(
+        `[scout:browser] challenge HITL — keeping browser open on r/${sub}; ` +
+          `auto-detects clear (or Approve in Telegram/CLI)`
+      );
+      return true;
+    };
 
     for (let i = 0; i < subs.length; i++) {
       const sub = subs[i]!;
@@ -200,6 +256,7 @@ export async function scoutRedditBrowser(
             );
             break;
           }
+          if (handOffCaptcha(sub, url, wall)) break;
           continue;
         }
 
@@ -225,6 +282,7 @@ export async function scoutRedditBrowser(
               );
               break;
             }
+            if (handOffCaptcha(sub, url, again)) break;
           } else {
             console.warn(
               `[scout:browser] r/${sub} timed out waiting for listing`
@@ -247,7 +305,9 @@ export async function scoutRedditBrowser(
         let posts = rowsToListingPosts(rows, sub);
         const byId = new Map(posts.map((p) => [p.id, p]));
 
-        const candidates = pickDeepReadCandidates(posts, deepReadMax);
+        const candidates = pickDeepReadCandidates(posts, deepReadMax, {
+          excludeIds,
+        });
         if (candidates.length > 0) {
           try {
             const n = await deepReadPosts(
@@ -260,7 +320,6 @@ export async function scoutRedditBrowser(
             console.log(
               `[scout:browser] r/${sub} deep-read enriched ${n}/${candidates.length}`
             );
-            // Return to listing context isn't required — we hold posts in memory.
             posts = [...byId.values()];
           } catch (err) {
             const wall =
@@ -276,7 +335,8 @@ export async function scoutRedditBrowser(
               console.warn(
                 "[scout:browser] rate-limited during deep-read — stopping scout"
               );
-              // Still keep whatever we already scored from the feed.
+            } else if (wall?.challenged && handOffCaptcha(sub, url, wall)) {
+              break;
             } else {
               console.warn(`[scout:browser] r/${sub} deep-read batch error:`, err);
             }
@@ -288,17 +348,29 @@ export async function scoutRedditBrowser(
           `[scout:browser] r/${sub} scanned=${stats.scanned} actionable=${stats.actionable} nearMiss=${stats.nearMiss} megathreads=${stats.megathreads}`
         );
 
-        const mapped = listingPostsToDrafts(posts, limit - drafts.length);
+        // Spread *new* slots across allowlisted subs. Already-seen ids are
+        // skipped inside listingPostsToDrafts so `limit` is per-run fresh.
+        const room = limit - drafts.length;
+        if (room <= 0) {
+          break;
+        }
+        const take =
+          i === subs.length - 1 ? room : Math.min(perSubCap, room);
+        const mapped = listingPostsToDrafts(posts, take, { excludeIds });
+        for (const d of mapped) excludeIds.add(d.id);
         drafts.push(...mapped);
+        console.log(
+          `[scout:browser] r/${sub} kept ${mapped.length} new draft(s) ` +
+            `(run total ${drafts.length}/${limit})`
+        );
 
         if (
           blocked.some((b) => b.subreddit === sub && b.reason === "rate_limit")
         ) {
           break;
         }
-
         if (drafts.length >= limit) {
-          return { drafts, blocked, timedOut };
+          break;
         }
       } catch (err) {
         const wall = await detectInterstitial(page).catch(() => ({
@@ -316,13 +388,14 @@ export async function scoutRedditBrowser(
             );
             break;
           }
+          if (handOffCaptcha(sub, url, wall)) break;
         } else {
           console.warn(`[scout:browser] r/${sub} failed:`, err);
           timedOut.push(sub);
         }
       }
 
-      if (i < subs.length - 1) {
+      if (i < subs.length - 1 && !handOffEngine) {
         const wait = pacedDelay(delayMs, jitterMs);
         if (wait > 0) {
           console.log(
@@ -333,8 +406,22 @@ export async function scoutRedditBrowser(
       }
     }
   } finally {
-    await engine.teardown();
+    if (!handOffEngine) {
+      await engine.teardown();
+    }
   }
 
-  return { drafts, blocked, timedOut };
+  const byId = new Map<string, CommunityDraft>();
+  for (const d of drafts) {
+    const prev = byId.get(d.id);
+    if (!prev || scoreTotal(d.score) > scoreTotal(prev.score)) {
+      byId.set(d.id, d);
+    }
+  }
+  const ranked = [...byId.values()].sort(
+    (a, b) => scoreTotal(b.score) - scoreTotal(a.score)
+  );
+  const kept = ranked.slice(0, limit);
+
+  return { drafts: kept, blocked, timedOut, challenge };
 }

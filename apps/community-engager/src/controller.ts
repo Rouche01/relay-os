@@ -25,7 +25,12 @@ import {
 import { executeApproved } from "./executor.js";
 import { getAllowlistStore } from "./allowlist-store.js";
 import { CommunityMemory } from "./memory.js";
-import { loginRedditBrowser } from "./reddit/browser-login.js";
+import {
+  fillAndSubmitRedditLogin,
+  loginRedditBrowser,
+  openRedditLoginForm,
+  waitUntilRedditLoggedIn,
+} from "./reddit/browser-login.js";
 import { createRedditBrowserEngine } from "./reddit/browser-session.js";
 import { getRedditEnv, type RedditEnvConfig } from "./reddit/config.js";
 import type { DiscoveryCandidate } from "./reddit/discover-subs.js";
@@ -38,6 +43,8 @@ import { hasStorageState, storageStatePath } from "./reddit/cookies.js";
 import { detectInterstitial } from "./reddit/interstitial.js";
 import {
   clearInterstitialSession,
+  getInterstitialSession,
+  saveInterstitialCookies,
   setInterstitialSession,
 } from "./reddit/interstitial-session.js";
 import { scoutOpportunities } from "./scout.js";
@@ -114,10 +121,31 @@ export class CommunityEngagerController implements AppController {
     }
 
     if (stage.name === "discover") {
+      const challenge = this.options.getContext().discoverChallenge as
+        | { reason?: string }
+        | undefined;
+      if (challenge?.reason === "login_wall") {
+        return this.applyDiscoverLoginFeedback(feedback);
+      }
+      if (challenge) {
+        return this.applyDiscoverCaptchaFeedback(feedback);
+      }
       return this.applyDiscoverFeedback(feedback);
     }
 
     if (stage.name === "scout") {
+      const challenge = this.options.getContext().interstitialChallenge as
+        | { reason?: string }
+        | undefined;
+      if (
+        challenge?.reason === "login_wall" ||
+        challenge?.reason === "login_pending"
+      ) {
+        const creds = parseCredentialValue(feedback.value);
+        if (creds || isAbortResponse(feedback)) {
+          return this.applyLoginWallCredentialFeedback(feedback);
+        }
+      }
       return this.applyInterstitialFeedback(feedback);
     }
 
@@ -182,6 +210,44 @@ export class CommunityEngagerController implements AppController {
         meta: { kind: isOtpCredentialPoint(fp.description) ? "otp" : "login" },
       };
     }
+    if (stage.name === "discover" && fp.type === "credential") {
+      const challenge = context.discoverChallenge as
+        | { url?: string; reason?: string }
+        | undefined;
+      return {
+        title: "Reddit login required (discover)",
+        url: challenge?.url ?? "https://www.reddit.com/login/",
+        details: [
+          { label: "Stage", value: "discover" },
+          { label: "Reason", value: challenge?.reason ?? "login_wall" },
+          {
+            label: "Hint",
+            value:
+              "Login form is open in the headed browser. Reply with username then password — we fill and submit for you.",
+          },
+        ],
+        meta: { kind: "login" },
+      };
+    }
+    if (stage.name === "discover" && fp.type === "confirmation") {
+      const challenge = context.discoverChallenge as
+        | { url?: string; reason?: string }
+        | undefined;
+      return {
+        title: "Discover blocked — solve CAPTCHA",
+        url: challenge?.url,
+        details: [
+          { label: "Stage", value: "discover" },
+          { label: "Reason", value: challenge?.reason ?? "captcha" },
+          {
+            label: "Hint",
+            value:
+              "Solve the CAPTCHA in the headed browser — we auto-continue when it clears (or Approve). Abort skips discovery and continues to scout.",
+          },
+        ],
+        meta: { kind: "interstitial" },
+      };
+    }
     if (stage.name === "discover" && fp.type === "choice") {
       const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
       return {
@@ -203,12 +269,37 @@ export class CommunityEngagerController implements AppController {
         meta: { kind: "discover" },
       };
     }
-    if (stage.name === "scout" && fp.type === "confirmation") {
+    if (stage.name === "scout" && fp.type === "credential") {
       const challenge = context.interstitialChallenge as
         | { url?: string; subreddit?: string; blockedSubs?: string[] }
         | undefined;
       return {
-        title: "Reddit anti-bot challenge",
+        title: "Reddit login required",
+        url: challenge?.url ?? "https://www.reddit.com/login/",
+        details: [
+          { label: "Subreddit", value: challenge?.subreddit ?? "?" },
+          {
+            label: "Blocked",
+            value: (challenge?.blockedSubs ?? []).map((s) => `r/${s}`).join(", "),
+          },
+          {
+            label: "Hint",
+            value:
+              "Login form is open in the headed browser. Reply username (line 1) + password (line 2). We fill, submit, and save cookies.",
+          },
+        ],
+        meta: { kind: "login" },
+      };
+    }
+    if (stage.name === "scout" && fp.type === "confirmation") {
+      const challenge = context.interstitialChallenge as
+        | { url?: string; subreddit?: string; blockedSubs?: string[]; reason?: string }
+        | undefined;
+      return {
+        title:
+          challenge?.reason === "login_pending"
+            ? "Finish Reddit login (2FA / CAPTCHA)"
+            : "Reddit anti-bot challenge",
         url: challenge?.url,
         details: [
           { label: "Subreddit", value: challenge?.subreddit ?? "?" },
@@ -219,10 +310,15 @@ export class CommunityEngagerController implements AppController {
           {
             label: "Hint",
             value:
-              "Solve the CAPTCHA in the open browser window, then Approve. Abort skips without saving cookies (run continues).",
+              challenge?.reason === "login_pending"
+                ? "Complete 2FA/CAPTCHA in the headed browser — we auto-continue when logged in (or Approve)."
+                : "Solve the CAPTCHA in the open browser. We auto-continue when it clears (or Approve in Telegram). Abort skips.",
           },
         ],
-        meta: { kind: "interstitial" },
+        meta: {
+          kind:
+            challenge?.reason === "login_pending" ? "login" : "interstitial",
+        },
       };
     }
     if (stage.name !== "await_approval") return undefined;
@@ -239,13 +335,34 @@ export class CommunityEngagerController implements AppController {
     if (stage.name === "ensure_session") {
       return this.shouldSkipEnsureSessionFeedback(fp, context);
     }
+    if (stage.name === "discover" && fp.type === "credential") {
+      const challenge = context.discoverChallenge as { reason?: string } | undefined;
+      return challenge?.reason !== "login_wall";
+    }
+    if (stage.name === "discover" && fp.type === "confirmation") {
+      const challenge = context.discoverChallenge as { reason?: string } | undefined;
+      if (!challenge) return true;
+      // Credential FP owns the pure login-wall case.
+      return challenge.reason === "login_wall";
+    }
     if (stage.name === "discover" && fp.type === "choice") {
       const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
       return candidates.length === 0;
     }
+    if (stage.name === "scout" && fp.type === "credential") {
+      const challenge = context.interstitialChallenge as
+        | { reason?: string }
+        | undefined;
+      return challenge?.reason !== "login_wall";
+    }
     if (stage.name === "scout" && fp.type === "confirmation") {
-      // Only pause when we opened a headed challenge window.
-      return !context.interstitialChallenge;
+      const challenge = context.interstitialChallenge as
+        | { reason?: string }
+        | undefined;
+      if (!challenge) return true;
+      // Credential owns login_wall; confirmation covers CAPTCHA + post-login 2FA.
+      if (challenge.reason === "login_wall") return true;
+      return false;
     }
     if (stage.name !== "await_approval" || fp.type !== "confirmation") {
       return false;
@@ -273,6 +390,23 @@ export class CommunityEngagerController implements AppController {
         "Abort to cancel. Do not use Approve — send the credentials as text."
       );
     }
+    if (stage.name === "discover" && fp.type === "credential") {
+      return (
+        `Discover needs a Reddit login (login wall). ` +
+        `The headed browser has the login form open — reply with username on line 1 and password on line 2. ` +
+        `We fill the form, submit, and save cookies. Abort skips discovery.`
+      );
+    }
+    if (stage.name === "discover" && fp.type === "confirmation") {
+      const challenge = context.discoverChallenge as
+        | { reason?: string; url?: string }
+        | undefined;
+      return (
+        `Discover hit a Reddit anti-bot wall (${challenge?.reason ?? "captcha"}). ` +
+        `Use the headed browser — we auto-continue when the wall clears (or Approve). ` +
+        `Abort skips discovery; scout continues on the existing allowlist.`
+      );
+    }
     if (stage.name === "discover" && fp.type === "choice") {
       const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
       return (
@@ -281,15 +415,30 @@ export class CommunityEngagerController implements AppController {
         `or choose "${DISCOVER_SKIP_OPTION}". Nothing is postable until you promote.`
       );
     }
-    if (stage.name === "scout" && fp.type === "confirmation") {
+    if (stage.name === "scout" && fp.type === "credential") {
       const challenge = context.interstitialChallenge as
-        | { subreddit?: string; url?: string }
+        | { subreddit?: string }
         | undefined;
       return (
+        `Reddit login wall on r/${challenge?.subreddit ?? "?"}. ` +
+        `Login form is open in the headed browser — reply with username then password. ` +
+        `We fill, submit, and save the session. Abort skips.`
+      );
+    }
+    if (stage.name === "scout" && fp.type === "confirmation") {
+      const challenge = context.interstitialChallenge as
+        | { subreddit?: string; url?: string; reason?: string }
+        | undefined;
+      if (challenge?.reason === "login_pending") {
+        return (
+          `Credentials submitted for r/${challenge?.subreddit ?? "?"}, but Reddit still needs a step ` +
+          `(2FA / CAPTCHA). Finish it in the headed window — we auto-detect login (or Approve). Abort skips.`
+        );
+      }
+      return (
         `Reddit challenged the browser (r/${challenge?.subreddit ?? "?"}). ` +
-        `A headed window is open on the challenge page — solve the CAPTCHA there, then Approve. ` +
-        `Abort skips saving cookies; the run continues with whatever we already scouted. ` +
-        `We never auto-solve CAPTCHAs.`
+        `Solve the CAPTCHA in the headed window — we auto-detect when it clears and continue ` +
+        `(or tap Approve). Abort skips. We never auto-solve CAPTCHAs.`
       );
     }
     if (stage.name !== "await_approval") return undefined;
@@ -327,6 +476,50 @@ export class CommunityEngagerController implements AppController {
       store: getAllowlistStore(),
     });
     ctx.discoveryCandidates = result.candidates;
+
+    if (result.challenge) {
+      setInterstitialSession({
+        engine: result.challenge.engine,
+        storagePath: result.challenge.storagePath,
+        url: result.challenge.url,
+        subreddit: "discover",
+        blockedSubs: ["discover"],
+      });
+
+      if (result.challenge.reason === "login_wall") {
+        const loginOutcome = await this.prepareLoginWallSession();
+        if (loginOutcome === "logged_in") {
+          console.log(
+            "[discover] login wall cleared with env credentials — continuing discovery"
+          );
+          await this.continueDiscoveryAfterClear(
+            ctx,
+            getInterstitialSession()
+          );
+          return;
+        }
+        ctx.discoverChallenge = {
+          url: result.challenge.url,
+          reason: "login_wall",
+          title: result.challenge.title,
+          storagePath: result.challenge.storagePath,
+        };
+        console.log(
+          "[discover] paused for LOGIN credentials — form open; reply via Telegram/CLI"
+        );
+      } else {
+        ctx.discoverChallenge = {
+          url: result.challenge.url,
+          reason: result.challenge.reason,
+          title: result.challenge.title,
+          storagePath: result.challenge.storagePath,
+        };
+        console.log(
+          "[discover] paused for CAPTCHA HITL — headed browser left open; auto-detects clear (or Approve)"
+        );
+      }
+    }
+
     ctx.stageResults = {
       ...(ctx.stageResults ?? {}),
       discover: {
@@ -334,8 +527,159 @@ export class CommunityEngagerController implements AppController {
         count: result.candidates.length,
         names: result.candidates.map((c) => c.name),
         skippedReason: result.skippedReason,
+        captcha: result.challenge ? result.challenge.reason : undefined,
       },
     };
+  }
+
+  /**
+   * Approve / auto-clear → save jar, continue discovery in the SAME headed
+   * browser (opening a new Chromium re-triggers Reddit's humanity wall).
+   * Abort → soft-abort: close window without save; continue to scout.
+   */
+  private async applyDiscoverCaptchaFeedback(
+    feedback: FeedbackResponse
+  ): Promise<boolean> {
+    const ctx = this.options.getContext();
+
+    if (isAbortResponse(feedback)) {
+      await clearInterstitialSession(false);
+      delete ctx.discoverChallenge;
+      console.warn(
+        "[discover] CAPTCHA HITL aborted — cookies not saved; continuing without new proposals"
+      );
+      ctx.stageResults = {
+        ...(ctx.stageResults ?? {}),
+        discover: {
+          ...((ctx.stageResults?.discover as object) ?? {}),
+          captcha: "skipped",
+        },
+      };
+      return false;
+    }
+
+    const live = getInterstitialSession();
+    const saved = live
+      ? await saveInterstitialCookies()
+      : await clearInterstitialSession(true);
+
+    delete ctx.discoverChallenge;
+    console.log(
+      `[discover] CAPTCHA cleared — jar ${saved ? `saved → ${saved}` : "save failed"}; ` +
+        `${live ? "continuing in same browser" : "retrying with new session"}`
+    );
+
+    const retry = await this.continueDiscoveryAfterClear(ctx, live);
+    return retry;
+  }
+
+  /**
+   * Run discovery after CAPTCHA clear. Prefers the live headed engine.
+   * If Reddit challenges again, wait in that same window (confirmation FP
+   * is already consumed — we cannot re-HITL via Telegram).
+   */
+  private async continueDiscoveryAfterClear(
+    ctx: AgentContext,
+    live: ReturnType<typeof getInterstitialSession>
+  ): Promise<boolean> {
+    const memory = this.options.memory;
+    const store = getAllowlistStore();
+    const maxRounds = 3;
+    let adopt = live
+      ? { engine: live.engine, storagePath: live.storagePath }
+      : undefined;
+
+    for (let round = 0; round < maxRounds; round++) {
+      const result = await runDiscovery({
+        memory,
+        store,
+        adopt,
+      });
+      ctx.discoveryCandidates = result.candidates;
+
+      if (!result.challenge) {
+        await clearInterstitialSession(true);
+        ctx.stageResults = {
+          ...(ctx.stageResults ?? {}),
+          discover: {
+            enabled: result.enabled,
+            count: result.candidates.length,
+            names: result.candidates.map((c) => c.name),
+            captcha: "cleared",
+            storagePath: adopt?.storagePath,
+          },
+        };
+        return true;
+      }
+
+      setInterstitialSession({
+        engine: result.challenge.engine,
+        storagePath: result.challenge.storagePath,
+        url: result.challenge.url,
+        subreddit: "discover",
+        blockedSubs: ["discover"],
+      });
+      adopt = {
+        engine: result.challenge.engine,
+        storagePath: result.challenge.storagePath,
+      };
+
+      console.warn(
+        `[discover] blocked again (${result.challenge.reason}) in same window — ` +
+          `waiting for clear (round ${round + 1}/${maxRounds})…`
+      );
+
+      const page = await result.challenge.engine.getPage();
+      const cleared = await this.waitForInterstitialClear(page, 300_000);
+      if (!cleared) {
+        console.warn(
+          "[discover] still blocked after wait — tearing down; scout will use existing allowlist"
+        );
+        await clearInterstitialSession(false);
+        ctx.discoveryCandidates = [];
+        ctx.stageResults = {
+          ...(ctx.stageResults ?? {}),
+          discover: {
+            enabled: true,
+            count: 0,
+            captcha: "still_blocked",
+            skippedReason: result.skippedReason,
+          },
+        };
+        return true;
+      }
+
+      await saveInterstitialCookies();
+      console.log("[discover] wall cleared again — resuming discovery in same browser");
+    }
+
+    console.warn("[discover] exceeded clear/retry rounds — giving up");
+    await clearInterstitialSession(false);
+    ctx.discoveryCandidates = [];
+    return true;
+  }
+
+  private async waitForInterstitialClear(
+    page: import("playwright").Page,
+    timeoutMs: number
+  ): Promise<boolean> {
+    const pollMs = Number(process.env.REDDIT_INTERSTITIAL_POLL_MS ?? "2000");
+    const interval = Number.isFinite(pollMs) && pollMs >= 500 ? pollMs : 2000;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      try {
+        const wall = await detectInterstitial(page);
+        if (!wall.challenged) return true;
+      } catch {
+        /* page mid-navigation */
+      }
+      await new Promise((r) => setTimeout(r, interval));
+    }
+    try {
+      return !(await detectInterstitial(page)).challenged;
+    } catch {
+      return false;
+    }
   }
 
   private async applyDiscoverFeedback(
@@ -371,6 +715,8 @@ export class CommunityEngagerController implements AppController {
     console.log(
       `[discover] promoted r/${promoted.name} → postable allowlist`
     );
+    const ctx = this.options.getContext();
+    ctx.lastPromotedSubreddit = promoted.name;
     return true;
   }
 
@@ -505,9 +851,14 @@ export class CommunityEngagerController implements AppController {
     const cfg = getRedditEnv();
     const store = getAllowlistStore();
     // When discover just ran with a max-subs cap, leave room for exploration.
+    const prefer =
+      typeof ctx.lastPromotedSubreddit === "string"
+        ? ctx.lastPromotedSubreddit
+        : undefined;
     const subreddits = await store.pickScoutSubs(
       cfg.scoutMaxSubs,
-      cfg.discoverExploreSlot
+      cfg.discoverExploreSlot,
+      prefer ? { prefer } : undefined
     );
     console.log(
       `[scout] allowlist (${subreddits.length}): ${subreddits
@@ -515,25 +866,23 @@ export class CommunityEngagerController implements AppController {
         .join(", ")}`
     );
 
-    const result = await scoutOpportunities({ limit: 5, subreddits });
-    let opportunities = result.drafts;
-
-    // Don't re-queue threads we already drafted / decided on this machine.
+    // Load already-seen first so scout's limit counts *fresh* opportunities.
     const prior = await this.options.store.list({
       appId: APP_ID,
       limit: 500,
     });
-    const seen = new Set(prior.map((r) => r.id));
-    const before = opportunities.length;
-    opportunities = opportunities.filter((d) => !seen.has(d.id));
-    if (before !== opportunities.length) {
-      console.log(
-        `[scout] skipped ${before - opportunities.length} already-seen draft(s) in action-store`
-      );
-    }
+    const excludeIds = prior.map((r) => r.id);
+
+    const result = await scoutOpportunities({
+      limit: 5,
+      subreddits,
+      excludeIds,
+    });
+    const opportunities = result.drafts;
 
     console.log(
-      `[scout] ${opportunities.length} actionable (score ≥ 4) via ${result.source}`
+      `[scout] ${opportunities.length} actionable (score ≥ 4) via ${result.source}` +
+        (excludeIds.length ? ` · excluded ${excludeIds.length} already-seen` : "")
     );
     for (const d of opportunities) {
       console.log(
@@ -549,17 +898,73 @@ export class CommunityEngagerController implements AppController {
         source: result.source,
         blocked: result.blocked,
         timedOut: result.timedOut,
-        skippedSeen: before - opportunities.length,
+        excludedSeen: excludeIds.length,
       },
     };
+
+    // Prefer the live scout window (CAPTCHA/login still visible) over opening a new one.
+    if (result.challenge) {
+      setInterstitialSession({
+        engine: result.challenge.engine,
+        storagePath: result.challenge.storagePath,
+        url: result.challenge.url,
+        subreddit: result.challenge.subreddit,
+        blockedSubs: result.blocked
+          .filter((b) => b.reason !== "rate_limit")
+          .map((b) => b.subreddit),
+      });
+
+      if (result.challenge.reason === "login_wall") {
+        const loginOutcome = await this.prepareLoginWallSession();
+        if (loginOutcome === "logged_in") {
+          console.log(
+            "[scout] login wall cleared with env credentials — retrying scout"
+          );
+          await this.runScout(ctx);
+          return;
+        }
+        ctx.interstitialChallenge = {
+          url: result.challenge.url,
+          subreddit: result.challenge.subreddit,
+          blockedSubs: result.blocked
+            .filter((b) => b.reason !== "rate_limit")
+            .map((b) => b.subreddit),
+          storagePath: result.challenge.storagePath,
+          reason: "login_wall",
+          live: true,
+        };
+        console.log(
+          `[scout] paused for LOGIN credentials on r/${result.challenge.subreddit} — ` +
+            `form open; reply via Telegram/CLI`
+        );
+        return;
+      }
+
+      ctx.interstitialChallenge = {
+        url: result.challenge.url,
+        subreddit: result.challenge.subreddit,
+        blockedSubs: result.blocked
+          .filter((b) => b.reason !== "rate_limit")
+          .map((b) => b.subreddit),
+        storagePath: result.challenge.storagePath,
+        reason: result.challenge.reason,
+        live: true,
+      };
+      console.log(
+        `[scout] paused for CAPTCHA HITL on r/${result.challenge.subreddit} — ` +
+          `browser left open; auto-detects clear (or Approve)`
+      );
+      return;
+    }
 
     await this.maybeEscalateInterstitial(ctx, result.blocked);
   }
 
   /**
-   * If browser scout hit an anti-bot wall and HITL is enabled, open a headed
-   * window on the challenge and set interstitialChallenge so the scout
-   * confirmation feedback point pauses for Telegram/CLI Approve.
+   * Fallback when browser scout did not hand off a live window.
+   * With interstitialHitl, always park a headed browser and set
+   * interstitialChallenge so the runtime WAITS for Telegram/CLI — never
+   * "cleared without HITL" and proceed.
    */
   private async maybeEscalateInterstitial(
     ctx: AgentContext,
@@ -589,7 +994,7 @@ export class CommunityEngagerController implements AppController {
 
     const first = captchaBlocked[0]!;
     console.log(
-      `[scout] escalating interstitial for r/${first.subreddit} — opening headed browser`
+      `[scout] escalating interstitial for r/${first.subreddit} — opening headed browser and pausing for Approve`
     );
 
     const { engine, storagePath } = await createRedditBrowserEngine({
@@ -606,13 +1011,14 @@ export class CommunityEngagerController implements AppController {
       });
       const wall = await detectInterstitial(page);
       if (!wall.challenged) {
-        // Challenge already cleared (jar / race) — persist and continue.
-        await engine.saveStorageState(storagePath);
-        await engine.teardown();
         console.log(
-          `[scout] challenge page cleared without HITL — saved jar → ${storagePath}`
+          "[scout] CAPTCHA not visible on re-open — keeping headed window open; " +
+            "Approve in Telegram/CLI when the page looks clear (or Abort to skip)"
         );
-        return;
+      } else {
+        console.log(
+          `[scout] CAPTCHA still showing (${wall.reason}) — solve in the headed window, then Approve`
+        );
       }
     } catch (err) {
       console.warn("[scout] failed to open interstitial window:", err);
@@ -631,12 +1037,218 @@ export class CommunityEngagerController implements AppController {
       subreddit: first.subreddit,
       blockedSubs: captchaBlocked.map((b) => b.subreddit),
     });
+
+    if (first.reason === "login_wall") {
+      const loginOutcome = await this.prepareLoginWallSession();
+      if (loginOutcome === "logged_in") {
+        console.log(
+          "[scout] login wall cleared with env credentials after escalate — retrying scout"
+        );
+        await this.runScout(ctx);
+        return;
+      }
+      ctx.interstitialChallenge = {
+        url: first.url,
+        subreddit: first.subreddit,
+        blockedSubs: captchaBlocked.map((b) => b.subreddit),
+        storagePath: storageStatePath(cfg),
+        reason: "login_wall",
+      };
+      console.log(
+        "[scout] WAITING for Reddit credentials via Telegram/CLI (login form open)"
+      );
+      return;
+    }
+
     ctx.interstitialChallenge = {
       url: first.url,
       subreddit: first.subreddit,
       blockedSubs: captchaBlocked.map((b) => b.subreddit),
       storagePath: storageStatePath(cfg),
+      reason: first.reason,
     };
+    console.log(
+      "[scout] WAITING for human CAPTCHA solve via Telegram/CLI before continuing"
+    );
+  }
+
+  /**
+   * Click Log In on the headed interstitial session. If env credentials exist,
+   * try an unattended fill first. Returns logged_in when the jar was saved.
+   */
+  private async prepareLoginWallSession(): Promise<
+    "logged_in" | "credentials_needed"
+  > {
+    const session = getInterstitialSession();
+    if (!session) return "credentials_needed";
+
+    try {
+      const page = await session.engine.getPage();
+      await openRedditLoginForm(page);
+      console.log("[login-wall] login form open in headed browser");
+
+      const cfg = getRedditEnv();
+      const username = cfg.username?.trim();
+      const password = cfg.password;
+      if (username && password) {
+        console.log(
+          `[login-wall] trying env credentials as u/${username}…`
+        );
+        await fillAndSubmitRedditLogin(page, username, password);
+        if (await waitUntilRedditLoggedIn(page, 45_000)) {
+          await saveInterstitialCookies();
+          console.log(
+            `[login-wall] env login ok — jar saved (window kept open for continue)`
+          );
+          return "logged_in";
+        }
+        console.warn(
+          "[login-wall] env credentials did not finish login — requesting HITL credentials"
+        );
+        await openRedditLoginForm(page);
+      }
+    } catch (err) {
+      console.warn("[login-wall] failed to open/fill login form:", err);
+    }
+    return "credentials_needed";
+  }
+
+  /**
+   * Telegram/CLI credentials → fill headed browser → save jar → retry scout.
+   * If 2FA remains, leave window open as login_pending for confirmation FP.
+   */
+  private async applyLoginWallCredentialFeedback(
+    feedback: FeedbackResponse
+  ): Promise<boolean | void> {
+    const ctx = this.options.getContext();
+
+    if (isAbortResponse(feedback)) {
+      await clearInterstitialSession(false);
+      delete ctx.interstitialChallenge;
+      console.warn(
+        "[scout] login HITL aborted — cookies not saved; continuing run"
+      );
+      ctx.stageResults = {
+        ...(ctx.stageResults ?? {}),
+        scout: {
+          ...((ctx.stageResults?.scout as object) ?? {}),
+          interstitial: "login_skipped",
+        },
+      };
+      return false;
+    }
+
+    const creds = parseCredentialValue(feedback.value);
+    if (!creds) {
+      throw new Error(
+        "scout login wall: expected username\\npassword (or { username, password })"
+      );
+    }
+
+    const session = getInterstitialSession();
+    if (!session) {
+      throw new Error("scout login wall: no headed browser session");
+    }
+
+    console.log(`[scout] filling Reddit login as u/${creds.username}…`);
+    const page = await session.engine.getPage();
+    await fillAndSubmitRedditLogin(page, creds.username, creds.password);
+
+    if (await waitUntilRedditLoggedIn(page, 60_000)) {
+      const saved = await clearInterstitialSession(true);
+      delete ctx.interstitialChallenge;
+      ctx.stageResults = {
+        ...(ctx.stageResults ?? {}),
+        scout: {
+          ...((ctx.stageResults?.scout as object) ?? {}),
+          interstitial: saved ? "logged_in" : "save_failed",
+          storagePath: saved,
+        },
+      };
+      console.log(
+        "[scout] login ok — jar saved; retrying scout with authenticated cookies"
+      );
+      await this.runScout(ctx);
+      if (ctx.interstitialChallenge) {
+        console.warn(
+          "[scout] still challenged after login — tearing down; continuing with current opportunities"
+        );
+        await clearInterstitialSession(false);
+        delete ctx.interstitialChallenge;
+      }
+      return;
+    }
+
+    // Password accepted but 2FA/CAPTCHA may remain — confirmation FP next.
+    const prior = ctx.interstitialChallenge as Record<string, unknown> | undefined;
+    ctx.interstitialChallenge = {
+      ...(prior ?? {}),
+      reason: "login_pending",
+      url: page.url(),
+    };
+    console.log(
+      "[scout] credentials submitted — finish 2FA/CAPTCHA in the headed window (auto-detect or Approve)"
+    );
+  }
+
+  /** Discover-stage login wall: same fill/save, then retry discovery. */
+  private async applyDiscoverLoginFeedback(
+    feedback: FeedbackResponse
+  ): Promise<boolean> {
+    const ctx = this.options.getContext();
+
+    if (isAbortResponse(feedback)) {
+      await clearInterstitialSession(false);
+      delete ctx.discoverChallenge;
+      console.warn(
+        "[discover] login HITL aborted — cookies not saved; continuing without new proposals"
+      );
+      ctx.stageResults = {
+        ...(ctx.stageResults ?? {}),
+        discover: {
+          ...((ctx.stageResults?.discover as object) ?? {}),
+          captcha: "login_skipped",
+        },
+      };
+      return false;
+    }
+
+    const creds = parseCredentialValue(feedback.value);
+    if (!creds) {
+      throw new Error(
+        "discover login wall: expected username\\npassword (or { username, password })"
+      );
+    }
+
+    const session = getInterstitialSession();
+    if (!session) {
+      throw new Error("discover login wall: no headed browser session");
+    }
+
+    console.log(`[discover] filling Reddit login as u/${creds.username}…`);
+    const page = await session.engine.getPage();
+    await fillAndSubmitRedditLogin(page, creds.username, creds.password);
+
+    if (await waitUntilRedditLoggedIn(page, 60_000)) {
+      await saveInterstitialCookies();
+      delete ctx.discoverChallenge;
+      console.log(
+        `[discover] login ok — continuing discovery in same headed browser`
+      );
+      await this.continueDiscoveryAfterClear(ctx, getInterstitialSession());
+      return true;
+    }
+
+    // Leave window for confirmation (2FA) if that FP is still pending.
+    ctx.discoverChallenge = {
+      ...((ctx.discoverChallenge as object) ?? {}),
+      reason: "login_pending",
+      url: page.url(),
+    };
+    console.log(
+      "[discover] credentials submitted — finish 2FA/CAPTCHA in the headed window"
+    );
+    return true;
   }
 
   /**
@@ -675,8 +1287,20 @@ export class CommunityEngagerController implements AppController {
       },
     };
     console.log(
-      "[scout] interstitial HITL approved — jar saved; later stages reuse cookies"
+      "[scout] interstitial HITL approved — jar saved; retrying scout with fresh cookies"
     );
+
+    // Re-run scout now that the jar may clear CAPTCHA walls.
+    await this.runScout(ctx);
+    // If we hit CAPTCHA again, interstitialChallenge is set for… but confirmation
+    // already consumed. Soft-continue with whatever we got (json/fixtures/empty).
+    if (ctx.interstitialChallenge) {
+      console.warn(
+        "[scout] still challenged after Approve — tearing down; continuing with current opportunities"
+      );
+      await clearInterstitialSession(false);
+      delete ctx.interstitialChallenge;
+    }
   }
 
   private async runDraft(

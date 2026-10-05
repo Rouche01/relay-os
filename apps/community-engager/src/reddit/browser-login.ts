@@ -59,6 +59,75 @@ async function dismissCookieBanner(page: Page): Promise<void> {
   }
 }
 
+/** Username field on Reddit's login form (full page or modal). */
+function usernameField(page: Page) {
+  return page.getByRole("textbox", { name: /email or username/i });
+}
+
+/**
+ * Ensure the headed page shows Reddit's login form.
+ * Clicks nav/modal "Log In" when possible; otherwise navigates to /login/.
+ */
+export async function openRedditLoginForm(page: Page): Promise<void> {
+  await dismissCookieBanner(page);
+
+  const userBox = usernameField(page);
+  try {
+    if (await userBox.isVisible({ timeout: 1_500 })) return;
+  } catch {
+    /* need to open form */
+  }
+
+  try {
+    const loginCtl = page
+      .getByRole("link", { name: /^Log In$/i })
+      .or(page.getByRole("button", { name: /^Log In$/i }))
+      .or(page.locator('a[href*="/login"]').first())
+      .first();
+    await loginCtl.click({ timeout: 5_000 });
+    await userBox.waitFor({ state: "visible", timeout: 15_000 });
+    return;
+  } catch {
+    /* fall through to dedicated login URL */
+  }
+
+  console.log(`[login] opening ${REDDIT_LOGIN_URL}`);
+  await page.goto(REDDIT_LOGIN_URL, {
+    waitUntil: "domcontentloaded",
+    timeout: 45_000,
+  });
+  await dismissCookieBanner(page);
+  await userBox.waitFor({ state: "visible", timeout: 20_000 });
+}
+
+/** Fill username/password on the current page and click Log In. */
+export async function fillAndSubmitRedditLogin(
+  page: Page,
+  username: string,
+  password: string
+): Promise<void> {
+  await openRedditLoginForm(page);
+  const userBox = usernameField(page);
+  await userBox.fill(username);
+  const passBox = page.locator('input[type="password"]').first();
+  await passBox.waitFor({ state: "visible", timeout: 10_000 });
+  await passBox.fill(password);
+  await page.getByRole("button", { name: /^Log In$/i }).click();
+}
+
+/** Poll until cookies/UI look logged-in, or timeout. */
+export async function waitUntilRedditLoggedIn(
+  page: Page,
+  timeoutMs = 45_000
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await looksLoggedIn(page)) return true;
+    await sleep(500);
+  }
+  return looksLoggedIn(page);
+}
+
 async function pauseForHumanCli(info: {
   url: string;
   hint: string;
@@ -188,23 +257,7 @@ export async function loginRedditBrowser(
   try {
     const page = await engine.getPage();
     console.log(`[login] → ${REDDIT_LOGIN_URL} (headless=${headless})`);
-    await page.goto(REDDIT_LOGIN_URL, {
-      waitUntil: "domcontentloaded",
-      timeout: 45_000,
-    });
-    await dismissCookieBanner(page);
-
-    const userBox = page.getByRole("textbox", {
-      name: /email or username/i,
-    });
-    await userBox.waitFor({ state: "visible", timeout: 20_000 });
-    await userBox.fill(username);
-
-    const passBox = page.locator('input[type="password"]').first();
-    await passBox.waitFor({ state: "visible", timeout: 10_000 });
-    await passBox.fill(password);
-
-    await page.getByRole("button", { name: /^Log In$/i }).click();
+    await fillAndSubmitRedditLogin(page, username, password);
 
     let challenged = false;
     const deadline = Date.now() + postSubmitTimeoutMs;

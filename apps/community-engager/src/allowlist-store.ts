@@ -126,6 +126,8 @@ export class AllowlistStore {
     const n = normalizeSub(name).toLowerCase();
     const idx = entries.findIndex((e) => e.name.toLowerCase() === n);
     const now = new Date().toISOString();
+    // Fresh promotions outrank static seeds (score 10) so the next scout picks them.
+    const freshScore = 12;
     if (idx < 0) {
       const created: AllowlistEntry = {
         name: normalizeSub(name),
@@ -133,7 +135,7 @@ export class AllowlistStore {
         note: note ?? "Human-promoted discovery candidate",
         source: "discovered",
         status: "postable",
-        score: 5,
+        score: freshScore,
         approvedCount: 0,
         abortedCount: 0,
         updatedAt: now,
@@ -148,7 +150,8 @@ export class AllowlistStore {
       status: "postable",
       rulesOk: true,
       note: note ?? prev.note,
-      score: Math.max(prev.score, 5),
+      source: prev.source === "seed" ? "seed" : "discovered",
+      score: Math.max(prev.score, freshScore),
       updatedAt: now,
     };
     entries[idx] = next;
@@ -197,30 +200,52 @@ export class AllowlistStore {
 
   /**
    * Ranked postable names for scout.
-   * When explore=true, reserve one slot for a human-promoted discovered sub.
+   * When explore=true, reserve one slot for the newest human-promoted
+   * discovered sub (so a just-promoted candidate is scouted this run).
    */
-  async pickScoutSubs(max: number, explore: boolean): Promise<string[]> {
+  async pickScoutSubs(
+    max: number,
+    explore: boolean,
+    opts?: { prefer?: string }
+  ): Promise<string[]> {
     const postable = (await this.listPostable()).sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      return b.approvedCount - a.approvedCount;
+      if (b.approvedCount !== a.approvedCount) {
+        return b.approvedCount - a.approvedCount;
+      }
+      return b.updatedAt.localeCompare(a.updatedAt);
     });
     if (postable.length === 0) {
       return ALLOWLISTED_SUBREDDITS.filter((s) => s.rulesOk).map((s) => s.name);
     }
     const limit = max > 0 ? max : postable.length;
     let picked = postable.slice(0, limit);
-    if (explore) {
-      const discovered = postable.find(
-        (e) =>
-          e.source === "discovered" &&
-          !picked.some((p) => p.name.toLowerCase() === e.name.toLowerCase())
+
+    const preferName = opts?.prefer?.replace(/^r\//i, "").trim().toLowerCase();
+    const preferEntry = preferName
+      ? postable.find((e) => e.name.toLowerCase() === preferName)
+      : undefined;
+
+    // Newest discovered promotion wins the explore slot (not an older one).
+    const newestDiscovered = postable
+      .filter((e) => e.source === "discovered")
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+
+    const exploreEntry = preferEntry ?? (explore ? newestDiscovered : undefined);
+    if (exploreEntry) {
+      const already = picked.some(
+        (p) => p.name.toLowerCase() === exploreEntry.name.toLowerCase()
       );
-      if (discovered) {
+      if (!already) {
         if (picked.length >= limit && limit > 0) {
-          picked = [...picked.slice(0, limit - 1), discovered];
+          picked = [...picked.slice(0, limit - 1), exploreEntry];
         } else {
-          picked = [...picked, discovered];
+          picked = [...picked, exploreEntry];
         }
+        console.log(
+          `[allowlist] explore/prefer slot → r/${exploreEntry.name}` +
+            (preferEntry ? " (just promoted)" : " (newest discovered)")
+        );
       }
     }
     return picked.map((e) => e.name);

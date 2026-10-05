@@ -12,6 +12,8 @@ export interface LiveScoutOptions {
   limit?: number;
   subreddits?: string[];
   cfg?: RedditEnvConfig;
+  /** Already-seen draft ids — skipped so `limit` is fresh for this run. */
+  excludeIds?: Iterable<string>;
 }
 
 /**
@@ -30,6 +32,7 @@ export async function scoutRedditLive(
   const subs = opts.subreddits?.length ? opts.subreddits : allowlistedSubNames();
   const limit = opts.limit ?? 5;
   const drafts: CommunityDraft[] = [];
+  const excludeIds = new Set(opts.excludeIds ?? []);
 
   for (const sub of subs) {
     let posts;
@@ -40,7 +43,10 @@ export async function scoutRedditLive(
       continue;
     }
 
-    const mapped = listingPostsToDrafts(posts, limit - drafts.length);
+    const mapped = listingPostsToDrafts(posts, limit - drafts.length, {
+      excludeIds,
+    });
+    for (const d of mapped) excludeIds.add(d.id);
     drafts.push(...mapped);
     if (drafts.length >= limit) {
       return drafts;

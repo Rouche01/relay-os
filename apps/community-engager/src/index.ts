@@ -23,6 +23,7 @@ import {
 } from "@relay/runtime";
 import { CommunityEngagerController } from "./controller.js";
 import { createCommunityEngines } from "./engines.js";
+import { watchInterstitialCleared } from "./interstitial-watch.js";
 import { formatRunSummary, runSummaryFromFanout, type RunSummary } from "./job-queue.js";
 import { CommunityEngagerManifest } from "./manifest.js";
 import type { CommunityDraft } from "./types.js";
@@ -154,6 +155,7 @@ export class CommunityEngagerApp implements FanoutHost {
     if (!this.options.adapter || this.brokers.has(runtime)) return;
     const broker = new FeedbackBroker(runtime, {
       adapter: this.options.adapter,
+      autoResolvers: [watchInterstitialCleared],
     });
     broker.attach();
     this.brokers.set(runtime, broker);

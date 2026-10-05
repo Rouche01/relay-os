@@ -9,12 +9,13 @@ import {
 import {
   scoutRedditBrowser,
   type BrowserScoutBlocked,
+  type ScoutChallengeHandOff,
 } from "./reddit/scout-browser.js";
 import { scoutRedditJson } from "./reddit/scout-json.js";
 import { scoutRedditLive } from "./reddit/scout-live.js";
 
 export interface ScoutOptions {
-  /** Max actionable drafts to return (default 5). */
+  /** Max *new* actionable drafts to return (default 5). Already-seen excluded. */
   limit?: number;
   /** When true, include non-actionable fixtures (for debugging). */
   includeRejected?: boolean;
@@ -25,6 +26,11 @@ export interface ScoutOptions {
    * falls back to the static seed allowlist.
    */
   subreddits?: string[];
+  /**
+   * Draft ids already handled in the action-store — skipped so `limit`
+   * counts fresh opportunities for this run only.
+   */
+  excludeIds?: Iterable<string>;
 }
 
 export interface ScoutResult {
@@ -32,6 +38,8 @@ export interface ScoutResult {
   source: ScoutSource | "fixtures";
   blocked: BrowserScoutBlocked[];
   timedOut: string[];
+  /** Live CAPTCHA window from browser scout — pause HITL before json fallback. */
+  challenge?: ScoutChallengeHandOff;
 }
 
 /**
@@ -52,10 +60,17 @@ export async function scoutOpportunities(
   let timedOut: string[] = [];
 
   const subreddits = opts.subreddits;
+  const excludeIds = opts.excludeIds;
   if (subreddits?.length) {
     console.log(
       `[scout] subs=${subreddits.map((s) => `r/${s}`).join(", ")}`
     );
+  }
+  if (excludeIds) {
+    const n = excludeIds instanceof Set ? excludeIds.size : [...excludeIds].length;
+    if (n > 0) {
+      console.log(`[scout] excluding ${n} already-seen draft id(s)`);
+    }
   }
 
   const tryBrowser = source === "browser" || source === "auto";
@@ -64,7 +79,12 @@ export async function scoutOpportunities(
       "[scout] source=browser (Playwright / www.reddit extract, score ≥ 4)"
     );
     try {
-      const live = await scoutRedditBrowser({ limit, cfg, subreddits });
+      const live = await scoutRedditBrowser({
+        limit,
+        cfg,
+        subreddits,
+        excludeIds,
+      });
       blocked = live.blocked;
       timedOut = live.timedOut;
       if (live.blocked.length > 0) {
@@ -73,6 +93,16 @@ export async function scoutOpportunities(
             .map((b) => `r/${b.subreddit}`)
             .join(", ")}`
         );
+      }
+      // CAPTCHA HITL owns the live window — do not fall through to json yet.
+      if (live.challenge) {
+        return {
+          drafts: live.drafts,
+          source: "browser",
+          blocked,
+          timedOut,
+          challenge: live.challenge,
+        };
       }
       if (live.drafts.length > 0) {
         return { drafts: live.drafts, source: "browser", blocked, timedOut };
@@ -90,7 +120,12 @@ export async function scoutOpportunities(
   if (tryJson) {
     console.log("[scout] source=json (public *.json listings, score ≥ 4)");
     try {
-      const live = await scoutRedditJson({ limit, cfg, subreddits });
+      const live = await scoutRedditJson({
+        limit,
+        cfg,
+        subreddits,
+        excludeIds,
+      });
       if (live.length > 0) {
         return { drafts: live, source: "json", blocked, timedOut };
       }
@@ -116,7 +151,12 @@ export async function scoutOpportunities(
     }
     console.log("[scout] source=reddit (OAuth allowlisted subs, score ≥ 4)");
     try {
-      const live = await scoutRedditLive({ limit, cfg, subreddits });
+      const live = await scoutRedditLive({
+        limit,
+        cfg,
+        subreddits,
+        excludeIds,
+      });
       if (live.length > 0) {
         return { drafts: live, source: "oauth", blocked, timedOut };
       }
@@ -130,12 +170,14 @@ export async function scoutOpportunities(
   }
 
   console.log("[scout] source=fixtures");
+  const exclude = new Set(excludeIds ?? []);
   const drafts = FIXTURE_THREADS.map((t) => fixtureToDraftSkeleton(t));
   const filtered = opts.includeRejected
     ? drafts
     : drafts.filter((d) => isActionable(d.score));
+  const fresh = filtered.filter((d) => !exclude.has(d.id));
   return {
-    drafts: filtered.slice(0, limit),
+    drafts: fresh.slice(0, limit),
     source: "fixtures",
     blocked,
     timedOut,

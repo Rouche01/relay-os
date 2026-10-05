@@ -19,6 +19,8 @@ export interface JsonScoutOptions {
    * Default true — still “json scout” (parse listing JSON), not DOM extract.
    */
   playwrightFallback?: boolean;
+  /** Already-seen draft ids — skipped so `limit` is fresh for this run. */
+  excludeIds?: Iterable<string>;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -188,6 +190,7 @@ export async function scoutRedditJson(
   const delayMs = opts.delayMs ?? cfg.scoutDelayMs;
   const playwrightFallback = opts.playwrightFallback ?? true;
   const drafts: CommunityDraft[] = [];
+  const excludeIds = new Set(opts.excludeIds ?? []);
 
   for (let i = 0; i < subs.length; i++) {
     const sub = subs[i]!;
@@ -196,7 +199,10 @@ export async function scoutRedditJson(
     try {
       const posts = await fetchListingForSub(sub, cfg, playwrightFallback);
       console.log(`[scout:json] r/${sub} extracted ${posts.length} posts`);
-      const mapped = listingPostsToDrafts(posts, limit - drafts.length);
+      const mapped = listingPostsToDrafts(posts, limit - drafts.length, {
+        excludeIds,
+      });
+      for (const d of mapped) excludeIds.add(d.id);
       drafts.push(...mapped);
       if (drafts.length >= limit) return drafts;
     } catch (err) {

@@ -13,8 +13,10 @@ export interface ListingScoreStats {
 /** Map scored listing posts into draft skeletons (shared by OAuth + browser scout). */
 export function listingPostsToDrafts(
   posts: RedditListingPost[],
-  limit: number
+  limit: number,
+  opts?: { excludeIds?: ReadonlySet<string> }
 ): CommunityDraft[] {
+  const exclude = opts?.excludeIds;
   const ranked = posts
     .filter((post) => !isMegathread(post.title))
     .map((post) => {
@@ -27,8 +29,10 @@ export function listingPostsToDrafts(
 
   const drafts: CommunityDraft[] = [];
   for (const { post, score, rationale } of ranked) {
+    const id = `reddit-${post.id}`;
+    if (exclude?.has(id)) continue;
     drafts.push({
-      id: `reddit-${post.id}`,
+      id,
       platform: "reddit",
       subreddit: post.subreddit,
       threadUrl: post.permalink,
@@ -74,11 +78,14 @@ export function scoreListingStats(posts: RedditListingPost[]): ListingScoreStats
  */
 export function pickDeepReadCandidates(
   posts: RedditListingPost[],
-  max: number
+  max: number,
+  opts?: { excludeIds?: ReadonlySet<string> }
 ): RedditListingPost[] {
   if (max <= 0) return [];
+  const exclude = opts?.excludeIds;
   const ranked = posts
     .filter((post) => !isMegathread(post.title))
+    .filter((post) => !exclude?.has(`reddit-${post.id}`))
     .map((post) => {
       const { score } = scoreRedditPost(post);
       const total = scoreTotal(score);

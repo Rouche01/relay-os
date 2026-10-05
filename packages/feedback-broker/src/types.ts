@@ -7,7 +7,21 @@ import type { FeedbackRequest, FeedbackResponse } from "@relay/protocol";
 export interface FeedbackAdapter {
   readonly name: string;
   present(request: FeedbackRequest): Promise<FeedbackResponse>;
+  /**
+   * Optional: settle an in-flight `present` early (e.g. page auto-detected clear).
+   * Adapters that ignore this leave the human prompt hanging until timeout.
+   */
+  cancelPresent?(requestId: string, response: FeedbackResponse): void;
 }
+
+/**
+ * Optional parallel resolver raced against `adapter.present`.
+ * Return a response to win the race, or never resolve / hang until abort.
+ */
+export type FeedbackAutoResolve = (
+  request: FeedbackRequest,
+  signal: AbortSignal
+) => Promise<FeedbackResponse>;
 
 /**
  * Minimal surface the broker needs from AgentRuntime

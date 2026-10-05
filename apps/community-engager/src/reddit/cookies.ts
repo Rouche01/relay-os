@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile, access } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { BrowserContext, Cookie, Page } from "playwright";
 import type { RedditEnvConfig } from "./config.js";
@@ -56,12 +56,10 @@ export async function hasStorageState(
   cfg: Pick<RedditEnvConfig, "cookieDir" | "username">,
   account?: string
 ): Promise<boolean> {
-  try {
-    await access(storageStatePath(cfg, account));
-    return true;
-  } catch {
-    return false;
-  }
+  const state = await loadStorageState(cfg, account);
+  if (!state?.cookies?.length) return false;
+  // Guest jars still create a file — require a real session cookie.
+  return state.cookies.some((c) => c.name === "reddit_session");
 }
 
 /**

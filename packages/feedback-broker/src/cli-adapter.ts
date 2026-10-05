@@ -28,6 +28,10 @@ export class CliFeedbackAdapter implements FeedbackAdapter {
   readonly name = "cli";
   private readonly input: NodeJS.ReadableStream;
   private readonly output: NodeJS.WritableStream;
+  private pendingResolve:
+    | ((response: FeedbackResponse) => void)
+    | null = null;
+  private pendingRequestId: string | null = null;
 
   constructor(options: CliFeedbackAdapterOptions = {}) {
     this.input = options.input ?? process.stdin;
@@ -41,14 +45,35 @@ export class CliFeedbackAdapter implements FeedbackAdapter {
       return this.presentCredential(request);
     }
 
-    const line = (await this.ask("> ")).trim();
-    const parsed = await this.parseLine(line, request);
+    return new Promise<FeedbackResponse>((resolve) => {
+      this.pendingRequestId = request.id;
+      this.pendingResolve = resolve;
+      void this.ask("> ").then(async (line) => {
+        if (this.pendingRequestId !== request.id) {
+          // Already auto-resolved / cancelled.
+          return;
+        }
+        const parsed = await this.parseLine(line.trim(), request);
+        this.pendingRequestId = null;
+        this.pendingResolve = null;
+        resolve({
+          requestId: request.id,
+          agentId: request.agentId,
+          ...parsed,
+        });
+      });
+    });
+  }
 
-    return {
-      requestId: request.id,
-      agentId: request.agentId,
-      ...parsed,
-    };
+  cancelPresent(requestId: string, response: FeedbackResponse): void {
+    if (this.pendingRequestId !== requestId || !this.pendingResolve) return;
+    const resolve = this.pendingResolve;
+    this.pendingRequestId = null;
+    this.pendingResolve = null;
+    this.output.write(
+      "\n  [auto] challenge cleared in browser — continuing without waiting for input.\n"
+    );
+    resolve(response);
   }
 
   private async presentCredential(
