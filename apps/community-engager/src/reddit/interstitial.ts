@@ -44,10 +44,13 @@ const LOGIN_WALL_STRONG = [
  * Never attempts to solve challenges.
  *
  * Important:
- * - Bare reCAPTCHA iframes are common on Reddit login/marketing chrome.
- *   Do NOT treat iframe-alone as captcha_widget.
+ * - Never treat bare reCAPTCHA/hCaptcha iframes as captcha_widget. Reddit embeds
+ *   them in normal chrome (often zero-size / offscreen). That caused scout to
+ *   HITL when the headed window showed a normal listing with no CAPTCHA.
+ * - Real challenges show humanity / rate-limit copy (or a login username gate).
  * - Guest chrome always has "Log In" / "Sign Up". Counting those as a login
  *   wall false-positives after CAPTCHA clears → auto-detect never fires.
+ * - Feed content present ⇒ not an interstitial.
  */
 export async function detectInterstitial(
   page: Page
@@ -56,22 +59,18 @@ export async function detectInterstitial(
     const info = await page.evaluate(() => {
       const title = document.title ?? "";
       const bodyText = (document.body?.innerText ?? "").slice(0, 3500);
-      const hasRecaptcha = Boolean(
-        document.querySelector('iframe[src*="recaptcha"]') ||
-          document.querySelector(".g-recaptcha") ||
-          document.querySelector("#rc-anchor-container")
-      );
-      const hasHcaptcha = Boolean(
-        document.querySelector('iframe[src*="hcaptcha"]') ||
-          document.querySelector(".h-captcha")
-      );
-      // Auth modal / full-page gate (not top-nav Log In link alone).
+      // Auth modal / full-page gate — username field only (not top-nav Log In).
       const hasAuthModal = Boolean(
         document.querySelector('[data-testid="login-username"]') ||
           document.querySelector('input[name="username"]') ||
           document.querySelector('faceplate-text-input[name="username"]') ||
-          document.querySelector("#login-username") ||
-          document.querySelector('a[href*="/login"][role="button"]')
+          document.querySelector("#login-username")
+      );
+      const hasFeedContent = Boolean(
+        document.querySelector("shreddit-post") ||
+          document.querySelector('[data-testid="post-container"]') ||
+          document.querySelector("article[id^='t3_']") ||
+          document.querySelector("shreddit-feed")
       );
       const path = (location.pathname || "").toLowerCase();
       const onAuthPath =
@@ -81,9 +80,8 @@ export async function detectInterstitial(
       return {
         title,
         bodyText,
-        hasRecaptcha,
-        hasHcaptcha,
         hasAuthModal,
+        hasFeedContent,
         onAuthPath,
       };
     });
@@ -105,6 +103,11 @@ export async function detectInterstitial(
       };
     }
 
+    // Feed already rendered — not a wall.
+    if (info.hasFeedContent) {
+      return { challenged: false, title: info.title };
+    }
+
     // Real login/signup gate — strong copy, auth URL, or username field modal.
     // Do not use bare "log in"+"sign up" (always present for guests).
     const strongLogin = LOGIN_WALL_STRONG.some((p) => blob.includes(p));
@@ -116,22 +119,8 @@ export async function detectInterstitial(
       };
     }
 
-    // Captcha widget without humanity copy. Skip when guest nav is present —
-    // Reddit often embeds recaptcha next to Log In chrome on normal pages.
-    const guestChrome =
-      blob.includes("log in") && blob.includes("sign up");
-    if (
-      (info.hasRecaptcha || info.hasHcaptcha) &&
-      !blob.includes("continue with") &&
-      !guestChrome
-    ) {
-      return {
-        challenged: true,
-        reason: "captcha_widget",
-        title: info.title,
-      };
-    }
-
+    // No copy-based wall and no username gate. Do not escalate on buried
+    // captcha iframes — those are invisible chrome, not a visible challenge.
     return { challenged: false, title: info.title };
   } catch {
     return { challenged: false };

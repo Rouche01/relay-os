@@ -8,6 +8,7 @@ import {
   saveSession,
   storageStatePath,
 } from "./cookies.js";
+import { detectInterstitial } from "./interstitial.js";
 
 export const REDDIT_LOGIN_URL = "https://www.reddit.com/login/";
 
@@ -25,13 +26,14 @@ export interface BrowserLoginOptions {
   /** Clear existing jar before login (AUTH refresh). Default true. */
   clearJar?: boolean;
   /**
-   * Called when login hits a challenge / 2FA / CAPTCHA wall.
-   * Default: CLI readline pause. Telegram path: complete in headed browser while we poll.
+   * Called when login hits a challenge / 2FA / CAPTCHA wall
+   * (including before the username form is visible).
+   * Default: CLI readline pause. Telegram path: notify + poll for clear.
    */
   onChallenge?: (info: { url: string; hint: string }) => Promise<void>;
   /** Max ms to wait after credentials for success or challenge. */
   postSubmitTimeoutMs?: number;
-  /** Max ms to wait after human challenge pause. */
+  /** Max ms to wait after human challenge pause / pre-form CAPTCHA. */
   challengeTimeoutMs?: number;
 }
 
@@ -67,8 +69,16 @@ function usernameField(page: Page) {
 /**
  * Ensure the headed page shows Reddit's login form.
  * Clicks nav/modal "Log In" when possible; otherwise navigates to /login/.
+ * If a CAPTCHA/humanity wall blocks the form, calls onChallenge then polls
+ * until the form appears (or timeout).
  */
-export async function openRedditLoginForm(page: Page): Promise<void> {
+export async function openRedditLoginForm(
+  page: Page,
+  opts: {
+    onChallenge?: (info: { url: string; hint: string }) => Promise<void>;
+    challengeTimeoutMs?: number;
+  } = {}
+): Promise<void> {
   await dismissCookieBanner(page);
 
   const userBox = usernameField(page);
@@ -85,8 +95,7 @@ export async function openRedditLoginForm(page: Page): Promise<void> {
       .or(page.locator('a[href*="/login"]').first())
       .first();
     await loginCtl.click({ timeout: 5_000 });
-    await userBox.waitFor({ state: "visible", timeout: 15_000 });
-    return;
+    if (await waitForLoginFormVisible(page, opts)) return;
   } catch {
     /* fall through to dedicated login URL */
   }
@@ -97,16 +106,78 @@ export async function openRedditLoginForm(page: Page): Promise<void> {
     timeout: 45_000,
   });
   await dismissCookieBanner(page);
-  await userBox.waitFor({ state: "visible", timeout: 20_000 });
+  const ok = await waitForLoginFormVisible(page, opts);
+  if (!ok) {
+    throw new Error(
+      "Login form never appeared — CAPTCHA/humanity wall may still be up, or Reddit changed the login UI"
+    );
+  }
+}
+
+/**
+ * Poll until username field is visible. On interstitial, notify once via
+ * onChallenge then keep waiting for auto-clear (human solves in headed window).
+ */
+async function waitForLoginFormVisible(
+  page: Page,
+  opts: {
+    onChallenge?: (info: { url: string; hint: string }) => Promise<void>;
+    challengeTimeoutMs?: number;
+  }
+): Promise<boolean> {
+  const timeoutMs = opts.challengeTimeoutMs ?? 300_000;
+  const deadline = Date.now() + timeoutMs;
+  const userBox = usernameField(page);
+  let notified = false;
+
+  while (Date.now() < deadline) {
+    try {
+      if (await userBox.isVisible({ timeout: 800 })) return true;
+    } catch {
+      /* not yet */
+    }
+
+    let wallReason: string | undefined;
+    try {
+      const wall = await detectInterstitial(page);
+      if (wall.challenged) wallReason = wall.reason ?? "interstitial";
+    } catch {
+      /* mid-navigation */
+    }
+
+    if (wallReason && !notified) {
+      notified = true;
+      const hint =
+        `Reddit is showing a ${wallReason} before the login form. ` +
+        `Solve it in the headed browser — we auto-continue when the username field appears.`;
+      console.warn(`[login] ${hint}`);
+      console.warn(`[login] url=${page.url()}`);
+      if (opts.onChallenge) {
+        await opts.onChallenge({ url: page.url(), hint });
+      }
+    }
+
+    await sleep(2000);
+  }
+
+  try {
+    return await userBox.isVisible({ timeout: 500 });
+  } catch {
+    return false;
+  }
 }
 
 /** Fill username/password on the current page and click Log In. */
 export async function fillAndSubmitRedditLogin(
   page: Page,
   username: string,
-  password: string
+  password: string,
+  opts: {
+    onChallenge?: (info: { url: string; hint: string }) => Promise<void>;
+    challengeTimeoutMs?: number;
+  } = {}
 ): Promise<void> {
-  await openRedditLoginForm(page);
+  await openRedditLoginForm(page, opts);
   const userBox = usernameField(page);
   await userBox.fill(username);
   const passBox = page.locator('input[type="password"]').first();
@@ -149,25 +220,23 @@ async function pauseForHumanCli(info: {
 async function looksLoggedIn(page: Page): Promise<boolean> {
   const url = page.url();
   const onLogin = /\/login/i.test(url);
+  if (onLogin) return false;
 
   const cookies = await page.context().cookies("https://www.reddit.com");
-  const sessionish = cookies.some((c) =>
-    /^(reddit_session|token_v2)$/i.test(c.name)
-  );
+  // Guest jars often have token_v2 — only reddit_session means a real login
+  // (same rule as storageLooksAuthenticated / hasStorageState).
+  const hasSession = cookies.some((c) => c.name === "reddit_session");
+  if (!hasSession) return false;
 
-  if (!onLogin && sessionish) return true;
-  if (!onLogin) {
-    try {
-      const create = page.getByRole("button", { name: /Create Post|Create/i });
-      if ((await create.count()) > 0 && (await create.first().isVisible())) {
-        return true;
-      }
-    } catch {
-      /* ignore */
+  try {
+    const create = page.getByRole("button", { name: /Create Post|Create/i });
+    if ((await create.count()) > 0 && (await create.first().isVisible())) {
+      return true;
     }
+  } catch {
+    /* cookie alone is enough */
   }
-
-  return false;
+  return true;
 }
 
 async function detectChallenge(page: Page): Promise<string | null> {
@@ -203,16 +272,28 @@ async function persistSuccess(
   cfg: RedditEnvConfig,
   challenged?: boolean
 ): Promise<BrowserLoginResult> {
-  const saved = await saveSession(page, cfg);
-  console.log(
-    `[login] success${challenged ? " after challenge" : ""} → ${saved.storagePath}`
-  );
-  return {
-    ok: true,
-    storagePath: saved.storagePath,
-    url: page.url(),
-    challenged,
-  };
+  try {
+    const saved = await saveSession(page, cfg);
+    console.log(
+      `[login] success${challenged ? " after challenge" : ""} → ${saved.storagePath}`
+    );
+    return {
+      ok: true,
+      storagePath: saved.storagePath,
+      url: page.url(),
+      challenged,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[login] failed to save session after apparent login: ${msg}`);
+    return {
+      ok: false,
+      challenged,
+      url: page.url(),
+      error: `Logged in but could not save cookie jar: ${msg}`,
+      storagePath: storageStatePath(cfg),
+    };
+  }
 }
 
 /**
@@ -257,25 +338,30 @@ export async function loginRedditBrowser(
   try {
     const page = await engine.getPage();
     console.log(`[login] → ${REDDIT_LOGIN_URL} (headless=${headless})`);
-    await fillAndSubmitRedditLogin(page, username, password);
+    await fillAndSubmitRedditLogin(page, username, password, {
+      onChallenge,
+      challengeTimeoutMs,
+    });
 
     let challenged = false;
     const deadline = Date.now() + postSubmitTimeoutMs;
     while (Date.now() < deadline) {
       if (await looksLoggedIn(page)) {
-        return persistSuccess(page, cfg);
+        return await persistSuccess(page, cfg);
       }
       const hint = await detectChallenge(page);
       if (hint) {
         challenged = true;
+        console.warn(`[login] post-submit challenge — ${hint}`);
         await onChallenge({ url: page.url(), hint });
+        // Do not return yet — human may still be finishing 2FA/CAPTCHA.
         break;
       }
       await sleep(500);
     }
 
     if (await looksLoggedIn(page)) {
-      return persistSuccess(page, cfg, challenged);
+      return await persistSuccess(page, cfg, challenged);
     }
 
     // Still not in — ask human if we haven't already (slow login / silent wall)
@@ -289,21 +375,28 @@ export async function loginRedditBrowser(
       });
     }
 
+    console.log(
+      `[login] waiting up to ${Math.round(challengeTimeoutMs / 1000)}s for login to complete in headed browser…`
+    );
     const challengeDeadline = Date.now() + challengeTimeoutMs;
     while (Date.now() < challengeDeadline) {
       if (await looksLoggedIn(page)) {
-        return persistSuccess(page, cfg, true);
+        return await persistSuccess(page, cfg, true);
       }
       await sleep(1000);
     }
 
     // Last chance: home page cookie check
-    await page.goto("https://www.reddit.com/", {
-      waitUntil: "domcontentloaded",
-      timeout: 30_000,
-    });
+    try {
+      await page.goto("https://www.reddit.com/", {
+        waitUntil: "domcontentloaded",
+        timeout: 30_000,
+      });
+    } catch (err) {
+      console.warn("[login] home navigation after challenge failed:", err);
+    }
     if (await looksLoggedIn(page)) {
-      return persistSuccess(page, cfg, challenged);
+      return await persistSuccess(page, cfg, challenged);
     }
 
     return {
@@ -321,6 +414,10 @@ export async function loginRedditBrowser(
       storagePath: storageStatePath(cfg),
     };
   } finally {
-    await engine.teardown();
+    try {
+      await engine.teardown();
+    } catch (err) {
+      console.warn("[login] teardown:", err);
+    }
   }
 }

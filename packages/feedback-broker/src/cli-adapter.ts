@@ -76,6 +76,10 @@ export class CliFeedbackAdapter implements FeedbackAdapter {
     resolve(response);
   }
 
+  async notify(message: string): Promise<void> {
+    this.output.write(`\n  [notice] ${message}\n`);
+  }
+
   private async presentCredential(
     request: FeedbackRequest
   ): Promise<FeedbackResponse> {

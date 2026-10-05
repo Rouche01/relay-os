@@ -12,6 +12,11 @@ export interface FeedbackAdapter {
    * Adapters that ignore this leave the human prompt hanging until timeout.
    */
   cancelPresent?(requestId: string, response: FeedbackResponse): void;
+  /**
+   * Optional: one-way notice (e.g. "solve CAPTCHA in the headed browser").
+   * Does not wait for a reply — pair with page auto-detect / later present.
+   */
+  notify?(message: string): Promise<void>;
 }
 
 /**

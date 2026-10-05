@@ -75,6 +75,7 @@ export class CommunityEngagerApp implements FanoutHost {
       store: this.store,
       memory: this.memory,
       getContext: () => this.runtime.getContext(),
+      adapter: options.adapter,
     });
 
     this.engines = createCommunityEngines({ memory: this.memory });
@@ -107,6 +108,7 @@ export class CommunityEngagerApp implements FanoutHost {
       memory: this.memory,
       opportunity: item as CommunityDraft,
       getContext,
+      adapter: this.options.adapter,
     });
   }
 

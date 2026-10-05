@@ -71,6 +71,16 @@ export interface BrowserScoutOptions {
    * is counted in fresh opportunities for this run.
    */
   excludeIds?: Iterable<string>;
+  /**
+   * Continue in an already-authenticated headed browser (post-login HITL).
+   * Caller owns teardown unless a new challenge is handed off.
+   */
+  adopt?: { engine: PlaywrightEngine; storagePath: string };
+  /**
+   * Subs we already attempted login HITL for this run — on login_wall again,
+   * skip and continue (do not re-open credential prompt).
+   */
+  skipLoginHitlSubs?: string[];
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -173,18 +183,37 @@ export async function scoutRedditBrowser(
 
   // Fair share of *new* drafts per sub; `limit` is the run target after excludes.
   const perSubCap = Math.max(1, Math.ceil(limit / Math.max(1, subs.length)));
+  const skipLoginHitl = new Set(
+    (opts.skipLoginHitlSubs ?? []).map((s) => s.replace(/^r\//i, "").toLowerCase())
+  );
 
-  const { engine, sessionLoaded, storagePath } = await createRedditBrowserEngine({
-    cfg,
-    useStoredSession: opts.useStoredSession ?? true,
-  });
-  if (sessionLoaded) {
-    console.log("[scout:browser] using stored Reddit session");
+  let engine: PlaywrightEngine;
+  let storagePath: string;
+  let adopted = false;
+
+  if (opts.adopt) {
+    engine = opts.adopt.engine;
+    storagePath = opts.adopt.storagePath;
+    adopted = true;
+    console.log(
+      "[scout:browser] continuing in existing headed browser (post-login)"
+    );
+  } else {
+    const created = await createRedditBrowserEngine({
+      cfg,
+      useStoredSession: opts.useStoredSession ?? true,
+    });
+    engine = created.engine;
+    storagePath = created.storagePath;
+    if (created.sessionLoaded) {
+      console.log("[scout:browser] using stored Reddit session");
+    }
   }
   console.log(
     `[scout:browser] pacing base=${delayMs}ms jitter=0…${jitterMs}ms ` +
       `subs=${subs.length} scroll=${scrollRounds} deepRead≤${deepReadMax} ` +
-      `perSub≤${perSubCap} limit=${limit} exclude=${excludeIds.size}`
+      `perSub≤${perSubCap} limit=${limit} exclude=${excludeIds.size}` +
+      (skipLoginHitl.size ? ` skipLogin=${[...skipLoginHitl].join(",")}` : "")
   );
 
   let challenge: ScoutChallengeHandOff | undefined;
@@ -211,6 +240,7 @@ export async function scoutRedditBrowser(
       wall: InterstitialDetection
     ): boolean => {
       if (isRateLimit(wall) || !escalateCaptcha) return false;
+      if (skipLoginHitl.has(sub.toLowerCase())) return false;
       challenge = {
         engine,
         storagePath,
@@ -240,15 +270,30 @@ export async function scoutRedditBrowser(
         });
         await sleep(pacedDelay(1000, 1500));
 
-        const wall = await detectInterstitial(page);
+        let wall = await detectInterstitial(page);
+        // Soft confirm: flaky captcha chrome on a ready listing is not a wall.
+        if (wall.challenged && wall.reason === "captcha_widget") {
+          const listingReady = await page
+            .$(LISTING_READY_SELECTOR)
+            .catch(() => null);
+          if (listingReady) {
+            console.log(
+              `[scout:browser] r/${sub} ignoring captcha_widget chrome — listing ready`
+            );
+            wall = { challenged: false, title: wall.title };
+          }
+        }
         if (wall.challenged) {
+          const alreadyTriedHitl = skipLoginHitl.has(sub.toLowerCase());
           console.warn(
             `[scout:browser] r/${sub} blocked (${wall.reason ?? "interstitial"}) — ${wall.title ?? url}`
           );
           blocked.push({
             subreddit: sub,
             url,
-            reason: wall.reason ?? "interstitial",
+            reason: alreadyTriedHitl
+              ? "skipped_after_hitl"
+              : (wall.reason ?? "interstitial"),
           });
           if (isRateLimit(wall)) {
             console.warn(
@@ -256,7 +301,12 @@ export async function scoutRedditBrowser(
             );
             break;
           }
-          if (handOffCaptcha(sub, url, wall)) break;
+          if (!alreadyTriedHitl && handOffCaptcha(sub, url, wall)) break;
+          if (alreadyTriedHitl) {
+            console.warn(
+              `[scout:browser] r/${sub} still gated after HITL (${wall.reason}) — skipping; continuing allowlist`
+            );
+          }
           continue;
         }
 
@@ -271,10 +321,13 @@ export async function scoutRedditBrowser(
         } catch {
           const again = await detectInterstitial(page);
           if (again.challenged) {
+            const alreadyTriedHitl = skipLoginHitl.has(sub.toLowerCase());
             blocked.push({
               subreddit: sub,
               url,
-              reason: again.reason ?? "interstitial",
+              reason: alreadyTriedHitl
+                ? "skipped_after_hitl"
+                : (again.reason ?? "interstitial"),
             });
             if (isRateLimit(again)) {
               console.warn(
@@ -282,7 +335,7 @@ export async function scoutRedditBrowser(
               );
               break;
             }
-            if (handOffCaptcha(sub, url, again)) break;
+            if (!alreadyTriedHitl && handOffCaptcha(sub, url, again)) break;
           } else {
             console.warn(
               `[scout:browser] r/${sub} timed out waiting for listing`
@@ -377,10 +430,13 @@ export async function scoutRedditBrowser(
           challenged: false as const,
         }));
         if (wall.challenged) {
+          const alreadyTriedHitl = skipLoginHitl.has(sub.toLowerCase());
           blocked.push({
             subreddit: sub,
             url,
-            reason: wall.reason ?? "interstitial",
+            reason: alreadyTriedHitl
+              ? "skipped_after_hitl"
+              : (wall.reason ?? "interstitial"),
           });
           if (isRateLimit(wall)) {
             console.warn(
@@ -388,7 +444,7 @@ export async function scoutRedditBrowser(
             );
             break;
           }
-          if (handOffCaptcha(sub, url, wall)) break;
+          if (!alreadyTriedHitl && handOffCaptcha(sub, url, wall)) break;
         } else {
           console.warn(`[scout:browser] r/${sub} failed:`, err);
           timedOut.push(sub);
@@ -406,7 +462,9 @@ export async function scoutRedditBrowser(
       }
     }
   } finally {
-    if (!handOffEngine) {
+    // Adopted sessions stay open for the controller unless we handed off
+    // (hand-off already transfers ownership). Fresh engines teardown here.
+    if (!handOffEngine && !adopted) {
       await engine.teardown();
     }
   }

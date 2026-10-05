@@ -6,6 +6,7 @@ import {
   isOauthScoutSource,
   type ScoutSource,
 } from "./reddit/config.js";
+import type { PlaywrightEngine } from "@relay/engines-browser";
 import {
   scoutRedditBrowser,
   type BrowserScoutBlocked,
@@ -31,6 +32,10 @@ export interface ScoutOptions {
    * counts fresh opportunities for this run only.
    */
   excludeIds?: Iterable<string>;
+  /** Reuse headed browser after login HITL (caller owns teardown). */
+  adopt?: { engine: PlaywrightEngine; storagePath: string };
+  /** Subs already login-HITL'd this run — skip re-prompt, continue allowlist. */
+  skipLoginHitlSubs?: string[];
 }
 
 export interface ScoutResult {
@@ -84,6 +89,8 @@ export async function scoutOpportunities(
         cfg,
         subreddits,
         excludeIds,
+        adopt: opts.adopt,
+        skipLoginHitlSubs: opts.skipLoginHitlSubs,
       });
       blocked = live.blocked;
       timedOut = live.timedOut;

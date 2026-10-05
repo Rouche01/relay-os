@@ -117,6 +117,15 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
       .catch(() => undefined);
   }
 
+  /** One-way Telegram notice (CAPTCHA during login, etc.). */
+  async notify(message: string): Promise<void> {
+    await this.client.sendMessage({
+      chat_id: this.chatId,
+      text: message,
+      disable_web_page_preview: true,
+    });
+  }
+
   private async pollLoop(): Promise<void> {
     while (this.running) {
       try {

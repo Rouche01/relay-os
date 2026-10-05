@@ -14,6 +14,7 @@ import {
   type StageDefinition,
 } from "@relay/protocol";
 import type { AppController } from "@relay/runtime";
+import type { FeedbackAdapter } from "@relay/feedback-broker";
 import { draftToFeedbackContext } from "./feedback-map.js";
 import { draftReply } from "./drafter.js";
 import {
@@ -62,6 +63,8 @@ export interface CommunityControllerOptions {
    * Omit for the run-level runtime, which scouts the queue instead.
    */
   opportunity?: CommunityDraft;
+  /** HITL adapter — used for one-way CAPTCHA notices during login. */
+  adapter?: FeedbackAdapter;
 }
 
 type EnsureSessionResult = {
@@ -815,6 +818,20 @@ export class CommunityEngagerController implements AppController {
       username: creds.username,
       password: creds.password,
       clearJar: true,
+      headless: false,
+      onChallenge: async (info) => {
+        console.warn(`[ensure_session] ${info.hint}`);
+        const text =
+          `🔐 Reddit login needs a step in the headed browser.\n` +
+          `${info.hint}\n` +
+          `${info.url}\n` +
+          `Finish CAPTCHA / 2FA there — we auto-continue when login completes (reddit_session).`;
+        try {
+          await this.options.adapter?.notify?.(text);
+        } catch (err) {
+          console.warn("[ensure_session] notify failed:", err);
+        }
+      },
     });
 
     if (!login.ok) {
@@ -830,14 +847,14 @@ export class CommunityEngagerController implements AppController {
   }
 
   /**
-   * Live browser write needs a jar. Dry-run and oauth-only writes do not.
-   * Force with REDDIT_ENSURE_SESSION=true to prep a jar via HITL even when dry-run.
+   * Browser scout needs a cookie jar even when dry-run (read path).
+   * OAuth/fixtures/json do not. Force with REDDIT_ENSURE_SESSION=true always works.
    */
   private sessionRequiredForRun(cfg: RedditEnvConfig): boolean {
-    if (cfg.dryRun) return false;
     if (cfg.transport === "oauth" && cfg.oauthConfigured) return false;
     if (cfg.transport === "fixtures" || cfg.transport === "json") return false;
-    return cfg.transport === "browser" || cfg.transport === "auto";
+    if (cfg.transport === "browser" || cfg.transport === "auto") return true;
+    return !cfg.dryRun;
   }
 
   private setEnsureSession(ctx: AgentContext, result: EnsureSessionResult): void {
@@ -850,7 +867,6 @@ export class CommunityEngagerController implements AppController {
   private async runScout(ctx: AgentContext): Promise<void> {
     const cfg = getRedditEnv();
     const store = getAllowlistStore();
-    // When discover just ran with a max-subs cap, leave room for exploration.
     const prefer =
       typeof ctx.lastPromotedSubreddit === "string"
         ? ctx.lastPromotedSubreddit
@@ -866,7 +882,6 @@ export class CommunityEngagerController implements AppController {
         .join(", ")}`
     );
 
-    // Load already-seen first so scout's limit counts *fresh* opportunities.
     const prior = await this.options.store.list({
       appId: APP_ID,
       limit: 500,
@@ -878,11 +893,135 @@ export class CommunityEngagerController implements AppController {
       subreddits,
       excludeIds,
     });
+    await this.applyScoutResult(ctx, result, excludeIds.length);
+  }
+
+  /**
+   * Continue scout in the live headed browser after login/CAPTCHA HITL.
+   * Skips re-prompting login for `skipSub` if still gated; scouts the rest.
+   *
+   * If Reddit challenges again, wait in the same window — the scout
+   * confirmation FP is already consumed, so we cannot re-HITL via Telegram
+   * (same pattern as continueDiscoveryAfterClear).
+   */
+  private async continueScoutInSession(
+    ctx: AgentContext,
+    live: NonNullable<ReturnType<typeof getInterstitialSession>>,
+    skipSub: string
+  ): Promise<void> {
+    const cfg = getRedditEnv();
+    const store = getAllowlistStore();
+    const prefer =
+      typeof ctx.lastPromotedSubreddit === "string"
+        ? ctx.lastPromotedSubreddit
+        : undefined;
+    const subreddits = await store.pickScoutSubs(
+      cfg.scoutMaxSubs,
+      cfg.discoverExploreSlot,
+      prefer ? { prefer } : undefined
+    );
+    const prior = await this.options.store.list({
+      appId: APP_ID,
+      limit: 500,
+    });
+    const excludeIds = prior.map((r) => r.id);
+
+    console.log(
+      `[scout] continuing in same headed browser after challenge clear ` +
+        `(skip re-HITL for r/${skipSub})`
+    );
+
+    let adopt: { engine: typeof live.engine; storagePath: string } = {
+      engine: live.engine,
+      storagePath: live.storagePath,
+    };
+    const skipHitl = new Set([skipSub.replace(/^r\//i, "").toLowerCase()]);
+    const maxRounds = 3;
+
+    for (let round = 0; round < maxRounds; round++) {
+      const result = await scoutOpportunities({
+        limit: 5,
+        subreddits,
+        excludeIds,
+        adopt,
+        skipLoginHitlSubs: [...skipHitl],
+      });
+
+      if (!result.challenge) {
+        await this.applyScoutResult(ctx, result, excludeIds.length);
+        if (!ctx.interstitialChallenge) {
+          await clearInterstitialSession(true);
+        }
+        return;
+      }
+
+      // applyScoutResult would set interstitialChallenge for Telegram — but
+      // confirmation FP is consumed. Wait inline instead.
+      setInterstitialSession({
+        engine: result.challenge.engine,
+        storagePath: result.challenge.storagePath,
+        url: result.challenge.url,
+        subreddit: result.challenge.subreddit,
+        blockedSubs: result.blocked
+          .filter((b) => b.reason !== "rate_limit")
+          .map((b) => b.subreddit),
+      });
+      adopt = {
+        engine: result.challenge.engine,
+        storagePath: result.challenge.storagePath,
+      };
+      skipHitl.add(result.challenge.subreddit.toLowerCase());
+
+      console.warn(
+        `[scout] blocked again (${result.challenge.reason}) on r/${result.challenge.subreddit} ` +
+          `in same window — waiting for clear (round ${round + 1}/${maxRounds})…`
+      );
+      try {
+        await this.options.adapter?.notify?.(
+          `🔐 Reddit challenged again (r/${result.challenge.subreddit}, ${result.challenge.reason}).\n` +
+            `Solve it in the headed browser — we auto-continue when it clears.`
+        );
+      } catch {
+        /* ignore */
+      }
+
+      const page = await result.challenge.engine.getPage();
+      const cleared = await this.waitForInterstitialClear(page, 300_000);
+      if (!cleared) {
+        console.warn(
+          "[scout] still blocked after wait — keeping drafts so far; tearing down"
+        );
+        await this.applyScoutResult(
+          ctx,
+          { ...result, challenge: undefined },
+          excludeIds.length
+        );
+        delete ctx.interstitialChallenge;
+        await clearInterstitialSession(false);
+        return;
+      }
+
+      await saveInterstitialCookies();
+      console.log(
+        "[scout] wall cleared again — resuming scout in same headed browser"
+      );
+    }
+
+    console.warn("[scout] exceeded clear/retry rounds — giving up continue");
+    await clearInterstitialSession(false);
+    delete ctx.interstitialChallenge;
+  }
+
+  private async applyScoutResult(
+    ctx: AgentContext,
+    result: Awaited<ReturnType<typeof scoutOpportunities>>,
+    excludedSeen: number
+  ): Promise<void> {
     const opportunities = result.drafts;
 
     console.log(
       `[scout] ${opportunities.length} actionable (score ≥ 4) via ${result.source}` +
-        (excludeIds.length ? ` · excluded ${excludeIds.length} already-seen` : "")
+        (excludedSeen ? ` · excluded ${excludedSeen} already-seen` : "")
     );
     for (const d of opportunities) {
       console.log(
@@ -898,11 +1037,10 @@ export class CommunityEngagerController implements AppController {
         source: result.source,
         blocked: result.blocked,
         timedOut: result.timedOut,
-        excludedSeen: excludeIds.length,
+        excludedSeen,
       },
     };
 
-    // Prefer the live scout window (CAPTCHA/login still visible) over opening a new one.
     if (result.challenge) {
       setInterstitialSession({
         engine: result.challenge.engine,
@@ -917,11 +1055,19 @@ export class CommunityEngagerController implements AppController {
       if (result.challenge.reason === "login_wall") {
         const loginOutcome = await this.prepareLoginWallSession();
         if (loginOutcome === "logged_in") {
-          console.log(
-            "[scout] login wall cleared with env credentials — retrying scout"
-          );
-          await this.runScout(ctx);
-          return;
+          const live = getInterstitialSession();
+          if (live) {
+            console.log(
+              "[scout] login wall cleared with env credentials — continuing in same browser"
+            );
+            delete ctx.interstitialChallenge;
+            await this.continueScoutInSession(
+              ctx,
+              live,
+              result.challenge.subreddit
+            );
+            return;
+          }
         }
         ctx.interstitialChallenge = {
           url: result.challenge.url,
@@ -973,13 +1119,30 @@ export class CommunityEngagerController implements AppController {
     const cfg = getRedditEnv();
     if (blocked.length === 0) return;
 
-    // Rate-limit pages need cool-down, not a CAPTCHA solve in a headed window.
-    const captchaBlocked = blocked.filter((b) => b.reason !== "rate_limit");
+    // Rate-limit / already-handled login walls need cool-down or skip — not a
+    // fresh headed CAPTCHA window. Credential HITL only comes from live handoff.
+    const captchaBlocked = blocked.filter(
+      (b) =>
+        b.reason !== "rate_limit" &&
+        b.reason !== "login_wall" &&
+        b.reason !== "login_pending" &&
+        b.reason !== "skipped_after_hitl"
+    );
     const rateLimited = blocked.filter((b) => b.reason === "rate_limit");
+    const loginSkipped = blocked.filter(
+      (b) => b.reason === "login_wall" || b.reason === "skipped_after_hitl"
+    );
     if (rateLimited.length > 0) {
       console.warn(
         `[scout] rate-limited on ${rateLimited.map((b) => `r/${b.subreddit}`).join(", ")} — ` +
           `wait several minutes; raise REDDIT_SCOUT_DELAY_MS / lower REDDIT_SCOUT_MAX_SUBS`
+      );
+    }
+    if (loginSkipped.length > 0) {
+      console.warn(
+        `[scout] skipped login-gated sub(s) after HITL: ${loginSkipped
+          .map((b) => `r/${b.subreddit}`)
+          .join(", ")}`
       );
     }
     if (captchaBlocked.length === 0) return;
@@ -1041,11 +1204,15 @@ export class CommunityEngagerController implements AppController {
     if (first.reason === "login_wall") {
       const loginOutcome = await this.prepareLoginWallSession();
       if (loginOutcome === "logged_in") {
-        console.log(
-          "[scout] login wall cleared with env credentials after escalate — retrying scout"
-        );
-        await this.runScout(ctx);
-        return;
+        const live = getInterstitialSession();
+        if (live) {
+          console.log(
+            "[scout] login wall cleared with env credentials after escalate — continuing in same browser"
+          );
+          delete ctx.interstitialChallenge;
+          await this.continueScoutInSession(ctx, live, first.subreddit);
+          return;
+        }
       }
       ctx.interstitialChallenge = {
         url: first.url,
@@ -1082,9 +1249,23 @@ export class CommunityEngagerController implements AppController {
     const session = getInterstitialSession();
     if (!session) return "credentials_needed";
 
+    const onChallenge = async (info: { url: string; hint: string }) => {
+      console.warn(`[login-wall] ${info.hint}`);
+      const text =
+        `🔐 Reddit needs a CAPTCHA / security check in the headed browser before login.\n` +
+        `${info.hint}\n` +
+        `${info.url}\n` +
+        `Solve it there — we auto-continue when the login form appears.`;
+      try {
+        await this.options.adapter?.notify?.(text);
+      } catch (err) {
+        console.warn("[login-wall] notify failed:", err);
+      }
+    };
+
     try {
       const page = await session.engine.getPage();
-      await openRedditLoginForm(page);
+      await openRedditLoginForm(page, { onChallenge });
       console.log("[login-wall] login form open in headed browser");
 
       const cfg = getRedditEnv();
@@ -1094,7 +1275,9 @@ export class CommunityEngagerController implements AppController {
         console.log(
           `[login-wall] trying env credentials as u/${username}…`
         );
-        await fillAndSubmitRedditLogin(page, username, password);
+        await fillAndSubmitRedditLogin(page, username, password, {
+          onChallenge,
+        });
         if (await waitUntilRedditLoggedIn(page, 45_000)) {
           await saveInterstitialCookies();
           console.log(
@@ -1105,7 +1288,7 @@ export class CommunityEngagerController implements AppController {
         console.warn(
           "[login-wall] env credentials did not finish login — requesting HITL credentials"
         );
-        await openRedditLoginForm(page);
+        await openRedditLoginForm(page, { onChallenge });
       }
     } catch (err) {
       console.warn("[login-wall] failed to open/fill login form:", err);
@@ -1114,8 +1297,8 @@ export class CommunityEngagerController implements AppController {
   }
 
   /**
-   * Telegram/CLI credentials → fill headed browser → save jar → retry scout.
-   * If 2FA remains, leave window open as login_pending for confirmation FP.
+   * Telegram/CLI credentials → fill headed browser → save jar → continue
+   * scout in the SAME browser (skip re-HITL for that sub if still gated).
    */
   private async applyLoginWallCredentialFeedback(
     feedback: FeedbackResponse
@@ -1150,32 +1333,40 @@ export class CommunityEngagerController implements AppController {
       throw new Error("scout login wall: no headed browser session");
     }
 
+    const skipSub =
+      (ctx.interstitialChallenge as { subreddit?: string } | undefined)
+        ?.subreddit ?? session.subreddit;
+
     console.log(`[scout] filling Reddit login as u/${creds.username}…`);
     const page = await session.engine.getPage();
-    await fillAndSubmitRedditLogin(page, creds.username, creds.password);
+    await fillAndSubmitRedditLogin(page, creds.username, creds.password, {
+      onChallenge: async (info) => {
+        console.warn(`[scout] ${info.hint}`);
+        try {
+          await this.options.adapter?.notify?.(
+            `🔐 ${info.hint}\n${info.url}\nSolve in the headed browser — we auto-continue when ready.`
+          );
+        } catch {
+          /* ignore */
+        }
+      },
+    });
 
     if (await waitUntilRedditLoggedIn(page, 60_000)) {
-      const saved = await clearInterstitialSession(true);
+      await saveInterstitialCookies();
       delete ctx.interstitialChallenge;
       ctx.stageResults = {
         ...(ctx.stageResults ?? {}),
         scout: {
           ...((ctx.stageResults?.scout as object) ?? {}),
-          interstitial: saved ? "logged_in" : "save_failed",
-          storagePath: saved,
+          interstitial: "logged_in",
+          storagePath: session.storagePath,
         },
       };
       console.log(
-        "[scout] login ok — jar saved; retrying scout with authenticated cookies"
+        "[scout] login ok (reddit_session) — continuing scout in same headed browser"
       );
-      await this.runScout(ctx);
-      if (ctx.interstitialChallenge) {
-        console.warn(
-          "[scout] still challenged after login — tearing down; continuing with current opportunities"
-        );
-        await clearInterstitialSession(false);
-        delete ctx.interstitialChallenge;
-      }
+      await this.continueScoutInSession(ctx, session, skipSub);
       return;
     }
 
@@ -1227,7 +1418,18 @@ export class CommunityEngagerController implements AppController {
 
     console.log(`[discover] filling Reddit login as u/${creds.username}…`);
     const page = await session.engine.getPage();
-    await fillAndSubmitRedditLogin(page, creds.username, creds.password);
+    await fillAndSubmitRedditLogin(page, creds.username, creds.password, {
+      onChallenge: async (info) => {
+        console.warn(`[discover] ${info.hint}`);
+        try {
+          await this.options.adapter?.notify?.(
+            `🔐 ${info.hint}\n${info.url}\nSolve in the headed browser — we auto-continue when ready.`
+          );
+        } catch {
+          /* ignore */
+        }
+      },
+    });
 
     if (await waitUntilRedditLoggedIn(page, 60_000)) {
       await saveInterstitialCookies();
@@ -1252,13 +1454,16 @@ export class CommunityEngagerController implements AppController {
   }
 
   /**
-   * Approve → save cookie jar after human solved CAPTCHA in the headed window.
+   * Approve / auto-clear → save jar, continue scout in the SAME headed browser.
    * Abort → soft-abort (return false): tear down without saving; run continues.
    */
   private async applyInterstitialFeedback(
     feedback: FeedbackResponse
   ): Promise<boolean | void> {
     const ctx = this.options.getContext();
+    const skipSub =
+      (ctx.interstitialChallenge as { subreddit?: string } | undefined)
+        ?.subreddit ?? "unknown";
 
     if (isAbortResponse(feedback)) {
       await clearInterstitialSession(false);
@@ -1276,24 +1481,31 @@ export class CommunityEngagerController implements AppController {
       return false; // soft abort
     }
 
-    const saved = await clearInterstitialSession(true);
-    delete ctx.interstitialChallenge;
-    ctx.stageResults = {
-      ...(ctx.stageResults ?? {}),
-      scout: {
-        ...((ctx.stageResults?.scout as object) ?? {}),
-        interstitial: saved ? "cleared" : "save_failed",
-        storagePath: saved,
-      },
-    };
-    console.log(
-      "[scout] interstitial HITL approved — jar saved; retrying scout with fresh cookies"
-    );
+    const live = getInterstitialSession();
+    if (live) {
+      await saveInterstitialCookies();
+      delete ctx.interstitialChallenge;
+      ctx.stageResults = {
+        ...(ctx.stageResults ?? {}),
+        scout: {
+          ...((ctx.stageResults?.scout as object) ?? {}),
+          interstitial: "cleared",
+          storagePath: live.storagePath,
+        },
+      };
+      console.log(
+        "[scout] interstitial cleared — continuing scout in same headed browser"
+      );
+      await this.continueScoutInSession(ctx, live, skipSub);
+      return;
+    }
 
-    // Re-run scout now that the jar may clear CAPTCHA walls.
+    // No live window — fall back to jar + fresh browser.
+    delete ctx.interstitialChallenge;
+    console.log(
+      "[scout] interstitial HITL approved without live window — retrying scout"
+    );
     await this.runScout(ctx);
-    // If we hit CAPTCHA again, interstitialChallenge is set for… but confirmation
-    // already consumed. Soft-continue with whatever we got (json/fixtures/empty).
     if (ctx.interstitialChallenge) {
       console.warn(
         "[scout] still challenged after Approve — tearing down; continuing with current opportunities"
