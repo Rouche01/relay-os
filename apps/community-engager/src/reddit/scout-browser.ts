@@ -43,10 +43,22 @@ export interface ScoutChallengeHandOff {
   title?: string;
 }
 
+export interface BrowserScoutSubOutcome {
+  subreddit: string;
+  status: "ok" | "blocked" | "timed_out" | "error";
+  reason?: string;
+  opportunities: number;
+  url?: string;
+}
+
 export interface BrowserScoutResult {
   drafts: CommunityDraft[];
   blocked: BrowserScoutBlocked[];
   timedOut: string[];
+  /** Per-sub visit outcomes (order of attempt). */
+  subOutcomes: BrowserScoutSubOutcome[];
+  /** Planned allowlist slice for this scout pass. */
+  plannedSubs: string[];
   /** When set, engine was NOT torn down — controller owns HITL teardown. */
   challenge?: ScoutChallengeHandOff;
 }
@@ -179,7 +191,9 @@ export async function scoutRedditBrowser(
   const drafts: CommunityDraft[] = [];
   const blocked: BrowserScoutBlocked[] = [];
   const timedOut: string[] = [];
+  const subOutcomes: BrowserScoutSubOutcome[] = [];
   const excludeIds = new Set(opts.excludeIds ?? []);
+  const plannedSubs = [...subs];
 
   // Fair share of *new* drafts per sub; `limit` is the run target after excludes.
   const perSubCap = Math.max(1, Math.ceil(limit / Math.max(1, subs.length)));
@@ -288,12 +302,16 @@ export async function scoutRedditBrowser(
           console.warn(
             `[scout:browser] r/${sub} blocked (${wall.reason ?? "interstitial"}) — ${wall.title ?? url}`
           );
-          blocked.push({
+          const reason = alreadyTriedHitl
+            ? "skipped_after_hitl"
+            : (wall.reason ?? "interstitial");
+          blocked.push({ subreddit: sub, url, reason });
+          subOutcomes.push({
             subreddit: sub,
+            status: "blocked",
+            reason,
+            opportunities: 0,
             url,
-            reason: alreadyTriedHitl
-              ? "skipped_after_hitl"
-              : (wall.reason ?? "interstitial"),
           });
           if (isRateLimit(wall)) {
             console.warn(
@@ -322,12 +340,16 @@ export async function scoutRedditBrowser(
           const again = await detectInterstitial(page);
           if (again.challenged) {
             const alreadyTriedHitl = skipLoginHitl.has(sub.toLowerCase());
-            blocked.push({
+            const reason = alreadyTriedHitl
+              ? "skipped_after_hitl"
+              : (again.reason ?? "interstitial");
+            blocked.push({ subreddit: sub, url, reason });
+            subOutcomes.push({
               subreddit: sub,
+              status: "blocked",
+              reason,
+              opportunities: 0,
               url,
-              reason: alreadyTriedHitl
-                ? "skipped_after_hitl"
-                : (again.reason ?? "interstitial"),
             });
             if (isRateLimit(again)) {
               console.warn(
@@ -341,6 +363,12 @@ export async function scoutRedditBrowser(
               `[scout:browser] r/${sub} timed out waiting for listing`
             );
             timedOut.push(sub);
+            subOutcomes.push({
+              subreddit: sub,
+              status: "timed_out",
+              opportunities: 0,
+              url,
+            });
           }
           continue;
         }
@@ -412,6 +440,12 @@ export async function scoutRedditBrowser(
         const mapped = listingPostsToDrafts(posts, take, { excludeIds });
         for (const d of mapped) excludeIds.add(d.id);
         drafts.push(...mapped);
+        subOutcomes.push({
+          subreddit: sub,
+          status: "ok",
+          opportunities: mapped.length,
+          url,
+        });
         console.log(
           `[scout:browser] r/${sub} kept ${mapped.length} new draft(s) ` +
             `(run total ${drafts.length}/${limit})`
@@ -431,12 +465,16 @@ export async function scoutRedditBrowser(
         }));
         if (wall.challenged) {
           const alreadyTriedHitl = skipLoginHitl.has(sub.toLowerCase());
-          blocked.push({
+          const reason = alreadyTriedHitl
+            ? "skipped_after_hitl"
+            : (wall.reason ?? "interstitial");
+          blocked.push({ subreddit: sub, url, reason });
+          subOutcomes.push({
             subreddit: sub,
+            status: "blocked",
+            reason,
+            opportunities: 0,
             url,
-            reason: alreadyTriedHitl
-              ? "skipped_after_hitl"
-              : (wall.reason ?? "interstitial"),
           });
           if (isRateLimit(wall)) {
             console.warn(
@@ -448,6 +486,13 @@ export async function scoutRedditBrowser(
         } else {
           console.warn(`[scout:browser] r/${sub} failed:`, err);
           timedOut.push(sub);
+          subOutcomes.push({
+            subreddit: sub,
+            status: "error",
+            reason: err instanceof Error ? err.message : String(err),
+            opportunities: 0,
+            url,
+          });
         }
       }
 
@@ -481,5 +526,25 @@ export async function scoutRedditBrowser(
   );
   const kept = ranked.slice(0, limit);
 
-  return { drafts: kept, blocked, timedOut, challenge };
+  // Opportunity counts on subOutcomes were per-pass takes; align to final kept.
+  const keptBySub = new Map<string, number>();
+  for (const d of kept) {
+    const key = d.subreddit.replace(/^r\//i, "").toLowerCase();
+    keptBySub.set(key, (keptBySub.get(key) ?? 0) + 1);
+  }
+  for (const row of subOutcomes) {
+    if (row.status === "ok") {
+      row.opportunities =
+        keptBySub.get(row.subreddit.replace(/^r\//i, "").toLowerCase()) ?? 0;
+    }
+  }
+
+  return {
+    drafts: kept,
+    blocked,
+    timedOut,
+    subOutcomes,
+    plannedSubs,
+    challenge,
+  };
 }

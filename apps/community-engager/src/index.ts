@@ -26,7 +26,12 @@ import { createCommunityEngines } from "./engines.js";
 import { watchInterstitialCleared } from "./interstitial-watch.js";
 import { formatRunSummary, runSummaryFromFanout, type RunSummary } from "./job-queue.js";
 import { CommunityEngagerManifest } from "./manifest.js";
+import type {
+  DiscoverEvidence,
+  SessionEvidence,
+} from "./run-evidence.js";
 import { writeRunLog } from "./run-log.js";
+import type { ScoutReport } from "./scout-report.js";
 import type { CommunityDraft } from "./types.js";
 
 const DEFAULT_MAX_JOBS = 3;
@@ -154,10 +159,18 @@ export class CommunityEngagerApp implements FanoutHost {
     const opportunities =
       (ctx.opportunities as CommunityDraft[] | undefined) ?? [];
     const fanout = ctx.fanoutSummary as FanoutSummary | undefined;
+    const scoutStage = ctx.stageResults?.scout as
+      | { report?: ScoutReport }
+      | undefined;
     const summary = runSummaryFromFanout(
       opportunities,
       fanout,
-      this.runtime.getState()
+      this.runtime.getState(),
+      scoutStage?.report,
+      {
+        session: ctx.stageResults?.ensure_session as SessionEvidence | undefined,
+        discover: ctx.stageResults?.discover as DiscoverEvidence | undefined,
+      }
     );
 
     const logPath = await writeRunLog(summary, {
@@ -263,7 +276,9 @@ export * from "./manifest.js";
 export * from "./engines.js";
 export * from "./job-queue.js";
 export * from "./run-log.js";
+export * from "./run-evidence.js";
 export * from "./scout.js";
+export * from "./scout-report.js";
 export * from "./drafter.js";
 export * from "./executor.js";
 export * from "./memory.js";

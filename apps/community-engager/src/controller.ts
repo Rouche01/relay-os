@@ -51,6 +51,14 @@ import {
 import { scoutOpportunities } from "./scout.js";
 import type { CommunityDraft } from "./types.js";
 import { isActionable, scoreTotal } from "./types.js";
+import type {
+  DiscoverEvidence,
+  DraftEvidence,
+  ExecuteEvidence,
+  HitlEvidence,
+  MemoryWriteEvidence,
+  SessionEvidence,
+} from "./run-evidence.js";
 
 const APP_ID = "community-engager";
 
@@ -127,13 +135,16 @@ export class CommunityEngagerController implements AppController {
       const challenge = this.options.getContext().discoverChallenge as
         | { reason?: string }
         | undefined;
+      let result: void | boolean;
       if (challenge?.reason === "login_wall") {
-        return this.applyDiscoverLoginFeedback(feedback);
+        result = await this.applyDiscoverLoginFeedback(feedback);
+      } else if (challenge) {
+        result = await this.applyDiscoverCaptchaFeedback(feedback);
+      } else {
+        result = await this.applyDiscoverFeedback(feedback);
       }
-      if (challenge) {
-        return this.applyDiscoverCaptchaFeedback(feedback);
-      }
-      return this.applyDiscoverFeedback(feedback);
+      this.finishDiscoverHitlWait(feedback);
+      return result;
     }
 
     if (stage.name === "scout") {
@@ -146,10 +157,14 @@ export class CommunityEngagerController implements AppController {
       ) {
         const creds = parseCredentialValue(feedback.value);
         if (creds || isAbortResponse(feedback)) {
-          return this.applyLoginWallCredentialFeedback(feedback);
+          const out = await this.applyLoginWallCredentialFeedback(feedback);
+          this.finishScoutHitlWait();
+          return out;
         }
       }
-      return this.applyInterstitialFeedback(feedback);
+      const out = await this.applyInterstitialFeedback(feedback);
+      this.finishScoutHitlWait();
+      return out;
     }
 
     if (stage.name !== "await_approval") return;
@@ -169,6 +184,7 @@ export class CommunityEngagerController implements AppController {
       ctx.hitlOutcome = "aborted";
       // Abort skips the learn stage — write memory here.
       await this.writeHitlMemory(draft, "aborted");
+      this.recordJobHitl(ctx, "aborted");
       return;
     }
 
@@ -181,6 +197,7 @@ export class CommunityEngagerController implements AppController {
       ctx.currentDraft = draft;
       ctx.feedbackContext = draftToFeedbackContext(draft);
       ctx.hitlOutcome = "edited";
+      this.recordJobHitl(ctx, "edited");
       return;
     }
 
@@ -190,6 +207,7 @@ export class CommunityEngagerController implements AppController {
     });
     ctx.currentDraft = draft;
     ctx.hitlOutcome = "approved";
+    this.recordJobHitl(ctx, "approved");
   }
 
   async buildFeedbackContext(
@@ -197,7 +215,11 @@ export class CommunityEngagerController implements AppController {
     fp: FeedbackPoint,
     context: AgentContext
   ): Promise<FeedbackContext | undefined> {
+    // Any blocking feedback we build starts the HITL wait clock once.
+    const markWait = () => this.markHitlWaitStart(context);
+
     if (stage.name === "ensure_session") {
+      markWait();
       return {
         title: "Reddit session",
         url: "https://www.reddit.com/login/",
@@ -214,6 +236,7 @@ export class CommunityEngagerController implements AppController {
       };
     }
     if (stage.name === "discover" && fp.type === "credential") {
+      markWait();
       const challenge = context.discoverChallenge as
         | { url?: string; reason?: string }
         | undefined;
@@ -233,6 +256,7 @@ export class CommunityEngagerController implements AppController {
       };
     }
     if (stage.name === "discover" && fp.type === "confirmation") {
+      markWait();
       const challenge = context.discoverChallenge as
         | { url?: string; reason?: string }
         | undefined;
@@ -252,6 +276,7 @@ export class CommunityEngagerController implements AppController {
       };
     }
     if (stage.name === "discover" && fp.type === "choice") {
+      markWait();
       const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
       return {
         title: "Promote a discovered subreddit?",
@@ -271,6 +296,12 @@ export class CommunityEngagerController implements AppController {
         ],
         meta: { kind: "discover" },
       };
+    }
+    if (stage.name === "scout" && (fp.type === "credential" || fp.type === "confirmation")) {
+      markWait();
+    }
+    if (stage.name === "await_approval") {
+      markWait();
     }
     if (stage.name === "scout" && fp.type === "credential") {
       const challenge = context.interstitialChallenge as
@@ -527,11 +558,13 @@ export class CommunityEngagerController implements AppController {
       ...(ctx.stageResults ?? {}),
       discover: {
         enabled: result.enabled,
-        count: result.candidates.length,
-        names: result.candidates.map((c) => c.name),
+        ran: result.enabled && !result.skippedReason,
         skippedReason: result.skippedReason,
+        candidateCount: result.candidates.length,
+        candidateNames: result.candidates.map((c) => c.name),
+        decision: "none",
         captcha: result.challenge ? result.challenge.reason : undefined,
-      },
+      } satisfies DiscoverEvidence,
     };
   }
 
@@ -688,15 +721,18 @@ export class CommunityEngagerController implements AppController {
   private async applyDiscoverFeedback(
     feedback: FeedbackResponse
   ): Promise<boolean> {
+    const ctx = this.options.getContext();
     // Soft-abort: skip promotion and continue to scout.
     if (isAbortResponse(feedback)) {
       console.log("[discover] aborted — no allowlist promotion");
+      this.patchDiscoverEvidence(ctx, { decision: "abort" });
       return false;
     }
 
     const parsed = parseDiscoveryChoice(feedback.value);
     if (parsed.action === "skip") {
       console.log("[discover] skipped promotion");
+      this.patchDiscoverEvidence(ctx, { decision: "skip" });
       return true;
     }
 
@@ -704,6 +740,7 @@ export class CommunityEngagerController implements AppController {
     const promoted = await store.promote(parsed.name);
     if (!promoted) {
       console.warn(`[discover] promote failed for r/${parsed.name}`);
+      this.patchDiscoverEvidence(ctx, { decision: "skip" });
       return true;
     }
 
@@ -718,8 +755,11 @@ export class CommunityEngagerController implements AppController {
     console.log(
       `[discover] promoted r/${promoted.name} → postable allowlist`
     );
-    const ctx = this.options.getContext();
     ctx.lastPromotedSubreddit = promoted.name;
+    this.patchDiscoverEvidence(ctx, {
+      decision: "promote",
+      promoted: promoted.name,
+    });
     return true;
   }
 
@@ -1038,6 +1078,7 @@ export class CommunityEngagerController implements AppController {
         blocked: result.blocked,
         timedOut: result.timedOut,
         excludedSeen,
+        report: result.report,
       },
     };
 
@@ -1565,9 +1606,17 @@ export class CommunityEngagerController implements AppController {
 
     ctx.currentDraft = drafted;
     ctx.feedbackContext = draftToFeedbackContext(drafted);
+    const draftEvidence: DraftEvidence = {
+      id: drafted.id,
+      subreddit: drafted.subreddit,
+      scoreTotal: scoreTotal(drafted.score),
+      intensity: drafted.intensity,
+      memoryUsed: Boolean(memoryBlock),
+      memoryChars: memoryBlock?.length ?? 0,
+    };
     ctx.stageResults = {
       ...(ctx.stageResults ?? {}),
-      draft: { id: drafted.id, memoryUsed: Boolean(memoryBlock) },
+      draft: draftEvidence,
     };
     console.log(`[draft] pending_approval id=${drafted.id} intensity=${drafted.intensity}`);
   }
@@ -1590,6 +1639,19 @@ export class CommunityEngagerController implements AppController {
 
     const result = await executeApproved(draft);
     ctx.executeResult = result;
+    const executeEvidence: ExecuteEvidence = {
+      ok: result.ok,
+      dryRun: result.dryRun,
+      jobId: result.jobId,
+      transport: result.transport,
+      postedUrl: result.postedUrl,
+      idempotentHit: result.idempotentHit,
+      error: result.error,
+    };
+    ctx.stageResults = {
+      ...(ctx.stageResults ?? {}),
+      execute: executeEvidence,
+    };
 
     if (result.ok) {
       draft.status = "posted";
@@ -1617,8 +1679,9 @@ export class CommunityEngagerController implements AppController {
     const outcome = String(ctx.hitlOutcome ?? draft?.status ?? "unknown");
     console.log(`[learn] outcome=${outcome} draft=${draft?.id ?? "n/a"}`);
 
+    let memory: MemoryWriteEvidence = { attempted: false };
     if (draft && (outcome === "approved" || outcome === "edited")) {
-      await this.writeHitlMemory(draft, outcome, engine);
+      memory = await this.writeHitlMemory(draft, outcome, engine);
     }
 
     ctx.stageResults = {
@@ -1627,6 +1690,7 @@ export class CommunityEngagerController implements AppController {
         outcome,
         draftId: draft?.id,
         memoryAvailable: this.options.memory.available,
+        memory,
       },
     };
   }
@@ -1635,7 +1699,8 @@ export class CommunityEngagerController implements AppController {
     draft: CommunityDraft,
     outcome: "aborted" | "approved" | "edited",
     engine?: ExecutionEngine
-  ): Promise<void> {
+  ): Promise<MemoryWriteEvidence> {
+    const domain = communityFactDomain("outcome");
     const fact =
       outcome === "aborted"
         ? CommunityMemory.aborted("user aborted before post", {
@@ -1654,14 +1719,14 @@ export class CommunityEngagerController implements AppController {
         type: "add_fact",
         params: {
           text: fact,
-          domain: communityFactDomain("outcome"),
+          domain,
           source: `relay:${APP_ID}`,
         },
       });
       ok = result.success;
     } else {
       ok = await this.options.memory.addFact(fact, {
-        domain: communityFactDomain("outcome"),
+        domain,
         source: `relay:${APP_ID}`,
       });
     }
@@ -1674,5 +1739,94 @@ export class CommunityEngagerController implements AppController {
     } catch (err) {
       console.warn("[learn] allowlist outcome update failed:", err);
     }
+
+    const evidence: MemoryWriteEvidence = {
+      attempted: true,
+      ok,
+      domain,
+      outcome,
+    };
+    const ctx = this.options.getContext();
+    const priorHitl = (ctx.stageResults?.hitl as HitlEvidence | undefined) ?? {};
+    ctx.stageResults = {
+      ...(ctx.stageResults ?? {}),
+      hitl: priorHitl,
+      learn: {
+        ...((ctx.stageResults?.learn as object) ?? {}),
+        outcome,
+        draftId: draft.id,
+        memoryAvailable: this.options.memory.available,
+        memory: evidence,
+      },
+    };
+    return evidence;
+  }
+
+  private markHitlWaitStart(ctx: AgentContext): void {
+    if (ctx.hitlRequestedAt == null) {
+      ctx.hitlRequestedAt = Date.now();
+    }
+  }
+
+  private takeHitlWaitMs(ctx: AgentContext): number | undefined {
+    const started = ctx.hitlRequestedAt;
+    delete ctx.hitlRequestedAt;
+    if (typeof started !== "number") return undefined;
+    return Math.max(0, Date.now() - started);
+  }
+
+  private recordJobHitl(ctx: AgentContext, outcome: string): void {
+    const draft = ctx.currentDraft as CommunityDraft | undefined;
+    const hitl: HitlEvidence = {
+      outcome,
+      waitMs: this.takeHitlWaitMs(ctx),
+      intensity2Confirmed:
+        draft?.intensity === 2 &&
+        (outcome === "approved" || outcome === "edited")
+          ? true
+          : undefined,
+    };
+    ctx.stageResults = {
+      ...(ctx.stageResults ?? {}),
+      hitl,
+    };
+  }
+
+  private patchDiscoverEvidence(
+    ctx: AgentContext,
+    patch: Partial<DiscoverEvidence>
+  ): void {
+    const prior = (ctx.stageResults?.discover as DiscoverEvidence | undefined) ?? {
+      enabled: true,
+      ran: true,
+      candidateCount: 0,
+      candidateNames: [],
+    };
+    ctx.stageResults = {
+      ...(ctx.stageResults ?? {}),
+      discover: { ...prior, ...patch },
+    };
+  }
+
+  private finishDiscoverHitlWait(feedback: FeedbackResponse): void {
+    const ctx = this.options.getContext();
+    const waitMs = this.takeHitlWaitMs(ctx);
+    if (waitMs === undefined && !isAbortResponse(feedback)) return;
+    this.patchDiscoverEvidence(ctx, {
+      hitlWaitMs: waitMs,
+    });
+  }
+
+  private finishScoutHitlWait(): void {
+    const ctx = this.options.getContext();
+    const waitMs = this.takeHitlWaitMs(ctx);
+    if (waitMs === undefined) return;
+    ctx.stageResults = {
+      ...(ctx.stageResults ?? {}),
+      scout: {
+        ...((ctx.stageResults?.scout as object) ?? {}),
+        interstitialHitlWaitMs: waitMs,
+      },
+    };
   }
 }

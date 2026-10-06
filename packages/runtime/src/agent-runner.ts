@@ -328,6 +328,10 @@ export class AgentRuntime extends EventEmitter {
       outcome,
       hitlOutcome: ctx.hitlOutcome,
       executeResult: ctx.executeResult,
+      stageResults:
+        ctx.stageResults && typeof ctx.stageResults === "object"
+          ? (ctx.stageResults as Record<string, unknown>)
+          : undefined,
       error: outcome === "failed" ? runtimeError ?? execError : undefined,
     };
 

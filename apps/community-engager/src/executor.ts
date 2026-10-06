@@ -17,7 +17,10 @@ export interface ExecuteResult {
   ok: boolean;
   dryRun: boolean;
   jobId: string;
+  /** browser | oauth | dry-run | none */
+  transport?: string;
   postedUrl?: string;
+  idempotentHit?: boolean;
   error?: string;
   log?: string;
 }
@@ -78,7 +81,7 @@ export async function executeApproved(
   const prior = await readJob(jobPath);
   if (prior?.ok) {
     console.log(`[execute] idempotent hit jobId=${jobId}`);
-    return { ...prior, jobId };
+    return { ...prior, jobId, idempotentHit: true };
   }
 
   if (dryRun) {
@@ -100,6 +103,7 @@ export async function executeApproved(
       ok: true,
       dryRun: true,
       jobId,
+      transport: "dry-run",
       log,
       postedUrl: undefined,
     };
@@ -177,6 +181,7 @@ async function tryBrowserPost(
       ok: true,
       dryRun: false,
       jobId,
+      transport: "browser",
       postedUrl: posted.permalink,
       log: `[posted:browser] ${posted.permalink ?? draft.threadUrl}`,
     };
@@ -217,6 +222,7 @@ async function tryOauthPost(
       ok: true,
       dryRun: false,
       jobId,
+      transport: "oauth",
       postedUrl: posted.permalink,
       log: `[posted:oauth] ${posted.permalink ?? posted.id}`,
     };

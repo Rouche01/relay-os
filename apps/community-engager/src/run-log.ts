@@ -3,7 +3,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { RunSummary } from "./job-queue.js";
 
-export const RUN_LOG_SCHEMA_VERSION = 1 as const;
+/** v2: session/discover/HITL/draft/execute/memory evidence + goals checklist. */
+export const RUN_LOG_SCHEMA_VERSION = 2 as const;
 
 export interface RunLogMeta {
   /** Wall-clock start (ISO). */

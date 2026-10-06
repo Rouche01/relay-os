@@ -2,6 +2,7 @@ import { isActionable } from "./types.js";
 import type { CommunityDraft } from "./types.js";
 import { FIXTURE_THREADS, fixtureToDraftSkeleton } from "./fixtures/threads.js";
 import {
+  allowlistedSubNames,
   getRedditEnv,
   isOauthScoutSource,
   type ScoutSource,
@@ -10,10 +11,18 @@ import type { PlaywrightEngine } from "@relay/engines-browser";
 import {
   scoutRedditBrowser,
   type BrowserScoutBlocked,
+  type BrowserScoutSubOutcome,
   type ScoutChallengeHandOff,
 } from "./reddit/scout-browser.js";
 import { scoutRedditJson } from "./reddit/scout-json.js";
 import { scoutRedditLive } from "./reddit/scout-live.js";
+import {
+  buildScoutReport,
+  type ScoutReport,
+  type ScoutSubReport,
+} from "./scout-report.js";
+
+export type { ScoutReport, ScoutSubReport, ScoutSubStatus } from "./scout-report.js";
 
 export interface ScoutOptions {
   /** Max *new* actionable drafts to return (default 5). Already-seen excluded. */
@@ -28,7 +37,7 @@ export interface ScoutOptions {
    */
   subreddits?: string[];
   /**
-   * Draft ids already handled in the action-store — skipped so `limit`
+   * Draft ids (`reddit-<id>`) already in the action-store — skipped so `limit`
    * counts fresh opportunities for this run only.
    */
   excludeIds?: Iterable<string>;
@@ -43,8 +52,48 @@ export interface ScoutResult {
   source: ScoutSource | "fixtures";
   blocked: BrowserScoutBlocked[];
   timedOut: string[];
+  /** Structured per-sub outcomes for run logs. */
+  report: ScoutReport;
   /** Live CAPTCHA window from browser scout — pause HITL before json fallback. */
   challenge?: ScoutChallengeHandOff;
+}
+
+function finish(
+  source: ScoutSource | "fixtures",
+  plannedSubs: string[],
+  drafts: CommunityDraft[],
+  blocked: BrowserScoutBlocked[],
+  timedOut: string[],
+  challenge?: ScoutChallengeHandOff,
+  subOutcomes?: BrowserScoutSubOutcome[]
+): ScoutResult {
+  const subReports: ScoutSubReport[] | undefined = subOutcomes?.map((o) => ({
+    subreddit: o.subreddit,
+    status:
+      o.status === "ok" && o.opportunities === 0
+        ? ("empty" as const)
+        : o.status,
+    reason: o.reason,
+    opportunities: o.opportunities,
+    url: o.url,
+  }));
+
+  return {
+    drafts,
+    source,
+    blocked,
+    timedOut,
+    challenge,
+    report: buildScoutReport({
+      source,
+      plannedSubs,
+      drafts,
+      blocked,
+      timedOut,
+      challenge,
+      subReports,
+    }),
+  };
 }
 
 /**
@@ -63,7 +112,11 @@ export async function scoutOpportunities(
   const limit = opts.limit ?? 5;
   let blocked: BrowserScoutBlocked[] = [];
   let timedOut: string[] = [];
+  let browserOutcomes: BrowserScoutSubOutcome[] | undefined;
+  let browserPlanned: string[] | undefined;
 
+  const plannedSubs =
+    opts.subreddits?.length ? [...opts.subreddits] : allowlistedSubNames();
   const subreddits = opts.subreddits;
   const excludeIds = opts.excludeIds;
   if (subreddits?.length) {
@@ -94,6 +147,8 @@ export async function scoutOpportunities(
       });
       blocked = live.blocked;
       timedOut = live.timedOut;
+      browserOutcomes = live.subOutcomes;
+      browserPlanned = live.plannedSubs;
       if (live.blocked.length > 0) {
         console.warn(
           `[scout] browser blocked ${live.blocked.length} sub(s): ${live.blocked
@@ -103,16 +158,26 @@ export async function scoutOpportunities(
       }
       // CAPTCHA HITL owns the live window — do not fall through to json yet.
       if (live.challenge) {
-        return {
-          drafts: live.drafts,
-          source: "browser",
+        return finish(
+          "browser",
+          live.plannedSubs,
+          live.drafts,
           blocked,
           timedOut,
-          challenge: live.challenge,
-        };
+          live.challenge,
+          live.subOutcomes
+        );
       }
       if (live.drafts.length > 0) {
-        return { drafts: live.drafts, source: "browser", blocked, timedOut };
+        return finish(
+          "browser",
+          live.plannedSubs,
+          live.drafts,
+          blocked,
+          timedOut,
+          undefined,
+          live.subOutcomes
+        );
       }
       console.warn("[scout] browser returned 0 actionable");
     } catch (err) {
@@ -122,6 +187,8 @@ export async function scoutOpportunities(
       }
     }
   }
+
+  const planned = browserPlanned ?? plannedSubs;
 
   const tryJson = source === "json" || source === "auto" || source === "browser";
   if (tryJson) {
@@ -134,7 +201,7 @@ export async function scoutOpportunities(
         excludeIds,
       });
       if (live.length > 0) {
-        return { drafts: live, source: "json", blocked, timedOut };
+        return finish("json", planned, live, blocked, timedOut, undefined, browserOutcomes);
       }
       console.warn("[scout] json returned 0 actionable");
     } catch (err) {
@@ -165,7 +232,7 @@ export async function scoutOpportunities(
         excludeIds,
       });
       if (live.length > 0) {
-        return { drafts: live, source: "oauth", blocked, timedOut };
+        return finish("oauth", planned, live, blocked, timedOut, undefined, browserOutcomes);
       }
       console.warn(
         "[scout] oauth reddit returned 0 actionable; falling back to fixtures"
@@ -183,10 +250,13 @@ export async function scoutOpportunities(
     ? drafts
     : drafts.filter((d) => isActionable(d.score));
   const fresh = filtered.filter((d) => !exclude.has(d.id));
-  return {
-    drafts: fresh.slice(0, limit),
-    source: "fixtures",
+  return finish(
+    "fixtures",
+    planned,
+    fresh.slice(0, limit),
     blocked,
     timedOut,
-  };
+    undefined,
+    browserOutcomes
+  );
 }

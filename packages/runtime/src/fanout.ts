@@ -22,6 +22,8 @@ export interface FanoutChildResult {
   error?: string;
   hitlOutcome?: unknown;
   executeResult?: unknown;
+  /** Child `stageResults` bag for app run logs (draft / hitl / learn). */
+  stageResults?: Record<string, unknown>;
 }
 
 export interface FanoutSummary {
