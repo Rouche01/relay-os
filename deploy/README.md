@@ -25,7 +25,11 @@ Sibling plans:
 │   └── cookies/reddit/               # Playwright storageState jars
 ├── deploy/                           # copies of units from this folder
 └── logs/
+    └── runs/                         # per-run JSON (COMMUNITY_RUNS_DIR)
 ```
+
+Each CommunityEngager invocation writes a structured summary to `COMMUNITY_RUNS_DIR`
+(default `.data/runs/` locally). No tokens or passwords. Disable with `COMMUNITY_RUN_LOG=0`.
 
 ## Workspace slice (required packages)
 

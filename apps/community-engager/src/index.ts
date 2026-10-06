@@ -26,6 +26,7 @@ import { createCommunityEngines } from "./engines.js";
 import { watchInterstitialCleared } from "./interstitial-watch.js";
 import { formatRunSummary, runSummaryFromFanout, type RunSummary } from "./job-queue.js";
 import { CommunityEngagerManifest } from "./manifest.js";
+import { writeRunLog } from "./run-log.js";
 import type { CommunityDraft } from "./types.js";
 
 const DEFAULT_MAX_JOBS = 3;
@@ -132,6 +133,14 @@ export class CommunityEngagerApp implements FanoutHost {
 
   /** Run the nested parent manifest end-to-end (fanout included). */
   async run(): Promise<RunSummary> {
+    const startedAt = new Date().toISOString();
+    let memoryHealthy: boolean | undefined;
+    try {
+      memoryHealthy = await this.memory.health();
+    } catch {
+      memoryHealthy = false;
+    }
+
     this.attachBroker(this.runtime);
     try {
       await this.runtime.start();
@@ -150,6 +159,18 @@ export class CommunityEngagerApp implements FanoutHost {
       fanout,
       this.runtime.getState()
     );
+
+    const logPath = await writeRunLog(summary, {
+      startedAt,
+      agentId: ctx.agentId,
+      sessionId: ctx.sessionId,
+      memoryName: this.memory.name,
+      memoryHealthy,
+    });
+    if (logPath) {
+      console.log(`[run-log] ${logPath}`);
+    }
+
     return summary;
   }
 
@@ -241,6 +262,7 @@ export * from "./feedback-map.js";
 export * from "./manifest.js";
 export * from "./engines.js";
 export * from "./job-queue.js";
+export * from "./run-log.js";
 export * from "./scout.js";
 export * from "./drafter.js";
 export * from "./executor.js";
