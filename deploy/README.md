@@ -113,6 +113,25 @@ node dist/run-dev.js
 
 Expect Telegram HITL for drafts; dry-run execute logs only. See [`SMOKE.md`](./SMOKE.md).
 
+### VoltMem domains file
+
+Fact kinds for this app are `apps/community-engager/voltmem-domains.json` (`community_preference` 0.20, `community_rules` 0.15, `community_outcome` 0.55). The sidecar Community Engager talks to must load that file. On the shared VoltMem program:
+
+```bash
+# /opt/voltmem/env/sidecar.env
+VOLTMEM_DOMAINS_FILE=/domains/community.json
+```
+
+Mount the file into the container (read-only) next to the data volume:
+
+```yaml
+volumes:
+  - /opt/voltmem/data:/data
+  - /opt/relay-community/app/apps/community-engager/voltmem-domains.json:/domains/community.json:ro
+```
+
+`VOLTMEM_TENANT_ID` in `community.env` is the tenant (`relay-community`). `VOLTMEM_USER_ID` is still read when `VOLTMEM_TENANT_ID` is unset. Writes send the domain name, so the sidecar uses the file's volatility instead of the stylens classifier.
+
 ### 6. systemd units
 
 `run-dev.js` is a **one-shot** (scout → jobs → exit), not a daemon.

@@ -4,7 +4,7 @@ import {
   getAllowlistStore,
   type AllowlistStore,
 } from "./allowlist-store.js";
-import { CommunityMemory } from "./memory.js";
+import { CommunityMemory, communityFactDomain } from "./memory.js";
 import {
   getRedditEnv,
   type RedditEnvConfig,
@@ -89,7 +89,7 @@ export async function runDiscovery(opts?: {
     if (opts?.memory) {
       await opts.memory.addFact(
         CommunityMemory.discoveryProposed(c.name, c.note, c.evidence),
-        { domain: "preference", source: "relay:community-engager" }
+        { domain: communityFactDomain("preference"), source: "relay:community-engager" }
       );
     }
   }

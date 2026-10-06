@@ -108,8 +108,8 @@ importers:
   packages/context-engine:
     dependencies:
       '@voltmem/client':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: file:../../../voltmem/clients/typescript
+        version: file:../voltmem/clients/typescript
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -157,7 +157,7 @@ importers:
     dependencies:
       '@google/genai':
         specifier: latest
-        version: 2.26.0
+        version: 2.27.0
       '@relay/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -193,8 +193,8 @@ importers:
 
 packages:
 
-  '@google/genai@2.26.0':
-    resolution: {integrity: sha512-jWDSHEcO7+khDmE5K+RzxFfnrIe6BdMbND1CWfLl7yPPD2v2SmTbHnKJ8sNFVN9e/M8BRaIp0M4DWKgnbpJmtQ==}
+  '@google/genai@2.27.0':
+    resolution: {integrity: sha512-W6F9Y9d4h7cVQNa85IPCOVVP9PiUzve/ZQPBvQnBmnBJcLvxstEw+R2X/RyCH0SOe0HVDQzeKDpDUf6ZRtbmdQ==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
@@ -244,8 +244,8 @@ packages:
   '@types/retry@0.12.0':
     resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
 
-  '@voltmem/client@0.4.0':
-    resolution: {integrity: sha512-3DZwgbWQ1Xrt46au62MsJDl+QboDIDo4Ot1Ft93vdbYW/eyeR6sQn7feHbrL/KPel7Q55Ty9OBWQAlgJuyx/8A==}
+  '@voltmem/client@file:../voltmem/clients/typescript':
+    resolution: {directory: ../voltmem/clients/typescript, type: directory}
     engines: {node: '>=18'}
 
   agent-base@7.1.4:
@@ -608,7 +608,7 @@ packages:
 
 snapshots:
 
-  '@google/genai@2.26.0':
+  '@google/genai@2.27.0':
     dependencies:
       google-auth-library: 10.6.2
       p-retry: 4.6.2
@@ -653,7 +653,7 @@ snapshots:
 
   '@types/retry@0.12.0': {}
 
-  '@voltmem/client@0.4.0': {}
+  '@voltmem/client@file:../voltmem/clients/typescript': {}
 
   agent-base@7.1.4: {}
 

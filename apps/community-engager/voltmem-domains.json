@@ -1,0 +1,12 @@
+{
+  "domains": [
+    {"name": "community_preference", "volatility": 0.2},
+    {"name": "community_rules", "volatility": 0.15},
+    {"name": "community_outcome", "volatility": 0.55}
+  ],
+  "keywords": {
+    "community_outcome": ["[community_outcome]", "[outcome]", "aborted"],
+    "community_rules": ["[community_rules]", "Subreddit rules"],
+    "community_preference": ["[community_preference]", "[preference]", "allowlist"]
+  }
+}

@@ -25,7 +25,7 @@ import {
 } from "./discover.js";
 import { executeApproved } from "./executor.js";
 import { getAllowlistStore } from "./allowlist-store.js";
-import { CommunityMemory } from "./memory.js";
+import { CommunityMemory, communityFactDomain } from "./memory.js";
 import {
   fillAndSubmitRedditLogin,
   loginRedditBrowser,
@@ -709,11 +709,11 @@ export class CommunityEngagerController implements AppController {
 
     await this.options.memory.addFact(
       CommunityMemory.allowlistPromoted(promoted.name, promoted.note),
-      { domain: "preference", source: `relay:${APP_ID}` }
+      { domain: communityFactDomain("preference"), source: `relay:${APP_ID}` }
     );
     await this.options.memory.addFact(
       CommunityMemory.subredditRules(promoted.name, promoted.note),
-      { domain: "preference", source: `relay:${APP_ID}` }
+      { domain: communityFactDomain("rules"), source: `relay:${APP_ID}` }
     );
     console.log(
       `[discover] promoted r/${promoted.name} → postable allowlist`
@@ -1654,14 +1654,14 @@ export class CommunityEngagerController implements AppController {
         type: "add_fact",
         params: {
           text: fact,
-          domain: "outcome",
+          domain: communityFactDomain("outcome"),
           source: `relay:${APP_ID}`,
         },
       });
       ok = result.success;
     } else {
       ok = await this.options.memory.addFact(fact, {
-        domain: "outcome",
+        domain: communityFactDomain("outcome"),
         source: `relay:${APP_ID}`,
       });
     }

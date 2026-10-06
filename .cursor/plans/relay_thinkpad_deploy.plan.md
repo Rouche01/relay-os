@@ -210,11 +210,13 @@ services:
       - /opt/voltmem/env/sidecar.env
     volumes:
       - /opt/voltmem/data:/data
+      - /opt/relay-community/app/apps/community-engager/voltmem-domains.json:/domains/community.json:ro
 ```
 
 ```bash
 # /opt/voltmem/env/sidecar.env
 VOLTMEM_API_KEY=…   # chmod 600
+VOLTMEM_DOMAINS_FILE=/domains/community.json
 
 cd /opt/voltmem/deploy && docker compose up -d
 curl -s http://127.0.0.1:8080/health
@@ -235,10 +237,10 @@ Set at least:
 - `FEEDBACK_ADAPTER=telegram` + Telegram bot / allowlist
 - `VOLTMEM_URL=http://127.0.0.1:8080`
 - `VOLTMEM_API_KEY=` same key as sidecar (or a dedicated client key if you split later)
-- `VOLTMEM_USER_ID=` stable id for this app’s memories (e.g. `relay-community`)
+- `VOLTMEM_TENANT_ID=` stable id for this app’s memories (e.g. `relay-community`). `VOLTMEM_USER_ID` is the fallback when that is unset.
 - Reddit + `REDDIT_DRY_RUN=true`
 
-Other future projects use different `VOLTMEM_USER_ID` (and the same URL) so memories stay partitioned.
+Other future projects use different `VOLTMEM_TENANT_ID` values (and the same URL) so memories stay partitioned. One sidecar process has one domains file; a second prior means a second sidecar.
 
 ### Step 5 — Manual smoke (before systemd)
 

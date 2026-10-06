@@ -11,7 +11,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@voltmem/client": "^0.4.0"
+    "@voltmem/client": "file:../../../voltmem/clients/typescript"
   },
   "devDependencies": {
     "typescript": "6.0.3",

@@ -7,6 +7,7 @@ import type {
 } from "@relay/protocol";
 import { bindEngines, type EngineProviders } from "@relay/runtime";
 import { draftReply, type DraftReplyOptions } from "./drafter.js";
+import { communityFactDomain } from "./memory.js";
 import { CommunityEngagerManifest } from "./manifest.js";
 import {
   browserUserAgent,
@@ -83,7 +84,7 @@ export function createDataEngine(memory: ContextEngine): ExecutionEngine {
       if (action.type === "add_fact") {
         const text = String(action.params.text ?? "");
         const ok = await memory.addFact(text, {
-          domain: action.params.domain as string | undefined,
+          domain: communityFactDomain(action.params.domain as string | undefined),
           source: action.params.source as string | undefined,
         });
         return { success: ok, data: { written: ok } };

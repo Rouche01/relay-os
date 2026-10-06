@@ -1,4 +1,7 @@
-/** Prefix facts so search stays useful before a dedicated VoltMem profile exists. */
+/**
+ * Prefix facts for prompt and search readability.
+ * The VoltMem domain field is separate and is what the sidecar stores.
+ */
 export function formatFact(domain: string | undefined, text: string): string {
   const body = text.trim();
   if (!domain) return body;

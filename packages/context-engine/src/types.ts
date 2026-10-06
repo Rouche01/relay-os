@@ -7,15 +7,23 @@ import type { MemoryHit, WriteResult } from "@voltmem/client";
 export type MemoryDomainTag = string;
 
 export interface AddFactOptions {
+  /**
+   * Fact kind sent to VoltMem `add` (skips the sidecar classifier).
+   * `formatFact` still prefixes the text with `[domain]` so search stays readable.
+   */
   domain?: MemoryDomainTag;
   /** Passed through to VoltMem as source (default: "relay") */
   source?: string;
+  tenantId?: string;
+  /** @deprecated Use tenantId. */
   userId?: string;
 }
 
 export interface SearchMemoryOptions {
   limit?: number;
   minScore?: number;
+  tenantId?: string;
+  /** @deprecated Use tenantId. */
   userId?: string;
 }
 

@@ -5,6 +5,8 @@ import { VoltMemContextEngine } from "./voltmem-engine.js";
 export interface ContextEngineEnv {
   VOLTMEM_URL?: string;
   VOLTMEM_API_KEY?: string;
+  VOLTMEM_TENANT_ID?: string;
+  /** @deprecated Use VOLTMEM_TENANT_ID. */
   VOLTMEM_USER_ID?: string;
   VOLTMEM_AGENT_ID?: string;
 }
@@ -13,6 +15,8 @@ export interface CreateContextEngineOptions {
   /** Override env URL */
   baseUrl?: string;
   apiKey?: string;
+  tenantId?: string;
+  /** @deprecated Use tenantId. */
   userId?: string;
   agentId?: string;
   /**
@@ -40,15 +44,19 @@ export function createContextEngine(
     throw new Error("VOLTMEM_URL is required when ContextEngine optional=false");
   }
 
-  const userId =
-    options.userId ?? env.VOLTMEM_USER_ID ?? "relay-local";
+  const tenantId =
+    options.tenantId ??
+    options.userId ??
+    env.VOLTMEM_TENANT_ID ??
+    env.VOLTMEM_USER_ID ??
+    "relay-local";
   const apiKey = options.apiKey ?? env.VOLTMEM_API_KEY;
   const agentId = options.agentId ?? env.VOLTMEM_AGENT_ID;
 
   return new VoltMemContextEngine({
     baseUrl,
     apiKey,
-    userId,
+    tenantId,
     agentId,
   });
 }

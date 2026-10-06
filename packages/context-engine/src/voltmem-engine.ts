@@ -1,4 +1,4 @@
-import type { MemoryHit, VoltMemClient } from "@voltmem/client";
+import type { AddOptions, MemoryHit, SearchOptions, VoltMemClient } from "@voltmem/client";
 import { formatFact, formatMemoryPromptBlock } from "./domains.js";
 import type {
   AddFactOptions,
@@ -9,8 +9,8 @@ import type {
 export interface VoltMemContextEngineOptions {
   baseUrl: string;
   apiKey?: string;
-  /** Default tenant / user scope */
-  userId: string;
+  /** Default tenant (person or app bucket). */
+  tenantId: string;
   /** Optional agent id tagged into source */
   agentId?: string;
   /** Log fail-open events (default: console.warn) */
@@ -33,14 +33,14 @@ export class VoltMemContextEngine implements ContextEngine {
   private readonly clientOptions: {
     baseUrl: string;
     apiKey?: string;
-    userId: string;
+    tenantId: string;
   };
 
   constructor(options: VoltMemContextEngineOptions) {
     this.clientOptions = {
       baseUrl: options.baseUrl,
       apiKey: options.apiKey,
-      userId: options.userId,
+      tenantId: options.tenantId,
     };
     this.agentId = options.agentId;
     this.onWarn =
@@ -60,7 +60,7 @@ export class VoltMemContextEngine implements ContextEngine {
         return new VoltMemClient({
           baseUrl: this.clientOptions.baseUrl,
           apiKey: this.clientOptions.apiKey,
-          userId: this.clientOptions.userId,
+          tenantId: this.clientOptions.tenantId,
         });
       });
     }
@@ -89,10 +89,12 @@ export class VoltMemContextEngine implements ContextEngine {
       const source =
         options.source ??
         (this.agentId ? `relay:${this.agentId}` : "relay");
-      await client.add(payload, {
-        source,
-        userId: options.userId,
-      });
+      const addOptions: AddOptions = { source };
+      const tenantId = options.tenantId ?? options.userId;
+      if (tenantId) addOptions.tenantId = tenantId;
+      const domain = options.domain?.trim();
+      if (domain) addOptions.domain = domain;
+      await client.add(payload, addOptions);
       this._available = true;
       return true;
     } catch (err) {
@@ -105,11 +107,11 @@ export class VoltMemContextEngine implements ContextEngine {
   async search(query: string, options: SearchMemoryOptions = {}): Promise<MemoryHit[]> {
     try {
       const client = await this.getClient();
-      const hits = await client.search(query, {
-        limit: options.limit ?? 5,
-        minScore: options.minScore,
-        userId: options.userId,
-      });
+      const searchOptions: SearchOptions = { limit: options.limit ?? 5 };
+      if (options.minScore !== undefined) searchOptions.minScore = options.minScore;
+      const tenantId = options.tenantId ?? options.userId;
+      if (tenantId) searchOptions.tenantId = tenantId;
+      const hits = await client.search(query, searchOptions);
       this._available = true;
       return hits;
     } catch (err) {

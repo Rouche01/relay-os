@@ -1,7 +1,23 @@
 /**
  * CommunityEngager-owned memory fact phrasing.
  * Keep this out of @relay/context-engine so other apps stay uncoupled.
+ *
+ * Short tags (`preference`, `outcome`, `rules`) map onto the kinds in
+ * `voltmem-domains.json`. That file is what the sidecar loads via
+ * `VOLTMEM_DOMAINS_FILE`.
  */
+
+const COMMUNITY_FACT_DOMAINS: Record<string, string> = {
+  preference: "community_preference",
+  outcome: "community_outcome",
+  rules: "community_rules",
+};
+
+/** Map an app tag onto the domain name registered in voltmem-domains.json. */
+export function communityFactDomain(tag: string | undefined): string | undefined {
+  if (!tag) return undefined;
+  return COMMUNITY_FACT_DOMAINS[tag] ?? tag;
+}
 
 export const CommunityMemory = {
   aborted(reason: string, meta?: { subreddit?: string; intensity?: number }): string {
