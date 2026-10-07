@@ -35,6 +35,9 @@ importers:
       '@relay/engines-browser':
         specifier: workspace:*
         version: link:../../packages/engines-browser
+      '@relay/engines-decide':
+        specifier: workspace:*
+        version: link:../../packages/engines-decide
       '@relay/feedback-broker':
         specifier: workspace:*
         version: link:../../packages/feedback-broker

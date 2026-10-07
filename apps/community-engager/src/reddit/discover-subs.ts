@@ -1,5 +1,14 @@
 import type { Page } from "playwright";
+import type { DecisionPort } from "@relay/engines-decide";
+import {
+  createDecisionPort,
+  discoverMinConfidence,
+} from "@relay/engines-decide";
 import type { PlaywrightEngine } from "@relay/engines-browser";
+import {
+  DEFAULT_DISCOVER_GOAL,
+  scoreDiscoverFit,
+} from "../discover-fit.js";
 import type { RedditEnvConfig } from "./config.js";
 import { getRedditEnv } from "./config.js";
 import { createRedditBrowserEngine } from "./browser-session.js";
@@ -15,7 +24,7 @@ export interface DiscoveryCandidate {
   title: string;
   subscribers: number;
   publicDescription: string;
-  /** Heuristic 0–10 topic/activity/help density. */
+  /** 0–10 display score (decide confidence × 10). */
   fitScore: number;
   rulesOk: boolean;
   note: string;
@@ -51,16 +60,17 @@ export interface DiscoverSubsOptions {
    * Avoids Reddit re-challenging a brand-new Chromium after HITL.
    */
   adopt?: { engine: PlaywrightEngine; storagePath: string };
+  /** Fit scorer — defaults to createDecisionPort() from env. */
+  decide?: DecisionPort;
+  /** Community goal for Noul fit. */
+  goal?: string;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const HELP_RE =
-  /\b(advice|help|recommend|suggest|tips?|what should|how (do|can|should)|outfit|wardrobe|style)\b/i;
+/** Cheap hard veto — never send obvious promo-hostile bios to decide as “rules OK”. */
 const PROMO_BAN_RE =
   /\b(no self[- ]?promo|no advertising|no spam|no affiliate|banned.*promo)\b/i;
-const TOPIC_RE =
-  /\b(fashion|style|outfit|wardrobe|clothing|dress|menswear|womenswear|capsule)\b/i;
 
 const MAX_SAMPLE_SUBS = 8;
 
@@ -330,40 +340,6 @@ interface SearchChild {
   };
 }
 
-function scoreCandidate(input: {
-  name: string;
-  title: string;
-  description: string;
-  subscribers: number;
-  sampleTitles: string[];
-}): Omit<
-  DiscoveryCandidate,
-  "name" | "title" | "subscribers" | "publicDescription"
-> {
-  const blob = `${input.title}\n${input.description}`.toLowerCase();
-  let fit = 0;
-  if (TOPIC_RE.test(blob)) fit += 3;
-  if (HELP_RE.test(blob)) fit += 2;
-  if (input.subscribers >= 50_000) fit += 2;
-  else if (input.subscribers >= 5_000) fit += 1;
-  const helpPosts = input.sampleTitles.filter((t) => HELP_RE.test(t)).length;
-  if (helpPosts >= 3) fit += 2;
-  else if (helpPosts >= 1) fit += 1;
-
-  const promoBan = PROMO_BAN_RE.test(blob);
-  const rulesOk = !promoBan;
-  const note = promoBan
-    ? "Rules look hostile to promo — help-only if promoted; human must confirm."
-    : "Topic/activity look relevant for fashion/styling advice.";
-  const evidence = [
-    `subs=${input.subscribers}`,
-    `helpTitles=${helpPosts}/${input.sampleTitles.length}`,
-    promoBan ? "promo_ban_hint" : "no_promo_ban_hint",
-  ].join("; ");
-
-  return { fitScore: Math.min(10, fit), rulesOk, note, evidence };
-}
-
 async function sampleNewTitles(
   sub: string,
   session: DiscoverJsonSession
@@ -384,7 +360,9 @@ async function sampleNewTitles(
 }
 
 /**
- * Read-only subreddit discovery via public search + listing samples.
+ * Read-only subreddit discovery via public search + DecisionPort fit.
+ * Hard vetoes (NSFW / non-public) stay in code. Fit uses Noul via decide —
+ * never auto-promotes to postable.
  * On CAPTCHA, may return challenge hand-off with headed browser still open.
  */
 export async function discoverSubredditCandidates(
@@ -400,13 +378,18 @@ export async function discoverSubredditCandidates(
     (opts.exclude ?? []).map((s) => s.replace(/^r\//i, "").toLowerCase())
   );
   const escalateCaptcha = opts.escalateCaptcha ?? cfg.interstitialHitl;
+  const decide = opts.decide ?? createDecisionPort();
+  const goal = opts.goal?.trim() || cfg.discoverGoal || DEFAULT_DISCOVER_GOAL;
+  const minConfidence = discoverMinConfidence();
 
   const searchUrls = [
     `https://www.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}&limit=25&raw_json=1`,
     `https://old.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}&limit=25&raw_json=1`,
   ];
 
-  console.log(`[discover] query=${JSON.stringify(query)} limit=${limit}`);
+  console.log(
+    `[discover] query=${JSON.stringify(query)} limit=${limit} decide=${decide.backendName} floor=${minConfidence.toFixed(2)}`
+  );
   const session = new DiscoverJsonSession(cfg, escalateCaptcha, opts.adopt);
   if (opts.adopt) {
     console.log("[discover] continuing in existing headed browser (post-CAPTCHA)");
@@ -436,45 +419,72 @@ export async function discoverSubredditCandidates(
       if (!d?.display_name) continue;
       const name = String(d.display_name);
       if (exclude.has(name.toLowerCase())) continue;
+      // Hard vetoes — never ask decide about junk.
       if (d.over18) continue;
       if (d.subreddit_type && d.subreddit_type !== "public") continue;
 
-      const bioScore = scoreCandidate({
-        name,
-        title: String(d.title ?? name),
-        description: String(d.public_description ?? ""),
-        subscribers: Number(d.subscribers ?? 0),
-        sampleTitles: [],
-      });
+      const title = String(d.title ?? name);
+      const publicDescription = String(d.public_description ?? "");
+      const subscribers = Number(d.subscribers ?? 0);
+      const promoBan = PROMO_BAN_RE.test(`${title}\n${publicDescription}`);
+
+      let fit = await scoreDiscoverFit(
+        decide,
+        {
+          name,
+          title,
+          publicDescription,
+          subscribers,
+          goal,
+        },
+        { minConfidence }
+      );
 
       let sampleTitles: string[] = [];
-      const needsSample =
-        bioScore.fitScore < 4 ||
-        (bioScore.fitScore < 6 && ranked.length < limit);
-      if (needsSample && sampled < MAX_SAMPLE_SUBS) {
+      if (fit.wantSamples && sampled < MAX_SAMPLE_SUBS) {
         sampleTitles = await sampleNewTitles(name, session);
         sampled += 1;
         if (session.getChallenge()) break;
         await sleep(Math.min(cfg.scoutDelayMs, 1500));
+        if (sampleTitles.length) {
+          fit = await scoreDiscoverFit(
+            decide,
+            {
+              name,
+              title,
+              publicDescription,
+              subscribers,
+              sampleTitles,
+              goal,
+            },
+            { minConfidence }
+          );
+        }
       }
 
-      const scored = scoreCandidate({
-        name,
-        title: String(d.title ?? name),
-        description: String(d.public_description ?? ""),
-        subscribers: Number(d.subscribers ?? 0),
-        sampleTitles,
-      });
+      if (!fit.propose) {
+        console.log(
+          `[discover] drop r/${name} confidence=${fit.confidence.toFixed(2)} fit=${fit.fitYes}`
+        );
+        continue;
+      }
 
-      if (scored.fitScore < 4) continue;
-
+      const rulesOk = fit.rulesOk && !promoBan;
       ranked.push({
         name,
-        title: String(d.title ?? name),
-        subscribers: Number(d.subscribers ?? 0),
-        publicDescription: String(d.public_description ?? "").slice(0, 280),
-        ...scored,
+        title,
+        subscribers,
+        publicDescription: publicDescription.slice(0, 280),
+        fitScore: fit.fitScore,
+        rulesOk,
+        note: promoBan
+          ? `${fit.note} Cheap promo-ban hint in bio — help-only if promoted.`
+          : fit.note,
+        evidence: promoBan ? `${fit.evidence}; promo_ban_hint` : fit.evidence,
       });
+      console.log(
+        `[discover] propose r/${name} confidence=${fit.confidence.toFixed(2)} backend=${fit.backend}`
+      );
     }
 
     const finalChallenge = session.getChallenge();

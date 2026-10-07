@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: p2-dogfood-discover-fit
     content: Wire discover scoring through DecisionPort — state=goal+sub bio (+ optional sample titles); Noul fit (+ optional rules-safe Noul); above confidence floor → proposed allowlist; mid/low → skip or escalate; never auto-promote to postable
-    status: pending
+    status: completed
   - id: p2b-discover-gating
     content: Smart discover skip + force override — auto skip when postable allowlist ≥ MIN; COMMUNITY_DISCOVER=force|off; manifest/intent trigger discover subs forces a research pass
     status: pending

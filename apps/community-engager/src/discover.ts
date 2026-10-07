@@ -1,4 +1,6 @@
 import type { ContextEngine } from "@relay/context-engine";
+import type { DecisionPort } from "@relay/engines-decide";
+import { createDecisionPort } from "@relay/engines-decide";
 import type { PlaywrightEngine } from "@relay/engines-browser";
 import {
   getAllowlistStore,
@@ -31,6 +33,8 @@ export async function runDiscovery(opts?: {
   cfg?: RedditEnvConfig;
   store?: AllowlistStore;
   memory?: ContextEngine;
+  /** Fit scorer — defaults to createDecisionPort() from env. */
+  decide?: DecisionPort;
   /** Reuse a headed browser that just cleared CAPTCHA (same Chromium). */
   adopt?: { engine: PlaywrightEngine; storagePath: string };
 }): Promise<DiscoverResult> {
@@ -46,6 +50,7 @@ export async function runDiscovery(opts?: {
   const store = opts?.store ?? getAllowlistStore();
   const postable = await store.listPostable();
   const exclude = postable.map((e) => e.name);
+  const decide = opts?.decide ?? createDecisionPort();
 
   let candidates: DiscoveryCandidate[] = [];
   let challenge: DiscoverChallengeHandOff | undefined;
@@ -57,6 +62,8 @@ export async function runDiscovery(opts?: {
       limit: cfg.discoverMaxCandidates,
       escalateCaptcha: cfg.interstitialHitl,
       adopt: opts?.adopt,
+      decide,
+      goal: cfg.discoverGoal,
     });
     candidates = raw.candidates;
     challenge = raw.challenge;

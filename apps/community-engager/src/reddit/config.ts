@@ -117,6 +117,11 @@ export interface RedditEnvConfig {
    * (exploration among already-approved allowlist entries).
    */
   discoverExploreSlot: boolean;
+  /**
+   * Goal string for discover-fit DecisionPort (Noul).
+   * Env: COMMUNITY_DISCOVER_GOAL.
+   */
+  discoverGoal: string;
 }
 
 function parseScoutSource(raw: string): ScoutSource {
@@ -260,6 +265,9 @@ export function getRedditEnv(
   const exploreRaw = (env.COMMUNITY_DISCOVER_EXPLORE ?? "true").toLowerCase();
   const discoverExploreSlot =
     exploreRaw !== "false" && exploreRaw !== "0" && exploreRaw !== "off";
+  const discoverGoal =
+    env.COMMUNITY_DISCOVER_GOAL?.trim() ||
+    "Help-first fashion and styling communities for GoStylens. Soft product mention OK when useful; never hard-sell or spam.";
 
   return {
     clientId,
@@ -289,6 +297,7 @@ export function getRedditEnv(
     discoverQuery,
     discoverMaxCandidates,
     discoverExploreSlot,
+    discoverGoal,
   };
 }
 
