@@ -258,9 +258,11 @@ export async function scoutRedditBrowser(
   let challenge: ScoutChallengeHandOff | undefined;
   /** When true, finally must not teardown — HITL owns the window. */
   let handOffEngine = false;
+  /** Adopted post-login windows are already headed. */
+  let runningHeadless = !opts.adopt && cfg.browserHeadless;
 
   try {
-    const page = await engine.getPage();
+    let page = await engine.getPage();
     const gotoTimeout = Math.min(12_000, subBudgetMs);
 
     try {
@@ -273,24 +275,59 @@ export async function scoutRedditBrowser(
       console.warn("[scout:browser] warm-up navigation failed:", err);
     }
 
-    const handOffCaptcha = (
+    /**
+     * Park a browser for CAPTCHA/login HITL. If we were headless, tear down
+     * and reopen headed (discover already does this) so remote desktop works.
+     */
+    const handOffCaptcha = async (
       sub: string,
       url: string,
       wall: InterstitialDetection
-    ): boolean => {
+    ): Promise<boolean> => {
       if (isRateLimit(wall) || !escalateCaptcha) return false;
       if (skipLoginHitl.has(sub.toLowerCase())) return false;
+
+      const challengeUrl = page.url() || url;
+
+      if (runningHeadless) {
+        console.log(
+          `[scout:browser] headless wall on r/${sub} — opening headed browser for human solve`
+        );
+        try {
+          await engine.teardown();
+        } catch {
+          /* ignore */
+        }
+        const created = await createRedditBrowserEngine({
+          cfg,
+          useStoredSession: true,
+          headless: false,
+        });
+        engine = created.engine;
+        storagePath = created.storagePath;
+        page = await engine.getPage();
+        try {
+          await page.goto(challengeUrl, {
+            waitUntil: "domcontentloaded",
+            timeout: 15_000,
+          });
+        } catch (err) {
+          console.warn("[scout:browser] headed goto failed:", err);
+        }
+        runningHeadless = false;
+      }
+
       challenge = {
         engine,
         storagePath,
-        url: page.url() || url,
+        url: page.url() || challengeUrl,
         subreddit: sub,
         reason: wall.reason ?? "interstitial",
         title: wall.title,
       };
       handOffEngine = true;
       console.log(
-        `[scout:browser] challenge HITL — keeping browser open on r/${sub}; ` +
+        `[scout:browser] challenge HITL — keeping headed browser open on r/${sub}; ` +
           `auto-detects clear (or Approve in Telegram/CLI)`
       );
       return true;
@@ -344,7 +381,7 @@ export async function scoutRedditBrowser(
             );
             break;
           }
-          if (!alreadyTriedHitl && handOffCaptcha(sub, url, wall)) break;
+          if (!alreadyTriedHitl && (await handOffCaptcha(sub, url, wall))) break;
           if (alreadyTriedHitl) {
             console.warn(
               `[scout:browser] r/${sub} still gated after HITL (${wall.reason}) — skipping; continuing allowlist`
@@ -382,7 +419,9 @@ export async function scoutRedditBrowser(
               );
               break;
             }
-            if (!alreadyTriedHitl && handOffCaptcha(sub, url, again)) break;
+            if (!alreadyTriedHitl && (await handOffCaptcha(sub, url, again))) {
+              break;
+            }
           } else {
             console.warn(
               `[scout:browser] r/${sub} timed out waiting for listing`
@@ -442,7 +481,10 @@ export async function scoutRedditBrowser(
               console.warn(
                 "[scout:browser] rate-limited during deep-read — stopping scout"
               );
-            } else if (wall?.challenged && handOffCaptcha(sub, url, wall)) {
+            } else if (
+              wall?.challenged &&
+              (await handOffCaptcha(sub, url, wall))
+            ) {
               break;
             } else {
               console.warn(`[scout:browser] r/${sub} deep-read batch error:`, err);
@@ -508,7 +550,7 @@ export async function scoutRedditBrowser(
             );
             break;
           }
-          if (!alreadyTriedHitl && handOffCaptcha(sub, url, wall)) break;
+          if (!alreadyTriedHitl && (await handOffCaptcha(sub, url, wall))) break;
         } else {
           console.warn(`[scout:browser] r/${sub} failed:`, err);
           timedOut.push(sub);

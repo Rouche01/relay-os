@@ -175,7 +175,25 @@ sudo systemctl enable --now relay-community.timer
 systemctl list-timers | grep relay
 ```
 
-## Re-auth when the cookie jar expires
+## Browser modes: headless timer vs headed walls
+
+Telegram never streams pixels. CAPTCHA / login need a **real headed Chromium on the ThinkPad** plus remote desktop into that session.
+
+| Mode | When | Env | Behaviour |
+|------|------|-----|-----------|
+| **Timer / overnight** | Jar healthy | `REDDIT_BROWSER_HEADLESS=true`, leave `REDDIT_INTERSTITIAL_HITL` unset/false | Headless scout; walls → skip/log, no hang |
+| **Wall clear / re-auth** | Jar expired or CAPTCHA | `REDDIT_INTERSTITIAL_HITL=true` (+ display) | Headless until obstruction, then **reopens headed**; Telegram pauses until you solve + Approve |
+
+Discover already did headless→headed on escalate; scout now matches that.
+
+### Recommended ThinkPad setup
+
+1. Keep a **logged-in graphical session** on the box (or a dedicated X user session), not a pure SSH-only host.
+2. Install **remote desktop** into that session (RustDesk, Tailscale + WayVNC/x11vnc, or similar) — open it only when Telegram says a wall is up.
+3. Timer unit stays headless + HITL off so overnight runs never block on you.
+4. When a run log shows blocked / you get a CAPTCHA Telegram card: either flip HITL for a one-shot, or run headed login (below).
+
+### Re-auth when the cookie jar expires
 
 Do **not** rely on `REDDIT_PASSWORD` in env for day-to-day (optional bootstrap only). Prefer HITL:
 
@@ -184,19 +202,21 @@ Do **not** rely on `REDDIT_PASSWORD` in env for day-to-day (optional bootstrap o
    # in community.env for this one-shot:
    REDDIT_ENSURE_SESSION=true
    FEEDBACK_ADAPTER=telegram
-   # optional visible browser on the box (needs display / x11):
-   # REDDIT_LOGIN_HEADED=true
+   REDDIT_LOGIN_HEADED=true          # needs display + remote desktop
+   REDDIT_INTERSTITIAL_HITL=true
    ```
    Or: `pnpm --filter @relay/apps-community-engager login:reddit` with env loaded.
 
-2. **“Prove your humanity” on scout** — interactive pass:
+2. **“Prove your humanity” mid-scout** — interactive pass with HITL on:
    ```bash
-   REDDIT_INTERSTITIAL_HITL=true
-   # headed window on the host + Telegram Approve after you solve
+   REDDIT_BROWSER_HEADLESS=true      # still start headless
+   REDDIT_INTERSTITIAL_HITL=true     # on wall → reopen headed + Telegram wait
    ```
-   Approve saves `storageState` under `REDDIT_COOKIE_DIR`. Timers stay headless and reuse the jar; they must **not** set `REDDIT_INTERSTITIAL_HITL` (unattended = fail open, no hang).
+   Solve CAPTCHA in the headed window via remote desktop; Approve (or wait for auto-clear). Jar saves under `REDDIT_COOKIE_DIR`. Then restore timer env (HITL off).
 
-3. Jar files: `{account}.storage.json` under `/opt/relay-community/data/cookies/reddit/` — keep permissions tight (`chmod 700` on the directory).
+3. **Backup:** copy a fresh jar from a laptop onto `/opt/relay-community/data/cookies/reddit/` (`chmod 700` on the directory).
+
+4. Jar files: `{account}.storage.json` under that cookie dir.
 
 ## Host power
 
