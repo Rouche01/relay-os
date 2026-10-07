@@ -4,7 +4,7 @@ overview: Add a typed System-1 decide layer (`@relay/engines-decide`) — first 
 todos:
   - id: p0-protocol-decide
     content: Add Decision* types + routeDecision + decisionToFeedbackRequest in packages/protocol
-    status: pending
+    status: completed
   - id: p1-engines-decide-pkg
     content: Create packages/engines-decide — DecisionPort, HeuristicDecisionBackend, JevDecisionBackend, route/escalate, unit tests
     status: pending
