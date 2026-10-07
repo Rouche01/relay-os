@@ -1,8 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "outDir": "./dist-test",
+    "rootDir": ".",
     "types": ["node"],
-    "noEmit": true
+    "noEmit": false,
+    "declaration": false
   },
   "include": ["src/**/*", "test/**/*"]
 }

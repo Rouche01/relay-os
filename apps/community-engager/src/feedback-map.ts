@@ -24,6 +24,7 @@ export function draftToFeedbackContext(draft: CommunityDraft): FeedbackContext {
     url: draft.threadUrl,
     details,
     meta: {
+      kind: "draft",
       platform: draft.platform,
       intensity: draft.intensity,
       score: draft.score,
