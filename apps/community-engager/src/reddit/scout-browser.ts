@@ -1,5 +1,8 @@
 import type { Page } from "playwright";
+import type { DecisionPort } from "@relay/engines-decide";
+import { createDecisionPort } from "@relay/engines-decide";
 import type { PlaywrightEngine } from "@relay/engines-browser";
+import { detectInterstitialDecided } from "../interstitial-decide.js";
 import type { CommunityDraft } from "../types.js";
 import { scoreTotal } from "../types.js";
 import type { RedditListingPost } from "./client.js";
@@ -17,7 +20,6 @@ import {
   rowsToListingPosts,
 } from "./extract-listing.js";
 import {
-  detectInterstitial,
   isRateLimit,
   type InterstitialDetection,
 } from "./interstitial.js";
@@ -26,6 +28,25 @@ import {
   pickDeepReadCandidates,
   scoreListingStats,
 } from "./map-drafts.js";
+
+/** Page-class decide → InterstitialDetection (escalates low confidence to HITL). */
+async function classifyScoutPage(
+  page: Page,
+  decide: DecisionPort
+): Promise<InterstitialDetection> {
+  const decided = await detectInterstitialDecided(page, { decide });
+  const conf = decided.confidence.toFixed(2);
+  if (decided.escalateHitl) {
+    console.warn(
+      `[scout:browser] page-class escalate class=${decided.pageClass} conf=${conf} backend=${decided.backend}`
+    );
+  } else {
+    console.log(
+      `[scout:browser] page-class=${decided.pageClass} conf=${conf} backend=${decided.backend}`
+    );
+  }
+  return decided.detection;
+}
 
 export interface BrowserScoutBlocked {
   subreddit: string;
@@ -78,6 +99,8 @@ export interface BrowserScoutOptions {
    * (default: cfg.interstitialHitl).
    */
   escalateCaptcha?: boolean;
+  /** Page-class DecisionPort (default createDecisionPort). */
+  decide?: DecisionPort;
   /**
    * Draft ids (`reddit-<id>`) already in the action-store — skipped so `limit`
    * is counted in fresh opportunities for this run.
@@ -131,7 +154,8 @@ async function deepReadPosts(
   candidates: RedditListingPost[],
   byId: Map<string, RedditListingPost>,
   pauseBaseMs: number,
-  pauseJitterMs: number
+  pauseJitterMs: number,
+  decide: DecisionPort
 ): Promise<number> {
   let enriched = 0;
   for (const candidate of candidates) {
@@ -144,7 +168,7 @@ async function deepReadPosts(
       });
       await sleep(pacedDelay(pauseBaseMs, pauseJitterMs));
 
-      const wall = await detectInterstitial(page);
+      const wall = await classifyScoutPage(page, decide);
       if (wall.challenged) {
         console.warn(
           `[scout:browser] deep-read blocked (${wall.reason}) — aborting further deep-reads`
@@ -188,6 +212,7 @@ export async function scoutRedditBrowser(
   const scrollRounds = cfg.scoutScrollRounds;
   const deepReadMax = cfg.scoutDeepReadMax;
   const escalateCaptcha = opts.escalateCaptcha ?? cfg.interstitialHitl;
+  const decide = opts.decide ?? createDecisionPort();
   const drafts: CommunityDraft[] = [];
   const blocked: BrowserScoutBlocked[] = [];
   const timedOut: string[] = [];
@@ -284,7 +309,7 @@ export async function scoutRedditBrowser(
         });
         await sleep(pacedDelay(1000, 1500));
 
-        let wall = await detectInterstitial(page);
+        let wall = await classifyScoutPage(page, decide);
         // Soft confirm: flaky captcha chrome on a ready listing is not a wall.
         if (wall.challenged && wall.reason === "captcha_widget") {
           const listingReady = await page
@@ -337,7 +362,7 @@ export async function scoutRedditBrowser(
             timeout: Math.min(remaining, 15_000),
           });
         } catch {
-          const again = await detectInterstitial(page);
+          const again = await classifyScoutPage(page, decide);
           if (again.challenged) {
             const alreadyTriedHitl = skipLoginHitl.has(sub.toLowerCase());
             const reason = alreadyTriedHitl
@@ -396,7 +421,8 @@ export async function scoutRedditBrowser(
               candidates,
               byId,
               Math.min(delayMs, 2000),
-              Math.min(jitterMs, 1500)
+              Math.min(jitterMs, 1500),
+              decide
             );
             console.log(
               `[scout:browser] r/${sub} deep-read enriched ${n}/${candidates.length}`
@@ -460,7 +486,7 @@ export async function scoutRedditBrowser(
           break;
         }
       } catch (err) {
-        const wall = await detectInterstitial(page).catch(() => ({
+        const wall = await classifyScoutPage(page, decide).catch(() => ({
           challenged: false as const,
         }));
         if (wall.challenged) {

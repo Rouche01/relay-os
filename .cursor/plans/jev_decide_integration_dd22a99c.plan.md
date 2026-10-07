@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: p4-dogfood-interstitial
     content: Wire CommunityEngager detectInterstitial → decide + escalate via existing scout confirmation / choice feedback
-    status: pending
+    status: completed
   - id: p5-login-targets
     content: Use decide for login/challenge control selection; keep credential + onChallenge for OTP/CAPTCHA
     status: pending

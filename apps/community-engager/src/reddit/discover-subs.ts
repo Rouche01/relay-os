@@ -13,8 +13,8 @@ import type { RedditEnvConfig } from "./config.js";
 import { getRedditEnv } from "./config.js";
 import { createRedditBrowserEngine } from "./browser-session.js";
 import { storageStatePath } from "./cookies.js";
+import { detectInterstitialDecided } from "../interstitial-decide.js";
 import {
-  detectInterstitial,
   isRateLimit,
   type InterstitialDetection,
 } from "./interstitial.js";
@@ -116,6 +116,7 @@ class DiscoverJsonSession {
   constructor(
     private readonly cfg: RedditEnvConfig,
     private readonly escalateCaptcha: boolean,
+    private readonly decide: DecisionPort,
     adopt?: { engine: PlaywrightEngine; storagePath: string }
   ) {
     this.storagePath = adopt?.storagePath ?? storageStatePath(cfg);
@@ -211,7 +212,15 @@ class DiscoverJsonSession {
 
   private async checkPageForChallenge(url: string): Promise<void> {
     if (!this.page || this.handOff) return;
-    const wall = await detectInterstitial(this.page);
+    const decided = await detectInterstitialDecided(this.page, {
+      decide: this.decide,
+    });
+    const wall = decided.detection;
+    if (decided.escalateHitl) {
+      console.warn(
+        `[discover] page-class escalate class=${decided.pageClass} conf=${decided.confidence.toFixed(2)} backend=${decided.backend}`
+      );
+    }
     if (!wall.challenged) return;
 
     if (isRateLimit(wall)) {
@@ -289,7 +298,10 @@ class DiscoverJsonSession {
       console.warn("[discover] headed goto failed:", err);
     }
 
-    const again = await detectInterstitial(page);
+    const againDecided = await detectInterstitialDecided(page, {
+      decide: this.decide,
+    });
+    const again = againDecided.detection;
     if (!again.challenged) {
       await engine.saveStorageState(storagePath);
       await engine.teardown();
@@ -390,7 +402,12 @@ export async function discoverSubredditCandidates(
   console.log(
     `[discover] query=${JSON.stringify(query)} limit=${limit} decide=${decide.backendName} floor=${minConfidence.toFixed(2)}`
   );
-  const session = new DiscoverJsonSession(cfg, escalateCaptcha, opts.adopt);
+  const session = new DiscoverJsonSession(
+    cfg,
+    escalateCaptcha,
+    decide,
+    opts.adopt
+  );
   if (opts.adopt) {
     console.log("[discover] continuing in existing headed browser (post-CAPTCHA)");
   }
