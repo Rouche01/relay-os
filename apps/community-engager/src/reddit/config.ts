@@ -131,6 +131,11 @@ export interface RedditEnvConfig {
    * Env: COMMUNITY_DISCOVER_GOAL.
    */
   discoverGoal: string;
+  /**
+   * Days before a `proposed` allowlist entry may reappear in discover.
+   * Env: COMMUNITY_DISCOVER_REQUEUE_DAYS (default 14). 0 = never re-queue.
+   */
+  discoverRequeueDays: number;
 }
 
 /** COMMUNITY_DISCOVER=auto|force|off (true→force, false→off). */
@@ -302,6 +307,11 @@ export function getRedditEnv(
   const discoverGoal =
     env.COMMUNITY_DISCOVER_GOAL?.trim() ||
     "Help-first fashion and styling communities for GoStylens. Soft product mention OK when useful; never hard-sell or spam.";
+  const requeueRaw = Number(env.COMMUNITY_DISCOVER_REQUEUE_DAYS ?? "14");
+  const discoverRequeueDays =
+    Number.isFinite(requeueRaw) && requeueRaw >= 0
+      ? Math.floor(requeueRaw)
+      : 14;
 
   return {
     clientId,
@@ -334,6 +344,7 @@ export function getRedditEnv(
     discoverMinPostable,
     discoverExploreSlot,
     discoverGoal,
+    discoverRequeueDays,
   };
 }
 

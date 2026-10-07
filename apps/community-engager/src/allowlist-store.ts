@@ -32,6 +32,41 @@ function normalizeSub(name: string): string {
   return name.replace(/^r\//i, "").trim();
 }
 
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Whether an allowlist row should be excluded from discover research.
+ * - postable / rejected: always
+ * - proposed: excluded while updatedAt is within requeueDays (0 = always)
+ */
+export function isExcludedFromDiscover(
+  entry: Pick<AllowlistEntry, "status" | "updatedAt">,
+  opts: { requeueDays: number; now?: Date }
+): boolean {
+  if (entry.status === "postable" || entry.status === "rejected") return true;
+  if (entry.status !== "proposed") return false;
+
+  const days = Number.isFinite(opts.requeueDays)
+    ? Math.max(0, Math.floor(opts.requeueDays))
+    : 14;
+  if (days === 0) return true;
+
+  const nowMs = opts.now?.getTime() ?? Date.now();
+  const updatedMs = Date.parse(entry.updatedAt);
+  if (!Number.isFinite(updatedMs)) return true;
+  return nowMs - updatedMs < days * MS_PER_DAY;
+}
+
+/** Sub names to pass as Reddit search `exclude`. */
+export function discoverExcludeNames(
+  entries: ReadonlyArray<Pick<AllowlistEntry, "name" | "status" | "updatedAt">>,
+  opts: { requeueDays: number; now?: Date }
+): string[] {
+  return entries
+    .filter((e) => isExcludedFromDiscover(e, opts))
+    .map((e) => e.name);
+}
+
 function seedEntry(policy: SubredditPolicy): AllowlistEntry {
   return {
     name: policy.name,
@@ -68,6 +103,15 @@ export class AllowlistStore {
     return (await this.load()).filter(
       (e) => e.status === "postable" && e.rulesOk
     );
+  }
+
+  /**
+   * Names Reddit search should skip: postable, rejected, and proposed
+   * still within the re-queue TTL. Stale proposed can reappear.
+   */
+  async listDiscoverExclude(requeueDays: number): Promise<string[]> {
+    const entries = await this.load();
+    return discoverExcludeNames(entries, { requeueDays });
   }
 
   async get(name: string): Promise<AllowlistEntry | undefined> {

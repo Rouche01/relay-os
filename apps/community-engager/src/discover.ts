@@ -76,7 +76,12 @@ export async function runDiscovery(opts?: {
 
   console.log(`[discover] gate=${gate.reason}`);
 
-  const exclude = postable.map((e) => e.name);
+  // Skip postable + rejected + proposed still within re-queue TTL.
+  const exclude = await store.listDiscoverExclude(cfg.discoverRequeueDays);
+  console.log(
+    `[discover] exclude ${exclude.length} allowlist name(s)` +
+      ` (requeueDays=${cfg.discoverRequeueDays})`
+  );
   const decide = opts?.decide ?? createDecisionPort();
 
   let candidates: DiscoveryCandidate[] = [];
