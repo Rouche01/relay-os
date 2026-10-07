@@ -3,8 +3,8 @@
 You already have v1 on the box (`/opt/relay-community`, systemd, env, cookies).
 This is what to do for **each new release** — not a from-scratch install.
 
-Full layout / first-time steps: [`README.md`](./README.md).  
-Verification table: [`SMOKE.md`](./SMOKE.md).
+Full layout / first-time steps: `[README.md](./README.md)`.  
+Verification table: `[SMOKE.md](./SMOKE.md)`.
 
 Keep `REDDIT_DRY_RUN=true` on the timer until you deliberately go live.
 
@@ -12,9 +12,9 @@ Keep `REDDIT_DRY_RUN=true` on the timer until you deliberately go live.
 
 ## A. On your laptop (before the ThinkPad)
 
-- [ ] Changes you care about are committed and pushed to the remote the ThinkPad tracks
-- [ ] Especially: `pnpm-lock.yaml` (now uses published `@voltmem/client` — no sibling voltmem checkout)
-- [ ] Optional local sanity: `pnpm --filter @relay/apps-community-engager... build && pnpm --filter @relay/apps-community-engager test`
+- [x] Changes you care about are committed and pushed to the remote the ThinkPad tracks
+- [x] Especially: `pnpm-lock.yaml` (now uses published `@voltmem/client` — no sibling voltmem checkout)
+- [x] Optional local sanity: `pnpm --filter @relay/apps-community-engager... build && pnpm --filter @relay/apps-community-engager test`
 
 ---
 
@@ -53,13 +53,15 @@ diff -u /opt/relay-community/env/community.env \
 
 Timer should still look like:
 
-| Knob | Keep |
-|------|------|
-| `REDDIT_DRY_RUN` | `true` |
-| `REDDIT_BROWSER_HEADLESS` | `true` |
-| `REDDIT_INTERSTITIAL_HITL` | unset / false |
-| `DECIDE_BACKEND` | `heuristic` (overnight) |
+
+| Knob                       | Keep                                 |
+| -------------------------- | ------------------------------------ |
+| `REDDIT_DRY_RUN`           | `true`                               |
+| `REDDIT_BROWSER_HEADLESS`  | `true`                               |
+| `REDDIT_INTERSTITIAL_HITL` | unset / false                        |
+| `DECIDE_BACKEND`           | `heuristic` (overnight)              |
 | Paths / Telegram / VoltMem | unchanged unless you intend a change |
+
 
 New knobs worth adding when present in example (optional):
 
@@ -119,12 +121,14 @@ diff -u /etc/systemd/system/relay-community.service \
 
 ## F. Day-to-day (unchanged)
 
-| Situation | Action |
-|-----------|--------|
-| Morning timer | Check Telegram + `logs/runs/` |
-| Cookie / CAPTCHA wall | One-shot with `REDDIT_INTERSTITIAL_HITL=true` (+ `REDDIT_LOGIN_HEADED=true` if login); solve via remote desktop; Approve; **turn HITL off again** |
-| Empty scout (all already-seen) | Optional: trim actions under `REDDIT_DATA_DIR` for dogfood only |
-| Live post | Flip `REDDIT_DRY_RUN=false` for a deliberate one-shot only — not on first timer after a big update |
+
+| Situation                      | Action                                                                                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Morning timer                  | Check Telegram + `logs/runs/`                                                                                                                     |
+| Cookie / CAPTCHA wall          | One-shot with `REDDIT_INTERSTITIAL_HITL=true` (+ `REDDIT_LOGIN_HEADED=true` if login); solve via remote desktop; Approve; **turn HITL off again** |
+| Empty scout (all already-seen) | Optional: trim actions under `REDDIT_DATA_DIR` for dogfood only                                                                                   |
+| Live post                      | Flip `REDDIT_DRY_RUN=false` for a deliberate one-shot only — not on first timer after a big update                                                |
+
 
 ### Wall clear one-shot (do not leave on timer)
 
@@ -143,11 +147,13 @@ Needs graphical session + remote desktop (Telegram has no pixel stream).
 
 ## G. Browser modes (reminder)
 
-| | Timer | Wall clear |
-|--|-------|------------|
-| Headless | `true` | `true` (starts headless) |
-| `REDDIT_INTERSTITIAL_HITL` | off | `true` |
-| On CAPTCHA | skip / log | reopen **headed** → Telegram wait |
+
+|                            | Timer      | Wall clear                        |
+| -------------------------- | ---------- | --------------------------------- |
+| Headless                   | `true`     | `true` (starts headless)          |
+| `REDDIT_INTERSTITIAL_HITL` | off        | `true`                            |
+| On CAPTCHA                 | skip / log | reopen **headed** → Telegram wait |
+
 
 ---
 
@@ -162,4 +168,4 @@ Needs graphical session + remote desktop (Telegram has no pixel stream).
 
 ## Appendix — greenfield only
 
-If this machine has **no** `/opt/relay-community` yet, follow [`README.md`](./README.md) §§ trees → Chromium → env → jar → systemd, then use this checklist for every later update.
+If this machine has **no** `/opt/relay-community` yet, follow `[README.md](./README.md)` §§ trees → Chromium → env → jar → systemd, then use this checklist for every later update.
