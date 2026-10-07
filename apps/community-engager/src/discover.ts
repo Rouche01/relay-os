@@ -4,7 +4,6 @@ import {
   getAllowlistStore,
   type AllowlistStore,
 } from "./allowlist-store.js";
-import { CommunityMemory, communityFactDomain } from "./memory.js";
 import {
   getRedditEnv,
   type RedditEnvConfig,
@@ -26,6 +25,7 @@ export interface DiscoverResult {
 /**
  * Read-only discovery lane. Writes proposed entries to the allowlist store
  * (status=proposed only). Never marks postable without HITL.
+ * VoltMem preference/rules facts are written on promote (controller), not here.
  */
 export async function runDiscovery(opts?: {
   cfg?: RedditEnvConfig;
@@ -79,6 +79,9 @@ export async function runDiscovery(opts?: {
     };
   }
 
+  // Persist proposals to the allowlist file only. VoltMem facts wait until
+  // human promote (episodic event) — bulk remember of near-identical
+  // "discovery proposed" lines false-merged across subs.
   for (const c of candidates) {
     await store.upsertProposed({
       name: c.name,
@@ -86,12 +89,6 @@ export async function runDiscovery(opts?: {
       note: c.note,
       evidence: c.evidence,
     });
-    if (opts?.memory) {
-      await opts.memory.addFact(
-        CommunityMemory.discoveryProposed(c.name, c.note, c.evidence),
-        { domain: communityFactDomain("preference"), source: "relay:community-engager" }
-      );
-    }
   }
 
   console.log(

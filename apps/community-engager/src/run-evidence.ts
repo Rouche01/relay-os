@@ -56,6 +56,10 @@ export interface MemoryWriteEvidence {
   ok?: boolean;
   domain?: string;
   outcome?: string;
+  /** VoltMem event id when written via addEvent. */
+  eventId?: string;
+  /** First facet WriteResult.action (e.g. inserted). */
+  action?: string;
 }
 
 /** Per-job evidence collected on the child runtime context. */

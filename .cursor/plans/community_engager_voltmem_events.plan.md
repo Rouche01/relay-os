@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: wire-episodic-writes
     content: controller + discover — HITL outcomes (and optionally promote) use addEvent with stable event_id; discovery proposals either event-per-sub or drop bulk remember; keep voice/durable prefs on addFact
-    status: pending
+    status: completed
   - id: run-evidence-action
     content: run-evidence MemoryWriteEvidence — record voltmem action (inserted|confirmed|…) + eventId when present; surface in job-queue / run log
     status: pending

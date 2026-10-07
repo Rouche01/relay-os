@@ -89,6 +89,32 @@ export function createDataEngine(memory: ContextEngine): ExecutionEngine {
         });
         return { success: ok, data: { written: ok } };
       }
+      if (action.type === "add_event") {
+        const eventId = String(action.params.eventId ?? "");
+        const rawFacets = action.params.facets;
+        const facets = Array.isArray(rawFacets)
+          ? rawFacets.map((f) => {
+              const row = f as { content?: unknown; domain?: unknown };
+              return {
+                content: String(row.content ?? ""),
+                domain: communityFactDomain(
+                  typeof row.domain === "string" ? row.domain : undefined
+                ),
+              };
+            })
+          : [];
+        const results = await memory.addEvent(eventId, facets, {
+          source: action.params.source as string | undefined,
+        });
+        return {
+          success: results.length > 0,
+          data: {
+            written: results.length > 0,
+            action: results[0]?.action,
+            results,
+          },
+        };
+      }
       if (action.type === "remember_for_prompt") {
         const query = String(action.params.query ?? "");
         const block = await memory.rememberForPrompt(query, {

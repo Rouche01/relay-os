@@ -744,16 +744,38 @@ export class CommunityEngagerController implements AppController {
       return true;
     }
 
-    await this.options.memory.addFact(
-      CommunityMemory.allowlistPromoted(promoted.name, promoted.note),
-      { domain: communityFactDomain("preference"), source: `relay:${APP_ID}` }
-    );
-    await this.options.memory.addFact(
-      CommunityMemory.subredditRules(promoted.name, promoted.note),
-      { domain: communityFactDomain("rules"), source: `relay:${APP_ID}` }
-    );
+    const preferDomain = communityFactDomain("preference");
+    const rulesDomain = communityFactDomain("rules");
+    const eventId = `promote:${promoted.name}`;
+    const facets = [
+      preferDomain
+        ? {
+            content: CommunityMemory.allowlistPromoted(
+              promoted.name,
+              promoted.note
+            ),
+            domain: preferDomain,
+          }
+        : null,
+      rulesDomain
+        ? {
+            content: CommunityMemory.subredditRules(
+              promoted.name,
+              promoted.note
+            ),
+            domain: rulesDomain,
+          }
+        : null,
+    ].filter((f): f is { content: string; domain: string } => Boolean(f));
+
+    const written = await this.options.memory.addEvent(eventId, facets, {
+      source: `relay:${APP_ID}`,
+    });
     console.log(
-      `[discover] promoted r/${promoted.name} → postable allowlist`
+      `[discover] promoted r/${promoted.name} → postable allowlist` +
+        (written.length
+          ? ` (event=${eventId} action=${written[0]?.action ?? "?"})`
+          : " (voltmem event skipped/fail-open)")
     );
     ctx.lastPromotedSubreddit = promoted.name;
     this.patchDiscoverEvidence(ctx, {
@@ -1701,6 +1723,7 @@ export class CommunityEngagerController implements AppController {
     engine?: ExecutionEngine
   ): Promise<MemoryWriteEvidence> {
     const domain = communityFactDomain("outcome");
+    const eventId = `draft:${draft.id}:${outcome}`;
     const fact =
       outcome === "aborted"
         ? CommunityMemory.aborted("user aborted before post", {
@@ -1719,25 +1742,37 @@ export class CommunityEngagerController implements AppController {
             note: outcome === "edited" ? "human edited draft before approve" : undefined,
           });
 
-    let ok: boolean;
-    if (engine?.type === "data") {
-      const result = await engine.execute({
-        type: "add_fact",
-        params: {
-          text: fact,
-          domain,
-          source: `relay:${APP_ID}`,
-        },
-      });
-      ok = result.success;
-    } else {
-      ok = await this.options.memory.addFact(fact, {
-        domain,
-        source: `relay:${APP_ID}`,
-      });
+    let ok = false;
+    let action: string | undefined;
+    if (domain) {
+      if (engine?.type === "data") {
+        const result = await engine.execute({
+          type: "add_event",
+          params: {
+            eventId,
+            facets: [{ content: fact, domain }],
+            source: `relay:${APP_ID}`,
+          },
+        });
+        ok = result.success;
+        const data = result.data as
+          | { action?: string; results?: Array<{ action?: string }> }
+          | undefined;
+        action = data?.action ?? data?.results?.[0]?.action;
+      } else {
+        const written = await this.options.memory.addEvent(
+          eventId,
+          [{ content: fact, domain }],
+          { source: `relay:${APP_ID}` }
+        );
+        ok = written.length > 0;
+        action = written[0]?.action;
+      }
     }
     console.log(
-      `[learn] voltmem write ${ok ? "ok" : "skipped/fail-open"} (${outcome})`
+      `[learn] voltmem event ${ok ? "ok" : "skipped/fail-open"} (${outcome})` +
+        ` event=${eventId}` +
+        (action ? ` action=${action}` : "")
     );
 
     try {
@@ -1751,6 +1786,8 @@ export class CommunityEngagerController implements AppController {
       ok,
       domain,
       outcome,
+      eventId,
+      action,
     };
     const ctx = this.options.getContext();
     const priorHitl = (ctx.stageResults?.hitl as HitlEvidence | undefined) ?? {};
