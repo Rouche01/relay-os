@@ -98,9 +98,10 @@ describe("formatFeedbackMessage", () => {
         },
       })
     );
-    assert.match(text, /<b>Discover<\/b> · pick one to promote/);
-    assert.match(text, /<b>Pick one<\/b>/);
+    assert.match(text, /<b>Discover<\/b> · promote one or more/);
+    assert.match(text, /<b>Candidates<\/b>/);
     assert.match(text, /r\/malehairadvice/);
+    assert.match(text, /r\/a, r\/b/);
     assert.match(text, /none \(skip\)/);
     assert.doesNotMatch(text, /edit:/);
   });

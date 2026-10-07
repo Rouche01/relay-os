@@ -201,7 +201,11 @@ export function formatRunSummary(summary: RunSummary): string {
       `discover enabled=${d.enabled} ran=${d.ran} candidates=${d.candidateCount}`,
       `decision=${d.decision ?? "none"}`,
     ];
-    if (d.promoted) discoverParts.push(`promoted=${d.promoted}`);
+    if (d.promotedNames?.length) {
+      discoverParts.push(`promoted=${d.promotedNames.join(",")}`);
+    } else if (d.promoted) {
+      discoverParts.push(`promoted=${d.promoted}`);
+    }
     if (d.hitlWaitMs != null) discoverParts.push(`hitlWaitMs=${d.hitlWaitMs}`);
     if (d.skippedReason) discoverParts.push(`skip=${d.skippedReason}`);
     if (d.memory?.attempted) {

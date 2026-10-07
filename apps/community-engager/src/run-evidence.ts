@@ -18,7 +18,10 @@ export interface DiscoverEvidence {
   candidateNames: string[];
   /** promote | skip | abort | none */
   decision?: "promote" | "skip" | "abort" | "none";
+  /** First promoted name (prefer / explore slot). */
   promoted?: string;
+  /** All names promoted this discover HITL (multi-promote). */
+  promotedNames?: string[];
   captcha?: string;
   /** ms waiting on discover HITL (CAPTCHA / choice), if any. */
   hitlWaitMs?: number;

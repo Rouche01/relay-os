@@ -20,7 +20,7 @@ import { draftReply } from "./drafter.js";
 import {
   DISCOVER_SKIP_OPTION,
   discoveryChoiceOptions,
-  parseDiscoveryChoice,
+  parseDiscoveryChoices,
   runDiscovery,
 } from "./discover.js";
 import { executeApproved } from "./executor.js";
@@ -281,7 +281,7 @@ export class CommunityEngagerController implements AppController {
       markWait();
       const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
       return {
-        title: "Promote a discovered subreddit?",
+        title: "Promote discovered subreddit(s)?",
         body: candidates
           .map(
             (c) =>
@@ -293,7 +293,7 @@ export class CommunityEngagerController implements AppController {
           {
             label: "Hint",
             value:
-              "Reply with an option (e.g. r/fashionadvice) to promote, or none (skip). Abort also skips.",
+              "Reply with one or more (e.g. r/a, r/b), or none (skip). Abort also skips.",
           },
         ],
         meta: { kind: "discover" },
@@ -456,7 +456,7 @@ export class CommunityEngagerController implements AppController {
       const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
       return (
         `Found ${candidates.length} candidate subreddit(s). ` +
-        `Promote one onto the allowlist (so future scouts can draft there), ` +
+        `Promote one or more onto the allowlist (reply e.g. r/a, r/b), ` +
         `or choose "${DISCOVER_SKIP_OPTION}". Nothing is postable until you promote.`
       );
     }
@@ -746,7 +746,11 @@ export class CommunityEngagerController implements AppController {
       return false;
     }
 
-    const parsed = parseDiscoveryChoice(feedback.value);
+    const candidates = (ctx.discoveryCandidates ?? []) as DiscoveryCandidate[];
+    const parsed = parseDiscoveryChoices(
+      feedback.value,
+      candidates.map((c) => c.name)
+    );
     if (parsed.action === "skip") {
       console.log("[discover] skipped promotion");
       this.patchDiscoverEvidence(ctx, { decision: "skip" });
@@ -754,59 +758,73 @@ export class CommunityEngagerController implements AppController {
     }
 
     const store = getAllowlistStore();
-    const promoted = await store.promote(parsed.name);
-    if (!promoted) {
-      console.warn(`[discover] promote failed for r/${parsed.name}`);
+    const promotedNames: string[] = [];
+    let firstMemory: MemoryWriteEvidence | undefined;
+    const preferDomain = communityFactDomain("preference");
+    const rulesDomain = communityFactDomain("rules");
+
+    for (const name of parsed.names) {
+      const promoted = await store.promote(name);
+      if (!promoted) {
+        console.warn(`[discover] promote failed for r/${name}`);
+        continue;
+      }
+      promotedNames.push(promoted.name);
+
+      const eventId = `promote:${promoted.name}`;
+      const facets = [
+        preferDomain
+          ? {
+              content: CommunityMemory.allowlistPromoted(
+                promoted.name,
+                promoted.note
+              ),
+              domain: preferDomain,
+            }
+          : null,
+        rulesDomain
+          ? {
+              content: CommunityMemory.subredditRules(
+                promoted.name,
+                promoted.note
+              ),
+              domain: rulesDomain,
+            }
+          : null,
+      ].filter((f): f is { content: string; domain: string } => Boolean(f));
+
+      const written = await this.options.memory.addEvent(eventId, facets, {
+        source: `relay:${APP_ID}`,
+      });
+      if (!firstMemory) {
+        firstMemory = {
+          attempted: facets.length > 0,
+          ok: written.length > 0,
+          domain: preferDomain,
+          outcome: "promote",
+          eventId,
+          action: written[0]?.action,
+        };
+      }
+      console.log(
+        `[discover] promoted r/${promoted.name} → postable allowlist` +
+          (written.length
+            ? ` (event=${eventId} action=${written[0]?.action ?? "?"})`
+            : " (voltmem event skipped/fail-open)")
+      );
+    }
+
+    if (promotedNames.length === 0) {
       this.patchDiscoverEvidence(ctx, { decision: "skip" });
       return true;
     }
 
-    const preferDomain = communityFactDomain("preference");
-    const rulesDomain = communityFactDomain("rules");
-    const eventId = `promote:${promoted.name}`;
-    const facets = [
-      preferDomain
-        ? {
-            content: CommunityMemory.allowlistPromoted(
-              promoted.name,
-              promoted.note
-            ),
-            domain: preferDomain,
-          }
-        : null,
-      rulesDomain
-        ? {
-            content: CommunityMemory.subredditRules(
-              promoted.name,
-              promoted.note
-            ),
-            domain: rulesDomain,
-          }
-        : null,
-    ].filter((f): f is { content: string; domain: string } => Boolean(f));
-
-    const written = await this.options.memory.addEvent(eventId, facets, {
-      source: `relay:${APP_ID}`,
-    });
-    const promoteMemory: MemoryWriteEvidence = {
-      attempted: facets.length > 0,
-      ok: written.length > 0,
-      domain: preferDomain,
-      outcome: "promote",
-      eventId,
-      action: written[0]?.action,
-    };
-    console.log(
-      `[discover] promoted r/${promoted.name} → postable allowlist` +
-        (written.length
-          ? ` (event=${eventId} action=${written[0]?.action ?? "?"})`
-          : " (voltmem event skipped/fail-open)")
-    );
-    ctx.lastPromotedSubreddit = promoted.name;
+    ctx.lastPromotedSubreddit = promotedNames[0];
     this.patchDiscoverEvidence(ctx, {
       decision: "promote",
-      promoted: promoted.name,
-      memory: promoteMemory,
+      promoted: promotedNames[0],
+      promotedNames,
+      memory: firstMemory,
     });
     return true;
   }

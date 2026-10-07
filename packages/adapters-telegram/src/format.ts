@@ -70,7 +70,7 @@ export function formatFeedbackMessage(request: FeedbackRequest): string {
 
   if (request.options?.length) {
     lines.push("");
-    lines.push(kind === "discover" ? "<b>Pick one</b>" : "<b>Options</b>");
+    lines.push(kind === "discover" ? "<b>Candidates</b>" : "<b>Options</b>");
     for (const opt of request.options) {
       lines.push(`• ${escapeHtml(opt)}`);
     }
@@ -124,7 +124,7 @@ function headerLine(kind: FeedbackCardKind, request: FeedbackRequest): string {
         ? `<b>Draft</b> · ${escapeHtml(sub)}`
         : `<b>Draft</b> · <code>approval</code>`;
     case "discover":
-      return `<b>Discover</b> · pick one to promote`;
+      return `<b>Discover</b> · promote one or more`;
     case "login":
       return `<b>Login</b> · credentials needed`;
     case "interstitial":
@@ -146,7 +146,7 @@ function footerLine(kind: FeedbackCardKind, request: FeedbackRequest): string {
       );
     case "discover":
       return (
-        "<i>Reply with an option</i> (e.g. <code>r/fashion</code>) · " +
+        "<i>Reply with one or more</i> (e.g. <code>r/a, r/b</code>) · " +
         "<code>none (skip)</code> · or <i>Abort</i>"
       );
     case "login":

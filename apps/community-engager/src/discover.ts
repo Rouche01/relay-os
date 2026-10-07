@@ -145,35 +145,83 @@ export function discoveryChoiceOptions(
   return [...candidates.map((c) => `r/${c.name}`), DISCOVER_SKIP_OPTION];
 }
 
-export function parseDiscoveryChoice(
-  value: unknown
-): { action: "promote"; name: string } | { action: "skip" } {
-  if (value == null) return { action: "skip" };
-  if (typeof value === "boolean") {
+export type DiscoveryChoiceResult =
+  | { action: "promote"; names: string[] }
+  | { action: "skip" };
+
+/** Whole-message skip only (Telegram Approve / shorthand replies). */
+const WHOLE_SKIP = new Set([
+  "none",
+  "skip",
+  "none (skip)",
+  "abort",
+  "n",
+  "true",
+  "false",
+  "approve",
+  "a",
+  "yes",
+  "y",
+]);
+
+/** Per-token skip when splitting multi-promote lists (not single-letter aliases). */
+const PART_SKIP = new Set(["none", "skip", "none (skip)", "abort"]);
+
+/**
+ * Parse discover HITL reply — one or many sub names.
+ * Examples: `r/fashion`, `r/a, r/b`, newline-separated lists.
+ * Unknown / empty → skip. When `allowed` is set, drop names not in that set.
+ */
+export function parseDiscoveryChoices(
+  value: unknown,
+  allowed?: Iterable<string>
+): DiscoveryChoiceResult {
+  if (value == null || typeof value === "boolean") {
     return { action: "skip" };
   }
   const raw = String(value).trim();
   if (!raw) return { action: "skip" };
-  const lower = raw.toLowerCase();
-  if (
-    lower === "none" ||
-    lower === "skip" ||
-    lower === "none (skip)" ||
-    lower === "abort" ||
-    lower === "n" ||
-    lower === "true" ||
-    lower === "false" ||
-    lower === "approve" ||
-    lower === "a" ||
-    lower === "yes" ||
-    lower === "y"
-  ) {
-    return { action: "skip" };
+  const lowerAll = raw.toLowerCase();
+  if (WHOLE_SKIP.has(lowerAll)) return { action: "skip" };
+
+  const allowedSet = allowed
+    ? new Set(
+        [...allowed].map((n) => n.replace(/^r\//i, "").trim().toLowerCase())
+      )
+    : undefined;
+
+  const parts = raw
+    .split(/[\n,]+/)
+    .map((p) =>
+      p
+        .replace(/^(approve|promote)\s*:?\s*/i, "")
+        .replace(/^r\//i, "")
+        .trim()
+    )
+    .filter(Boolean);
+
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const part of parts) {
+    const key = part.toLowerCase();
+    if (PART_SKIP.has(key)) continue;
+    if (allowedSet && !allowedSet.has(key)) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push(part.replace(/^r\//i, "").trim());
   }
-  const cleaned = raw
-    .replace(/^(approve|promote)\s*:?\s*/i, "")
-    .replace(/^r\//i, "")
-    .trim();
-  if (!cleaned) return { action: "skip" };
-  return { action: "promote", name: cleaned };
+
+  if (names.length === 0) return { action: "skip" };
+  return { action: "promote", names };
+}
+
+/** @deprecated Prefer parseDiscoveryChoices — kept for single-name callers/tests. */
+export function parseDiscoveryChoice(
+  value: unknown
+): { action: "promote"; name: string } | { action: "skip" } {
+  const parsed = parseDiscoveryChoices(value);
+  if (parsed.action === "skip") return parsed;
+  const name = parsed.names[0];
+  if (!name) return { action: "skip" };
+  return { action: "promote", name };
 }
