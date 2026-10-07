@@ -2,8 +2,12 @@ export type {
   ContextEngine,
   MemoryDomainTag,
   AddFactOptions,
+  AddEventOptions,
+  GetEventOptions,
+  MemoryEventFacet,
   SearchMemoryOptions,
   MemoryHit,
+  MemoryItem,
   WriteResult,
 } from "./types.js";
 export { formatFact, formatMemoryPromptBlock } from "./domains.js";

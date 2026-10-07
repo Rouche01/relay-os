@@ -1,4 +1,4 @@
-import type { MemoryHit, WriteResult } from "@voltmem/client";
+import type { MemoryHit, MemoryItem, WriteResult } from "@voltmem/client";
 
 /**
  * Optional app-defined tag embedded in fact text (e.g. "outcome", "preference").
@@ -27,6 +27,29 @@ export interface SearchMemoryOptions {
   userId?: string;
 }
 
+/** One facet of an episodic VoltMem event (`POST …/events`). */
+export interface MemoryEventFacet {
+  content: string;
+  /** Fact kind — required for a successful write after trim. */
+  domain?: MemoryDomainTag;
+  modality?: string;
+  ttl_seconds?: number;
+  expires_at?: number;
+}
+
+export interface AddEventOptions {
+  source?: string;
+  tenantId?: string;
+  /** @deprecated Use tenantId. */
+  userId?: string;
+}
+
+export interface GetEventOptions {
+  tenantId?: string;
+  /** @deprecated Use tenantId. */
+  userId?: string;
+}
+
 /**
  * Context Engine — cross-run semantic memory for agentic apps.
  * Implementations must fail-open: never throw into the agent stage loop.
@@ -40,9 +63,25 @@ export interface ContextEngine {
   health(): Promise<boolean>;
 
   /**
-   * Store a free-text fact. Returns false if the write was skipped (fail-open).
+   * Store a free-text fact via VoltMem `remember` (may confirm/merge similar facts).
+   * Returns false if the write was skipped (fail-open).
    */
   addFact(text: string, options?: AddFactOptions): Promise<boolean>;
+
+  /**
+   * Store an episodic multi-facet event (unconditional insert; no confirm-merge).
+   * Returns write results (with `action`) or `[]` when skipped / fail-open.
+   */
+  addEvent(
+    eventId: string,
+    facets: MemoryEventFacet[],
+    options?: AddEventOptions
+  ): Promise<WriteResult[]>;
+
+  /**
+   * List memories linked to an event id. Returns `[]` when missing / fail-open.
+   */
+  getEvent(eventId: string, options?: GetEventOptions): Promise<MemoryItem[]>;
 
   /**
    * Search memories. Returns [] if the backend is down (fail-open).
@@ -56,4 +95,4 @@ export interface ContextEngine {
   rememberForPrompt(query: string, options?: SearchMemoryOptions): Promise<string>;
 }
 
-export type { MemoryHit, WriteResult };
+export type { MemoryHit, MemoryItem, WriteResult };

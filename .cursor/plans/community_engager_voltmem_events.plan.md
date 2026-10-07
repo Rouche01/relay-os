@@ -4,7 +4,7 @@ overview: "Stop false-merging CommunityEngager memories by splitting VoltMem usa
 todos:
   - id: ce-add-event-api
     content: packages/context-engine — addEvent (and optional getEvent) on ContextEngine + VoltMemEngine; fail-open; return WriteResult action when useful
-    status: in_progress
+    status: completed
   - id: memory-phrasing
     content: apps/community-engager memory.ts — distinctive fact strings (ids first); outcomes include draftId + threadUrl; promote/rules lead with r/{sub}; shorten shared discovery boilerplate
     status: pending

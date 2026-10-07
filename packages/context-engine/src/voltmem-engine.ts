@@ -1,8 +1,20 @@
-import type { AddOptions, MemoryHit, SearchOptions, VoltMemClient } from "@voltmem/client";
+import type {
+  AddEventOptions as VoltMemAddEventOptions,
+  AddOptions,
+  Facet,
+  MemoryHit,
+  MemoryItem,
+  SearchOptions,
+  VoltMemClient,
+  WriteResult,
+} from "@voltmem/client";
 import { formatFact, formatMemoryPromptBlock } from "./domains.js";
 import type {
+  AddEventOptions,
   AddFactOptions,
   ContextEngine,
+  GetEventOptions,
+  MemoryEventFacet,
   SearchMemoryOptions,
 } from "./types.js";
 
@@ -19,7 +31,7 @@ export interface VoltMemContextEngineOptions {
 
 /**
  * VoltMem-backed Context Engine.
- * Fail-open: sidecar down → health false, addFact false, search [].
+ * Fail-open: sidecar down → health false, addFact false, addEvent/getEvent/search [].
  *
  * Loads `@voltmem/client` via dynamic import so CJS consumers work with the
  * ESM-only npm package.
@@ -101,6 +113,68 @@ export class VoltMemContextEngine implements ContextEngine {
       this._available = false;
       this.onWarn("addFact failed (fail-open)", err);
       return false;
+    }
+  }
+
+  async addEvent(
+    eventId: string,
+    facets: MemoryEventFacet[],
+    options: AddEventOptions = {}
+  ): Promise<WriteResult[]> {
+    const id = eventId.trim();
+    if (!id) return [];
+
+    const body: Facet[] = [];
+    for (const facet of facets) {
+      const domain = facet.domain?.trim();
+      const content = formatFact(domain, facet.content);
+      if (!domain || !content) continue;
+      const row: Facet = { content, domain };
+      if (facet.modality !== undefined) row.modality = facet.modality;
+      if (facet.ttl_seconds !== undefined) row.ttl_seconds = facet.ttl_seconds;
+      if (facet.expires_at !== undefined) row.expires_at = facet.expires_at;
+      body.push(row);
+    }
+    if (body.length === 0) return [];
+
+    try {
+      const client = await this.getClient();
+      const source =
+        options.source ??
+        (this.agentId ? `relay:${this.agentId}` : "relay");
+      const eventOptions: VoltMemAddEventOptions = { source };
+      const tenantId = options.tenantId ?? options.userId;
+      if (tenantId) eventOptions.tenantId = tenantId;
+      const results = await client.addEvent(id, body, eventOptions);
+      this._available = true;
+      return Array.isArray(results) ? results : [];
+    } catch (err) {
+      this._available = false;
+      this.onWarn("addEvent failed (fail-open)", err);
+      return [];
+    }
+  }
+
+  async getEvent(
+    eventId: string,
+    options: GetEventOptions = {}
+  ): Promise<MemoryItem[]> {
+    const id = eventId.trim();
+    if (!id) return [];
+
+    try {
+      const client = await this.getClient();
+      const tenantId = options.tenantId ?? options.userId;
+      const items = await client.getEvent(
+        id,
+        tenantId ? { tenantId } : {}
+      );
+      this._available = true;
+      return Array.isArray(items) ? items : [];
+    } catch (err) {
+      this._available = false;
+      this.onWarn("getEvent failed (fail-open)", err);
+      return [];
     }
   }
 
