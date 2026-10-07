@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: p3-browser-observe
     content: Add observeCandidates / compact page-text helper on engines-browser (id→locator map owned by code)
-    status: pending
+    status: completed
   - id: p4-dogfood-interstitial
     content: Wire CommunityEngager detectInterstitial → decide + escalate via existing scout confirmation / choice feedback
     status: pending
