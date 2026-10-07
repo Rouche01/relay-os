@@ -21,6 +21,11 @@ export interface AllowlistEntry {
   abortedCount: number;
   evidence?: string;
   updatedAt: string;
+  /**
+   * Last time this sub was selected for a scout run.
+   * Used for rotation (not demotion) so high-score subs do not monopolize.
+   */
+  lastScoutedAt?: string;
 }
 
 interface AllowlistFile {
@@ -65,6 +70,28 @@ export function discoverExcludeNames(
   return entries
     .filter((e) => isExcludedFromDiscover(e, opts))
     .map((e) => e.name);
+}
+
+type ScoutRankFields = Pick<
+  AllowlistEntry,
+  "score" | "approvedCount" | "updatedAt" | "lastScoutedAt"
+>;
+
+/**
+ * Scout pick order: least-recently scouted first (never = oldest),
+ * then score / approvals / updatedAt. Score is never lowered.
+ */
+export function compareScoutPriority(a: ScoutRankFields, b: ScoutRankFields): number {
+  const aT = a.lastScoutedAt ? Date.parse(a.lastScoutedAt) : Number.NEGATIVE_INFINITY;
+  const bT = b.lastScoutedAt ? Date.parse(b.lastScoutedAt) : Number.NEGATIVE_INFINITY;
+  const aOk = Number.isFinite(aT) ? aT : Number.NEGATIVE_INFINITY;
+  const bOk = Number.isFinite(bT) ? bT : Number.NEGATIVE_INFINITY;
+  if (aOk !== bOk) return aOk - bOk;
+  if (b.score !== a.score) return b.score - a.score;
+  if (b.approvedCount !== a.approvedCount) {
+    return b.approvedCount - a.approvedCount;
+  }
+  return b.updatedAt.localeCompare(a.updatedAt);
 }
 
 function seedEntry(policy: SubredditPolicy): AllowlistEntry {
@@ -243,7 +270,7 @@ export class AllowlistStore {
   }
 
   /**
-   * Ranked postable names for scout.
+   * Ranked postable names for scout (least-recently scouted first).
    * When explore=true, reserve one slot for the newest human-promoted
    * discovered sub (so a just-promoted candidate is scouted this run).
    */
@@ -252,13 +279,7 @@ export class AllowlistStore {
     explore: boolean,
     opts?: { prefer?: string }
   ): Promise<string[]> {
-    const postable = (await this.listPostable()).sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (b.approvedCount !== a.approvedCount) {
-        return b.approvedCount - a.approvedCount;
-      }
-      return b.updatedAt.localeCompare(a.updatedAt);
-    });
+    const postable = (await this.listPostable()).sort(compareScoutPriority);
     if (postable.length === 0) {
       return ALLOWLISTED_SUBREDDITS.filter((s) => s.rulesOk).map((s) => s.name);
     }
@@ -293,6 +314,24 @@ export class AllowlistStore {
       }
     }
     return picked.map((e) => e.name);
+  }
+
+  /** Mark subs as scouted this run (rotation; does not change score). */
+  async recordScouted(names: string[]): Promise<void> {
+    if (names.length === 0) return;
+    const entries = await this.load();
+    const now = new Date().toISOString();
+    const want = new Set(
+      names.map((n) => normalizeSub(n).toLowerCase()).filter(Boolean)
+    );
+    let changed = false;
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i]!;
+      if (!want.has(e.name.toLowerCase())) continue;
+      entries[i] = { ...e, lastScoutedAt: now };
+      changed = true;
+    }
+    if (changed) await this.writeFile(entries);
   }
 
   private mergeSeed(existing: AllowlistEntry[]): AllowlistEntry[] {

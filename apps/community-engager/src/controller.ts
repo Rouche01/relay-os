@@ -982,6 +982,7 @@ export class CommunityEngagerController implements AppController {
       cfg.discoverExploreSlot,
       prefer ? { prefer } : undefined
     );
+    await store.recordScouted(subreddits);
     console.log(
       `[scout] allowlist (${subreddits.length}): ${subreddits
         .map((s) => `r/${s}`)
@@ -1026,6 +1027,7 @@ export class CommunityEngagerController implements AppController {
       cfg.discoverExploreSlot,
       prefer ? { prefer } : undefined
     );
+    await store.recordScouted(subreddits);
     const prior = await this.options.store.list({
       appId: APP_ID,
       limit: 500,
