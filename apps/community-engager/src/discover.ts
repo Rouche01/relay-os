@@ -6,6 +6,7 @@ import {
   getAllowlistStore,
   type AllowlistStore,
 } from "./allowlist-store.js";
+import { resolveDiscoverGate } from "./discover-gate.js";
 import {
   getRedditEnv,
   type RedditEnvConfig,
@@ -18,6 +19,8 @@ import {
 
 export interface DiscoverResult {
   enabled: boolean;
+  /** True when search + decide actually ran. */
+  ran: boolean;
   candidates: DiscoveryCandidate[];
   skippedReason?: string;
   /** Headed browser still open — controller must park it for HITL. */
@@ -35,20 +38,44 @@ export async function runDiscovery(opts?: {
   memory?: ContextEngine;
   /** Fit scorer — defaults to createDecisionPort() from env. */
   decide?: DecisionPort;
+  /** Intent / CLI force — research even when allowlist is healthy. */
+  forceDiscover?: boolean;
   /** Reuse a headed browser that just cleared CAPTCHA (same Chromium). */
   adopt?: { engine: PlaywrightEngine; storagePath: string };
 }): Promise<DiscoverResult> {
   const cfg = opts?.cfg ?? getRedditEnv();
-  if (!cfg.discoverEnabled) {
+  const store = opts?.store ?? getAllowlistStore();
+  const postable = await store.listPostable();
+
+  // Mid-CAPTCHA continue must not re-apply the healthy-allowlist skip.
+  const forceDiscover = Boolean(opts?.forceDiscover || opts?.adopt);
+
+  const gate = resolveDiscoverGate({
+    mode: cfg.discoverMode,
+    postableCount: postable.length,
+    minPostable: cfg.discoverMinPostable,
+    forceDiscover,
+  });
+
+  if (!gate.run) {
+    const healthy = gate.reason.startsWith("auto:healthy");
+    if (healthy) {
+      console.log(
+        `[discover] skipped — allowlist healthy (${postable.length} postable ≥ min ${cfg.discoverMinPostable})`
+      );
+    } else {
+      console.log(`[discover] skipped — ${gate.reason}`);
+    }
     return {
-      enabled: false,
+      enabled: cfg.discoverMode !== "off",
+      ran: false,
       candidates: [],
-      skippedReason: "COMMUNITY_DISCOVER disabled",
+      skippedReason: gate.reason,
     };
   }
 
-  const store = opts?.store ?? getAllowlistStore();
-  const postable = await store.listPostable();
+  console.log(`[discover] gate=${gate.reason}`);
+
   const exclude = postable.map((e) => e.name);
   const decide = opts?.decide ?? createDecisionPort();
 
@@ -71,6 +98,7 @@ export async function runDiscovery(opts?: {
     console.warn("[discover] failed:", err);
     return {
       enabled: true,
+      ran: true,
       candidates: [],
       skippedReason: err instanceof Error ? err.message : String(err),
     };
@@ -80,6 +108,7 @@ export async function runDiscovery(opts?: {
   if (challenge) {
     return {
       enabled: true,
+      ran: true,
       candidates: [],
       challenge,
       skippedReason: `blocked:${challenge.reason}`,
@@ -105,7 +134,7 @@ export async function runDiscovery(opts?: {
         : "")
   );
 
-  return { enabled: true, candidates };
+  return { enabled: true, ran: true, candidates };
 }
 
 export const DISCOVER_SKIP_OPTION = "none (skip)";

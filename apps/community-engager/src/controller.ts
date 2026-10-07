@@ -371,19 +371,28 @@ export class CommunityEngagerController implements AppController {
     if (stage.name === "ensure_session") {
       return this.shouldSkipEnsureSessionFeedback(fp, context);
     }
-    if (stage.name === "discover" && fp.type === "credential") {
-      const challenge = context.discoverChallenge as { reason?: string } | undefined;
-      return challenge?.reason !== "login_wall";
-    }
-    if (stage.name === "discover" && fp.type === "confirmation") {
-      const challenge = context.discoverChallenge as { reason?: string } | undefined;
-      if (!challenge) return true;
-      // Credential FP owns the pure login-wall case.
-      return challenge.reason === "login_wall";
-    }
-    if (stage.name === "discover" && fp.type === "choice") {
-      const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
-      return candidates.length === 0;
+    if (stage.name === "discover") {
+      // Gated skip / failed research — no discover HITL.
+      if (context.discoverRan === false) return true;
+      if (fp.type === "credential") {
+        const challenge = context.discoverChallenge as
+          | { reason?: string }
+          | undefined;
+        return challenge?.reason !== "login_wall";
+      }
+      if (fp.type === "confirmation") {
+        const challenge = context.discoverChallenge as
+          | { reason?: string }
+          | undefined;
+        if (!challenge) return true;
+        // Credential FP owns the pure login-wall case.
+        return challenge.reason === "login_wall";
+      }
+      if (fp.type === "choice") {
+        const candidates = (context.discoveryCandidates ??
+          []) as DiscoveryCandidate[];
+        return candidates.length === 0;
+      }
     }
     if (stage.name === "scout" && fp.type === "credential") {
       const challenge = context.interstitialChallenge as
@@ -510,8 +519,10 @@ export class CommunityEngagerController implements AppController {
     const result = await runDiscovery({
       memory: this.options.memory,
       store: getAllowlistStore(),
+      forceDiscover: Boolean(ctx.forceDiscover),
     });
     ctx.discoveryCandidates = result.candidates;
+    ctx.discoverRan = result.ran;
 
     if (result.challenge) {
       setInterstitialSession({
@@ -560,7 +571,7 @@ export class CommunityEngagerController implements AppController {
       ...(ctx.stageResults ?? {}),
       discover: {
         enabled: result.enabled,
-        ran: result.enabled && !result.skippedReason,
+        ran: result.ran,
         skippedReason: result.skippedReason,
         candidateCount: result.candidates.length,
         candidateNames: result.candidates.map((c) => c.name),
@@ -632,8 +643,10 @@ export class CommunityEngagerController implements AppController {
         memory,
         store,
         adopt,
+        forceDiscover: true,
       });
       ctx.discoveryCandidates = result.candidates;
+      ctx.discoverRan = result.ran;
 
       if (!result.challenge) {
         await clearInterstitialSession(true);
@@ -641,11 +654,13 @@ export class CommunityEngagerController implements AppController {
           ...(ctx.stageResults ?? {}),
           discover: {
             enabled: result.enabled,
-            count: result.candidates.length,
-            names: result.candidates.map((c) => c.name),
+            ran: result.ran,
+            skippedReason: result.skippedReason,
+            candidateCount: result.candidates.length,
+            candidateNames: result.candidates.map((c) => c.name),
+            decision: "none",
             captcha: "cleared",
-            storagePath: adopt?.storagePath,
-          },
+          } satisfies DiscoverEvidence,
         };
         return true;
       }

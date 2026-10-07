@@ -119,7 +119,7 @@ flowchart TD
 | `execute` | Dry-run log, or live browser/oauth post |
 | `learn` | Persist outcome to VoltMem (`community_outcome`) + allowlist ranking |
 
-`ensure_session`, `discover`, and `scout` run once on the parent manifest. The `jobs` stage **fans out** into the nested `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. A job that fails or gets aborted is recorded and the queue moves on. Budget with `COMMUNITY_MAX_JOBS` (default 3) and `COMMUNITY_JOB_DELAY_MS` (default 1500). Set `COMMUNITY_DISCOVER=false` to skip discovery.
+`ensure_session`, `discover`, and `scout` run once on the parent manifest. The `jobs` stage **fans out** into the nested `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. A job that fails or gets aborted is recorded and the queue moves on. Budget with `COMMUNITY_MAX_JOBS` (default 3) and `COMMUNITY_JOB_DELAY_MS` (default 1500). Discover defaults to `COMMUNITY_DISCOVER=auto` (skip when the postable allowlist is healthy); use `force` / `--force-discover` to research anyway, or `off` to never run.
 
 ### Rules that matter
 

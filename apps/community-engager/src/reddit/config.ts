@@ -104,14 +104,23 @@ export interface RedditEnvConfig {
   /** Cookie / storageState directory for browser session. */
   cookieDir: string;
   /**
-   * When true, run the read-only discover stage before scout
-   * (propose candidates → HITL promote). Default true.
+   * Discover stage mode (`COMMUNITY_DISCOVER`).
+   * - auto: run only when postable allowlist is thin
+   * - force: always research this run
+   * - off: never run
    */
+  discoverMode: DiscoverMode;
+  /** @deprecated Prefer discoverMode; true when mode !== "off". */
   discoverEnabled: boolean;
   /** Reddit subreddit search query for discovery. */
   discoverQuery: string;
   /** Max discovery candidates to propose per run. */
   discoverMaxCandidates: number;
+  /**
+   * Auto mode: skip discover when postable count ≥ this.
+   * Default = seed allowlist size (rulesOk subs).
+   */
+  discoverMinPostable: number;
   /**
    * When true, scout reserves one slot for a human-promoted discovered sub
    * (exploration among already-approved allowlist entries).
@@ -122,6 +131,24 @@ export interface RedditEnvConfig {
    * Env: COMMUNITY_DISCOVER_GOAL.
    */
   discoverGoal: string;
+}
+
+/** COMMUNITY_DISCOVER=auto|force|off (true→force, false→off). */
+export type DiscoverMode = "auto" | "force" | "off";
+
+export function parseDiscoverMode(raw: string | undefined): DiscoverMode {
+  const v = (raw ?? "auto").trim().toLowerCase();
+  if (v === "off" || v === "false" || v === "0" || v === "no") return "off";
+  if (v === "force" || v === "true" || v === "1" || v === "yes" || v === "on") {
+    return "force";
+  }
+  if (v === "auto") return "auto";
+  // Unknown values: treat as auto (safe default — skip when healthy).
+  return "auto";
+}
+
+export function seedPostableCount(): number {
+  return ALLOWLISTED_SUBREDDITS.filter((s) => s.rulesOk).length;
 }
 
 function parseScoutSource(raw: string): ScoutSource {
@@ -251,9 +278,9 @@ export function getRedditEnv(
     env.REDDIT_COOKIE_DIR?.trim() || path.join(".data", "cookies", "reddit")
   );
 
-  const discoverRaw = (env.COMMUNITY_DISCOVER ?? "true").toLowerCase();
-  const discoverEnabled =
-    discoverRaw !== "false" && discoverRaw !== "0" && discoverRaw !== "off";
+  // Default auto: skip research when postable allowlist is already healthy.
+  const discoverMode = parseDiscoverMode(env.COMMUNITY_DISCOVER ?? "auto");
+  const discoverEnabled = discoverMode !== "off";
   const discoverQuery =
     env.COMMUNITY_DISCOVER_QUERY?.trim() ||
     "fashion style advice wardrobe";
@@ -262,6 +289,13 @@ export function getRedditEnv(
     Number.isFinite(discoverMaxRaw) && discoverMaxRaw > 0
       ? Math.floor(discoverMaxRaw)
       : 5;
+  const minPostableRaw = Number(
+    env.COMMUNITY_DISCOVER_MIN_POSTABLE ?? String(seedPostableCount())
+  );
+  const discoverMinPostable =
+    Number.isFinite(minPostableRaw) && minPostableRaw > 0
+      ? Math.floor(minPostableRaw)
+      : seedPostableCount();
   const exploreRaw = (env.COMMUNITY_DISCOVER_EXPLORE ?? "true").toLowerCase();
   const discoverExploreSlot =
     exploreRaw !== "false" && exploreRaw !== "0" && exploreRaw !== "off";
@@ -293,9 +327,11 @@ export function getRedditEnv(
     interstitialHitl,
     dataDir,
     cookieDir,
+    discoverMode,
     discoverEnabled,
     discoverQuery,
     discoverMaxCandidates,
+    discoverMinPostable,
     discoverExploreSlot,
     discoverGoal,
   };

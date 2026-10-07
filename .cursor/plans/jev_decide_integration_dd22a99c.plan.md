@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: p2b-discover-gating
     content: Smart discover skip + force override — auto skip when postable allowlist ≥ MIN; COMMUNITY_DISCOVER=force|off; manifest/intent trigger discover subs forces a research pass
-    status: pending
+    status: completed
   - id: p3-browser-observe
     content: Add observeCandidates / compact page-text helper on engines-browser (id→locator map owned by code)
     status: pending

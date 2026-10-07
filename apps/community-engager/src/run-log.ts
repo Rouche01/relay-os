@@ -63,7 +63,7 @@ export function collectSafeRunFlags(): Record<
     redditDryRun: boolEnv("REDDIT_DRY_RUN"),
     redditBrowserHeadless: boolEnv("REDDIT_BROWSER_HEADLESS"),
     redditInterstitialHitl: boolEnv("REDDIT_INTERSTITIAL_HITL"),
-    communityDiscover: boolEnv("COMMUNITY_DISCOVER"),
+    communityDiscover: envFlag("COMMUNITY_DISCOVER") ?? "auto",
     maxJobs: Number.isFinite(maxJobs) && maxJobs > 0 ? maxJobs : undefined,
     jobDelayMs: Number.isFinite(jobDelay) && jobDelay >= 0 ? jobDelay : undefined,
   };

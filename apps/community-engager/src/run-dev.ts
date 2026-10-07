@@ -7,7 +7,22 @@ import {
 import { CommunityEngagerApp } from "./index.js";
 import { formatRunSummary } from "./job-queue.js";
 
+/** CLI: --force-discover | --discover=auto|force|off */
+function applyDiscoverCliFlags(argv: string[]): void {
+  for (const arg of argv) {
+    if (arg === "--force-discover") {
+      process.env.COMMUNITY_DISCOVER = "force";
+      continue;
+    }
+    const m = /^--discover=(auto|force|off|true|false)$/i.exec(arg);
+    if (m?.[1]) {
+      process.env.COMMUNITY_DISCOVER = m[1].toLowerCase();
+    }
+  }
+}
+
 async function main(): Promise<void> {
+  applyDiscoverCliFlags(process.argv.slice(2));
   console.log("=== Relay · CommunityEngager (dev) ===\n");
 
   const useTelegram = process.env.FEEDBACK_ADAPTER === "telegram";
