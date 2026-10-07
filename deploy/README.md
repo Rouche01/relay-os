@@ -7,7 +7,8 @@ Sibling plans:
 - Host history / VoltMem layout: [`.cursor/plans/relay_thinkpad_deploy.plan.md`](../.cursor/plans/relay_thinkpad_deploy.plan.md)
 - Browser transport + cookies: [`.cursor/plans/relay_reddit_browser.plan.md`](../.cursor/plans/relay_reddit_browser.plan.md)
 - Decide co-processor (Jev / heuristic): [`.cursor/plans/jev_decide_integration_dd22a99c.plan.md`](../.cursor/plans/jev_decide_integration_dd22a99c.plan.md)
-- Smoke checklist: [`SMOKE.md`](./SMOKE.md)
+- Deploy checklist (ThinkPad): [`CHECKLIST.md`](./CHECKLIST.md)
+- Smoke verification: [`SMOKE.md`](./SMOKE.md)
 
 ## Layout
 

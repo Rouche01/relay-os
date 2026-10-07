@@ -114,8 +114,8 @@ importers:
   packages/context-engine:
     dependencies:
       '@voltmem/client':
-        specifier: file:../../../voltmem/clients/typescript
-        version: file:../voltmem/clients/typescript
+        specifier: ^0.6.2
+        version: 0.6.2
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -263,8 +263,8 @@ packages:
   '@types/retry@0.12.0':
     resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
 
-  '@voltmem/client@file:../voltmem/clients/typescript':
-    resolution: {directory: ../voltmem/clients/typescript, type: directory}
+  '@voltmem/client@0.6.2':
+    resolution: {integrity: sha512-zhb2okslBDcj1cdAt/UxN4GhFdquLxCM6DJIu155QNuB8gGBm+6e9Ktw9Sab/YJ8lEUFSNQvaeGbm1omUzBy6w==}
     engines: {node: '>=18'}
 
   agent-base@7.1.4:
@@ -672,7 +672,7 @@ snapshots:
 
   '@types/retry@0.12.0': {}
 
-  '@voltmem/client@file:../voltmem/clients/typescript': {}
+  '@voltmem/client@0.6.2': {}
 
   agent-base@7.1.4: {}
 
