@@ -20,6 +20,9 @@ importers:
 
   apps/community-engager:
     dependencies:
+      '@google/genai':
+        specifier: 2.27.0
+        version: 2.27.0
       '@relay/action-store':
         specifier: workspace:*
         version: link:../../packages/action-store

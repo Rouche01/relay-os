@@ -1,3 +1,8 @@
+import {
+  geminiDraftKey,
+  generateGeminiDraft,
+  prefersHelpFirstMemory,
+} from "./draft-llm.js";
 import type { CommunityDraft, PromoIntensity } from "./types.js";
 import { FIXTURE_THREADS } from "./fixtures/threads.js";
 
@@ -9,8 +14,8 @@ export interface DraftReplyOptions {
 }
 
 /**
- * Stub drafter — helpful reply from fixture OP text / title.
- * Uses agent memory (when present) to bias intensity / tone until LLM is wired.
+ * Draft a reply. Uses Gemini when GEMINI_API_KEY is set and no text override
+ * was supplied; otherwise the stub. API or validation failure falls back to the stub.
  */
 export async function draftReply(
   draft: CommunityDraft,
@@ -18,9 +23,25 @@ export async function draftReply(
 ): Promise<CommunityDraft> {
   const fixture = FIXTURE_THREADS.find((t) => t.id === draft.id);
   let intensity = clampIntensity(overrides?.intensity ?? draft.intensity);
+  const memoryBlock = overrides?.memoryBlock;
 
-  if (overrides?.memoryBlock && shouldPreferHelpFirst(overrides.memoryBlock)) {
+  if (memoryBlock && prefersHelpFirstMemory(memoryBlock)) {
     intensity = 0;
+  }
+
+  if (!overrides?.text && geminiDraftKey()) {
+    try {
+      const llm = await generateGeminiDraft({ draft, memoryBlock });
+      return {
+        ...draft,
+        draftText: llm.draftText,
+        intensity: llm.intensity,
+        status: "pending_approval",
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[draft] Gemini failed; using stub (${message})`);
+    }
   }
 
   const text =
@@ -30,7 +51,7 @@ export async function draftReply(
       opText: draft.opText ?? fixture?.opText ?? "",
       intensity,
       subreddit: draft.subreddit,
-      memoryHint: Boolean(overrides?.memoryBlock),
+      memoryHint: Boolean(memoryBlock),
     });
 
   return {
@@ -39,10 +60,6 @@ export async function draftReply(
     intensity,
     status: "pending_approval",
   };
-}
-
-function shouldPreferHelpFirst(memoryBlock: string): boolean {
-  return /abort/i.test(memoryBlock) || /spam|hard sell|too promo|intensity=2/i.test(memoryBlock);
 }
 
 function clampIntensity(n: PromoIntensity): 0 | 1 {

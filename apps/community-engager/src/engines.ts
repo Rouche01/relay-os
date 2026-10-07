@@ -50,7 +50,7 @@ export function createCommunityEngines(
   return bindEngines(CommunityEngagerManifest, providers);
 }
 
-/** Draft-stage LLM engine — stub drafter until a real LLM provider is wired. */
+/** Draft-stage LLM engine. draftReply calls Gemini when GEMINI_API_KEY is set. */
 export function createLlmDraftEngine(): ExecutionEngine {
   return {
     type: "llm",

@@ -16,18 +16,19 @@
     "login:reddit": "node dist/run-login.js"
   },
   "dependencies": {
-    "@relay/protocol": "workspace:*",
-    "@relay/runtime": "workspace:*",
+    "@google/genai": "2.27.0",
     "@relay/action-store": "workspace:*",
-    "@relay/feedback-broker": "workspace:*",
     "@relay/adapters-telegram": "workspace:*",
     "@relay/context-engine": "workspace:*",
     "@relay/engines-browser": "workspace:*",
+    "@relay/feedback-broker": "workspace:*",
+    "@relay/protocol": "workspace:*",
+    "@relay/runtime": "workspace:*",
     "dotenv": "^16.4.5",
     "playwright": "^1.43.0"
   },
   "devDependencies": {
-    "typescript": "6.0.3",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "typescript": "6.0.3"
   }
 }

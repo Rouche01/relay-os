@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: draft-llm
     content: Gemini JSON drafter (prompt + parse + clamp) with stub fallback
-    status: pending
+    status: completed
   - id: wire-engine
     content: Wire draftReply / createLlmDraftEngine; enrich DraftEvidence + .env.example
     status: pending
