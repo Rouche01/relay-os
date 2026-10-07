@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: tests
     content: Unit tests for opText plumbing, JSON parse/clamp, stub fallback
-    status: pending
+    status: completed
 isProject: false
 ---
 

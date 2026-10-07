@@ -7,8 +7,9 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc -w",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/test/*.test.js",
+    "clean": "rm -rf dist dist-test",
     "start": "node dist/run-dev.js",
     "e2e": "node dist/e2e-hitl.js",
     "smoke": "node dist/e2e-hitl.js",

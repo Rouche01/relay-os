@@ -11,6 +11,7 @@ web_modules/
 
 # Build and compilation outputs
 dist/
+dist-test/
 build/
 out/
 lib/
