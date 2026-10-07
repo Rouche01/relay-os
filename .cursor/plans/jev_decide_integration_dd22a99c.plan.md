@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: p1-engines-decide-pkg
     content: Create packages/engines-decide — DecisionPort, HeuristicDecisionBackend, JevDecisionBackend, route/escalate, unit tests
-    status: pending
+    status: completed
   - id: p2-dogfood-discover-fit
     content: Wire discover scoring through DecisionPort — state=goal+sub bio (+ optional sample titles); Noul fit (+ optional rules-safe Noul); above confidence floor → proposed allowlist; mid/low → skip or escalate; never auto-promote to postable
     status: pending
@@ -34,7 +34,7 @@ isProject: true
 
 # Relay OS — Jev decide + Feedback Broker
 
-Sibling of [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md) and Phase 6 in [`relay_hitl_community_voltmem.plan.md`](./relay_hitl_community_voltmem.plan.md). Fulfills the “vision agent escape hatch” with a **typed decide layer** (TypeSafe Jev), not a free-form VLM driver.
+Sibling of `[relay_reddit_browser.plan.md](./relay_reddit_browser.plan.md)` and Phase 6 in `[relay_hitl_community_voltmem.plan.md](./relay_hitl_community_voltmem.plan.md)`. Fulfills the “vision agent escape hatch” with a **typed decide layer** (TypeSafe Jev), not a free-form VLM driver.
 
 ## Thesis
 
@@ -52,15 +52,17 @@ Jev never browses, never invents selectors or sub names, never holds credentials
 
 ## Architectural placement (committed)
 
-| Layer | Role |
-|-------|------|
-| [`packages/protocol`](packages/protocol) | Shared `Decision*` types + escalate → `FeedbackRequest` helper; **no new `EngineType`** |
-| **New** `packages/engines-decide` | `DecisionPort` + `JevDecisionBackend` + `HeuristicDecisionBackend` (tests/offline) |
-| [`packages/engines-browser`](packages/engines-browser) | `observeCandidates` / page-text helpers; actuation unchanged |
-| [`packages/feedback-broker`](packages/feedback-broker) | Present escalate as `choice` or `confirmation` |
-| [`apps/community-engager`](apps/community-engager) | First consumer: **discover fit** (then interstitial / login / composer) |
 
-**Why not `EngineType: "decide"`:** Decide is a co-processor, not a stage engine. Stages keep `engine: "browser" | "none" | …`. Apps inject `DecisionPort` the same way they inject `PlaywrightEngine` today ([`apps/community-engager/src/engines.ts`](apps/community-engager/src/engines.ts)).
+| Layer                                                  | Role                                                                                    |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `[packages/protocol](packages/protocol)`               | Shared `Decision*` types + escalate → `FeedbackRequest` helper; **no new `EngineType`** |
+| **New** `packages/engines-decide`                      | `DecisionPort` + `JevDecisionBackend` + `HeuristicDecisionBackend` (tests/offline)      |
+| `[packages/engines-browser](packages/engines-browser)` | `observeCandidates` / page-text helpers; actuation unchanged                            |
+| `[packages/feedback-broker](packages/feedback-broker)` | Present escalate as `choice` or `confirmation`                                          |
+| `[apps/community-engager](apps/community-engager)`     | First consumer: **discover fit** (then interstitial / login / composer)                 |
+
+
+**Why not `EngineType: "decide"`:** Decide is a co-processor, not a stage engine. Stages keep `engine: "browser" | "none" | …`. Apps inject `DecisionPort` the same way they inject `PlaywrightEngine` today (`[apps/community-engager/src/engines.ts](apps/community-engager/src/engines.ts)`).
 
 ```mermaid
 flowchart TD
@@ -81,7 +83,9 @@ flowchart TD
   decide -->|"write or destructive"| broker
 ```
 
-## Protocol additions ([`packages/protocol/src`](packages/protocol/src))
+
+
+## Protocol additions (`[packages/protocol/src](packages/protocol/src)`)
 
 Add a small module (e.g. `decide.ts`), re-exported from package index:
 
@@ -91,7 +95,7 @@ Add a small module (e.g. `decide.ts`), re-exported from package index:
 - `DecisionAnswer` — typed result + `confidence` / probabilities
 - `DecisionRoute` — `"act" | "escalate" | "abort"` (for discover: `"propose"` maps to act-side “add to proposed list”)
 - `routeDecision(answer, policy) → DecisionRoute`
-- `decisionToFeedbackRequest(...)` — escalate → existing [`FeedbackRequest`](packages/protocol/src/feedback.ts)
+- `decisionToFeedbackRequest(...)` — escalate → existing `[FeedbackRequest](packages/protocol/src/feedback.ts)`
 
 **Hard policy (code, not prompt):**
 
@@ -120,7 +124,7 @@ packages/engines-decide/
 - `DecisionPort.decide(req): Promise<DecisionAnswer>`
 - Unit tests: heuristic backend + `routeDecision` + escalate mapping (no live Jev in CI)
 
-## Browser observe seam ([`packages/engines-browser`](packages/engines-browser))
+## Browser observe seam (`[packages/engines-browser](packages/engines-browser)`)
 
 Needed for UI dogfood (Phases B–D), not for discover-fit Phase A:
 
@@ -130,7 +134,7 @@ Needed for UI dogfood (Phases B–D), not for discover-fit Phase A:
 
 ### Phase A — discover fit (first) — preferred first ship
 
-Phase 6 already shipped: Reddit search → heuristic score → HITL promote ([`discover-subs.ts`](apps/community-engager/src/reddit/discover-subs.ts), [`discover.ts`](apps/community-engager/src/discover.ts), allowlist store).
+Phase 6 already shipped: Reddit search → heuristic score → HITL promote (`[discover-subs.ts](apps/community-engager/src/reddit/discover-subs.ts)`, `[discover.ts](apps/community-engager/src/discover.ts)`, allowlist store).
 
 **Replace the middle heuristic fit gate with Jev:**
 
@@ -153,11 +157,13 @@ subreddit search (unchanged)
 
 Always-on discover is expensive (search + CAPTCHA risk + HITL pause). Prefer **smart skip**, with an explicit force path.
 
-| Mode | When discover runs |
-|------|--------------------|
+
+| Mode             | When discover runs                                                                                                                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `auto` (default) | Only if postable allowlist is **thin**: `postable.length < COMMUNITY_DISCOVER_MIN_POSTABLE` (default = seed size, e.g. 4). Once you have enough postable subs (seed + human-promoted), skip discover and go `ensure_session → scout`. |
-| `force` | Always run discover this run (research pass even when allowlist is healthy). |
-| `off` | Never run discover. |
+| `force`          | Always run discover this run (research pass even when allowlist is healthy).                                                                                                                                                          |
+| `off`            | Never run discover.                                                                                                                                                                                                                   |
+
 
 **Force overrides (any one is enough):**
 
@@ -171,11 +177,11 @@ Always-on discover is expensive (search + CAPTCHA risk + HITL pause). Prefer **s
 
 ### Phase B — page class
 
-Wrap [`detectInterstitial`](apps/community-engager/src/reddit/interstitial.ts): Choice `feed | login | interstitial | rate_limit | unknown`; low confidence → broker escalate.
+Wrap `[detectInterstitial](apps/community-engager/src/reddit/interstitial.ts)`: Choice `feed | login | interstitial | rate_limit | unknown`; low confidence → broker escalate.
 
 ### Phase C — login / challenge routing
 
-[`browser-login.ts`](apps/community-engager/src/reddit/browser-login.ts): decide among observed controls; OTP/CAPTCHA still `credential` / `onChallenge`.
+`[browser-login.ts](apps/community-engager/src/reddit/browser-login.ts)`: decide among observed controls; OTP/CAPTCHA still `credential` / `onChallenge`.
 
 ### Phase D — comment composer target
 
@@ -192,7 +198,7 @@ Choice over composer candidates; submit remains Approve-gated.
 
 ## Docs / deploy
 
-- [`ARCHITECTURE.md`](ARCHITECTURE.md): Decide co-processor.
+- `[ARCHITECTURE.md](ARCHITECTURE.md)`: Decide co-processor.
 - Cross-link reddit browser “vision escape hatch” + HITL Phase 6 → this plan.
 - ThinkPad: `JEV_API_KEY` only when `DECIDE_BACKEND=jev`; heuristic/off so overnight scout does not hard-fail.
 
@@ -214,3 +220,4 @@ Choice over composer candidates; submit remains Approve-gated.
 5. Low-confidence interstitial (Phase B) surfaces broker feedback with no adapter Reddit copy.
 6. Comment submit and CAPTCHA never auto-proceed on confidence alone.
 7. ARCHITECTURE + plan cross-links updated.
+

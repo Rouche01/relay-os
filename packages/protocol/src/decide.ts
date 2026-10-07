@@ -37,11 +37,16 @@ export interface NoulDecisionQuestion extends DecisionQuestionBase {
   kind: "noul";
 }
 
-/** Numeric score in an optional range (defaults 0–1). */
+/** Numeric score in an optional range (defaults 0–1 after normalize). */
 export interface ScoreDecisionQuestion extends DecisionQuestionBase {
   kind: "score";
   min?: number;
   max?: number;
+  /**
+   * Ordered rubric levels for Jev Score (low → high), 2–10 entries.
+   * When omitted, backends may use a default scale.
+   */
+  levels?: string[];
 }
 
 export type DecisionQuestion =
@@ -205,14 +210,16 @@ export function decisionToFeedbackRequest(
           : []),
       ],
       meta: {
-        kind: "decide_escalate",
         ...(input.request.meta ?? {}),
+        // Always last — app meta.kind (e.g. discover) must not mask escalate.
+        kind: "decide_escalate",
         decision: {
           confidence: input.answer.confidence,
           answers: input.answer.answers,
           rationale: input.answer.rationale,
           policy: input.request.policy,
         },
+        sourceKind: input.request.meta?.kind,
       },
     },
   };
