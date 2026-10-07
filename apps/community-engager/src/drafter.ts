@@ -3,8 +3,14 @@ import {
   generateGeminiDraft,
   prefersHelpFirstMemory,
 } from "./draft-llm.js";
+import type { DraftProvider } from "./run-evidence.js";
 import type { CommunityDraft, PromoIntensity } from "./types.js";
 import { FIXTURE_THREADS } from "./fixtures/threads.js";
+
+export interface DraftReplyOutcome {
+  draft: CommunityDraft;
+  provider: DraftProvider;
+}
 
 export interface DraftReplyOptions {
   text?: string;
@@ -20,7 +26,7 @@ export interface DraftReplyOptions {
 export async function draftReply(
   draft: CommunityDraft,
   overrides?: DraftReplyOptions
-): Promise<CommunityDraft> {
+): Promise<DraftReplyOutcome> {
   const fixture = FIXTURE_THREADS.find((t) => t.id === draft.id);
   let intensity = clampIntensity(overrides?.intensity ?? draft.intensity);
   const memoryBlock = overrides?.memoryBlock;
@@ -33,10 +39,13 @@ export async function draftReply(
     try {
       const llm = await generateGeminiDraft({ draft, memoryBlock });
       return {
-        ...draft,
-        draftText: llm.draftText,
-        intensity: llm.intensity,
-        status: "pending_approval",
+        provider: "gemini",
+        draft: {
+          ...draft,
+          draftText: llm.draftText,
+          intensity: llm.intensity,
+          status: "pending_approval",
+        },
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -55,10 +64,13 @@ export async function draftReply(
     });
 
   return {
-    ...draft,
-    draftText: text,
-    intensity,
-    status: "pending_approval",
+    provider: "stub",
+    draft: {
+      ...draft,
+      draftText: text,
+      intensity,
+      status: "pending_approval",
+    },
   };
 }
 

@@ -66,8 +66,11 @@ export function createLlmDraftEngine(): ExecutionEngine {
         return { success: false, error: "draft_reply requires params.draft" };
       }
       const overrides = action.params.overrides as DraftReplyOptions | undefined;
-      const result = await draftReply(draft, overrides);
-      return { success: true, data: { draft: result } };
+      const outcome = await draftReply(draft, overrides);
+      return {
+        success: true,
+        data: { draft: outcome.draft, provider: outcome.provider },
+      };
     },
     async healthCheck() {
       return true;

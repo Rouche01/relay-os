@@ -51,13 +51,15 @@ import {
 import { scoutOpportunities } from "./scout.js";
 import type { CommunityDraft } from "./types.js";
 import { isActionable, scoreTotal } from "./types.js";
-import type {
-  DiscoverEvidence,
-  DraftEvidence,
-  ExecuteEvidence,
-  HitlEvidence,
-  MemoryWriteEvidence,
-  SessionEvidence,
+import {
+  draftPreview,
+  type DiscoverEvidence,
+  type DraftEvidence,
+  type DraftProvider,
+  type ExecuteEvidence,
+  type HitlEvidence,
+  type MemoryWriteEvidence,
+  type SessionEvidence,
 } from "./run-evidence.js";
 
 const APP_ID = "community-engager";
@@ -1608,6 +1610,7 @@ export class CommunityEngagerController implements AppController {
     ctx.agentMemory = memoryBlock;
 
     let drafted: CommunityDraft;
+    let provider: DraftProvider = "stub";
     if (engine?.type === "llm") {
       const result = await engine.execute({
         type: "draft_reply",
@@ -1620,10 +1623,15 @@ export class CommunityEngagerController implements AppController {
         throw new Error(result.error ?? "llm draft_reply failed");
       }
       drafted = result.data.draft as CommunityDraft;
+      if (result.data.provider === "gemini" || result.data.provider === "stub") {
+        provider = result.data.provider;
+      }
     } else {
-      drafted = await draftReply(top, {
+      const outcome = await draftReply(top, {
         memoryBlock: memoryBlock || undefined,
       });
+      drafted = outcome.draft;
+      provider = outcome.provider;
     }
 
     await this.options.store.put(
@@ -1637,6 +1645,7 @@ export class CommunityEngagerController implements AppController {
 
     ctx.currentDraft = drafted;
     ctx.feedbackContext = draftToFeedbackContext(drafted);
+    const preview = draftPreview(drafted.draftText);
     const draftEvidence: DraftEvidence = {
       id: drafted.id,
       subreddit: drafted.subreddit,
@@ -1644,12 +1653,17 @@ export class CommunityEngagerController implements AppController {
       intensity: drafted.intensity,
       memoryUsed: Boolean(memoryBlock),
       memoryChars: memoryBlock?.length ?? 0,
+      provider,
+      draftChars: drafted.draftText.length,
+      ...(preview ? { preview } : {}),
     };
     ctx.stageResults = {
       ...(ctx.stageResults ?? {}),
       draft: draftEvidence,
     };
-    console.log(`[draft] pending_approval id=${drafted.id} intensity=${drafted.intensity}`);
+    console.log(
+      `[draft] pending_approval id=${drafted.id} intensity=${drafted.intensity} provider=${provider} chars=${drafted.draftText.length}`
+    );
   }
 
   /** Fallback for a single-runtime run (no job queue): take the top opportunity. */

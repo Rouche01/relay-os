@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: wire-engine
     content: Wire draftReply / createLlmDraftEngine; enrich DraftEvidence + .env.example
-    status: pending
+    status: completed
   - id: tests
     content: Unit tests for opText plumbing, JSON parse/clamp, stub fallback
     status: pending

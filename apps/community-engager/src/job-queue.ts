@@ -236,6 +236,7 @@ export function formatRunSummary(summary: RunSummary): string {
   }
   for (const job of summary.jobs) {
     const parts: string[] = [];
+    if (job.draft?.provider) parts.push(`draft=${job.draft.provider}`);
     if (job.hitl?.waitMs != null) parts.push(`hitlWaitMs=${job.hitl.waitMs}`);
     if (job.execute?.transport) parts.push(`transport=${job.execute.transport}`);
     if (job.execute?.idempotentHit) parts.push("idempotent");

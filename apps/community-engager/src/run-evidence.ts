@@ -26,6 +26,8 @@ export interface DiscoverEvidence {
   memory?: MemoryWriteEvidence;
 }
 
+export type DraftProvider = "gemini" | "stub";
+
 export interface DraftEvidence {
   id: string;
   subreddit: string;
@@ -33,6 +35,21 @@ export interface DraftEvidence {
   intensity: PromoIntensity;
   memoryUsed: boolean;
   memoryChars: number;
+  /** Who wrote draftText. */
+  provider: DraftProvider;
+  draftChars: number;
+  /** Single-line excerpt of the proposed reply. */
+  preview?: string;
+}
+
+const PREVIEW_MAX = 140;
+
+/** Collapse whitespace and cap a reply for run logs. */
+export function draftPreview(text: string, max = PREVIEW_MAX): string | undefined {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (!flat) return undefined;
+  if (flat.length <= max) return flat;
+  return `${flat.slice(0, max - 1)}…`;
 }
 
 export interface HitlEvidence {
