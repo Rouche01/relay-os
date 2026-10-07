@@ -1704,12 +1704,18 @@ export class CommunityEngagerController implements AppController {
     const fact =
       outcome === "aborted"
         ? CommunityMemory.aborted("user aborted before post", {
+            draftId: draft.id,
             subreddit: draft.subreddit,
             intensity: draft.intensity,
+            threadUrl: draft.threadUrl,
+            threadTitle: draft.threadTitle,
           })
         : CommunityMemory.approved({
+            draftId: draft.id,
             intensity: draft.intensity,
             subreddit: draft.subreddit,
+            threadUrl: draft.threadUrl,
+            threadTitle: draft.threadTitle,
             note: outcome === "edited" ? "human edited draft before approve" : undefined,
           });
 

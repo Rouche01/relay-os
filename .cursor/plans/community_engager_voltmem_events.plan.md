@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: memory-phrasing
     content: apps/community-engager memory.ts — distinctive fact strings (ids first); outcomes include draftId + threadUrl; promote/rules lead with r/{sub}; shorten shared discovery boilerplate
-    status: pending
+    status: completed
   - id: wire-episodic-writes
     content: controller + discover — HITL outcomes (and optionally promote) use addEvent with stable event_id; discovery proposals either event-per-sub or drop bulk remember; keep voice/durable prefs on addFact
     status: pending
