@@ -22,6 +22,8 @@ export interface DiscoverEvidence {
   captcha?: string;
   /** ms waiting on discover HITL (CAPTCHA / choice), if any. */
   hitlWaitMs?: number;
+  /** VoltMem write on promote (addEvent). */
+  memory?: MemoryWriteEvidence;
 }
 
 export interface DraftEvidence {

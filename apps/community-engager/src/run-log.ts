@@ -3,8 +3,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { RunSummary } from "./job-queue.js";
 
-/** v2: session/discover/HITL/draft/execute/memory evidence + goals checklist. */
-export const RUN_LOG_SCHEMA_VERSION = 2 as const;
+/** v3: memory evidence includes VoltMem eventId + action (addEvent writes). */
+export const RUN_LOG_SCHEMA_VERSION = 3 as const;
 
 export interface RunLogMeta {
   /** Wall-clock start (ISO). */

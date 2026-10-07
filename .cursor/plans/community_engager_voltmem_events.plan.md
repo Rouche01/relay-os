@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: run-evidence-action
     content: run-evidence MemoryWriteEvidence — record voltmem action (inserted|confirmed|…) + eventId when present; surface in job-queue / run log
-    status: pending
+    status: completed
   - id: dogfood-verify
     content: Clear or use fresh tenant slice; two runs on different subs/drafts; confirm new active rows (not only last_confirmed_at bumps); drafter still gets memory block
     status: pending

@@ -771,6 +771,14 @@ export class CommunityEngagerController implements AppController {
     const written = await this.options.memory.addEvent(eventId, facets, {
       source: `relay:${APP_ID}`,
     });
+    const promoteMemory: MemoryWriteEvidence = {
+      attempted: facets.length > 0,
+      ok: written.length > 0,
+      domain: preferDomain,
+      outcome: "promote",
+      eventId,
+      action: written[0]?.action,
+    };
     console.log(
       `[discover] promoted r/${promoted.name} → postable allowlist` +
         (written.length
@@ -781,6 +789,7 @@ export class CommunityEngagerController implements AppController {
     this.patchDiscoverEvidence(ctx, {
       decision: "promote",
       promoted: promoted.name,
+      memory: promoteMemory,
     });
     return true;
   }

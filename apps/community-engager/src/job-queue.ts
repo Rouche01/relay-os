@@ -197,13 +197,21 @@ export function formatRunSummary(summary: RunSummary): string {
   }
   if (summary.discover) {
     const d = summary.discover;
-    lines.push(
-      `discover enabled=${d.enabled} ran=${d.ran} candidates=${d.candidateCount} ` +
-        `decision=${d.decision ?? "none"}` +
-        (d.promoted ? ` promoted=${d.promoted}` : "") +
-        (d.hitlWaitMs != null ? ` hitlWaitMs=${d.hitlWaitMs}` : "") +
-        (d.skippedReason ? ` skip=${d.skippedReason}` : "")
-    );
+    const discoverParts = [
+      `discover enabled=${d.enabled} ran=${d.ran} candidates=${d.candidateCount}`,
+      `decision=${d.decision ?? "none"}`,
+    ];
+    if (d.promoted) discoverParts.push(`promoted=${d.promoted}`);
+    if (d.hitlWaitMs != null) discoverParts.push(`hitlWaitMs=${d.hitlWaitMs}`);
+    if (d.skippedReason) discoverParts.push(`skip=${d.skippedReason}`);
+    if (d.memory?.attempted) {
+      discoverParts.push(
+        `memory=${d.memory.ok ? "ok" : "fail"}` +
+          (d.memory.eventId ? ` event=${d.memory.eventId}` : "") +
+          (d.memory.action ? ` action=${d.memory.action}` : "")
+      );
+    }
+    lines.push(discoverParts.join(" "));
   }
   if (summary.scout) {
     const s = summary.scout;
@@ -233,6 +241,8 @@ export function formatRunSummary(summary: RunSummary): string {
     if (job.execute?.idempotentHit) parts.push("idempotent");
     if (job.memory?.attempted) {
       parts.push(`memory=${job.memory.ok ? "ok" : "fail"}`);
+      if (job.memory.eventId) parts.push(`event=${job.memory.eventId}`);
+      if (job.memory.action) parts.push(`action=${job.memory.action}`);
     }
     const meta = parts.length ? ` (${parts.join(" ")})` : "";
     const extra = job.postedUrl
