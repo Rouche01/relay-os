@@ -3,6 +3,15 @@ import { isActionable, scoreTotal } from "../types.js";
 import type { RedditListingPost } from "./client.js";
 import { HELP_RE, isMegathread, scoreRedditPost } from "./score.js";
 
+/** Keep OP body small enough for later draft prompts. */
+const OP_TEXT_MAX_CHARS = 4000;
+
+function capOpText(selftext: string): string {
+  const trimmed = selftext.trim();
+  if (trimmed.length <= OP_TEXT_MAX_CHARS) return trimmed;
+  return trimmed.slice(0, OP_TEXT_MAX_CHARS);
+}
+
 export interface ListingScoreStats {
   scanned: number;
   actionable: number;
@@ -37,6 +46,7 @@ export function listingPostsToDrafts(
       subreddit: post.subreddit,
       threadUrl: post.permalink,
       threadTitle: post.title,
+      opText: capOpText(post.selftext),
       draftText: "",
       intensity: 0,
       score,

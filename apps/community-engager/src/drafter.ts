@@ -27,7 +27,7 @@ export async function draftReply(
     overrides?.text ??
     buildStubDraft({
       title: draft.threadTitle,
-      opText: fixture?.opText ?? "",
+      opText: draft.opText ?? fixture?.opText ?? "",
       intensity,
       subreddit: draft.subreddit,
       memoryHint: Boolean(overrides?.memoryBlock),

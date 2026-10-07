@@ -4,7 +4,7 @@ overview: Replace the CommunityEngager stub drafter with Gemini-backed reply dra
 todos:
   - id: optext-field
     content: Add CommunityDraft.opText; plumb from listingPostsToDrafts + fixtures
-    status: pending
+    status: completed
   - id: draft-llm
     content: Gemini JSON drafter (prompt + parse + clamp) with stub fallback
     status: pending

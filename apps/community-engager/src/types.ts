@@ -32,6 +32,8 @@ export interface CommunityDraft {
   subreddit: string;
   threadUrl: string;
   threadTitle: string;
+  /** OP body (selftext), trimmed and capped. Empty when the listing had none. */
+  opText?: string;
   draftText: string;
   intensity: PromoIntensity;
   score: OpportunityScore;
