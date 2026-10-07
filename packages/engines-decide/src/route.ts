@@ -34,6 +34,13 @@ export function loginMinConfidence(
   return readConfidenceEnv("DECIDE_LOGIN_MIN_CONFIDENCE", fallback);
 }
 
+/** Floor for comment composer control Choice (open / editor / submit). */
+export function composerMinConfidence(
+  fallback = DEFAULT_MIN_CONFIDENCE
+): number {
+  return readConfidenceEnv("DECIDE_COMPOSER_MIN_CONFIDENCE", fallback);
+}
+
 export function withMinConfidence(
   policy: DecisionPolicy | undefined,
   minConfidence: number

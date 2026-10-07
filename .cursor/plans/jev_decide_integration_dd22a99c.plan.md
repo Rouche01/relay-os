@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: p6-composer-target
     content: Use decide for comment composer target; submit remains Approve-gated
-    status: pending
+    status: completed
   - id: p7-docs-deploy
     content: ARCHITECTURE decide section; env/deploy notes; cross-link reddit browser + HITL Phase 6 plans
     status: pending

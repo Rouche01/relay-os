@@ -13,6 +13,7 @@ export {
 
 export {
   DEFAULT_MIN_CONFIDENCE,
+  composerMinConfidence,
   discoverMinConfidence,
   interstitialMinConfidence,
   loginMinConfidence,

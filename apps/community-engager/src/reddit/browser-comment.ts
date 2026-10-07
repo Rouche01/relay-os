@@ -1,4 +1,11 @@
 import type { Page } from "playwright";
+import type { DecisionPort } from "@relay/engines-decide";
+import { createDecisionPort } from "@relay/engines-decide";
+import {
+  actComposerControl,
+  decideComposerControl,
+  resolveComposerLocator,
+} from "../composer-decide.js";
 import { getRedditEnv, type RedditEnvConfig } from "./config.js";
 import { createRedditBrowserEngine } from "./browser-session.js";
 import { loginRedditBrowser } from "./browser-login.js";
@@ -11,6 +18,8 @@ export interface BrowserCommentOptions {
   /** If jar missing / auth wall, run loginRedditBrowser first. Default true when hasUserPass. */
   loginIfNeeded?: boolean;
   headless?: boolean;
+  /** Composer-control DecisionPort (default createDecisionPort). */
+  decide?: DecisionPort;
   /** Internal: auth-wall re-login attempts remaining. */
   _authRetries?: number;
 }
@@ -50,11 +59,33 @@ async function isAuthWall(page: Page): Promise<boolean> {
 }
 
 /**
- * Open the comment composer using semantic / structural locators (not CSS soup).
+ * Open the comment composer: DecisionPort Choice among observe candidates,
+ * then semantic / structural locators as fallback.
  * Returns the editable target or null.
  */
-async function openComposer(page: Page): Promise<ReturnType<Page["locator"]> | null> {
-  // Expand "Add a comment" affordance if present
+async function openComposer(
+  page: Page,
+  decide: DecisionPort
+): Promise<ReturnType<Page["locator"]> | null> {
+  // Prefer decide to expand "Add a comment" when the editor is not yet visible.
+  try {
+    const openDecided = await decideComposerControl(page, "open_composer", {
+      decide,
+    });
+    console.log(
+      `[comment] open_composer decide id=${openDecided.selectedId ?? "none"} ` +
+        `conf=${openDecided.confidence.toFixed(2)} escalate=${openDecided.escalateHitl} ` +
+        `backend=${openDecided.backend}`
+    );
+    if (openDecided.selectedId) {
+      await actComposerControl(page, openDecided, "click");
+      await sleep(400);
+    }
+  } catch (err) {
+    console.warn("[comment] open_composer decide failed:", err);
+  }
+
+  // Semantic expand fallback
   const addTriggers = [
     page.getByRole("button", { name: /Add a comment|Leave a comment/i }),
     page.getByText(/^Add a comment$/i),
@@ -70,6 +101,30 @@ async function openComposer(page: Page): Promise<ReturnType<Page["locator"]> | n
     } catch {
       /* try next */
     }
+  }
+
+  // Decide which control is the editor
+  try {
+    const editorDecided = await decideComposerControl(page, "editor", {
+      decide,
+    });
+    console.log(
+      `[comment] editor decide id=${editorDecided.selectedId ?? "none"} ` +
+        `conf=${editorDecided.confidence.toFixed(2)} escalate=${editorDecided.escalateHitl}`
+    );
+    if (editorDecided.selectedId) {
+      const loc = resolveComposerLocator(page, editorDecided);
+      if (loc) {
+        try {
+          await loc.waitFor({ state: "visible", timeout: 5_000 });
+          return loc;
+        } catch {
+          /* fall through */
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[comment] editor decide failed:", err);
   }
 
   const candidates = [
@@ -112,7 +167,26 @@ async function fillComposer(
   }
 }
 
-async function submitComment(page: Page): Promise<void> {
+/**
+ * Click Comment/Reply. Caller must already have HITL Approve — decide only
+ * identifies the button; it never grants write permission.
+ */
+async function submitComment(page: Page, decide: DecisionPort): Promise<void> {
+  try {
+    const decided = await decideComposerControl(page, "submit", { decide });
+    console.log(
+      `[comment] submit decide id=${decided.selectedId ?? "none"} ` +
+        `conf=${decided.confidence.toFixed(2)} escalate=${decided.escalateHitl} ` +
+        `(post-Approve actuation only)`
+    );
+    if (decided.selectedId) {
+      const ok = await actComposerControl(page, decided, "click");
+      if (ok) return;
+    }
+  } catch (err) {
+    console.warn("[comment] submit decide failed:", err);
+  }
+
   const buttons = [
     page.getByRole("button", { name: /^Comment$/i }),
     page.locator("shreddit-composer").getByRole("button", { name: /Comment|Reply/i }),
@@ -209,8 +283,10 @@ export async function ensureBrowserSession(
 }
 
 /**
- * Post a comment on a thread via Playwright (semantic composer).
- * Requires prior Approve in the HITL flow; caller enforces dry-run.
+ * Post a comment on a thread via Playwright.
+ * Composer targets via DecisionPort + semantic fallback.
+ * Requires prior Approve in the HITL flow; caller enforces dry-run —
+ * decide never grants write permission.
  */
 export async function postCommentBrowser(
   opts: BrowserCommentOptions
@@ -229,6 +305,7 @@ export async function postCommentBrowser(
     process.env.REDDIT_LOGIN_HEADED === "1";
   const headless =
     opts.headless ?? (headedEnv ? false : cfg.browserHeadless);
+  const decide = opts.decide ?? createDecisionPort();
 
   const session = await ensureBrowserSession(cfg, {
     loginIfNeeded: opts.loginIfNeeded,
@@ -246,7 +323,9 @@ export async function postCommentBrowser(
 
   try {
     const page = await engine.getPage();
-    console.log(`[comment] → ${opts.threadUrl}`);
+    console.log(
+      `[comment] → ${opts.threadUrl} (decide=${decide.backendName})`
+    );
     await page.goto(opts.threadUrl, {
       waitUntil: "domcontentloaded",
       timeout: 45_000,
@@ -265,7 +344,7 @@ export async function postCommentBrowser(
       }
       console.warn("[comment] auth wall — re-login…");
       await engine.teardown();
-      const relogin = await loginRedditBrowser({ cfg, headless });
+      const relogin = await loginRedditBrowser({ cfg, headless, decide });
       if (!relogin.ok) {
         return {
           ok: false,
@@ -278,22 +357,23 @@ export async function postCommentBrowser(
         loginIfNeeded: false,
         cfg,
         headless,
+        decide,
         _authRetries: retries - 1,
       });
     }
 
-    const editor = await openComposer(page);
+    const editor = await openComposer(page, decide);
     if (!editor) {
       return {
         ok: false,
         error:
-          "Comment composer not found (selectors flaky or not logged in). Vision escape hatch not wired — try headed login or re-run login:reddit.",
+          "Comment composer not found (decide + semantic locators failed). Try headed login or re-run login:reddit.",
         loggedIn: true,
       };
     }
 
     await fillComposer(page, editor, text);
-    await submitComment(page);
+    await submitComment(page, decide);
 
     const permalink = await capturePermalink(page, text);
     await saveSession(page, cfg);
