@@ -1,6 +1,12 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import type { Page } from "playwright";
+import type { DecisionPort } from "@relay/engines-decide";
+import { createDecisionPort } from "@relay/engines-decide";
+import {
+  actLoginControl,
+  decideLoginControl,
+} from "../login-decide.js";
 import { getRedditEnv, type RedditEnvConfig } from "./config.js";
 import { createRedditBrowserEngine } from "./browser-session.js";
 import {
@@ -35,6 +41,8 @@ export interface BrowserLoginOptions {
   postSubmitTimeoutMs?: number;
   /** Max ms to wait after human challenge pause / pre-form CAPTCHA. */
   challengeTimeoutMs?: number;
+  /** Login-control DecisionPort (default createDecisionPort). */
+  decide?: DecisionPort;
 }
 
 export interface BrowserLoginResult {
@@ -68,15 +76,15 @@ function usernameField(page: Page) {
 
 /**
  * Ensure the headed page shows Reddit's login form.
- * Clicks nav/modal "Log In" when possible; otherwise navigates to /login/.
- * If a CAPTCHA/humanity wall blocks the form, calls onChallenge then polls
- * until the form appears (or timeout).
+ * Prefers DecisionPort Choice among observe candidates; falls back to
+ * semantic locators. CAPTCHA/OTP still goes through onChallenge.
  */
 export async function openRedditLoginForm(
   page: Page,
   opts: {
     onChallenge?: (info: { url: string; hint: string }) => Promise<void>;
     challengeTimeoutMs?: number;
+    decide?: DecisionPort;
   } = {}
 ): Promise<void> {
   await dismissCookieBanner(page);
@@ -86,6 +94,28 @@ export async function openRedditLoginForm(
     if (await userBox.isVisible({ timeout: 1_500 })) return;
   } catch {
     /* need to open form */
+  }
+
+  const decide = opts.decide ?? createDecisionPort();
+  try {
+    const decided = await decideLoginControl(page, "open_login", { decide });
+    console.log(
+      `[login] open_login decide class=${decided.selectedId ?? "none"} ` +
+        `conf=${decided.confidence.toFixed(2)} escalate=${decided.escalateHitl} ` +
+        `backend=${decided.backend}`
+    );
+    if (decided.escalateHitl && !decided.selectedId && opts.onChallenge) {
+      await opts.onChallenge({
+        url: page.url(),
+        hint:
+          "Login control unclear or challenge wall — finish CAPTCHA/OTP in the headed browser.",
+      });
+    } else if (decided.selectedId) {
+      const clicked = await actLoginControl(page, decided, "click");
+      if (clicked && (await waitForLoginFormVisible(page, opts))) return;
+    }
+  } catch (err) {
+    console.warn("[login] open_login decide path failed:", err);
   }
 
   try {
@@ -175,15 +205,71 @@ export async function fillAndSubmitRedditLogin(
   opts: {
     onChallenge?: (info: { url: string; hint: string }) => Promise<void>;
     challengeTimeoutMs?: number;
+    decide?: DecisionPort;
   } = {}
 ): Promise<void> {
-  await openRedditLoginForm(page, opts);
-  const userBox = usernameField(page);
-  await userBox.fill(username);
-  const passBox = page.locator('input[type="password"]').first();
-  await passBox.waitFor({ state: "visible", timeout: 10_000 });
-  await passBox.fill(password);
-  await page.getByRole("button", { name: /^Log In$/i }).click();
+  const decide = opts.decide ?? createDecisionPort();
+  await openRedditLoginForm(page, { ...opts, decide });
+
+  const userFilled = await tryDecideFill(page, "username", username, decide);
+  if (!userFilled) {
+    const userBox = usernameField(page);
+    await userBox.fill(username);
+  }
+
+  const passFilled = await tryDecideFill(page, "password", password, decide);
+  if (!passFilled) {
+    const passBox = page.locator('input[type="password"]').first();
+    await passBox.waitFor({ state: "visible", timeout: 10_000 });
+    await passBox.fill(password);
+  }
+
+  const submitted = await tryDecideClick(page, "submit", decide);
+  if (!submitted) {
+    await page.getByRole("button", { name: /^Log In$/i }).click();
+  }
+}
+
+async function tryDecideFill(
+  page: Page,
+  step: "username" | "password",
+  value: string,
+  decide: DecisionPort
+): Promise<boolean> {
+  try {
+    const decided = await decideLoginControl(page, step, { decide });
+    console.log(
+      `[login] ${step} decide id=${decided.selectedId ?? "none"} ` +
+        `conf=${decided.confidence.toFixed(2)} escalate=${decided.escalateHitl}`
+    );
+    // Explicit escalate Choice → do not auto-fill (OTP/CAPTCHA path).
+    if (decided.escalateHitl && !decided.selectedId) return false;
+    if (!decided.selectedId) return false;
+    return actLoginControl(page, decided, "fill", value);
+  } catch (err) {
+    console.warn(`[login] ${step} decide failed:`, err);
+    return false;
+  }
+}
+
+async function tryDecideClick(
+  page: Page,
+  step: "submit",
+  decide: DecisionPort
+): Promise<boolean> {
+  try {
+    const decided = await decideLoginControl(page, step, { decide });
+    console.log(
+      `[login] ${step} decide id=${decided.selectedId ?? "none"} ` +
+        `conf=${decided.confidence.toFixed(2)} escalate=${decided.escalateHitl}`
+    );
+    if (decided.escalateHitl && !decided.selectedId) return false;
+    if (!decided.selectedId) return false;
+    return actLoginControl(page, decided, "click");
+  } catch (err) {
+    console.warn(`[login] ${step} decide failed:`, err);
+    return false;
+  }
 }
 
 /** Poll until cookies/UI look logged-in, or timeout. */
@@ -297,9 +383,9 @@ async function persistSuccess(
 }
 
 /**
- * Reddit browser login (semantic locators) → persist storageState cookie jar.
- * Clears jar first (AUTH). On 2FA/CAPTCHA, pauses via onChallenge (CLI by default).
- * Vision agents are intentionally not wired here — escape hatch for later.
+ * Reddit browser login → persist storageState cookie jar.
+ * Control selection goes through DecisionPort (observe → Choice); semantic
+ * locators remain as fallback. 2FA/CAPTCHA/OTP still pause via onChallenge.
  */
 export async function loginRedditBrowser(
   opts: BrowserLoginOptions = {}
@@ -317,6 +403,7 @@ export async function loginRedditBrowser(
   const clearJar = opts.clearJar ?? true;
   const postSubmitTimeoutMs = opts.postSubmitTimeoutMs ?? 20_000;
   const challengeTimeoutMs = opts.challengeTimeoutMs ?? 300_000;
+  const decide = opts.decide ?? createDecisionPort();
 
   const headedEnv =
     process.env.REDDIT_LOGIN_HEADED === "true" ||
@@ -337,10 +424,13 @@ export async function loginRedditBrowser(
 
   try {
     const page = await engine.getPage();
-    console.log(`[login] → ${REDDIT_LOGIN_URL} (headless=${headless})`);
+    console.log(
+      `[login] → ${REDDIT_LOGIN_URL} (headless=${headless} decide=${decide.backendName})`
+    );
     await fillAndSubmitRedditLogin(page, username, password, {
       onChallenge,
       challengeTimeoutMs,
+      decide,
     });
 
     let challenged = false;

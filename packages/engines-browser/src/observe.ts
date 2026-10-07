@@ -1,4 +1,4 @@
-import type { Page } from "playwright";
+import type { Locator, Page } from "playwright";
 import type { SemanticLocator } from "./types";
 
 /** Default cap for decide / escalate state — keep prompts small. */
@@ -216,6 +216,32 @@ export function observeRefToSemantic(
     case "css":
       return { css: ref.css };
   }
+}
+
+/**
+ * Resolve an observe locator ref on a live page (id→locator owned by Relay).
+ * Apps use this after DecisionPort picks a candidate id.
+ */
+export function resolveObserveLocator(
+  page: Page,
+  ref: ObserveLocatorRef
+): Locator {
+  const target = observeRefToSemantic(ref);
+  if ("css" in target && target.css) {
+    return page.locator(target.css);
+  }
+  if ("role" in target && target.role) {
+    return page.getByRole(target.role as Parameters<Page["getByRole"]>[0], {
+      name: target.name,
+    });
+  }
+  if ("text" in target && target.text) {
+    return page.getByText(target.text);
+  }
+  if ("placeholder" in target && target.placeholder) {
+    return page.getByPlaceholder(target.placeholder);
+  }
+  throw new Error("Invalid observe locator ref");
 }
 
 function candidateFromNode(

@@ -27,6 +27,13 @@ export function interstitialMinConfidence(
   return readConfidenceEnv("DECIDE_INTERSTITIAL_MIN_CONFIDENCE", fallback);
 }
 
+/** Floor for login control Choice (open / username / password / submit). */
+export function loginMinConfidence(
+  fallback = DEFAULT_MIN_CONFIDENCE
+): number {
+  return readConfidenceEnv("DECIDE_LOGIN_MIN_CONFIDENCE", fallback);
+}
+
 export function withMinConfidence(
   policy: DecisionPolicy | undefined,
   minConfidence: number

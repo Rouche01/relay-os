@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: p5-login-targets
     content: Use decide for login/challenge control selection; keep credential + onChallenge for OTP/CAPTCHA
-    status: pending
+    status: completed
   - id: p6-composer-target
     content: Use decide for comment composer target; submit remains Approve-gated
     status: pending

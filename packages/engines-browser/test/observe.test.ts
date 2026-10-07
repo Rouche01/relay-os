@@ -5,6 +5,7 @@ import {
   compactPageText,
   observeRefToSemantic,
   type InteractiveNodeSnapshot,
+  type ObserveLocatorRef,
 } from "../src/observe.js";
 
 describe("compactPageText", () => {
@@ -87,12 +88,21 @@ describe("buildObserveCandidates", () => {
 
 describe("observeRefToSemantic", () => {
   it("maps observe refs for actuation", () => {
-    assert.deepEqual(observeRefToSemantic({ kind: "role", role: "button", name: "Go" }), {
+    const roleRef: ObserveLocatorRef = {
+      kind: "role",
+      role: "button",
+      name: "Go",
+    };
+    assert.deepEqual(observeRefToSemantic(roleRef), {
       role: "button",
       name: "Go",
     });
     assert.deepEqual(observeRefToSemantic({ kind: "css", css: "[data-testid=x]" }), {
       css: "[data-testid=x]",
     });
+    assert.deepEqual(
+      observeRefToSemantic({ kind: "placeholder", placeholder: "Password" }),
+      { placeholder: "Password" }
+    );
   });
 });

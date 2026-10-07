@@ -15,6 +15,7 @@ export {
   DEFAULT_MIN_CONFIDENCE,
   discoverMinConfidence,
   interstitialMinConfidence,
+  loginMinConfidence,
   policyRequiresEscalate,
   routeDecision,
   routeRequest,
