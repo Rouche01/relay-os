@@ -35,6 +35,7 @@ pnpm start
 | T4 | Cookie jar writable | After `REDDIT_ENSURE_SESSION` or interstitial Approve, `*.storage.json` appears |
 | T5 | Timer dry-run | `systemctl start relay-community.service` → journal shows scout + draft; `REDDIT_DRY_RUN=true` |
 | T6 | Unattended interstitial | Headless timer does **not** hang; blocked subs logged; run continues |
+| T6b | Decide overnight-safe | `DECIDE_BACKEND=heuristic` (or unset); no `JEV_API_KEY` required; journal shows `decide=heuristic` / no Jev hard-fail |
 | T7 | Gated live (manual) | Flip `REDDIT_DRY_RUN=false` once, Approve one comment; job file idempotent on retry |
 
 ```bash
@@ -53,3 +54,4 @@ journalctl -u relay-community.service -n 100 --no-pager
 - [ ] Telegram allowlist user only
 - [ ] No CAPTCHA solver services configured (none exist in code — keep it that way)
 - [ ] Timer env does not set `REDDIT_INTERSTITIAL_HITL=true`
+- [ ] Timer keeps `DECIDE_BACKEND=heuristic` unless intentionally dogfooding Jev

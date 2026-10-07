@@ -28,7 +28,7 @@ todos:
     status: completed
   - id: p7-docs-deploy
     content: ARCHITECTURE decide section; env/deploy notes; cross-link reddit browser + HITL Phase 6 plans
-    status: pending
+    status: completed
 isProject: true
 ---
 

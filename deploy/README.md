@@ -6,6 +6,7 @@ Sibling plans:
 
 - Host history / VoltMem layout: [`.cursor/plans/relay_thinkpad_deploy.plan.md`](../.cursor/plans/relay_thinkpad_deploy.plan.md)
 - Browser transport + cookies: [`.cursor/plans/relay_reddit_browser.plan.md`](../.cursor/plans/relay_reddit_browser.plan.md)
+- Decide co-processor (Jev / heuristic): [`.cursor/plans/jev_decide_integration_dd22a99c.plan.md`](../.cursor/plans/jev_decide_integration_dd22a99c.plan.md)
 - Smoke checklist: [`SMOKE.md`](./SMOKE.md)
 
 ## Layout
@@ -44,9 +45,10 @@ CommunityEngager needs:
 | `packages/feedback-broker` | HITL broker |
 | `packages/adapters-telegram` | Telegram Approve/Abort |
 | `packages/context-engine` | VoltMem client |
-| `packages/engines-browser` | **Required** — Playwright scout / login / comment |
+| `packages/engines-browser` | **Required** — Playwright scout / login / comment + observe |
+| `packages/engines-decide` | **Required** — discover fit / page-class / login / composer Choice |
 
-Optional: `packages/llm-controller` (login/comment semantic helpers).
+Optional: `packages/llm-controller` (legacy semantic helpers; prefer DecisionPort).
 
 **Not required:** `newsletter-migrator`, living-todo UI.
 
@@ -105,6 +107,13 @@ REDDIT_TRANSPORT=auto
 REDDIT_BROWSER_HEADLESS=true
 # Unattended timers: leave interstitial HITL off (default when headless)
 # Prep jar interactively once — see "Re-auth" below
+
+# Decide co-processor — overnight safe default (no Jev network):
+DECIDE_BACKEND=heuristic
+# Live Jev only when deliberately enabled (needs key; not for unattended timer):
+# DECIDE_BACKEND=jev
+# JEV_API_KEY=
+# JEV_BASE_URL=https://api.typesafe.ai/v1/systemone
 ```
 
 ### 5. Manual smoke (before systemd)

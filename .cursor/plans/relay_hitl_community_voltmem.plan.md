@@ -282,9 +282,9 @@ E2E (`src/e2e-hitl.ts`, pinned to `SCOUT_SOURCE=fixtures`) now proves isolation 
 
 **Thesis:** stop hardcoding `ALLOWLISTED_SUBREDDITS` as the only source. Let the agent research candidate subs, but keep the human as the gate for anything we might *post* into.
 
-**Shipped:** `discover` stage (read-only Reddit search + heuristic scoring) → `choice` HITL promote/skip → `.data/allowlist/subreddits.json` as operational source of truth (seed merged in) with VoltMem mirror facts; scout calls `AllowlistStore.pickScoutSubs` (ranked + optional exploration slot); learn/abort update per-sub scores. Never auto-promotes.
+**Shipped:** `discover` stage (read-only Reddit search + DecisionPort Noul fit) → `choice` HITL promote/skip → `.data/allowlist/subreddits.json` as operational source of truth (seed merged in) with VoltMem mirror facts; scout calls `AllowlistStore.pickScoutSubs` (ranked + optional exploration slot); learn/abort update per-sub scores. Never auto-promotes.
 
-**Next (Jev):** replace heuristic fit with typed Noul(goal + sub bio) + confidence → proposed list only — see [`jev_decide_integration_dd22a99c.plan.md`](./jev_decide_integration_dd22a99c.plan.md) Phase A. HITL promote remains the write gate. Discover stage gating: **auto-skip when postable allowlist is healthy**; force via env/`discover subreddits` trigger (same plan, “Discover stage gating”).
+**Decide (shipped):** typed Noul(goal + sub bio) + confidence → proposed list only; HITL promote remains the write gate. Discover stage gating: **auto-skip when postable allowlist is healthy**; force via env/`discover subreddits` trigger. Interstitial / login / composer control Choice also land in CommunityEngager — see [`jev_decide_integration_dd22a99c.plan.md`](./jev_decide_integration_dd22a99c.plan.md) (complete).
 
 ### Phase 7 — Nested manifests (`StageDefinition.fanout`) ✅ shipped
 

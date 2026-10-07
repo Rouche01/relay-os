@@ -74,7 +74,7 @@ Goal: less flaky than HITL-era CSS soups, without paying a vision model on every
 |-------|------|-----|
 | **Structured extract** | Scout `/new` listings (default) | Playwright + a11y tree, `page.evaluate`, or semantic locators → stable `RedditListingPost` (id, title, permalink, …) |
 | **LLM + semantic** | Login / reply composer when layout shifts | Existing `LLMController` + `PlaywrightEngine` snapshot (text) → `role`/`name`/`text` actions — already in-repo |
-| **Vision agent escape hatch** | Auth wall, CAPTCHA UX, composer unfindable via a11y | Swap/`engines-browser` backend later (Stagehand, Browser Use, Skyvern, etc.) behind the same `ExecutionEngine` interface — do **not** hard-wire a vendor in Phase 1 |
+| **Vision / decide escape hatch** | Auth wall, CAPTCHA UX, composer unfindable via a11y | **Shipped path:** typed `@relay/engines-decide` (observe → Choice/Noul) — see [`jev_decide_integration_dd22a99c.plan.md`](./jev_decide_integration_dd22a99c.plan.md). Optional later: Stagehand / Browser Use / Skyvern behind `ExecutionEngine` — do **not** hard-wire a free-form VLM driver |
 | **JSON** | Browser unavailable / blocked | Optional Phase 4 only |
 
 **Rules of thumb**
@@ -86,9 +86,13 @@ Goal: less flaky than HITL-era CSS soups, without paying a vision model on every
 
 ```text
 scout:   Playwright → structured extract → score → draft
-login:   Playwright → LLM/semantic → (fail) → vision agent → cookies
-comment: Playwright → LLM/semantic → (fail) → vision agent → permalink
+         (+ page-class DecisionPort on interstitial)
+login:   Playwright → observe → DecisionPort Choice → semantic fallback → onChallenge (OTP/CAPTCHA)
+comment: Playwright → observe → DecisionPort Choice (composer) → semantic fallback
+         (submit click only after HITL Approve)
 ```
+
+Decide never invents selectors or auto-solves CAPTCHAs. Full VLM-every-step remains out of scope.
 
 ## Current state (as of p4-json)
 
@@ -419,7 +423,7 @@ packages/llm-controller/   # reuse for login/comment when needed
 9. ~~ThinkPad deploy slice~~ — `deploy/README.md` + units + `community.env.example` (Chromium, cookies, HITL re-auth)
 10. ~~Smoke checklist~~ — `deploy/SMOKE.md` (local E2E green; ThinkPad rows are host-run)
 
-**Reddit browser plan complete** for the API-unblock track. Remaining product work lives in the HITL plan (Phase 6 discovery, measure).
+**Reddit browser plan complete** for the API-unblock track. Typed decide escape hatch: [`jev_decide_integration_dd22a99c.plan.md`](./jev_decide_integration_dd22a99c.plan.md). Remaining product work lives in the HITL plan (measure).
 
 ## Relationship to manifest-driven engines
 

@@ -374,6 +374,39 @@ feedback_patterns:
 
 ## Execution Engines
 
+### Decide co-processor (not an `EngineType`)
+
+**Decide** is a typed System-1 co-processor (`@relay/engines-decide`), not a stage engine. Stages keep `engine: "browser" | "llm" | …`. Apps inject a `DecisionPort` the same way they inject `PlaywrightEngine`.
+
+```text
+Observe / retrieve (Relay owns)
+        ↓
+@relay/engines-decide  (Choice / Noul / Score + confidence)
+        ↓
+  act / propose (high confidence + safe policy)
+  escalate → Feedback Broker (low confidence / stuck / hard policy)
+  irreversible write / allowlist promote → always HITL
+```
+
+| Piece | Role |
+|-------|------|
+| `@relay/protocol` `Decision*` | Shared request/answer types, `routeDecision`, escalate → `FeedbackRequest` |
+| `@relay/engines-decide` | `DecisionPort`, heuristic (CI/offline) + Jev backends |
+| `@relay/engines-browser` `observePage` | Compact page text + opaque candidate ids; **id→locator stays in Relay** |
+| Feedback Broker | Presents escalate as `choice` / `confirmation` / `credential` |
+
+**Hard policy (code, not prompt):** CAPTCHA / prove-humanity never auto-solved; comment submit and allowlist promote to postable always HITL; confidence never overrides those bits.
+
+**First consumer:** CommunityEngager — discover fit (Noul), page-class interstitial, login controls, comment composer targets. Plan: [`.cursor/plans/jev_decide_integration_dd22a99c.plan.md`](.cursor/plans/jev_decide_integration_dd22a99c.plan.md).
+
+Env (ThinkPad overnight defaults to offline-safe heuristic):
+
+| Var | Notes |
+|-----|--------|
+| `DECIDE_BACKEND` | `heuristic` (default) \| `jev` |
+| `JEV_API_KEY` / `JEV_BASE_URL` | Only when `DECIDE_BACKEND=jev` — omit on unattended timers so scout does not hard-fail |
+| `DECIDE_*_MIN_CONFIDENCE` | Per-task floors (`DISCOVER`, `INTERSTITIAL`, `LOGIN`, `COMPOSER`) |
+
 ### Engine Interface
 
 All execution engines implement a common interface:
@@ -660,8 +693,11 @@ internet-native-os/
 │   ├── protocol/                     # Shared protocol types
 │   │   ├── manifest.ts              # AgenticAppManifest type
 │   │   ├── feedback.ts              # Feedback event types
+│   │   ├── decide.ts                # DecisionPort request/answer + route/escalate
 │   │   ├── lifecycle.ts             # Agent lifecycle types
 │   │   └── events.ts                # Socket event definitions
+│   ├── engines-decide/               # Decide co-processor (Jev / heuristic)
+│   ├── engines-browser/              # Playwright + observeCandidates
 │   └── shared/                       # Shared utilities
 │       └── index.ts
 │

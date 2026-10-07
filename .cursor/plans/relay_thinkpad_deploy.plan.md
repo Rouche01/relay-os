@@ -239,6 +239,7 @@ Set at least:
 - `VOLTMEM_API_KEY=` same key as sidecar (or a dedicated client key if you split later)
 - `VOLTMEM_TENANT_ID=` stable id for this app’s memories (e.g. `relay-community`). `VOLTMEM_USER_ID` is the fallback when that is unset.
 - Reddit + `REDDIT_DRY_RUN=true`
+- Decide: keep `DECIDE_BACKEND=heuristic` on the overnight timer (no `JEV_API_KEY` required). Set `DECIDE_BACKEND=jev` + `JEV_API_KEY` only for intentional live decide runs — see [`jev_decide_integration_dd22a99c.plan.md`](./jev_decide_integration_dd22a99c.plan.md) and [`deploy/community.env.example`](../../deploy/community.env.example).
 
 Other future projects use different `VOLTMEM_TENANT_ID` values (and the same URL) so memories stay partitioned. One sidecar process has one domains file; a second prior means a second sidecar.
 
