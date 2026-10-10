@@ -26,6 +26,14 @@ let selectedId = null;
 let rows = [];
 /** @type {{ key: string; label: string }[]} */
 let columns = [];
+/** @type {'debug'|'scatter'|'funnel'} */
+let chartMode = "debug";
+/** @type {any[]} */
+let lastSeriesPoints = [];
+/** @type {any} */
+let lastFunnel = null;
+/** Aggregate Compare panel (series collections only); off by default. */
+let compareOpen = false;
 
 async function api(path, options) {
   const res = await fetch(path, {
@@ -109,22 +117,47 @@ function updateSourceLine() {
 async function switchCollection(id) {
   collectionId = id;
   selectedId = null;
+  compareOpen = false;
   statusFilter.value = "";
   const caps = currentCollection()?.capabilities ?? {};
   statusFilterLabel.hidden = false;
   renderNav();
   updateSourceLine();
   detailPane.innerHTML = `<p class="muted">Select a row to inspect.</p>`;
-  chartsPane.hidden = !caps.series;
+  renderCompareChrome();
   await loadList();
 }
 
-async function loadList() {
-  if (!collectionId) return;
+function renderCompareChrome() {
+  const caps = currentCollection()?.capabilities ?? {};
+  if (!caps.series) {
+    chartsPane.hidden = true;
+    chartsPane.innerHTML = "";
+    return;
+  }
+  chartsPane.hidden = false;
+  if (!compareOpen) {
+    chartsPane.innerHTML = `<div class="charts-toolbar"><button type="button" id="compareToggle" class="secondary">Compare runs</button><span class="muted" style="align-self:center">List is the picker — open a run for debug charts.</span></div>`;
+    document.getElementById("compareToggle")?.addEventListener("click", () => {
+      compareOpen = true;
+      const params = listParams();
+      loadCharts(params);
+    });
+    return;
+  }
+}
+
+function listParams() {
   const params = new URLSearchParams();
   const limit = Number(limitFilter.value);
   if (Number.isFinite(limit) && limit > 0) params.set("limit", String(limit));
   if (statusFilter.value.trim()) params.set("status", statusFilter.value.trim());
+  return params;
+}
+
+async function loadList() {
+  if (!collectionId) return;
+  const params = listParams();
 
   const data = await api(`/api/collections/${encodeURIComponent(collectionId)}?${params}`);
   columns = data.columns ?? [];
@@ -132,7 +165,12 @@ async function loadList() {
   renderList();
 
   const caps = currentCollection()?.capabilities ?? {};
-  if (caps.series) await loadCharts(params);
+  if (caps.series) {
+    if (compareOpen) await loadCharts(params);
+    else renderCompareChrome();
+  } else {
+    chartsPane.hidden = true;
+  }
 
   if (selectedId && !rows.some((r) => rowId(r) === selectedId)) {
     selectedId = null;
@@ -171,91 +209,174 @@ function renderList() {
   }
 }
 
+const OUTCOME_COLORS = {
+  approved: "var(--accent)",
+  aborted: "var(--warn)",
+  failed: "var(--danger)",
+  empty: "var(--muted)",
+};
+
 async function loadCharts(params) {
   chartsPane.hidden = false;
-  chartsPane.innerHTML = `<h3>Series</h3><p class="chart-empty">Loading…</p>`;
+  chartsPane.innerHTML = `<p class="chart-empty">Loading compare…</p>`;
   try {
     const data = await api(
       `/api/collections/${encodeURIComponent(collectionId)}/series?${params}`
     );
-    const points = data.points ?? [];
-    if (points.length === 0) {
-      chartsPane.innerHTML = `<h3>Series</h3><p class="chart-empty">No points.</p>`;
-      return;
-    }
-    const prefer = ["durationMs", "value", "scouted", "jobs"];
-    const numericKeys = Object.keys(points[0]).filter(
-      (k) => k !== "t" && k !== "runId" && typeof points[0][k] === "number"
-    );
-    const key =
-      prefer.find((k) => numericKeys.includes(k)) ?? numericKeys[0] ?? null;
-    if (!key) {
-      chartsPane.innerHTML = `<h3>Series</h3><p class="chart-empty">No numeric series.</p>`;
-      return;
-    }
-    const outcomeKeys = ["approved", "aborted", "failed"].filter((k) =>
-      numericKeys.includes(k)
-    );
-    let html = `<h3>${escapeHtml(key)} over time</h3>${renderLineSvg(points, key)}`;
-    if (outcomeKeys.length > 0) {
-      html += `<h3 style="margin-top:0.75rem">HITL outcomes</h3>${renderStackedBars(points, outcomeKeys)}`;
-    }
-    chartsPane.innerHTML = html;
-    chartsPane.querySelectorAll("[data-run-id]").forEach((el) => {
-      el.addEventListener("click", () => {
-        const id = el.getAttribute("data-run-id");
-        if (id) selectRow(id);
-      });
-    });
+    lastSeriesPoints = data.points ?? [];
+    lastFunnel = data.funnel ?? null;
+    renderChartsPanel();
   } catch (err) {
-    chartsPane.innerHTML = `<h3>Series</h3><p class="error">${escapeHtml(err.message)}</p>`;
+    chartsPane.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
   }
 }
 
-function renderLineSvg(points, key) {
-  const w = 480;
-  const h = 120;
-  const pad = 16;
-  const values = points.map((p) => Number(p[key]) || 0);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const coords = points.map((p, i) => {
-    const x = pad + (i / Math.max(points.length - 1, 1)) * (w - pad * 2);
-    const y = h - pad - ((Number(p[key]) - min) / span) * (h - pad * 2);
-    return { x, y, id: p.runId || "" };
-  });
-  const d = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x},${c.y}`).join(" ");
-  const dots = coords
+function renderChartsPanel() {
+  const points = lastSeriesPoints;
+  const hideBtn = `<button type="button" id="compareHide" class="secondary">Hide compare</button>`;
+  if (points.length === 0) {
+    chartsPane.innerHTML = `<div class="charts-toolbar">${hideBtn}</div><p class="chart-empty">No run points in this window.</p>`;
+    document.getElementById("compareHide")?.addEventListener("click", () => {
+      compareOpen = false;
+      renderCompareChrome();
+    });
+    return;
+  }
+
+  const modes = [
+    { id: "debug", label: "Timeline" },
+    { id: "scatter", label: "Duration × outcome" },
+    { id: "funnel", label: "Scout funnel" },
+  ];
+  const toolbar = `<div class="charts-toolbar">${hideBtn}${modes
     .map(
-      (c) =>
-        `<circle cx="${c.x}" cy="${c.y}" r="4" fill="var(--accent)" data-run-id="${escapeAttr(c.id)}" style="cursor:pointer" />`
+      (m) =>
+        `<button type="button" data-chart-mode="${m.id}" class="${m.id === chartMode ? "active" : ""}">${escapeHtml(m.label)}</button>`
     )
+    .join("")}</div>`;
+
+  let body = "";
+  if (chartMode === "debug") {
+    body =
+      `<h3>Run timeline</h3>${renderGantt(points)}` +
+      legendHtml([
+        ["approved", OUTCOME_COLORS.approved],
+        ["aborted", OUTCOME_COLORS.aborted],
+        ["failed", OUTCOME_COLORS.failed],
+        ["empty", OUTCOME_COLORS.empty],
+      ]) +
+      `<h3>HITL outcomes</h3>${renderStackedBars(points, ["approved", "aborted", "failed"])}` +
+      legendHtml([
+        ["approved", OUTCOME_COLORS.approved],
+        ["aborted", OUTCOME_COLORS.aborted],
+        ["failed", OUTCOME_COLORS.failed],
+      ]);
+  } else if (chartMode === "scatter") {
+    body =
+      `<h3>Duration × dominant outcome</h3>${renderScatter(points)}` +
+      legendHtml([
+        ["approved", OUTCOME_COLORS.approved],
+        ["aborted", OUTCOME_COLORS.aborted],
+        ["failed", OUTCOME_COLORS.failed],
+        ["empty", OUTCOME_COLORS.empty],
+      ]);
+  } else {
+    body = `<h3>Window funnel</h3>${renderFunnel(lastFunnel, points)}`;
+  }
+
+  chartsPane.innerHTML = toolbar + body;
+  document.getElementById("compareHide")?.addEventListener("click", () => {
+    compareOpen = false;
+    renderCompareChrome();
+  });
+  chartsPane.querySelectorAll("[data-chart-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      chartMode = btn.getAttribute("data-chart-mode") || "debug";
+      renderChartsPanel();
+    });
+  });
+  chartsPane.querySelectorAll("[data-run-id]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const id = el.getAttribute("data-run-id");
+      if (id) selectRow(id);
+    });
+  });
+}
+
+function legendHtml(items) {
+  return `<div class="legend">${items
+    .map(
+      ([label, color]) =>
+        `<span style="--swatch:${color}">${escapeHtml(label)}</span>`
+    )
+    .join("")}</div>`;
+}
+
+function parseTime(iso) {
+  const n = Date.parse(iso);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function outcomeOf(p) {
+  return p.outcome || "empty";
+}
+
+/** Shared time-axis Gantt: one lane per run, colored by dominant outcome. */
+function renderGantt(points) {
+  const starts = points.map((p) => parseTime(p.startedAt || p.t));
+  const ends = points.map((p) => parseTime(p.t));
+  const t0 = Math.min(...starts.filter(Number.isFinite));
+  const t1 = Math.max(...ends.filter(Number.isFinite));
+  if (!Number.isFinite(t0) || !Number.isFinite(t1) || t1 <= t0) {
+    return `<p class="chart-empty">Need startedAt/endedAt for timeline.</p>`;
+  }
+  const span = t1 - t0;
+  const labelW = 72;
+  const w = 520;
+  const laneH = 18;
+  const padTop = 8;
+  const padBot = 20;
+  const h = padTop + points.length * laneH + padBot;
+  const plotL = labelW;
+  const plotR = w - 8;
+  const plotW = plotR - plotL;
+
+  const lanes = points
+    .map((p, i) => {
+      const s = parseTime(p.startedAt || p.t);
+      const e = parseTime(p.t);
+      if (!Number.isFinite(s) || !Number.isFinite(e)) return "";
+      const x = plotL + ((s - t0) / span) * plotW;
+      const width = Math.max(3, ((e - s) / span) * plotW);
+      const y = padTop + i * laneH + 3;
+      const color = OUTCOME_COLORS[outcomeOf(p)] || OUTCOME_COLORS.empty;
+      const label = String(p.runId || "").slice(-10);
+      const title = `${p.runId}: ${Math.round((Number(p.durationMs) || 0) / 1000)}s · ${outcomeOf(p)} · scouted=${p.scouted} jobs=${p.jobs}`;
+      return (
+        `<text x="4" y="${y + 11}" fill="var(--muted)" font-size="9" font-family="var(--mono)">${escapeHtml(label)}</text>` +
+        `<rect x="${x}" y="${y}" width="${width}" height="12" rx="2" fill="${color}" data-run-id="${escapeAttr(p.runId || "")}" style="cursor:pointer"><title>${escapeHtml(title)}</title></rect>`
+      );
+    })
     .join("");
-  return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${escapeAttr(key)} chart"><path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" />${dots}</svg>`;
+
+  const axisY = h - 8;
+  return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="run timeline">${lanes}<line x1="${plotL}" y1="${axisY}" x2="${plotR}" y2="${axisY}" stroke="var(--line)" /><text x="${plotL}" y="${h - 2}" fill="var(--muted)" font-size="9">${escapeHtml(new Date(t0).toLocaleString())}</text><text x="${plotR}" y="${h - 2}" fill="var(--muted)" font-size="9" text-anchor="end">${escapeHtml(new Date(t1).toLocaleString())}</text></svg>`;
 }
 
 function renderStackedBars(points, keys) {
-  const colors = {
-    approved: "var(--accent)",
-    aborted: "var(--warn)",
-    failed: "var(--danger)",
-  };
-  const w = 480;
-  const h = 120;
+  const w = 520;
+  const h = 140;
   const pad = 16;
   const totals = points.map((p) =>
     keys.reduce((sum, k) => sum + (Number(p[k]) || 0), 0)
   );
   const max = Math.max(...totals, 1);
-  const gap = 4;
-  const barW = Math.max(
-    4,
-    (w - pad * 2) / points.length - gap
-  );
+  const gap = 3;
+  const slot = (w - pad * 2) / points.length;
+  const barW = Math.max(4, slot - gap);
   const rects = [];
   points.forEach((p, i) => {
-    const x = pad + i * ((w - pad * 2) / points.length);
+    const x = pad + i * slot;
     let y = h - pad;
     for (const k of keys) {
       const v = Number(p[k]) || 0;
@@ -263,11 +384,79 @@ function renderStackedBars(points, keys) {
       const bh = (v / max) * (h - pad * 2);
       y -= bh;
       rects.push(
-        `<rect x="${x}" y="${y}" width="${barW}" height="${bh}" fill="${colors[k] || "var(--muted)"}" data-run-id="${escapeAttr(p.runId || "")}" style="cursor:pointer"><title>${escapeHtml(k)}=${v}</title></rect>`
+        `<rect x="${x}" y="${y}" width="${barW}" height="${bh}" fill="${OUTCOME_COLORS[k] || "var(--muted)"}" data-run-id="${escapeAttr(p.runId || "")}" style="cursor:pointer"><title>${escapeHtml(String(p.runId))}: ${k}=${v}</title></rect>`
       );
     }
   });
   return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="outcomes chart">${rects.join("")}</svg>`;
+}
+
+/** X = durationMs, Y = jitter by outcome band, color = outcome. */
+function renderScatter(points) {
+  const w = 520;
+  const h = 180;
+  const pad = 28;
+  const durations = points.map((p) => Number(p.durationMs) || 0);
+  const maxD = Math.max(...durations, 1);
+  const bands = { approved: 0.2, aborted: 0.45, failed: 0.7, empty: 0.9 };
+  const dots = points
+    .map((p) => {
+      const outcome = outcomeOf(p);
+      const x = pad + ((Number(p.durationMs) || 0) / maxD) * (w - pad * 2);
+      const base = bands[outcome] ?? 0.5;
+      const jitter =
+        (((String(p.runId || "").length * 17) % 11) - 5) / 100;
+      const y = pad + (base + jitter) * (h - pad * 2);
+      const r = 5 + Math.min(4, (Number(p.jobs) || 0));
+      const title = `${p.runId}: ${Math.round((Number(p.durationMs) || 0) / 1000)}s · ${outcome} · jobs=${p.jobs}`;
+      return `<circle cx="${x}" cy="${y}" r="${r}" fill="${OUTCOME_COLORS[outcome] || OUTCOME_COLORS.empty}" opacity="0.85" data-run-id="${escapeAttr(p.runId || "")}" style="cursor:pointer"><title>${escapeHtml(title)}</title></circle>`;
+    })
+    .join("");
+  return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="duration scatter"><text x="${pad}" y="${h - 8}" fill="var(--muted)" font-size="9">0s</text><text x="${w - pad}" y="${h - 8}" fill="var(--muted)" font-size="9" text-anchor="end">${Math.round(maxD / 1000)}s</text>${dots}</svg>`;
+}
+
+function renderFunnel(funnel, points) {
+  const f = funnel || {
+    scouted: points.reduce((s, p) => s + (Number(p.scouted) || 0), 0),
+    jobs: points.reduce((s, p) => s + (Number(p.jobs) || 0), 0),
+    approved: points.reduce((s, p) => s + (Number(p.approved) || 0), 0),
+    aborted: points.reduce((s, p) => s + (Number(p.aborted) || 0), 0),
+    failed: points.reduce((s, p) => s + (Number(p.failed) || 0), 0),
+    posted: points.reduce((s, p) => s + (Number(p.posted) || 0), 0),
+  };
+  const stages = [
+    { key: "scouted", label: "Scouted", color: "var(--muted)" },
+    { key: "jobs", label: "Jobs", color: "var(--text)" },
+    { key: "approved", label: "Approved", color: OUTCOME_COLORS.approved },
+    { key: "posted", label: "Posted", color: OUTCOME_COLORS.approved },
+    { key: "aborted", label: "Aborted", color: OUTCOME_COLORS.aborted },
+    { key: "failed", label: "Failed", color: OUTCOME_COLORS.failed },
+  ];
+  const max = Math.max(...stages.map((s) => Number(f[s.key]) || 0), 1);
+  const w = 520;
+  const rowH = 26;
+  const pad = 12;
+  const labelW = 72;
+  const h = pad * 2 + stages.length * rowH;
+  const bars = stages
+    .map((s, i) => {
+      const v = Number(f[s.key]) || 0;
+      const y = pad + i * rowH;
+      const bw = ((w - labelW - pad * 2) * v) / max;
+      return (
+        `<text x="${pad}" y="${y + 14}" fill="var(--muted)" font-size="11">${escapeHtml(s.label)}</text>` +
+        `<rect x="${labelW}" y="${y + 2}" width="${Math.max(bw, v > 0 ? 2 : 0)}" height="16" rx="2" fill="${s.color}" />` +
+        `<text x="${labelW + bw + 6}" y="${y + 14}" fill="var(--text)" font-size="11">${v}</text>`
+      );
+    })
+    .join("");
+  const blocked = points.reduce((s, p) => s + (Number(p.blockedCount) || 0), 0);
+  const timedOut = points.reduce((s, p) => s + (Number(p.timedOutCount) || 0), 0);
+  const note =
+    blocked || timedOut
+      ? `<p class="muted" style="margin-top:0.5rem">Scout walls in window: blocked=${blocked}, timedOut=${timedOut}</p>`
+      : "";
+  return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="scout funnel">${bars}</svg>${note}`;
 }
 
 async function selectRow(id) {
@@ -284,6 +473,106 @@ async function selectRow(id) {
   }
 }
 
+function stageTone(ok) {
+  if (ok === true) return "ok";
+  if (ok === false) return "fail";
+  return "unknown";
+}
+
+function renderRunDebug(viz) {
+  if (!viz || typeof viz !== "object") return "";
+  const stages = Array.isArray(viz.stages) ? viz.stages : [];
+  const jobs = Array.isArray(viz.jobs) ? viz.jobs : [];
+  const scout = viz.scout ?? {};
+  const funnel = viz.funnel ?? {};
+  const subs = Array.isArray(scout.subs) ? scout.subs : [];
+
+  const stageHtml = stages
+    .map((s) => {
+      const tone = stageTone(s.ok);
+      const wait =
+        s.waitMs != null && s.waitMs > 0
+          ? `<span class="muted"> wait ${Math.round(s.waitMs / 1000)}s</span>`
+          : "";
+      return `<div class="run-stage run-stage-${tone}"><strong>${escapeHtml(s.label)}</strong>${wait}<div class="muted">${escapeHtml(s.note || "—")}</div></div>`;
+    })
+    .join("");
+
+  const funnelSvg = renderFunnel(funnel, [
+    {
+      blockedCount: scout.blockedCount ?? 0,
+      timedOutCount: scout.timedOutCount ?? 0,
+    },
+  ]);
+
+  const jobsRows =
+    jobs.length === 0
+      ? `<tr><td colspan="4" class="muted">No jobs in this run.</td></tr>`
+      : jobs
+          .map((j) => {
+            const link = j.postedUrl
+              ? `<a href="${escapeAttr(j.postedUrl)}" target="_blank" rel="noopener">post</a>`
+              : "—";
+            const title = j.title || j.id || "—";
+            const err = j.error
+              ? `<div class="error" style="font-size:0.8rem">${escapeHtml(j.error)}</div>`
+              : "";
+            return `<tr>
+              <td><span class="badge ${escapeAttr(j.outcome || "")}">${escapeHtml(j.outcome || "?")}</span></td>
+              <td>${escapeHtml(j.subreddit || "—")}</td>
+              <td>${escapeHtml(title)}${err}</td>
+              <td>${link}</td>
+            </tr>`;
+          })
+          .join("");
+
+  const scoutNote = [
+    scout.listingOk === true
+      ? "listingOk"
+      : scout.listingOk === false
+        ? "no-listing"
+        : null,
+    `blocked=${scout.blockedCount ?? 0}`,
+    `timedOut=${scout.timedOutCount ?? 0}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const subsRows =
+    subs.length === 0
+      ? `<tr><td colspan="4" class="muted">No per-sub rows.</td></tr>`
+      : subs
+          .map(
+            (s) => `<tr>
+              <td>${escapeHtml(s.subreddit)}</td>
+              <td><span class="badge ${escapeAttr(s.status || "")}">${escapeHtml(s.status || "—")}</span></td>
+              <td>${escapeHtml(String(s.opportunities ?? 0))}</td>
+              <td class="preview">${escapeHtml(s.reason || "—")}</td>
+            </tr>`
+          )
+          .join("");
+
+  return `
+    <div class="run-debug">
+      <h3>Stages</h3>
+      <div class="run-stages">${stageHtml || `<p class="muted">No stage data.</p>`}</div>
+      <h3>Funnel</h3>
+      ${funnelSvg}
+      <h3>Jobs</h3>
+      <table class="run-table">
+        <thead><tr><th>Outcome</th><th>Sub</th><th>Thread</th><th>Post</th></tr></thead>
+        <tbody>${jobsRows}</tbody>
+      </table>
+      <h3>Scout</h3>
+      <p class="muted">${escapeHtml(scoutNote)}</p>
+      <table class="run-table">
+        <thead><tr><th>Subreddit</th><th>Status</th><th>Opps</th><th>Reason</th></tr></thead>
+        <tbody>${subsRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderDetail(id, data) {
   const caps = currentCollection()?.capabilities ?? {};
   const record = data.record;
@@ -292,6 +581,8 @@ function renderDetail(id, data) {
   const subtitle = detail.subtitle || detail.kind || "";
   const editable = detail.editable ?? [];
   const actions = caps.actions ?? [];
+  const debugHtml =
+    detail.kind === "run-debug" && detail.viz ? renderRunDebug(detail.viz) : "";
 
   const editFields =
     caps.patch && editable.length > 0
@@ -325,12 +616,13 @@ function renderDetail(id, data) {
         ${caps.delete ? `<button type="button" class="danger" id="deleteBtn">Delete</button>` : ""}
       </div>
     </div>
+    ${debugHtml}
     ${editFields}
     ${caps.patch && editable.length ? `<div class="actions"><button type="button" id="saveBtn">Save</button></div>` : ""}
     <p id="detailMsg" class="muted"></p>
     <div class="field" style="margin-top:1rem">
       <label>Raw</label>
-      <pre class="raw" style="max-height:50vh">${escapeHtml(JSON.stringify(record, null, 2))}</pre>
+      <pre class="raw" style="max-height:${debugHtml ? "30vh" : "50vh"}">${escapeHtml(JSON.stringify(record, null, 2))}</pre>
     </div>
   `;
 

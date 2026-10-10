@@ -156,7 +156,7 @@ Loopback admin (`@relay/admin-shell`) with app-owned adapters:
 | Actions | `ACTION_STORE_PATH` | edit draftText, status, delete |
 | Allowlist | `ALLOWLIST_PATH` (default `{REDDIT_DATA_DIR}/allowlist/subreddits.json`) | edit, promote, reject |
 | Jobs | `JOBS_DIR` | inspect, delete |
-| Runs | `COMMUNITY_RUNS_DIR` (may be outside `.data/`) | inspect, delete, charts |
+| Runs | `COMMUNITY_RUNS_DIR` (may be outside `.data/`) | inspect, delete, debug charts (timeline, duration×outcome, scout funnel) |
 
 ```bash
 pnpm --filter @relay/admin-shell build

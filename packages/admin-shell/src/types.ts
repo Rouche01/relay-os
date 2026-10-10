@@ -40,7 +40,48 @@ export type DetailKind =
   | "json"
   | "action-draft"
   | "allowlist-entry"
+  | "run-debug"
   | string;
+
+/** Per-item investigation payload (e.g. run-debug charts). */
+export interface RunDebugViz {
+  stages: Array<{
+    id: string;
+    label: string;
+    ok?: boolean;
+    note?: string;
+    waitMs?: number;
+  }>;
+  jobs: Array<{
+    id: string;
+    outcome: string;
+    subreddit?: string;
+    title?: string;
+    error?: string;
+    postedUrl?: string;
+  }>;
+  scout: {
+    blockedCount: number;
+    timedOutCount: number;
+    listingOk?: boolean;
+    subs: Array<{
+      subreddit: string;
+      status: string;
+      opportunities: number;
+      reason?: string;
+    }>;
+  };
+  funnel: {
+    scouted: number;
+    jobs: number;
+    approved: number;
+    aborted: number;
+    failed: number;
+    posted: number;
+  };
+  durationMs?: number;
+  runState?: string;
+}
 
 export interface GetResult {
   record: unknown;
@@ -50,17 +91,30 @@ export interface GetResult {
     subtitle?: string;
     /** Editable field keys when patch is supported */
     editable?: string[];
+    /** Present when kind is "run-debug" */
+    viz?: RunDebugViz;
   };
 }
 
 export interface SeriesPoint {
+  /** Primary time axis — usually endedAt */
   t: string;
   runId?: string;
+  startedAt?: string;
   [key: string]: string | number | boolean | undefined;
 }
 
 export interface SeriesPayload {
   points: SeriesPoint[];
+  /** Optional aggregated funnel for the returned window */
+  funnel?: {
+    scouted: number;
+    jobs: number;
+    approved: number;
+    aborted: number;
+    failed: number;
+    posted: number;
+  };
 }
 
 /**
