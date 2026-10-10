@@ -4,11 +4,16 @@
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "relay-actions": "./dist/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc -w",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "admin": "node dist/admin-server.js",
+    "actions": "node dist/cli.js"
   },
   "devDependencies": {
     "typescript": "6.0.3",

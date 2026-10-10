@@ -8,15 +8,30 @@ Verification table: `[SMOKE.md](./SMOKE.md)`.
 
 Keep `REDDIT_DRY_RUN=true` on the timer until you deliberately go live.
 
+**VoltMem split (important):**
+
+
+| Need                        | What                                                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Yes — always (if memory on) | **Sidecar Docker image** running under `/opt/voltmem` (`ghcr.io/rouche01/voltmem-sidecar` or your compose) |
+| No                          | Sibling git checkout of the voltmem **source** repo next to relay-os                                       |
+
+
+`@voltmem/client` (npm) only talks HTTP to that container.
+
 ---
+
+
 
 ## A. On your laptop (before the ThinkPad)
 
 - [x] Changes you care about are committed and pushed to the remote the ThinkPad tracks
-- [x] Especially: `pnpm-lock.yaml` (now uses published `@voltmem/client` — no sibling voltmem checkout)
+- [x] Especially: `pnpm-lock.yaml` (published `@voltmem/client` — no sibling voltmem **source** checkout)
 - [x] Optional local sanity: `pnpm --filter @relay/apps-community-engager... build && pnpm --filter @relay/apps-community-engager test`
 
 ---
+
+
 
 ## B. On the ThinkPad — pull + rebuild
 
@@ -36,11 +51,13 @@ pnpm --filter @relay/engines-browser exec playwright install chromium
 # rarely: install-deps again if OS libs changed
 ```
 
-- [ ] `git pull` clean (or conflicts resolved)
-- [ ] `pnpm install` + build OK (`apps/community-engager/dist/run-dev.js` fresh)
-- [ ] No sibling `/…/voltmem` tree required for `@voltmem/client` anymore
+- [x] `git pull` clean (or conflicts resolved)
+- [x] `pnpm install` + build OK (`apps/community-engager/dist/run-dev.js` fresh)
+- [x] No sibling voltmem **source** tree required (client comes from npm)
 
 ---
+
+
 
 ## C. Env — merge deltas only
 
@@ -73,16 +90,75 @@ New knobs worth adding when present in example (optional):
 
 ---
 
-## D. VoltMem (sidecar) — only if memory is in use
 
-App client = npm `@voltmem/client` (pulled with `pnpm install`).  
-Domains JSON = still a **sidecar** mount (not the npm package).
 
-- [ ] Sidecar still healthy (`curl -s "$VOLTMEM_URL/health"` or run log shows `Memory: voltmem (sidecar ok)`)
-- [ ] If `voltmem-domains.json` changed in the pull: restart sidecar so it reloads the mount
-- [ ] `VOLTMEM_DOMAINS_FILE` still points at the community domains file
+## D. VoltMem sidecar **image** (required for memory)
+
+CommunityEngager does **not** embed the engine. Memory needs the VoltMem **sidecar container** running on the ThinkPad (usually `/opt/voltmem` + compose). npm only supplies the HTTP client.
+
+```bash
+# typical layout
+cd /opt/voltmem/deploy   # or wherever docker-compose.yml lives
+docker compose ps
+curl -s http://127.0.0.1:8080/health
+# expect: {"status":"ok"}
+```
+
+If the container is down:
+
+```bash
+cd /opt/voltmem/deploy
+docker compose up -d
+# after pulling a newer sidecar tag (optional):
+# docker compose pull && docker compose up -d
+```
+
+Point `community.env` at it (`VOLTMEM_URL`, `VOLTMEM_API_KEY`, `VOLTMEM_TENANT_ID`).
+
+Domains JSON is still a **volume on that container** (not replaced by npm):
+
+```bash
+# /opt/voltmem/env/sidecar.env
+VOLTMEM_DOMAINS_FILE=/domains/community.json
+```
+
+```yaml
+# compose volume example
+volumes:
+  - /opt/voltmem/data:/data
+  - /opt/relay-community/app/apps/community-engager/voltmem-domains.json:/domains/community.json:ro
+```
+
+- [ ] Sidecar **container** is running (`docker compose ps` / `docker ps`)
+- [ ] `curl` health OK (or run log: `Memory: voltmem (sidecar ok)`)
+- [ ] `VOLTMEM_*` in `community.env` match the container
+- [ ] Domains file still mounted; `VOLTMEM_DOMAINS_FILE` set
+- [ ] If `voltmem-domains.json` changed in the app pull: `docker compose restart` (or recreate) so the mount is re-read
+
+Skipping the sidecar is only OK if you accept fail-open memory (scout/HITL still work; facts/events won’t stick).
+
+### Optional — expose `/ui` on the ThinkPad (Tailscale)
+
+Default compose binds `127.0.0.1:8080` (loopback only). To open the memory browser as `http://hsv:8080/ui` from your laptop:
+
+```yaml
+# /opt/voltmem/deploy/docker-compose.yml — change ports to:
+ports:
+  - "8080:8080"    # was "127.0.0.1:8080:8080"
+```
+
+```bash
+cd /opt/voltmem/deploy
+docker compose up -d
+curl -s http://127.0.0.1:8080/health
+# from laptop: http://hsv:8080/ui — paste VOLTMEM_API_KEY + tenant (relay-community)
+```
+
+Prefer Tailscale-only reachability (don’t port-forward 8080 on the public LAN/router). `/ui` is unauthenticated HTML; API calls still need the key.
 
 ---
+
+
 
 ## E. Smoke the new build
 
@@ -119,6 +195,8 @@ diff -u /etc/systemd/system/relay-community.service \
 
 ---
 
+
+
 ## F. Day-to-day (unchanged)
 
 
@@ -128,6 +206,8 @@ diff -u /etc/systemd/system/relay-community.service \
 | Cookie / CAPTCHA wall          | One-shot with `REDDIT_INTERSTITIAL_HITL=true` (+ `REDDIT_LOGIN_HEADED=true` if login); solve via remote desktop; Approve; **turn HITL off again** |
 | Empty scout (all already-seen) | Optional: trim actions under `REDDIT_DATA_DIR` for dogfood only                                                                                   |
 | Live post                      | Flip `REDDIT_DRY_RUN=false` for a deliberate one-shot only — not on first timer after a big update                                                |
+
+
 
 
 ### Wall clear one-shot (do not leave on timer)
@@ -145,6 +225,8 @@ Needs graphical session + remote desktop (Telegram has no pixel stream).
 
 ---
 
+
+
 ## G. Browser modes (reminder)
 
 
@@ -157,14 +239,19 @@ Needs graphical session + remote desktop (Telegram has no pixel stream).
 
 ---
 
+
+
 ## Done for this update when
 
 - [ ] ThinkPad is on the new commit + rebuild
+- [ ] VoltMem **sidecar container** healthy (if memory enabled)
 - [ ] Smoke or service run COMPLETE with dry-run
 - [ ] Timer env still HITL-off / dry-run
 - [ ] Jar intact (or re-authed once)
 
 ---
+
+
 
 ## Appendix — greenfield only
 

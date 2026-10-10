@@ -14,7 +14,9 @@
     "e2e": "node dist/e2e-hitl.js",
     "smoke": "node dist/e2e-hitl.js",
     "verify:voltmem-events": "node dist/verify-voltmem-events.js",
-    "login:reddit": "node dist/run-login.js"
+    "login:reddit": "node dist/run-login.js",
+    "admin:store": "node ../../packages/action-store/dist/admin-server.js",
+    "actions": "node ../../packages/action-store/dist/cli.js"
   },
   "dependencies": {
     "@google/genai": "2.27.0",

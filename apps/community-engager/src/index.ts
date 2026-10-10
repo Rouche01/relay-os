@@ -1,4 +1,7 @@
-import { createActionStore, type ActionStore } from "@relay/action-store";
+import {
+  createActionStoreFromEnv,
+  type ActionStore,
+} from "@relay/action-store";
 import {
   createContextEngine,
   type ContextEngine,
@@ -69,7 +72,7 @@ export class CommunityEngagerApp implements FanoutHost {
 
   constructor(options: CommunityEngagerAppOptions = {}) {
     this.options = options;
-    this.store = options.store ?? createActionStore({ driver: "file" });
+    this.store = options.store ?? createActionStoreFromEnv();
     this.memory =
       options.memory ??
       createContextEngine({

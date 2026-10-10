@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relay data admin</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <h1>Relay data</h1>
+        <p class="muted" id="storePath">Loading…</p>
+      </div>
+      <nav class="nav" id="collectionNav" aria-label="Collections"></nav>
+      <div class="filters" id="filters">
+        <label id="statusFilterLabel">
+          Status
+          <select id="statusFilter">
+            <option value="">All</option>
+          </select>
+        </label>
+        <label>
+          Limit
+          <input id="limitFilter" type="number" min="1" value="100" />
+        </label>
+        <button type="button" id="refreshBtn">Refresh</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="list-pane">
+        <table>
+          <thead>
+            <tr id="listHead"></tr>
+          </thead>
+          <tbody id="listBody"></tbody>
+        </table>
+        <p class="muted" id="listEmpty" hidden>No rows match.</p>
+      </section>
+
+      <section class="detail-pane" id="detailPane">
+        <p class="muted">Select a row to inspect.</p>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
