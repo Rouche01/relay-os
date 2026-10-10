@@ -42,7 +42,8 @@ CommunityEngager needs:
 | `apps/community-engager` | App |
 | `packages/protocol` | Manifest / feedback |
 | `packages/runtime` | AgentRuntime + fanout |
-| `packages/action-store` | Draft lifecycle |
+| `packages/action-store` | Draft lifecycle + ActionStore admin adapter |
+| `packages/admin-shell` | Loopback operator GUI (used by `admin:store`) |
 | `packages/feedback-broker` | HITL broker |
 | `packages/adapters-telegram` | Telegram Approve/Abort |
 | `packages/context-engine` | VoltMem client |
@@ -101,6 +102,10 @@ ThinkPad paths that matter:
 ```bash
 REDDIT_DATA_DIR=/opt/relay-community/data
 REDDIT_COOKIE_DIR=/opt/relay-community/data/cookies/reddit
+ACTION_STORE_PATH=/opt/relay-community/data/action-store/actions.json
+JOBS_DIR=/opt/relay-community/data/jobs
+COMMUNITY_RUNS_DIR=/opt/relay-community/logs/runs
+# ALLOWLIST_PATH defaults to $REDDIT_DATA_DIR/allowlist/subreddits.json
 FEEDBACK_ADAPTER=telegram
 REDDIT_DRY_RUN=true
 SCOUT_SOURCE=auto
@@ -116,6 +121,19 @@ DECIDE_BACKEND=heuristic
 # JEV_API_KEY=
 # JEV_BASE_URL=https://api.typesafe.ai/v1/systemone
 ```
+
+### Operator admin GUI (loopback)
+
+Browse/edit actions + allowlist, inspect jobs/runs (with run charts):
+
+```bash
+cd /opt/relay-community/app
+set -a && source /opt/relay-community/env/community.env && set +a
+pnpm --filter @relay/apps-community-engager admin:store
+# → http://127.0.0.1:8787  (SSH tunnel if remote)
+```
+
+Each collection uses its own path env above — runs can stay under `logs/runs` while actions live under `data/action-store`.
 
 ### 5. Manual smoke (before systemd)
 
