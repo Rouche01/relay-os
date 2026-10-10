@@ -149,31 +149,30 @@ See [`.env.example`](./.env.example) for `SCOUT_SOURCE`, `REDDIT_TRANSPORT`, coo
 
 ## Browse / edit local data
 
-Loopback admin via `@relay/admin-shell` + ActionStore adapter (actions only for now; allowlist/jobs/runs adapters next).
+Loopback admin (`@relay/admin-shell`) with app-owned adapters:
 
-Set once in [`.env`](./.env) (see [`.env.example`](./.env.example)):
-
-```bash
-ACTION_STORE_PATH=.data/actions.json
-```
-
-Then:
+| Collection | Source env | Capabilities |
+|------------|------------|--------------|
+| Actions | `ACTION_STORE_PATH` | edit draftText, status, delete |
+| Allowlist | `ALLOWLIST_PATH` (default `{REDDIT_DATA_DIR}/allowlist/subreddits.json`) | edit, promote, reject |
+| Jobs | `JOBS_DIR` | inspect, delete |
+| Runs | `COMMUNITY_RUNS_DIR` (may be outside `.data/`) | inspect, delete, charts |
 
 ```bash
 pnpm --filter @relay/admin-shell build
 pnpm --filter @relay/action-store build
+pnpm --filter @relay/apps-community-engager build
 pnpm --filter @relay/apps-community-engager admin:store
 # → http://127.0.0.1:8787
 ```
 
-Optional: `ACTION_STORE_ADMIN_PORT=8790`, or `ACTION_STORE_ENV_FILE=/path/to/.env`.
+Paths are set in [`.env`](./.env) (see [`.env.example`](./.env.example)). Relative values resolve against the `.env` directory.
 
-Action CLI (same store):
+Action CLI:
 
 ```bash
 pnpm --filter @relay/apps-community-engager run actions list --status pending_approval
 pnpm --filter @relay/apps-community-engager run actions get <id>
-pnpm --filter @relay/apps-community-engager run actions edit <id> --field draftText --value 'Revised reply…'
 ```
 
-Do not hand-edit JSON under `.data/` while the agent is writing.
+Do not hand-edit JSON while the agent is writing.

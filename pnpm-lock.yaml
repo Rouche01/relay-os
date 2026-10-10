@@ -29,6 +29,9 @@ importers:
       '@relay/adapters-telegram':
         specifier: workspace:*
         version: link:../../packages/adapters-telegram
+      '@relay/admin-shell':
+        specifier: workspace:*
+        version: link:../../packages/admin-shell
       '@relay/context-engine':
         specifier: workspace:*
         version: link:../../packages/context-engine

@@ -243,6 +243,43 @@ export class AllowlistStore {
     await this.writeFile(entries);
   }
 
+  /** Admin / tooling: shallow field update (persists merged list including seeds). */
+  async patch(
+    name: string,
+    patch: Partial<
+      Pick<AllowlistEntry, "note" | "score" | "rulesOk" | "status" | "evidence">
+    >
+  ): Promise<AllowlistEntry | null> {
+    const entries = await this.load();
+    const n = normalizeSub(name).toLowerCase();
+    const idx = entries.findIndex((e) => e.name.toLowerCase() === n);
+    if (idx < 0) return null;
+    const prev = entries[idx]!;
+    const next: AllowlistEntry = {
+      ...prev,
+      updatedAt: new Date().toISOString(),
+    };
+    if (patch.note !== undefined) next.note = patch.note;
+    if (patch.evidence !== undefined) next.evidence = patch.evidence;
+    if (patch.score !== undefined) {
+      if (!Number.isFinite(patch.score)) {
+        throw new Error("score must be a number");
+      }
+      next.score = patch.score;
+    }
+    if (patch.rulesOk !== undefined) next.rulesOk = patch.rulesOk;
+    if (patch.status !== undefined) {
+      next.status = patch.status;
+      if (patch.status === "postable") {
+        next.rulesOk = true;
+        next.score = Math.max(next.score, 12);
+      }
+    }
+    entries[idx] = next;
+    await this.writeFile(entries);
+    return next;
+  }
+
   async recordOutcome(
     name: string,
     outcome: "approved" | "aborted" | "edited"

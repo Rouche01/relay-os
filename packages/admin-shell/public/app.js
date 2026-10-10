@@ -183,15 +183,24 @@ async function loadCharts(params) {
       chartsPane.innerHTML = `<h3>Series</h3><p class="chart-empty">No points.</p>`;
       return;
     }
+    const prefer = ["durationMs", "value", "scouted", "jobs"];
     const numericKeys = Object.keys(points[0]).filter(
       (k) => k !== "t" && k !== "runId" && typeof points[0][k] === "number"
     );
-    const key = numericKeys[0] ?? null;
+    const key =
+      prefer.find((k) => numericKeys.includes(k)) ?? numericKeys[0] ?? null;
     if (!key) {
       chartsPane.innerHTML = `<h3>Series</h3><p class="chart-empty">No numeric series.</p>`;
       return;
     }
-    chartsPane.innerHTML = `<h3>${escapeHtml(key)} over time</h3>${renderLineSvg(points, key)}`;
+    const outcomeKeys = ["approved", "aborted", "failed"].filter((k) =>
+      numericKeys.includes(k)
+    );
+    let html = `<h3>${escapeHtml(key)} over time</h3>${renderLineSvg(points, key)}`;
+    if (outcomeKeys.length > 0) {
+      html += `<h3 style="margin-top:0.75rem">HITL outcomes</h3>${renderStackedBars(points, outcomeKeys)}`;
+    }
+    chartsPane.innerHTML = html;
     chartsPane.querySelectorAll("[data-run-id]").forEach((el) => {
       el.addEventListener("click", () => {
         const id = el.getAttribute("data-run-id");
@@ -224,6 +233,41 @@ function renderLineSvg(points, key) {
     )
     .join("");
   return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${escapeAttr(key)} chart"><path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" />${dots}</svg>`;
+}
+
+function renderStackedBars(points, keys) {
+  const colors = {
+    approved: "var(--accent)",
+    aborted: "var(--warn)",
+    failed: "var(--danger)",
+  };
+  const w = 480;
+  const h = 120;
+  const pad = 16;
+  const totals = points.map((p) =>
+    keys.reduce((sum, k) => sum + (Number(p[k]) || 0), 0)
+  );
+  const max = Math.max(...totals, 1);
+  const gap = 4;
+  const barW = Math.max(
+    4,
+    (w - pad * 2) / points.length - gap
+  );
+  const rects = [];
+  points.forEach((p, i) => {
+    const x = pad + i * ((w - pad * 2) / points.length);
+    let y = h - pad;
+    for (const k of keys) {
+      const v = Number(p[k]) || 0;
+      if (v <= 0) continue;
+      const bh = (v / max) * (h - pad * 2);
+      y -= bh;
+      rects.push(
+        `<rect x="${x}" y="${y}" width="${barW}" height="${bh}" fill="${colors[k] || "var(--muted)"}" data-run-id="${escapeAttr(p.runId || "")}" style="cursor:pointer"><title>${escapeHtml(k)}=${v}</title></rect>`
+      );
+    }
+  });
+  return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="outcomes chart">${rects.join("")}</svg>`;
 }
 
 async function selectRow(id) {
