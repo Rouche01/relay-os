@@ -15,6 +15,9 @@
     "admin": "node dist/admin-server.js",
     "actions": "node dist/cli.js"
   },
+  "dependencies": {
+    "@relay/admin-shell": "workspace:*"
+  },
   "devDependencies": {
     "typescript": "6.0.3",
     "@types/node": "^22.0.0"

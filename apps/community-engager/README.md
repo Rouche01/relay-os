@@ -149,19 +149,18 @@ See [`.env.example`](./.env.example) for `SCOUT_SOURCE`, `REDDIT_TRANSPORT`, coo
 
 ## Browse / edit local data
 
-Loopback admin for **Actions**, **Allowlist**, **Jobs**, and **Runs** under `.data/`. Domain rules apply (action lifecycle; allowlist promote/reject). Jobs/runs are inspect (+ delete).
+Loopback admin via `@relay/admin-shell` + ActionStore adapter (actions only for now; allowlist/jobs/runs adapters next).
 
 Set once in [`.env`](./.env) (see [`.env.example`](./.env.example)):
 
 ```bash
 ACTION_STORE_PATH=.data/actions.json
-# optional override for the whole data root:
-# REDDIT_DATA_DIR=.data
 ```
 
 Then:
 
 ```bash
+pnpm --filter @relay/admin-shell build
 pnpm --filter @relay/action-store build
 pnpm --filter @relay/apps-community-engager admin:store
 # → http://127.0.0.1:8787

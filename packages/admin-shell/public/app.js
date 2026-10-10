@@ -318,11 +318,18 @@ function renderDetail(id, data) {
   detailPane.querySelectorAll("[data-action]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const name = btn.getAttribute("data-action");
+      if (!name) return;
+      let body = {};
+      if (name === "status") {
+        const status = window.prompt("New status (e.g. approved, aborted, edited):");
+        if (!status) return;
+        body = { status: status.trim() };
+      }
       setMsg(msg, `${name}…`);
       try {
         const next = await api(
           `/api/collections/${encodeURIComponent(collectionId)}/items/${encodeURIComponent(id)}/actions/${encodeURIComponent(name)}`,
-          { method: "POST", body: "{}" }
+          { method: "POST", body: JSON.stringify(body) }
         );
         setMsg(msg, `Action ${name} ok.`, "ok");
         await loadList();

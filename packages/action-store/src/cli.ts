@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { loadActionStoreEnv } from "./load-env.js";
+import path from "node:path";
+import { loadAdminEnv } from "@relay/admin-shell";
 import { createActionStoreFromEnv } from "./factory.js";
 import {
   deleteAction,
@@ -74,14 +75,22 @@ async function main(): Promise<void> {
   if (!cmd || cmd === "help" || cmd === "-h" || cmd === "--help") usage();
 
   if (cmd === "admin") {
-    const port = process.env.ACTION_STORE_ADMIN_PORT ?? "8787";
+    const port =
+      process.env.ADMIN_PORT ?? process.env.ACTION_STORE_ADMIN_PORT ?? "8787";
     console.log(
       `Start the GUI with:\n  pnpm --filter @relay/action-store admin\nThen open http://127.0.0.1:${port}`
     );
     return;
   }
 
-  loadActionStoreEnv();
+  loadAdminEnv(process.env, {
+    candidates: [
+      path.resolve(
+        path.dirname(path.resolve(process.argv[1] ?? ".")),
+        "../../../apps/community-engager/.env"
+      ),
+    ],
+  });
   const store = createActionStoreFromEnv();
 
   if (cmd === "list") {
