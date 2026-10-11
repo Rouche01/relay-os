@@ -55,6 +55,10 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
       maxHelpPerDay: 5,
       maxPromoPerDay: 1,
     },
+    visibility: {
+      enabled: true,
+      delayMs: 0,
+    },
     discover: {
       mode: "off",
       enabled: false,

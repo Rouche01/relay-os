@@ -23,6 +23,10 @@
     "maxHelpPerDay": 5,
     "maxPromoPerDay": 1
   },
+  "visibility": {
+    "enabled": true,
+    "delayMs": 3000
+  },
   "discover": {
     "mode": "auto",
     "query": "fashion style advice wardrobe",

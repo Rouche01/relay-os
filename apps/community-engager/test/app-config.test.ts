@@ -36,6 +36,8 @@ describe("app-config", () => {
     assert.equal(cfg.cadence.enabled, true);
     assert.equal(cfg.cadence.maxHelpPerDay, 5);
     assert.equal(cfg.cadence.maxPromoPerDay, 1);
+    assert.equal(cfg.visibility.enabled, true);
+    assert.equal(cfg.visibility.delayMs, 3000);
     assert.match(cfg.discover.goal, /GoStylens/);
   });
 

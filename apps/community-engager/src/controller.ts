@@ -48,6 +48,11 @@ import {
   type CadenceStatus,
 } from "./cadence.js";
 import {
+  checkCommentVisibility,
+  formatVisibilityLog,
+  type VisibilityCheckResult,
+} from "./visibility.js";
+import {
   DISCOVER_SKIP_OPTION,
   discoveryChoiceOptions,
   parseDiscoveryChoices,
@@ -1962,6 +1967,7 @@ export class CommunityEngagerController implements AppController {
       cadenceBlocked: cadenceBlocksIntensity(cadence, draft.intensity),
     });
     ctx.executeResult = result;
+    let visibility: VisibilityCheckResult | undefined;
     const executeEvidence: ExecuteEvidence = {
       ok: result.ok,
       dryRun: result.dryRun,
@@ -2011,6 +2017,39 @@ export class CommunityEngagerController implements AppController {
           );
         } catch (err) {
           console.warn("[promo] failed to record ledger entry:", err);
+        }
+        // Logged-out permalink check — catch removal/shadowban before post-watch.
+        try {
+          visibility = await checkCommentVisibility(result.postedUrl, {
+            cfg: runtimeCfg,
+            jobId: result.jobId,
+          });
+          ctx.visibilityResult = visibility;
+          console.log(formatVisibilityLog(visibility));
+          executeEvidence.visibilityOk = visibility.visibilityOk;
+          executeEvidence.visibilityStatus = visibility.status;
+          if (visibility.error) {
+            executeEvidence.visibilityError = visibility.error;
+          }
+          ctx.stageResults = {
+            ...(ctx.stageResults ?? {}),
+            execute: executeEvidence,
+            visibility: {
+              status: visibility.status,
+              visibilityOk: visibility.visibilityOk,
+              permalink: visibility.permalink,
+              author: visibility.author,
+              authorMismatch: visibility.authorMismatch,
+              error: visibility.error,
+            },
+          };
+          if (!visibility.visibilityOk && visibility.status !== "skipped") {
+            console.warn(
+              `[visibility] comment not publicly visible after post (${visibility.status}) — check for removal or shadowban`
+            );
+          }
+        } catch (err) {
+          console.warn("[visibility] check failed:", err);
         }
         // Enroll for 24–72h reply/removal watch (next parent run).
         if (runtimeCfg.postWatch.enabled) {

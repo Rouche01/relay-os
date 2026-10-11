@@ -83,6 +83,10 @@ export interface ExecuteEvidence {
   postedUrl?: string;
   idempotentHit?: boolean;
   error?: string;
+  /** Logged-out permalink check after live post. */
+  visibilityOk?: boolean;
+  visibilityStatus?: string;
+  visibilityError?: string;
 }
 
 export interface MemoryWriteEvidence {

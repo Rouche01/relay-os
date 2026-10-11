@@ -199,6 +199,12 @@ export interface CadenceRuntimeConfig {
   maxPromoPerDay: number;
 }
 
+/** Immediate logged-out permalink check after live execute. */
+export interface VisibilityRuntimeConfig {
+  enabled: boolean;
+  delayMs: number;
+}
+
 /**
  * Resolved CommunityEngager runtime config (policy file + env secrets/overrides).
  * Nested to mirror `config/default.json`. Use {@link getCommunityConfig}.
@@ -209,6 +215,7 @@ export interface CommunityRuntimeConfig {
   promo: PromoRuntimeConfig;
   postWatch: PostWatchRuntimeConfig;
   cadence: CadenceRuntimeConfig;
+  visibility: VisibilityRuntimeConfig;
   discover: DiscoverRuntimeConfig;
   scout: ScoutRuntimeConfig;
   jobs: JobsRuntimeConfig;
@@ -505,6 +512,19 @@ export function getCommunityConfig(
         env,
         "COMMUNITY_CADENCE_MAX_PROMO_PER_DAY",
         policy.cadence.maxPromoPerDay,
+        { allowZero: true }
+      ),
+    },
+    visibility: {
+      enabled: envBool(
+        env,
+        "COMMUNITY_VISIBILITY_ENABLED",
+        policy.visibility.enabled
+      ),
+      delayMs: envNumber(
+        env,
+        "COMMUNITY_VISIBILITY_DELAY_MS",
+        policy.visibility.delayMs,
         { allowZero: true }
       ),
     },

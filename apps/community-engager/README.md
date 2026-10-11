@@ -139,6 +139,7 @@ flowchart TD
 | Soft-CTA drafts | Help first; intensity 0 = no product; 1 = name mention only; 2 = disclose + one LP link (`product.lpBaseUrl` / `GOSTYLENS_LP_BASE_URL`) |
 | Sub playbooks | Per-allowlist `playbook`: rules summary, `plugStyle`, `megathreadPolicy`, `maxPlugsPerWeek` — clamps draft intensity and megathread scout |
 | Daily cadence | Caps live help/promo posts per local day (`cadence.maxHelpPerDay` / `maxPromoPerDay`); cron entrypoints stay in the schedules plan |
+| Visibility check | After live execute, logged-out permalink fetch; flags removal / missing (shadowban-adjacent) |
 
 Warmup (`warmup.mode=auto`) keeps drafts help-only until local live intensity-0 posts and (when known) Reddit account age/karma clear the thresholds. State: `{REDDIT_DATA_DIR}/warmup/state.json`.
 
@@ -148,11 +149,13 @@ Post-watch (`postWatch.enabled`, default on) enrolls each live-posted comment an
 
 Daily cadence (`cadence.enabled`, default on) counts today's ledger posts and caps opportunities / execute by `maxHelpPerDay` (default 5) and `maxPromoPerDay` (default 1). Per-sub weekly soft mentions stay in playbook `maxPlugsPerWeek`. Separate cron entrypoints are deferred to the schedules plan.
 
+Visibility (`visibility.enabled`, default on) waits `delayMs` (default 3000) then fetches the posted permalink as a logged-out client. Results: `visible` / `removed` / `missing` / `error`; persisted under `{REDDIT_DATA_DIR}/visibility/`. Does not fail the execute stage — warns loudly for ops follow-up. Longer-horizon reply/removal polling stays in post-watch.
+
 ## Config
 
 | Layer | What goes there |
 |-------|-----------------|
-| [`config/default.json`](./config/default.json) | Policy defaults (warmup, promo, postWatch, cadence, discover, scout, jobs, LP URL) |
+| [`config/default.json`](./config/default.json) | Policy defaults (warmup, promo, postWatch, cadence, visibility, discover, scout, jobs, LP URL) |
 | `config/local.json` | Optional machine overrides (gitignored; copy [`local.example.json`](./config/local.example.json)) |
 | [`.env`](./.env) | Secrets, paths, dry-run / browser host toggles |
 | Env vars | Still override any policy key when set (CI / one-offs) |

@@ -78,6 +78,12 @@ export interface CadenceFileConfig {
   maxPromoPerDay?: number;
 }
 
+export interface VisibilityFileConfig {
+  enabled?: boolean;
+  /** Wait before logged-out permalink fetch (ms). Default 3000. */
+  delayMs?: number;
+}
+
 export interface CommunityAppConfig {
   warmup: Required<
     Pick<WarmupFileConfig, "mode" | "minAccountDays" | "minKarma" | "minHelpComments">
@@ -99,6 +105,10 @@ export interface CommunityAppConfig {
     enabled: boolean;
     maxHelpPerDay: number;
     maxPromoPerDay: number;
+  };
+  visibility: {
+    enabled: boolean;
+    delayMs: number;
   };
   discover: {
     mode: string;
@@ -143,6 +153,7 @@ export interface CommunityAppConfigFile {
   promo?: PromoFileConfig;
   postWatch?: PostWatchFileConfig;
   cadence?: CadenceFileConfig;
+  visibility?: VisibilityFileConfig;
   discover?: DiscoverFileConfig;
   scout?: ScoutFileConfig;
   jobs?: JobsFileConfig;
@@ -174,6 +185,10 @@ const BUILTIN_DEFAULTS: CommunityAppConfig = {
     enabled: true,
     maxHelpPerDay: 5,
     maxPromoPerDay: 1,
+  },
+  visibility: {
+    enabled: true,
+    delayMs: 3000,
   },
   discover: {
     mode: "auto",
@@ -295,6 +310,7 @@ export function mergeConfig(
         ),
       },
       cadence: { ...out.cadence, ...pickDefined(layer.cadence) },
+      visibility: { ...out.visibility, ...pickDefined(layer.visibility) },
       discover: { ...out.discover, ...pickDefined(layer.discover) },
       scout: { ...out.scout, ...pickDefined(layer.scout) },
       jobs: { ...out.jobs, ...pickDefined(layer.jobs) },
@@ -334,6 +350,10 @@ function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
       enabled: Boolean(raw.cadence?.enabled ?? true),
       maxHelpPerDay: nonNegInt(raw.cadence?.maxHelpPerDay, 5),
       maxPromoPerDay: nonNegInt(raw.cadence?.maxPromoPerDay, 1),
+    },
+    visibility: {
+      enabled: Boolean(raw.visibility?.enabled ?? true),
+      delayMs: nonNegInt(raw.visibility?.delayMs, 3000),
     },
     discover: {
       mode: String(raw.discover.mode ?? "auto"),

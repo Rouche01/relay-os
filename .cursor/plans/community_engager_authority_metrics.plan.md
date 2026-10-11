@@ -31,7 +31,7 @@ todos:
     status: completed
   - id: p2-visibility-check
     content: Visibility check after execute — logged-out fetch of permalink; detect removal/shadowban early
-    status: pending
+    status: completed
   - id: p2-job-utm-attribution
     content: UTM per job (campaign=jobId) + join to GoStylens analytics / self-reported Reddit attribution
     status: pending
@@ -147,7 +147,7 @@ Goal text is fashion/styling help-first, but there is no explicit GoStylens ICP 
 | P1       | ~~**Soft-CTA drafts**~~ — help first; 1 = mention; 2 = disclose + LP                                                  | Matches how Reddit converts            |
 | P2       | ~~**Subreddit playbooks**~~ — rules, plug style, megathread policy, max plugs/week on allowlist                       | Promote becomes operational            |
 | P2       | ~~**Cadence scheduler**~~ — daily help/promo budgets in config; weekly per-sub via playbooks; cron via entrypoints plan | Looks like a person, not a batch       |
-| P2       | **Visibility check** after execute (logged-out permalink fetch)                                                       | Detect removal/shadowban early         |
+| P2       | ~~**Visibility check**~~ after execute (logged-out permalink fetch)                                                   | Detect removal/shadowban early         |
 | P3       | **Close loop to GoStylens** — unique UTM per job + Reddit survey option                                               | Prove users, not just comments         |
 
 
@@ -273,7 +273,7 @@ For the first 30–90 days:
 
 ### Slice B — learn after post (P1)
 
-1. Visibility check after live execute
+1. ~~Visibility check after live execute~~ **done** — `visibility.ts` logged-out permalink fetch; `visible`/`removed`/`missing`; `{dataDir}/visibility/`; execute evidence; does not fail the stage
 2. ~~Post-watch domain (enroll + poll + follow-up drafts)~~ **done** — temporary parent stage; **relocate** via `[relay_manifest_entrypoints_schedules.plan.md](./relay_manifest_entrypoints_schedules.plan.md)` A0
 3. ~~Soft-CTA~~ **done** — help-first prompt; `soft-cta.ts` shapes 0/1/2; LP from `product.lpBaseUrl` + UTM on intensity 2 / execute
 
