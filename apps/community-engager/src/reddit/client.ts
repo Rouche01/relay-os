@@ -63,6 +63,43 @@ export class RedditClient {
   }
 
   /**
+   * Current account profile (age + karma) for warmup gating.
+   * Requires OAuth script-app credentials.
+   */
+  async fetchMe(): Promise<{
+    name: string;
+    createdUtc: number;
+    totalKarma: number;
+    linkKarma: number;
+    commentKarma: number;
+  }> {
+    const token = await this.getToken();
+    const res = await fetch("https://oauth.reddit.com/api/v1/me", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "User-Agent": this.cfg.userAgent,
+      },
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Reddit /api/v1/me failed: ${res.status} ${body}`);
+    }
+    const data = (await res.json()) as Record<string, unknown>;
+    const linkKarma = Number(data.link_karma ?? 0);
+    const commentKarma = Number(data.comment_karma ?? 0);
+    const totalKarma = Number(
+      data.total_karma ?? linkKarma + commentKarma
+    );
+    return {
+      name: String(data.name ?? ""),
+      createdUtc: Number(data.created_utc ?? 0),
+      totalKarma: Number.isFinite(totalKarma) ? totalKarma : 0,
+      linkKarma: Number.isFinite(linkKarma) ? linkKarma : 0,
+      commentKarma: Number.isFinite(commentKarma) ? commentKarma : 0,
+    };
+  }
+
+  /**
    * Post a comment on a link/comment thing.
    * Returns the new comment fullname when successful.
    */

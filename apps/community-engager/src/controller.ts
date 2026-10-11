@@ -16,7 +16,13 @@ import {
 import type { AppController } from "@relay/runtime";
 import type { FeedbackAdapter } from "@relay/feedback-broker";
 import { draftToFeedbackContext } from "./feedback-map.js";
-import { draftReply } from "./drafter.js";
+import { applyWarmupClamp, draftReply } from "./drafter.js";
+import {
+  formatWarmupLog,
+  recordHelpCommentPosted,
+  resolveWarmupStatus,
+  type WarmupStatus,
+} from "./warmup.js";
 import {
   DISCOVER_SKIP_OPTION,
   discoveryChoiceOptions,
@@ -193,11 +199,23 @@ export class CommunityEngagerController implements AppController {
     if (isEditResponse(feedback)) {
       draft.draftText = String(feedback.value);
       draft.status = "edited";
+      const warmup = ctx.warmupStatus as WarmupStatus | undefined;
+      const clamped = applyWarmupClamp(draft, Boolean(warmup?.active), {
+        title: draft.threadTitle,
+        subreddit: draft.subreddit,
+        opText: draft.opText,
+        memoryHint: true,
+      });
+      Object.assign(draft, clamped);
       await this.options.store.updateStatus(draft.id, "edited", {
-        payload: { draftText: draft.draftText, status: "edited" },
+        payload: {
+          draftText: draft.draftText,
+          intensity: draft.intensity,
+          status: "edited",
+        },
       });
       ctx.currentDraft = draft;
-      ctx.feedbackContext = draftToFeedbackContext(draft);
+      ctx.feedbackContext = draftToFeedbackContext(draft, { warmup });
       ctx.hitlOutcome = "edited";
       this.recordJobHitl(ctx, "edited");
       return;
@@ -360,7 +378,8 @@ export class CommunityEngagerController implements AppController {
     if (stage.name !== "await_approval") return undefined;
     const draft = context.currentDraft as CommunityDraft | undefined;
     if (!draft) return undefined;
-    return draftToFeedbackContext(draft);
+    const warmup = context.warmupStatus as WarmupStatus | undefined;
+    return draftToFeedbackContext(draft, { warmup });
   }
 
   async shouldSkipFeedbackPoint(
@@ -1633,6 +1652,10 @@ export class CommunityEngagerController implements AppController {
       (ctx.opportunity as CommunityDraft | undefined) ??
       this.pickFromQueue(ctx);
 
+    const warmup = await resolveWarmupStatus(getRedditEnv());
+    ctx.warmupStatus = warmup;
+    console.log(formatWarmupLog(warmup));
+
     const memoryBlock = await this.options.memory.rememberForPrompt(
       `community reddit draft r/${top.subreddit} ${top.threadTitle} intensity feedback abort approve`,
       { limit: 5 }
@@ -1644,6 +1667,11 @@ export class CommunityEngagerController implements AppController {
     }
     ctx.agentMemory = memoryBlock;
 
+    const draftOverrides = {
+      memoryBlock: memoryBlock || undefined,
+      warmupActive: warmup.active,
+    };
+
     let drafted: CommunityDraft;
     let provider: DraftProvider = "stub";
     if (engine?.type === "llm") {
@@ -1651,7 +1679,7 @@ export class CommunityEngagerController implements AppController {
         type: "draft_reply",
         params: {
           draft: top,
-          overrides: { memoryBlock: memoryBlock || undefined },
+          overrides: draftOverrides,
         },
       });
       if (!result.success || !result.data?.draft) {
@@ -1662,9 +1690,7 @@ export class CommunityEngagerController implements AppController {
         provider = result.data.provider;
       }
     } else {
-      const outcome = await draftReply(top, {
-        memoryBlock: memoryBlock || undefined,
-      });
+      const outcome = await draftReply(top, draftOverrides);
       drafted = outcome.draft;
       provider = outcome.provider;
     }
@@ -1679,7 +1705,7 @@ export class CommunityEngagerController implements AppController {
     );
 
     ctx.currentDraft = drafted;
-    ctx.feedbackContext = draftToFeedbackContext(drafted);
+    ctx.feedbackContext = draftToFeedbackContext(drafted, { warmup });
     const preview = draftPreview(drafted.draftText);
     const draftEvidence: DraftEvidence = {
       id: drafted.id,
@@ -1690,6 +1716,10 @@ export class CommunityEngagerController implements AppController {
       memoryChars: memoryBlock?.length ?? 0,
       provider,
       draftChars: drafted.draftText.length,
+      warmupActive: warmup.active,
+      ...(warmup.active && warmup.reasons.length
+        ? { warmupReasons: warmup.reasons }
+        : {}),
       ...(preview ? { preview } : {}),
     };
     ctx.stageResults = {
@@ -1697,7 +1727,8 @@ export class CommunityEngagerController implements AppController {
       draft: draftEvidence,
     };
     console.log(
-      `[draft] pending_approval id=${drafted.id} intensity=${drafted.intensity} provider=${provider} chars=${drafted.draftText.length}`
+      `[draft] pending_approval id=${drafted.id} intensity=${drafted.intensity} provider=${provider} chars=${drafted.draftText.length}` +
+        (warmup.active ? " warmup=1" : "")
     );
   }
 
@@ -1717,7 +1748,10 @@ export class CommunityEngagerController implements AppController {
       throw new Error("No currentDraft for execute");
     }
 
-    const result = await executeApproved(draft);
+    const warmup =
+      (ctx.warmupStatus as WarmupStatus | undefined) ??
+      (await resolveWarmupStatus(getRedditEnv()));
+    const result = await executeApproved(draft, { warmupActive: warmup.active });
     ctx.executeResult = result;
     const executeEvidence: ExecuteEvidence = {
       ok: result.ok,
@@ -1743,6 +1777,21 @@ export class CommunityEngagerController implements AppController {
         console.warn("[execute] store status update:", err);
       }
       ctx.currentDraft = draft;
+
+      // Live intensity-0 posts advance the local help-comment warmup counter.
+      if (
+        !result.dryRun &&
+        !result.idempotentHit &&
+        draft.intensity === 0 &&
+        result.postedUrl
+      ) {
+        try {
+          const total = await recordHelpCommentPosted(getRedditEnv().dataDir);
+          console.log(`[warmup] help comment recorded (total=${total})`);
+        } catch (err) {
+          console.warn("[warmup] failed to record help comment:", err);
+        }
+      }
     } else {
       await this.options.store.updateStatus(draft.id, "failed", {
         payload: { status: "failed" },

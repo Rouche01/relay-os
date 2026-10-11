@@ -1,9 +1,12 @@
 ---
 name: CommunityEngager authority + metrics
-overview: "Close the gaps between CommunityEngager’s existing HITL Reddit loop and a human-like authority-building program for GoStylens: warmup, promo-ratio, post-watch, richer scoring, attribution, and admin north-star metrics."
+overview: "Close the gaps between CommunityEngager’s existing HITL Reddit loop and a human-like authority-building program for GoStylens: app config file (policy vs secrets), warmup, promo-ratio, post-watch, richer scoring, attribution, and admin north-star metrics."
 todos:
   - id: p0-warmup-mode
     content: "Warmup mode — force intensity 0 until account age / karma / help-comment thresholds; optional browse+upvote cadence before plugs"
+    status: completed
+  - id: p0-app-config
+    content: "App config file for policy knobs (warmup, discover, scout, draft) — keep .env for secrets/paths/dry-run only; defaults + optional local override; env still wins for CI/deploy"
     status: pending
   - id: p0-promo-ratio-ledger
     content: "Account promo-ratio ledger — rolling window of intensity 0 vs 1–2; warn or block HITL when ratio drifts past ~10% promo"
@@ -247,9 +250,10 @@ For the first 30–90 days:
 
 ### Slice A — enforce being a good citizen (P0)
 
-1. Promo-ratio ledger + HITL warning / force intensity 0  
-2. Warmup mode env flags (`COMMUNITY_WARMUP_*`)  
-3. Persist intensity + permalink on every job outcome  
+1. ~~Warmup mode~~ **done** — intensity 0 clamp + thresholds + `{dataDir}/warmup/state.json`; browse+upvote cadence still deferred (`COMMUNITY_WARMUP_BROWSE` reserved)  
+2. **App config file** (`p0-app-config`) — move policy knobs out of `.env` before more P0/P1 flags land; secrets/paths/`REDDIT_DRY_RUN` stay in env; migrate existing `COMMUNITY_WARMUP_*` (and similar) into checked-in defaults + optional gitignored local override  
+3. Promo-ratio ledger + HITL warning / force intensity 0 (new knobs go in config, not `.env`)  
+4. Persist intensity + permalink on every job outcome  
 
 ### Slice B — learn after post (P1)
 

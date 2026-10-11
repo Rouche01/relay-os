@@ -7,7 +7,7 @@ const OP_TEXT_MAX_CHARS = 4000;
 const MEMORY_MAX_CHARS = 2000;
 const DRAFT_TEXT_MAX_CHARS = 4000;
 
-const PRODUCT_RE = /\bgostylens\b/i;
+export const PRODUCT_RE = /\bgostylens\b/i;
 const DISCLOSURE_RE =
   /\b(disclosure|disclos(?:e|ing)|i(?:'m| am) the (?:founder|maker|builder)|i built|full disclosure)\b/i;
 
@@ -27,17 +27,31 @@ export function prefersHelpFirstMemory(memoryBlock: string): boolean {
   return /abort/i.test(memoryBlock) || /spam|hard sell|too promo|intensity=2/i.test(memoryBlock);
 }
 
-export function buildDraftPrompt(draft: CommunityDraft, memoryBlock?: string): string {
+export function buildDraftPrompt(
+  draft: CommunityDraft,
+  memoryBlock?: string,
+  opts?: { warmupActive?: boolean }
+): string {
   const opText = (draft.opText ?? "").trim().slice(0, OP_TEXT_MAX_CHARS);
   const memory = (memoryBlock ?? "").trim().slice(0, MEMORY_MAX_CHARS);
   const memorySection = memory
     ? `Past human feedback (do not quote it; only become more conservative):\n${memory}`
     : "Past human feedback: none.";
+  const warmupSection = opts?.warmupActive
+    ? [
+        "WARMUP MODE (required):",
+        "- Intensity must be 0.",
+        "- Do not mention GoStylens, any product, or any link.",
+        "- Pure concrete help only — this account is still building trust.",
+        "",
+      ]
+    : [];
 
   return [
     "You write one Reddit comment reply for a fashion and styling community.",
     "The product is GoStylens, a small styling helper. Voice is help-first.",
     "",
+    ...warmupSection,
     "Intensity rules:",
     "- 0: answer the post with concrete help only. Do not mention GoStylens.",
     "- 1: give the help first, then one soft GoStylens sentence the reader can ignore. Never hard-sell.",
@@ -64,7 +78,11 @@ export function buildDraftPrompt(draft: CommunityDraft, memoryBlock?: string): s
  * Intensity 2 survives only when the comment already discloses.
  * Returns null when draftText is missing or too long.
  */
-export function parseDraftModelJson(raw: string, memoryBlock?: string): ParsedDraftJson | null {
+export function parseDraftModelJson(
+  raw: string,
+  memoryBlock?: string,
+  opts?: { warmupActive?: boolean }
+): ParsedDraftJson | null {
   let value: unknown;
   try {
     value = JSON.parse(raw);
@@ -75,7 +93,10 @@ export function parseDraftModelJson(raw: string, memoryBlock?: string): ParsedDr
   const obj = value as Record<string, unknown>;
   const draftText = typeof obj.draftText === "string" ? obj.draftText.trim() : "";
   if (!draftText || draftText.length > DRAFT_TEXT_MAX_CHARS) return null;
-  if (memoryBlock && prefersHelpFirstMemory(memoryBlock) && PRODUCT_RE.test(draftText)) {
+  const helpFirst =
+    Boolean(opts?.warmupActive) ||
+    Boolean(memoryBlock && prefersHelpFirstMemory(memoryBlock));
+  if (helpFirst && PRODUCT_RE.test(draftText)) {
     return null;
   }
 
@@ -86,7 +107,7 @@ export function parseDraftModelJson(raw: string, memoryBlock?: string): ParsedDr
 
   return {
     draftText,
-    intensity: clampModelIntensity(obj.intensity, draftText, memoryBlock),
+    intensity: clampModelIntensity(obj.intensity, draftText, memoryBlock, opts),
     rationale,
   };
 }
@@ -94,8 +115,10 @@ export function parseDraftModelJson(raw: string, memoryBlock?: string): ParsedDr
 export function clampModelIntensity(
   raw: unknown,
   draftText: string,
-  memoryBlock?: string
+  memoryBlock?: string,
+  opts?: { warmupActive?: boolean }
 ): PromoIntensity {
+  if (opts?.warmupActive) return 0;
   if (memoryBlock && prefersHelpFirstMemory(memoryBlock)) return 0;
   const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
   if (n === 2) return DISCLOSURE_RE.test(draftText) ? 2 : 1;
@@ -107,6 +130,7 @@ export async function generateGeminiDraft(input: {
   draft: CommunityDraft;
   memoryBlock?: string;
   apiKey?: string;
+  warmupActive?: boolean;
 }): Promise<ParsedDraftJson> {
   const apiKey = geminiDraftKey(input.apiKey);
   if (!apiKey) {
@@ -118,7 +142,9 @@ export async function generateGeminiDraft(input: {
   const ai = new genai.GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
     model: DRAFT_MODEL,
-    contents: buildDraftPrompt(input.draft, input.memoryBlock),
+    contents: buildDraftPrompt(input.draft, input.memoryBlock, {
+      warmupActive: input.warmupActive,
+    }),
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -161,7 +187,9 @@ export async function generateGeminiDraft(input: {
     },
   });
 
-  const parsed = parseDraftModelJson(response.text ?? "", input.memoryBlock);
+  const parsed = parseDraftModelJson(response.text ?? "", input.memoryBlock, {
+    warmupActive: input.warmupActive,
+  });
   if (!parsed) {
     throw new Error("Gemini draft JSON was empty or failed validation");
   }

@@ -136,10 +136,29 @@ export interface RedditEnvConfig {
    * Env: COMMUNITY_DISCOVER_REQUEUE_DAYS (default 14). 0 = never re-queue.
    */
   discoverRequeueDays: number;
+  /**
+   * Warmup mode (`COMMUNITY_WARMUP`).
+   * - auto: force intensity 0 until age/karma/help-comment thresholds met
+   * - force: always intensity 0
+   * - off: never apply warmup clamp
+   */
+  warmupMode: WarmupMode;
+  /** Min Reddit account age in days (auto). Env: COMMUNITY_WARMUP_MIN_ACCOUNT_DAYS. */
+  warmupMinAccountDays: number;
+  /** Min total karma (auto). Env: COMMUNITY_WARMUP_MIN_KARMA. */
+  warmupMinKarma: number;
+  /**
+   * Min live intensity-0 posts recorded locally (auto).
+   * Env: COMMUNITY_WARMUP_MIN_HELP_COMMENTS.
+   */
+  warmupMinHelpComments: number;
 }
 
 /** COMMUNITY_DISCOVER=auto|force|off (true→force, false→off). */
 export type DiscoverMode = "auto" | "force" | "off";
+
+/** COMMUNITY_WARMUP=auto|force|off (true→force, false→off). */
+export type WarmupMode = "auto" | "force" | "off";
 
 export function parseDiscoverMode(raw: string | undefined): DiscoverMode {
   const v = (raw ?? "auto").trim().toLowerCase();
@@ -149,6 +168,16 @@ export function parseDiscoverMode(raw: string | undefined): DiscoverMode {
   }
   if (v === "auto") return "auto";
   // Unknown values: treat as auto (safe default — skip when healthy).
+  return "auto";
+}
+
+export function parseWarmupMode(raw: string | undefined): WarmupMode {
+  const v = (raw ?? "auto").trim().toLowerCase();
+  if (v === "off" || v === "false" || v === "0" || v === "no") return "off";
+  if (v === "force" || v === "true" || v === "1" || v === "yes" || v === "on") {
+    return "force";
+  }
+  if (v === "auto") return "auto";
   return "auto";
 }
 
@@ -313,6 +342,23 @@ export function getRedditEnv(
       ? Math.floor(requeueRaw)
       : 14;
 
+  const warmupMode = parseWarmupMode(env.COMMUNITY_WARMUP ?? "auto");
+  const warmupDaysRaw = Number(env.COMMUNITY_WARMUP_MIN_ACCOUNT_DAYS ?? "30");
+  const warmupMinAccountDays =
+    Number.isFinite(warmupDaysRaw) && warmupDaysRaw >= 0
+      ? Math.floor(warmupDaysRaw)
+      : 30;
+  const warmupKarmaRaw = Number(env.COMMUNITY_WARMUP_MIN_KARMA ?? "100");
+  const warmupMinKarma =
+    Number.isFinite(warmupKarmaRaw) && warmupKarmaRaw >= 0
+      ? Math.floor(warmupKarmaRaw)
+      : 100;
+  const warmupHelpRaw = Number(env.COMMUNITY_WARMUP_MIN_HELP_COMMENTS ?? "10");
+  const warmupMinHelpComments =
+    Number.isFinite(warmupHelpRaw) && warmupHelpRaw >= 0
+      ? Math.floor(warmupHelpRaw)
+      : 10;
+
   return {
     clientId,
     clientSecret,
@@ -345,6 +391,10 @@ export function getRedditEnv(
     discoverExploreSlot,
     discoverGoal,
     discoverRequeueDays,
+    warmupMode,
+    warmupMinAccountDays,
+    warmupMinKarma,
+    warmupMinHelpComments,
   };
 }
 

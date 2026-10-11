@@ -43,6 +43,9 @@ export interface DraftEvidence {
   draftChars: number;
   /** Single-line excerpt of the proposed reply. */
   preview?: string;
+  /** Account warmup forced intensity 0. */
+  warmupActive?: boolean;
+  warmupReasons?: string[];
 }
 
 const PREVIEW_MAX = 140;

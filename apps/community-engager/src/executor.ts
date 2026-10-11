@@ -31,6 +31,11 @@ export interface ExecuteOptions {
   dataDir?: string;
   /** Browser path: attempt login if jar missing (default true when user/pass set). */
   loginIfNeeded?: boolean;
+  /**
+   * When true, refuse intensity > 0 (account still warming).
+   * Draft stage should already clamp; this is a hard execute gate.
+   */
+  warmupActive?: boolean;
 }
 
 /**
@@ -60,6 +65,15 @@ export async function executeApproved(
       dryRun,
       jobId,
       error: `refusing to post status=${draft.status}`,
+    };
+  }
+
+  if (opts.warmupActive && draft.intensity > 0) {
+    return {
+      ok: false,
+      dryRun,
+      jobId,
+      error: "warmup active — refusing intensity > 0 (help-only until thresholds met)",
     };
   }
 

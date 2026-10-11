@@ -2,6 +2,7 @@ import {
   geminiDraftKey,
   generateGeminiDraft,
   prefersHelpFirstMemory,
+  PRODUCT_RE,
 } from "./draft-llm.js";
 import type { DraftProvider } from "./run-evidence.js";
 import type { CommunityDraft, PromoIntensity } from "./types.js";
@@ -17,6 +18,11 @@ export interface DraftReplyOptions {
   intensity?: PromoIntensity;
   /** From ContextEngine.rememberForPrompt — biases stub; not posted verbatim */
   memoryBlock?: string;
+  /**
+   * When true, force intensity 0 and strip product plugs (account warmup).
+   * Overrides LLM intensity and soft-mention stubs.
+   */
+  warmupActive?: boolean;
 }
 
 /**
@@ -28,24 +34,33 @@ export async function draftReply(
   overrides?: DraftReplyOptions
 ): Promise<DraftReplyOutcome> {
   const fixture = FIXTURE_THREADS.find((t) => t.id === draft.id);
+  const warmupActive = Boolean(overrides?.warmupActive);
   let intensity = clampIntensity(overrides?.intensity ?? draft.intensity);
   const memoryBlock = overrides?.memoryBlock;
 
-  if (memoryBlock && prefersHelpFirstMemory(memoryBlock)) {
+  if (warmupActive || (memoryBlock && prefersHelpFirstMemory(memoryBlock))) {
     intensity = 0;
   }
 
   if (!overrides?.text && geminiDraftKey()) {
     try {
-      const llm = await generateGeminiDraft({ draft, memoryBlock });
+      const llm = await generateGeminiDraft({
+        draft,
+        memoryBlock,
+        warmupActive,
+      });
       return {
         provider: "gemini",
-        draft: {
-          ...draft,
-          draftText: llm.draftText,
-          intensity: llm.intensity,
-          status: "pending_approval",
-        },
+        draft: applyWarmupClamp(
+          {
+            ...draft,
+            draftText: llm.draftText,
+            intensity: llm.intensity,
+            status: "pending_approval",
+          },
+          warmupActive,
+          { title: draft.threadTitle, subreddit: draft.subreddit, memoryHint: Boolean(memoryBlock) }
+        ),
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -58,19 +73,61 @@ export async function draftReply(
     buildStubDraft({
       title: draft.threadTitle,
       opText: draft.opText ?? fixture?.opText ?? "",
-      intensity,
+      intensity: warmupActive ? 0 : intensity,
       subreddit: draft.subreddit,
       memoryHint: Boolean(memoryBlock),
     });
 
   return {
     provider: "stub",
-    draft: {
-      ...draft,
-      draftText: text,
-      intensity,
-      status: "pending_approval",
-    },
+    draft: applyWarmupClamp(
+      {
+        ...draft,
+        draftText: text,
+        intensity: warmupActive ? 0 : intensity,
+        status: "pending_approval",
+      },
+      warmupActive,
+      {
+        title: draft.threadTitle,
+        subreddit: draft.subreddit,
+        memoryHint: Boolean(memoryBlock),
+        opText: draft.opText ?? fixture?.opText ?? "",
+      }
+    ),
+  };
+}
+
+/**
+ * Hard clamp for warmup: intensity 0 and no GoStylens mention.
+ * If the text still plugs the product, replace with a help-only stub.
+ */
+export function applyWarmupClamp(
+  draft: CommunityDraft,
+  warmupActive: boolean,
+  stubCtx?: {
+    title: string;
+    subreddit: string;
+    opText?: string;
+    memoryHint?: boolean;
+  }
+): CommunityDraft {
+  if (!warmupActive) return draft;
+  if (draft.intensity === 0 && !PRODUCT_RE.test(draft.draftText)) {
+    return { ...draft, intensity: 0 };
+  }
+  const title = stubCtx?.title ?? draft.threadTitle;
+  const helpOnly = buildStubDraft({
+    title,
+    opText: stubCtx?.opText ?? draft.opText ?? "",
+    intensity: 0,
+    subreddit: stubCtx?.subreddit ?? draft.subreddit,
+    memoryHint: stubCtx?.memoryHint ?? true,
+  });
+  return {
+    ...draft,
+    intensity: 0,
+    draftText: PRODUCT_RE.test(draft.draftText) ? helpOnly : draft.draftText,
   };
 }
 

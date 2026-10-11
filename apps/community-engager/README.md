@@ -132,6 +132,9 @@ flowchart TD
 | Allowlist + score ≥4 | Only certain subs / strong fits |
 | CAPTCHAs are never auto-solved | Detect, then escalate to a human or degrade quietly |
 | Discovery proposes, humans promote | A newly researched sub is not postable until approved |
+| Warmup forces intensity 0 | Until account age / karma / help-comment thresholds (`COMMUNITY_WARMUP`) |
+
+Warmup (`COMMUNITY_WARMUP=auto` by default) keeps drafts help-only until local live intensity-0 posts and (when known) Reddit account age/karma clear the thresholds. State lives in `{REDDIT_DATA_DIR}/warmup/state.json`. Use `force` to always clamp, or `off` to disable. See [authority + metrics plan](../../.cursor/plans/community_engager_authority_metrics.plan.md).
 
 ## Quick start
 
