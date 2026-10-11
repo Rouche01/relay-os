@@ -1,6 +1,7 @@
 import type { FeedbackContext, FeedbackDetail } from "@relay/protocol";
 import type { CommunityDraft } from "./types.js";
 import { scoreTotal } from "./types.js";
+import type { PromoRatioStatus } from "./promo-ratio.js";
 import type { WarmupStatus } from "./warmup.js";
 
 /**
@@ -9,7 +10,7 @@ import type { WarmupStatus } from "./warmup.js";
  */
 export function draftToFeedbackContext(
   draft: CommunityDraft,
-  opts?: { warmup?: WarmupStatus }
+  opts?: { warmup?: WarmupStatus; promo?: PromoRatioStatus }
 ): FeedbackContext {
   const details: FeedbackDetail[] = [
     { label: "Subreddit", value: `r/${draft.subreddit}` },
@@ -21,6 +22,23 @@ export function draftToFeedbackContext(
     details.push({
       label: "Warmup",
       value: opts.warmup.reasons.join("; ") || "active — intensity forced to 0",
+    });
+  }
+  if (opts?.promo?.exceeds) {
+    const action =
+      opts.promo.onExceed === "block"
+        ? "blocked — intensity forced to 0"
+        : "warning — soft mention still allowed";
+    details.push({
+      label: "Promo ratio",
+      value:
+        opts.promo.reasons.join("; ") ||
+        `${(opts.promo.currentRatio * 100).toFixed(0)}% promo (${action})`,
+    });
+  } else if (opts?.promo?.enabled) {
+    details.push({
+      label: "Promo ratio",
+      value: `${(opts.promo.currentRatio * 100).toFixed(1)}% (${opts.promo.promoCount} promo / ${opts.promo.helpCount} help, max ${(opts.promo.maxRatio * 100).toFixed(0)}%)`,
     });
   }
   if (draft.rationale) {
@@ -41,6 +59,9 @@ export function draftToFeedbackContext(
       status: draft.status,
       utmCampaign: draft.utmCampaign,
       warmupActive: Boolean(opts?.warmup?.active),
+      promoBlocked: Boolean(opts?.promo?.blockPromo),
+      promoWarned: Boolean(opts?.promo?.warnPromo),
+      promoRatio: opts?.promo?.currentRatio,
     },
   };
 }

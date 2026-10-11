@@ -5,6 +5,12 @@
     "minKarma": 100,
     "minHelpComments": 10
   },
+  "promo": {
+    "enabled": true,
+    "maxRatio": 0.1,
+    "windowDays": 30,
+    "onExceed": "block"
+  },
   "discover": {
     "mode": "auto",
     "query": "fashion style advice wardrobe",

@@ -23,6 +23,10 @@ export interface DraftReplyOptions {
    * Overrides LLM intensity and soft-mention stubs.
    */
   warmupActive?: boolean;
+  /**
+   * Same clamp as warmup — used when promo-ratio ledger blocks plugs.
+   */
+  forceIntensity0?: boolean;
 }
 
 /**
@@ -34,11 +38,13 @@ export async function draftReply(
   overrides?: DraftReplyOptions
 ): Promise<DraftReplyOutcome> {
   const fixture = FIXTURE_THREADS.find((t) => t.id === draft.id);
-  const warmupActive = Boolean(overrides?.warmupActive);
+  const forceIntensity0 = Boolean(
+    overrides?.warmupActive || overrides?.forceIntensity0
+  );
   let intensity = clampIntensity(overrides?.intensity ?? draft.intensity);
   const memoryBlock = overrides?.memoryBlock;
 
-  if (warmupActive || (memoryBlock && prefersHelpFirstMemory(memoryBlock))) {
+  if (forceIntensity0 || (memoryBlock && prefersHelpFirstMemory(memoryBlock))) {
     intensity = 0;
   }
 
@@ -47,7 +53,7 @@ export async function draftReply(
       const llm = await generateGeminiDraft({
         draft,
         memoryBlock,
-        warmupActive,
+        warmupActive: forceIntensity0,
       });
       return {
         provider: "gemini",
@@ -58,7 +64,7 @@ export async function draftReply(
             intensity: llm.intensity,
             status: "pending_approval",
           },
-          warmupActive,
+          forceIntensity0,
           { title: draft.threadTitle, subreddit: draft.subreddit, memoryHint: Boolean(memoryBlock) }
         ),
       };
@@ -73,7 +79,7 @@ export async function draftReply(
     buildStubDraft({
       title: draft.threadTitle,
       opText: draft.opText ?? fixture?.opText ?? "",
-      intensity: warmupActive ? 0 : intensity,
+      intensity: forceIntensity0 ? 0 : intensity,
       subreddit: draft.subreddit,
       memoryHint: Boolean(memoryBlock),
     });
@@ -84,10 +90,10 @@ export async function draftReply(
       {
         ...draft,
         draftText: text,
-        intensity: warmupActive ? 0 : intensity,
+        intensity: forceIntensity0 ? 0 : intensity,
         status: "pending_approval",
       },
-      warmupActive,
+      forceIntensity0,
       {
         title: draft.threadTitle,
         subreddit: draft.subreddit,

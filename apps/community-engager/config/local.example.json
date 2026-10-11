@@ -3,6 +3,9 @@
   "warmup": {
     "mode": "force"
   },
+  "promo": {
+    "onExceed": "warn"
+  },
   "scout": {
     "maxSubs": 2
   }

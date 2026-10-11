@@ -142,6 +142,17 @@ export interface ProductRuntimeConfig {
   lpBaseUrl: string;
 }
 
+/** block = force intensity 0; warn = allow but surface in HITL. */
+export type PromoOnExceed = "block" | "warn";
+
+export interface PromoRuntimeConfig {
+  enabled: boolean;
+  /** Max share of intensity ≥1 posts in the rolling window (0–1). */
+  maxRatio: number;
+  windowDays: number;
+  onExceed: PromoOnExceed;
+}
+
 /**
  * Resolved CommunityEngager runtime config (policy file + env secrets/overrides).
  * Nested to mirror `config/default.json`. Use {@link getCommunityConfig}.
@@ -149,6 +160,7 @@ export interface ProductRuntimeConfig {
 export interface CommunityRuntimeConfig {
   reddit: RedditSessionConfig;
   warmup: WarmupRuntimeConfig;
+  promo: PromoRuntimeConfig;
   discover: DiscoverRuntimeConfig;
   scout: ScoutRuntimeConfig;
   jobs: JobsRuntimeConfig;
@@ -367,6 +379,26 @@ export function getCommunityConfig(
         "COMMUNITY_WARMUP_MIN_HELP_COMMENTS",
         policy.warmup.minHelpComments
       ),
+    },
+    promo: {
+      enabled: envBool(env, "COMMUNITY_PROMO_ENABLED", policy.promo.enabled),
+      maxRatio: (() => {
+        const raw = env.COMMUNITY_PROMO_MAX_RATIO;
+        if (raw === undefined || raw.trim() === "") return policy.promo.maxRatio;
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n < 0) return policy.promo.maxRatio;
+        return n > 1 ? 1 : n;
+      })(),
+      windowDays: envNumber(
+        env,
+        "COMMUNITY_PROMO_WINDOW_DAYS",
+        policy.promo.windowDays
+      ),
+      onExceed: (() => {
+        const raw = env.COMMUNITY_PROMO_ON_EXCEED?.trim().toLowerCase();
+        if (raw === "warn" || raw === "block") return raw;
+        return policy.promo.onExceed === "warn" ? "warn" : "block";
+      })(),
     },
     discover: {
       mode: discoverMode,

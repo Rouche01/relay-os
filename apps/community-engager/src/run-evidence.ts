@@ -46,6 +46,12 @@ export interface DraftEvidence {
   /** Account warmup forced intensity 0. */
   warmupActive?: boolean;
   warmupReasons?: string[];
+  /** Promo-ratio ledger blocked intensity ≥ 1. */
+  promoBlocked?: boolean;
+  /** Promo-ratio ledger warned but did not block. */
+  promoWarned?: boolean;
+  /** Rolling promo ratio at draft time (0–1). */
+  promoRatio?: number;
 }
 
 const PREVIEW_MAX = 140;

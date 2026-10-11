@@ -49,10 +49,25 @@ export interface DraftFileConfig {
   [key: string]: unknown;
 }
 
+export interface PromoFileConfig {
+  enabled?: boolean;
+  /** Max share of intensity ≥1 posts in the rolling window (0–1). Default 0.1. */
+  maxRatio?: number;
+  windowDays?: number;
+  /** block = force intensity 0; warn = allow but surface in HITL. */
+  onExceed?: "block" | "warn";
+}
+
 export interface CommunityAppConfig {
   warmup: Required<
     Pick<WarmupFileConfig, "mode" | "minAccountDays" | "minKarma" | "minHelpComments">
   >;
+  promo: {
+    enabled: boolean;
+    maxRatio: number;
+    windowDays: number;
+    onExceed: "block" | "warn";
+  };
   discover: {
     mode: string;
     query: string;
@@ -93,6 +108,7 @@ export interface LoadAppConfigOptions {
 /** Raw JSON shape before defaults are filled. */
 export interface CommunityAppConfigFile {
   warmup?: WarmupFileConfig;
+  promo?: PromoFileConfig;
   discover?: DiscoverFileConfig;
   scout?: ScoutFileConfig;
   jobs?: JobsFileConfig;
@@ -106,6 +122,12 @@ const BUILTIN_DEFAULTS: CommunityAppConfig = {
     minAccountDays: 30,
     minKarma: 100,
     minHelpComments: 10,
+  },
+  promo: {
+    enabled: true,
+    maxRatio: 0.1,
+    windowDays: 30,
+    onExceed: "block",
   },
   discover: {
     mode: "auto",
@@ -212,6 +234,13 @@ export function mergeConfig(
     if (!layer) continue;
     out = {
       warmup: { ...out.warmup, ...pickDefined(layer.warmup) },
+      promo: {
+        ...out.promo,
+        ...pickDefined(layer.promo),
+        onExceed: parseOnExceed(
+          layer.promo?.onExceed ?? out.promo.onExceed
+        ),
+      },
       discover: { ...out.discover, ...pickDefined(layer.discover) },
       scout: { ...out.scout, ...pickDefined(layer.scout) },
       jobs: { ...out.jobs, ...pickDefined(layer.jobs) },
@@ -229,6 +258,12 @@ function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
       minAccountDays: nonNegInt(raw.warmup.minAccountDays, 30),
       minKarma: nonNegInt(raw.warmup.minKarma, 100),
       minHelpComments: nonNegInt(raw.warmup.minHelpComments, 10),
+    },
+    promo: {
+      enabled: Boolean(raw.promo?.enabled ?? true),
+      maxRatio: clampRatio(raw.promo?.maxRatio, 0.1),
+      windowDays: nonNegInt(raw.promo?.windowDays, 30),
+      onExceed: parseOnExceed(raw.promo?.onExceed),
     },
     discover: {
       mode: String(raw.discover.mode ?? "auto"),
@@ -294,6 +329,18 @@ function nonNegInt(raw: unknown, fallback: number): number {
 function positiveInt(raw: unknown, fallback: number): number {
   const n = typeof raw === "number" ? raw : Number(raw);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+function clampRatio(raw: unknown, fallback: number): number {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  if (n > 1) return 1;
+  return n;
+}
+
+function parseOnExceed(raw: unknown): "block" | "warn" {
+  const v = String(raw ?? "block").trim().toLowerCase();
+  return v === "warn" ? "warn" : "block";
 }
 
 /** Env wins when the variable is set (non-empty). */

@@ -18,6 +18,12 @@ import type { FeedbackAdapter } from "@relay/feedback-broker";
 import { draftToFeedbackContext } from "./feedback-map.js";
 import { applyWarmupClamp, draftReply } from "./drafter.js";
 import {
+  formatPromoRatioLog,
+  recordPromoLedgerPost,
+  resolvePromoRatioStatus,
+  type PromoRatioStatus,
+} from "./promo-ratio.js";
+import {
   formatWarmupLog,
   recordHelpCommentPosted,
   resolveWarmupStatus,
@@ -200,7 +206,9 @@ export class CommunityEngagerController implements AppController {
       draft.draftText = String(feedback.value);
       draft.status = "edited";
       const warmup = ctx.warmupStatus as WarmupStatus | undefined;
-      const clamped = applyWarmupClamp(draft, Boolean(warmup?.active), {
+      const promo = ctx.promoRatioStatus as PromoRatioStatus | undefined;
+      const forceIntensity0 = Boolean(warmup?.active || promo?.blockPromo);
+      const clamped = applyWarmupClamp(draft, forceIntensity0, {
         title: draft.threadTitle,
         subreddit: draft.subreddit,
         opText: draft.opText,
@@ -215,7 +223,7 @@ export class CommunityEngagerController implements AppController {
         },
       });
       ctx.currentDraft = draft;
-      ctx.feedbackContext = draftToFeedbackContext(draft, { warmup });
+      ctx.feedbackContext = draftToFeedbackContext(draft, { warmup, promo });
       ctx.hitlOutcome = "edited";
       this.recordJobHitl(ctx, "edited");
       return;
@@ -379,7 +387,8 @@ export class CommunityEngagerController implements AppController {
     const draft = context.currentDraft as CommunityDraft | undefined;
     if (!draft) return undefined;
     const warmup = context.warmupStatus as WarmupStatus | undefined;
-    return draftToFeedbackContext(draft, { warmup });
+    const promo = context.promoRatioStatus as PromoRatioStatus | undefined;
+    return draftToFeedbackContext(draft, { warmup, promo });
   }
 
   async shouldSkipFeedbackPoint(
@@ -1652,9 +1661,17 @@ export class CommunityEngagerController implements AppController {
       (ctx.opportunity as CommunityDraft | undefined) ??
       this.pickFromQueue(ctx);
 
-    const warmup = await resolveWarmupStatus(getCommunityConfig());
+    const runtimeCfg = getCommunityConfig();
+    const warmup = await resolveWarmupStatus(runtimeCfg);
     ctx.warmupStatus = warmup;
     console.log(formatWarmupLog(warmup));
+
+    // Probe whether a soft-mention (intensity 1) would breach the rolling promo ratio.
+    const promo = await resolvePromoRatioStatus(runtimeCfg, {
+      proposedIntensity: 1,
+    });
+    ctx.promoRatioStatus = promo;
+    console.log(formatPromoRatioLog(promo));
 
     const memoryBlock = await this.options.memory.rememberForPrompt(
       `community reddit draft r/${top.subreddit} ${top.threadTitle} intensity feedback abort approve`,
@@ -1667,9 +1684,11 @@ export class CommunityEngagerController implements AppController {
     }
     ctx.agentMemory = memoryBlock;
 
+    const forceIntensity0 = warmup.active || promo.blockPromo;
     const draftOverrides = {
       memoryBlock: memoryBlock || undefined,
       warmupActive: warmup.active,
+      forceIntensity0: promo.blockPromo,
     };
 
     let drafted: CommunityDraft;
@@ -1705,7 +1724,7 @@ export class CommunityEngagerController implements AppController {
     );
 
     ctx.currentDraft = drafted;
-    ctx.feedbackContext = draftToFeedbackContext(drafted, { warmup });
+    ctx.feedbackContext = draftToFeedbackContext(drafted, { warmup, promo });
     const preview = draftPreview(drafted.draftText);
     const draftEvidence: DraftEvidence = {
       id: drafted.id,
@@ -1720,6 +1739,9 @@ export class CommunityEngagerController implements AppController {
       ...(warmup.active && warmup.reasons.length
         ? { warmupReasons: warmup.reasons }
         : {}),
+      promoBlocked: promo.blockPromo,
+      promoWarned: promo.warnPromo,
+      promoRatio: promo.currentRatio,
       ...(preview ? { preview } : {}),
     };
     ctx.stageResults = {
@@ -1728,7 +1750,8 @@ export class CommunityEngagerController implements AppController {
     };
     console.log(
       `[draft] pending_approval id=${drafted.id} intensity=${drafted.intensity} provider=${provider} chars=${drafted.draftText.length}` +
-        (warmup.active ? " warmup=1" : "")
+        (forceIntensity0 ? " helpOnly=1" : "") +
+        (promo.warnPromo ? " promoWarn=1" : "")
     );
   }
 
@@ -1748,10 +1771,19 @@ export class CommunityEngagerController implements AppController {
       throw new Error("No currentDraft for execute");
     }
 
+    const runtimeCfg = getCommunityConfig();
     const warmup =
       (ctx.warmupStatus as WarmupStatus | undefined) ??
-      (await resolveWarmupStatus(getCommunityConfig()));
-    const result = await executeApproved(draft, { warmupActive: warmup.active });
+      (await resolveWarmupStatus(runtimeCfg));
+    const promo =
+      (ctx.promoRatioStatus as PromoRatioStatus | undefined) ??
+      (await resolvePromoRatioStatus(runtimeCfg, {
+        proposedIntensity: draft.intensity,
+      }));
+    const result = await executeApproved(draft, {
+      warmupActive: warmup.active,
+      promoBlocked: promo.blockPromo,
+    });
     ctx.executeResult = result;
     const executeEvidence: ExecuteEvidence = {
       ok: result.ok,
@@ -1778,18 +1810,29 @@ export class CommunityEngagerController implements AppController {
       }
       ctx.currentDraft = draft;
 
-      // Live intensity-0 posts advance the local help-comment warmup counter.
-      if (
-        !result.dryRun &&
-        !result.idempotentHit &&
-        draft.intensity === 0 &&
-        result.postedUrl
-      ) {
+      if (!result.dryRun && !result.idempotentHit && result.postedUrl) {
+        const dataDir = runtimeCfg.reddit.dataDir;
+        // Live intensity-0 posts advance the local help-comment warmup counter.
+        if (draft.intensity === 0) {
+          try {
+            const total = await recordHelpCommentPosted(dataDir);
+            console.log(`[warmup] help comment recorded (total=${total})`);
+          } catch (err) {
+            console.warn("[warmup] failed to record help comment:", err);
+          }
+        }
+        // Every live post (help or promo) updates the rolling promo-ratio ledger.
         try {
-          const total = await recordHelpCommentPosted(getCommunityConfig().reddit.dataDir);
-          console.log(`[warmup] help comment recorded (total=${total})`);
+          const n = await recordPromoLedgerPost(dataDir, {
+            intensity: draft.intensity,
+            jobId: result.jobId,
+            windowDays: runtimeCfg.promo.windowDays,
+          });
+          console.log(
+            `[promo] ledger recorded intensity=${draft.intensity} (windowEntries=${n})`
+          );
         } catch (err) {
-          console.warn("[warmup] failed to record help comment:", err);
+          console.warn("[promo] failed to record ledger entry:", err);
         }
       }
     } else {

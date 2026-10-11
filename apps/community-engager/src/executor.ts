@@ -36,6 +36,10 @@ export interface ExecuteOptions {
    * Draft stage should already clamp; this is a hard execute gate.
    */
   warmupActive?: boolean;
+  /**
+   * When true, refuse intensity > 0 (promo-ratio ledger would exceed max).
+   */
+  promoBlocked?: boolean;
 }
 
 /**
@@ -74,6 +78,16 @@ export async function executeApproved(
       dryRun,
       jobId,
       error: "warmup active — refusing intensity > 0 (help-only until thresholds met)",
+    };
+  }
+
+  if (opts.promoBlocked && draft.intensity > 0) {
+    return {
+      ok: false,
+      dryRun,
+      jobId,
+      error:
+        "promo ratio exceeded — refusing intensity > 0 (help-only until window recovers)",
     };
   }
 

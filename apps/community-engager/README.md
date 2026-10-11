@@ -132,9 +132,12 @@ flowchart TD
 | Allowlist + score ≥4 | Only certain subs / strong fits |
 | CAPTCHAs are never auto-solved | Detect, then escalate to a human or degrade quietly |
 | Discovery proposes, humans promote | A newly researched sub is not postable until approved |
-| Warmup forces intensity 0 | Until account age / karma / help-comment thresholds (`COMMUNITY_WARMUP`) |
+| Warmup forces intensity 0 | Until account age / karma / help-comment thresholds (`warmup` in config) |
+| Promo-ratio ledger (~9:1) | Rolling window caps intensity ≥1; `promo.onExceed` = `block` or `warn` |
 
-Warmup (`warmup.mode=auto` in config, overridable via `COMMUNITY_WARMUP`) keeps drafts help-only until local live intensity-0 posts and (when known) Reddit account age/karma clear the thresholds. State lives in `{REDDIT_DATA_DIR}/warmup/state.json`. Use `force` to always clamp, or `off` to disable. See [authority + metrics plan](../../.cursor/plans/community_engager_authority_metrics.plan.md).
+Warmup (`warmup.mode=auto`) keeps drafts help-only until local live intensity-0 posts and (when known) Reddit account age/karma clear the thresholds. State: `{REDDIT_DATA_DIR}/warmup/state.json`.
+
+Promo ratio (`promo.maxRatio` default `0.1`, `windowDays` `30`) tracks live posts in `{REDDIT_DATA_DIR}/promo/ledger.json`. When a soft mention would push the window over the max, **`block`** forces intensity 0 (default) or **`warn`** surfaces the ratio in HITL without clamping. See [authority + metrics plan](../../.cursor/plans/community_engager_authority_metrics.plan.md).
 
 ## Config
 
