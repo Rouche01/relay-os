@@ -254,8 +254,8 @@ export async function ensureBrowserSession(
   cfg: CommunityRuntimeConfig,
   opts: { loginIfNeeded?: boolean; headless?: boolean } = {}
 ): Promise<{ ok: boolean; error?: string }> {
-  const loginIfNeeded = opts.loginIfNeeded ?? cfg.hasUserPass;
-  if (await hasStorageState(cfg)) {
+  const loginIfNeeded = opts.loginIfNeeded ?? cfg.reddit.hasUserPass;
+  if (await hasStorageState(cfg.reddit)) {
     return { ok: true };
   }
   if (!loginIfNeeded) {
@@ -265,7 +265,7 @@ export async function ensureBrowserSession(
         "No Reddit storageState jar — run `pnpm login:reddit` or set REDDIT_USERNAME/PASSWORD",
     };
   }
-  if (!cfg.hasUserPass) {
+  if (!cfg.reddit.hasUserPass) {
     return {
       ok: false,
       error: "Missing cookie jar and REDDIT_USERNAME/PASSWORD for login fallback",
@@ -304,7 +304,7 @@ export async function postCommentBrowser(
     process.env.REDDIT_LOGIN_HEADED === "true" ||
     process.env.REDDIT_LOGIN_HEADED === "1";
   const headless =
-    opts.headless ?? (headedEnv ? false : cfg.browserHeadless);
+    opts.headless ?? (headedEnv ? false : cfg.reddit.browserHeadless);
   const decide = opts.decide ?? createDecisionPort();
 
   const session = await ensureBrowserSession(cfg, {
@@ -376,7 +376,7 @@ export async function postCommentBrowser(
     await submitComment(page, decide);
 
     const permalink = await capturePermalink(page, text);
-    await saveSession(page, cfg);
+    await saveSession(page, cfg.reddit);
 
     if (!permalink) {
       console.warn(

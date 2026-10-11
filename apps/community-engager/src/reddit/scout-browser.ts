@@ -92,11 +92,11 @@ export interface BrowserScoutOptions {
   delayMs?: number;
   /** Load cookie jar if present (default true). */
   useStoredSession?: boolean;
-  /** Total time budget per sub (default cfg.scoutSubBudgetMs). */
+  /** Total time budget per sub (default cfg.scout.subBudgetMs). */
   subBudgetMs?: number;
   /**
    * On CAPTCHA/humanity wall, stop and hand off the live browser for HITL
-   * (default: cfg.interstitialHitl).
+   * (default: cfg.reddit.interstitialHitl).
    */
   escalateCaptcha?: boolean;
   /** Page-class DecisionPort (default createDecisionPort). */
@@ -202,16 +202,16 @@ export async function scoutRedditBrowser(
 ): Promise<BrowserScoutResult> {
   const cfg = opts.cfg ?? getCommunityConfig();
   let subs = opts.subreddits?.length ? opts.subreddits : allowlistedSubNames();
-  if (cfg.scoutMaxSubs > 0) {
-    subs = subs.slice(0, cfg.scoutMaxSubs);
+  if (cfg.scout.maxSubs > 0) {
+    subs = subs.slice(0, cfg.scout.maxSubs);
   }
   const limit = opts.limit ?? 5;
-  const delayMs = opts.delayMs ?? cfg.scoutDelayMs;
-  const jitterMs = cfg.scoutDelayJitterMs;
-  const subBudgetMs = opts.subBudgetMs ?? cfg.scoutSubBudgetMs;
-  const scrollRounds = cfg.scoutScrollRounds;
-  const deepReadMax = cfg.scoutDeepReadMax;
-  const escalateCaptcha = opts.escalateCaptcha ?? cfg.interstitialHitl;
+  const delayMs = opts.delayMs ?? cfg.scout.delayMs;
+  const jitterMs = cfg.scout.delayJitterMs;
+  const subBudgetMs = opts.subBudgetMs ?? cfg.scout.subBudgetMs;
+  const scrollRounds = cfg.scout.scrollRounds;
+  const deepReadMax = cfg.scout.deepReadMax;
+  const escalateCaptcha = opts.escalateCaptcha ?? cfg.reddit.interstitialHitl;
   const decide = opts.decide ?? createDecisionPort();
   const drafts: CommunityDraft[] = [];
   const blocked: BrowserScoutBlocked[] = [];
@@ -259,7 +259,7 @@ export async function scoutRedditBrowser(
   /** When true, finally must not teardown — HITL owns the window. */
   let handOffEngine = false;
   /** Adopted post-login windows are already headed. */
-  let runningHeadless = !opts.adopt && cfg.browserHeadless;
+  let runningHeadless = !opts.adopt && cfg.reddit.browserHeadless;
 
   try {
     let page = await engine.getPage();

@@ -108,7 +108,7 @@ export async function scoutOpportunities(
   opts: ScoutOptions = {}
 ): Promise<ScoutResult> {
   const cfg = getCommunityConfig();
-  const source = opts.source ?? cfg.scoutSource;
+  const source = opts.source ?? cfg.scout.source;
   const limit = opts.limit ?? 5;
   let blocked: BrowserScoutBlocked[] = [];
   let timedOut: string[] = [];
@@ -214,11 +214,11 @@ export async function scoutOpportunities(
 
   const tryOauth =
     isOauthScoutSource(source) ||
-    (source === "auto" && cfg.oauthConfigured) ||
-    ((source === "json" || source === "browser") && cfg.oauthConfigured);
+    (source === "auto" && cfg.reddit.oauthConfigured) ||
+    ((source === "json" || source === "browser") && cfg.reddit.oauthConfigured);
 
   if (tryOauth) {
-    if (isOauthScoutSource(source) && !cfg.oauthConfigured) {
+    if (isOauthScoutSource(source) && !cfg.reddit.oauthConfigured) {
       throw new Error(
         "SCOUT_SOURCE=reddit|oauth but REDDIT_CLIENT_* OAuth credentials are missing"
       );

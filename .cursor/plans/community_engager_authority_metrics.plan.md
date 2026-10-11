@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: p0-nest-runtime-config
     content: "Nest CommunityRuntimeConfig to mirror config/default.json (reddit/session, warmup, discover, scout, jobs, product) — drop flat warmup*/discover*/scout* prefixes; update call sites"
-    status: pending
+    status: completed
   - id: p0-promo-ratio-ledger
     content: "Account promo-ratio ledger — rolling window of intensity 0 vs 1–2; warn or block HITL when ratio drifts past ~10% promo"
     status: pending
@@ -255,7 +255,7 @@ For the first 30–90 days:
 
 1. ~~Warmup mode~~ **done** — intensity 0 clamp + thresholds + `{dataDir}/warmup/state.json`; browse+upvote cadence still deferred (`COMMUNITY_WARMUP_BROWSE` reserved)  
 2. ~~**App config file** (`p0-app-config`)~~ **done** — `config/default.json` + optional `config/local.json`; secrets/paths/`REDDIT_DRY_RUN` stay in `.env`; env still overrides when set; `RedditEnvConfig` → `CommunityRuntimeConfig` / `getCommunityConfig`  
-3. **Nest `CommunityRuntimeConfig`** (`p0-nest-runtime-config`) — align runtime type with file sections before more P0 knobs land; `cfg.warmup.mode` not `cfg.warmupMode`  
+3. ~~**Nest `CommunityRuntimeConfig`** (`p0-nest-runtime-config`)~~ **done** — `reddit` / `warmup` / `discover` / `scout` / `jobs` / `product`; `RedditSessionConfig` for OAuth/cookies; `cfg.warmup.mode` not `cfg.warmupMode`  
 4. Promo-ratio ledger + HITL warning / force intensity 0 (new knobs go in nested config, not `.env`)  
 5. Persist intensity + permalink on every job outcome  
 

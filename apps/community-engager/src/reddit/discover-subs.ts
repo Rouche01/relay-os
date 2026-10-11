@@ -75,7 +75,7 @@ const PROMO_BAN_RE =
 const MAX_SAMPLE_SUBS = 8;
 
 function jsonUserAgent(cfg: CommunityRuntimeConfig): string {
-  const ua = cfg.userAgent;
+  const ua = cfg.reddit.userAgent;
   if (!ua || /relay-community-engager/i.test(ua)) {
     return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
   }
@@ -119,8 +119,8 @@ class DiscoverJsonSession {
     private readonly decide: DecisionPort,
     adopt?: { engine: PlaywrightEngine; storagePath: string }
   ) {
-    this.storagePath = adopt?.storagePath ?? storageStatePath(cfg);
-    this.headless = adopt ? false : cfg.browserHeadless;
+    this.storagePath = adopt?.storagePath ?? storageStatePath(cfg.reddit);
+    this.headless = adopt ? false : cfg.reddit.browserHeadless;
     if (adopt) {
       this.engine = adopt.engine;
       this.storagePath = adopt.storagePath;
@@ -383,15 +383,15 @@ export async function discoverSubredditCandidates(
   const cfg = opts.cfg ?? getCommunityConfig();
   const query =
     opts.query?.trim() ||
-    cfg.discoverQuery ||
+    cfg.discover.query ||
     "fashion style advice wardrobe";
-  const limit = opts.limit ?? cfg.discoverMaxCandidates;
+  const limit = opts.limit ?? cfg.discover.maxCandidates;
   const exclude = new Set(
     (opts.exclude ?? []).map((s) => s.replace(/^r\//i, "").toLowerCase())
   );
-  const escalateCaptcha = opts.escalateCaptcha ?? cfg.interstitialHitl;
+  const escalateCaptcha = opts.escalateCaptcha ?? cfg.reddit.interstitialHitl;
   const decide = opts.decide ?? createDecisionPort();
-  const goal = opts.goal?.trim() || cfg.discoverGoal || DEFAULT_DISCOVER_GOAL;
+  const goal = opts.goal?.trim() || cfg.discover.goal || DEFAULT_DISCOVER_GOAL;
   const minConfidence = discoverMinConfidence();
 
   const searchUrls = [
@@ -462,7 +462,7 @@ export async function discoverSubredditCandidates(
         sampleTitles = await sampleNewTitles(name, session);
         sampled += 1;
         if (session.getChallenge()) break;
-        await sleep(Math.min(cfg.scoutDelayMs, 1500));
+        await sleep(Math.min(cfg.scout.delayMs, 1500));
         if (sampleTitles.length) {
           fit = await scoreDiscoverFit(
             decide,

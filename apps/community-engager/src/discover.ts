@@ -51,9 +51,9 @@ export async function runDiscovery(opts?: {
   const forceDiscover = Boolean(opts?.forceDiscover || opts?.adopt);
 
   const gate = resolveDiscoverGate({
-    mode: cfg.discoverMode,
+    mode: cfg.discover.mode,
     postableCount: postable.length,
-    minPostable: cfg.discoverMinPostable,
+    minPostable: cfg.discover.minPostable,
     forceDiscover,
   });
 
@@ -61,13 +61,13 @@ export async function runDiscovery(opts?: {
     const healthy = gate.reason.startsWith("auto:healthy");
     if (healthy) {
       console.log(
-        `[discover] skipped — allowlist healthy (${postable.length} postable ≥ min ${cfg.discoverMinPostable})`
+        `[discover] skipped — allowlist healthy (${postable.length} postable ≥ min ${cfg.discover.minPostable})`
       );
     } else {
       console.log(`[discover] skipped — ${gate.reason}`);
     }
     return {
-      enabled: cfg.discoverMode !== "off",
+      enabled: cfg.discover.mode !== "off",
       ran: false,
       candidates: [],
       skippedReason: gate.reason,
@@ -77,10 +77,10 @@ export async function runDiscovery(opts?: {
   console.log(`[discover] gate=${gate.reason}`);
 
   // Skip postable + rejected + proposed still within re-queue TTL.
-  const exclude = await store.listDiscoverExclude(cfg.discoverRequeueDays);
+  const exclude = await store.listDiscoverExclude(cfg.discover.requeueDays);
   console.log(
     `[discover] exclude ${exclude.length} allowlist name(s)` +
-      ` (requeueDays=${cfg.discoverRequeueDays})`
+      ` (requeueDays=${cfg.discover.requeueDays})`
   );
   const decide = opts?.decide ?? createDecisionPort();
 
@@ -90,12 +90,12 @@ export async function runDiscovery(opts?: {
     const raw = await discoverSubredditCandidates({
       cfg,
       exclude,
-      query: cfg.discoverQuery,
-      limit: cfg.discoverMaxCandidates,
-      escalateCaptcha: cfg.interstitialHitl,
+      query: cfg.discover.query,
+      limit: cfg.discover.maxCandidates,
+      escalateCaptcha: cfg.reddit.interstitialHitl,
       adopt: opts?.adopt,
       decide,
-      goal: cfg.discoverGoal,
+      goal: cfg.discover.goal,
     });
     candidates = raw.candidates;
     challenge = raw.challenge;

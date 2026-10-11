@@ -65,11 +65,14 @@ export type RedditTransport =
   | "json"
   | "fixtures";
 
-/**
- * Resolved CommunityEngager runtime config (policy file + env secrets/overrides).
- * Not env-only — use {@link getCommunityConfig} to build it.
- */
-export interface CommunityRuntimeConfig {
+/** COMMUNITY_DISCOVER=auto|force|off (true→force, false→off). */
+export type DiscoverMode = "auto" | "force" | "off";
+
+/** COMMUNITY_WARMUP=auto|force|off (true→force, false→off). */
+export type WarmupMode = "auto" | "force" | "off";
+
+/** Secrets, paths, and Reddit host toggles (from .env). */
+export interface RedditSessionConfig {
   clientId?: string;
   clientSecret?: string;
   username?: string;
@@ -82,94 +85,75 @@ export interface CommunityRuntimeConfig {
   oauthConfigured: boolean;
   /** @deprecated Alias of oauthConfigured — kept for older call sites. */
   configured: boolean;
-  /** Username + password only (enough for future browser login; no API app). */
+  /** Username + password only (enough for browser login; no API app). */
   hasUserPass: boolean;
   /** When true (default), never call write APIs / live browser post. */
   dryRun: boolean;
-  scoutSource: ScoutSource;
   /** Preferred execute transport (`REDDIT_TRANSPORT`). */
   transport: RedditTransport;
-  lpBaseUrl: string;
   /** Playwright headless (default true). */
   browserHeadless: boolean;
-  /** Base delay between allowlisted subs during browser scout (ms). */
-  scoutDelayMs: number;
-  /** Random extra delay 0…jitter added to scoutDelayMs (human pacing). */
-  scoutDelayJitterMs: number;
-  /** Cap how many allowlisted subs to visit this run (default all). */
-  scoutMaxSubs: number;
-  /** Scroll rounds on each /new feed to load more posts (human browse depth). */
-  scoutScrollRounds: number;
-  /** Max thread deep-reads per sub (open permalink for full OP body). */
-  scoutDeepReadMax: number;
-  /** Max time per sub during browser scout (ms). Default 12s. */
-  scoutSubBudgetMs: number;
   /**
    * When true, a detected interstitial opens a headed browser and pauses
-   * for human Approve via Telegram/CLI (solve in the window, then Approve).
-   * Default: on when scout is headed or REDDIT_LOGIN_HEADED; off for unattended headless.
+   * for human Approve via Telegram/CLI.
    */
   interstitialHitl: boolean;
-  /** App data root (jobs, cookies). Default `.data`. */
+  /** App data root (jobs, cookies, warmup). Default `.data`. */
   dataDir: string;
   /** Cookie / storageState directory for browser session. */
   cookieDir: string;
-  /**
-   * Discover stage mode (`COMMUNITY_DISCOVER` or config discover.mode).
-   * - auto: run only when postable allowlist is thin
-   * - force: always research this run
-   * - off: never run
-   */
-  discoverMode: DiscoverMode;
-  /** @deprecated Prefer discoverMode; true when mode !== "off". */
-  discoverEnabled: boolean;
-  /** Reddit subreddit search query for discovery. */
-  discoverQuery: string;
-  /** Max discovery candidates to propose per run. */
-  discoverMaxCandidates: number;
-  /**
-   * Auto mode: skip discover when postable count ≥ this.
-   * Default = seed allowlist size (rulesOk subs).
-   */
-  discoverMinPostable: number;
-  /**
-   * When true, scout reserves one slot for a human-promoted discovered sub
-   * (exploration among already-approved allowlist entries).
-   */
-  discoverExploreSlot: boolean;
-  /**
-   * Goal string for discover-fit DecisionPort (Noul).
-   */
-  discoverGoal: string;
-  /**
-   * Days before a `proposed` allowlist entry may reappear in discover.
-   * 0 = never re-queue.
-   */
-  discoverRequeueDays: number;
-  /**
-   * Warmup mode (`COMMUNITY_WARMUP` or config warmup.mode).
-   * - auto: force intensity 0 until age/karma/help-comment thresholds met
-   * - force: always intensity 0
-   * - off: never apply warmup clamp
-   */
-  warmupMode: WarmupMode;
-  /** Min Reddit account age in days (auto). */
-  warmupMinAccountDays: number;
-  /** Min total karma (auto). */
-  warmupMinKarma: number;
-  /** Min live intensity-0 posts recorded locally (auto). */
-  warmupMinHelpComments: number;
-  /** Max job fanout per run (config jobs.maxJobs / COMMUNITY_MAX_JOBS). */
-  maxJobs: number;
-  /** Pause between jobs (config jobs.delayMs / COMMUNITY_JOB_DELAY_MS). */
-  jobDelayMs: number;
 }
 
-/** COMMUNITY_DISCOVER=auto|force|off (true→force, false→off). */
-export type DiscoverMode = "auto" | "force" | "off";
+export interface WarmupRuntimeConfig {
+  mode: WarmupMode;
+  minAccountDays: number;
+  minKarma: number;
+  minHelpComments: number;
+}
 
-/** COMMUNITY_WARMUP=auto|force|off (true→force, false→off). */
-export type WarmupMode = "auto" | "force" | "off";
+export interface DiscoverRuntimeConfig {
+  mode: DiscoverMode;
+  /** True when mode !== "off". */
+  enabled: boolean;
+  query: string;
+  maxCandidates: number;
+  minPostable: number;
+  exploreSlot: boolean;
+  goal: string;
+  requeueDays: number;
+}
+
+export interface ScoutRuntimeConfig {
+  source: ScoutSource;
+  delayMs: number;
+  delayJitterMs: number;
+  maxSubs: number;
+  scrollRounds: number;
+  deepReadMax: number;
+  subBudgetMs: number;
+}
+
+export interface JobsRuntimeConfig {
+  maxJobs: number;
+  delayMs: number;
+}
+
+export interface ProductRuntimeConfig {
+  lpBaseUrl: string;
+}
+
+/**
+ * Resolved CommunityEngager runtime config (policy file + env secrets/overrides).
+ * Nested to mirror `config/default.json`. Use {@link getCommunityConfig}.
+ */
+export interface CommunityRuntimeConfig {
+  reddit: RedditSessionConfig;
+  warmup: WarmupRuntimeConfig;
+  discover: DiscoverRuntimeConfig;
+  scout: ScoutRuntimeConfig;
+  jobs: JobsRuntimeConfig;
+  product: ProductRuntimeConfig;
+}
 
 export function parseDiscoverMode(raw: string | undefined): DiscoverMode {
   const v = (raw ?? "auto").trim().toLowerCase();
@@ -235,13 +219,12 @@ export function isOauthScoutSource(source: ScoutSource): boolean {
 export function resolveWriteTransport(
   cfg: CommunityRuntimeConfig
 ): "browser" | "oauth" | "none" {
-  const t = cfg.transport;
-  if (t === "browser") return "browser";
-  if (t === "oauth") return cfg.oauthConfigured ? "oauth" : "none";
-  if (t === "json" || t === "fixtures") return "none";
-  // auto — HITL browser first; OAuth when that's the only viable write path
-  if (cfg.hasUserPass) return "browser";
-  if (cfg.oauthConfigured) return "oauth";
+  const { transport, oauthConfigured, hasUserPass } = cfg.reddit;
+  if (transport === "browser") return "browser";
+  if (transport === "oauth") return oauthConfigured ? "oauth" : "none";
+  if (transport === "json" || transport === "fixtures") return "none";
+  if (hasUserPass) return "browser";
+  if (oauthConfigured) return "oauth";
   return "browser";
 }
 
@@ -252,13 +235,12 @@ export function resolveWriteTransport(
 export function resolveWriteTransportChain(
   cfg: CommunityRuntimeConfig
 ): Array<"browser" | "oauth"> {
-  const t = cfg.transport;
-  if (t === "browser") return ["browser"];
-  if (t === "oauth") return cfg.oauthConfigured ? ["oauth"] : [];
-  if (t === "json" || t === "fixtures") return [];
-  // auto
+  const { transport, oauthConfigured } = cfg.reddit;
+  if (transport === "browser") return ["browser"];
+  if (transport === "oauth") return oauthConfigured ? ["oauth"] : [];
+  if (transport === "json" || transport === "fixtures") return [];
   const chain: Array<"browser" | "oauth"> = ["browser"];
-  if (cfg.oauthConfigured) chain.push("oauth");
+  if (oauthConfigured) chain.push("oauth");
   return chain;
 }
 
@@ -341,106 +323,101 @@ export function getCommunityConfig(
       ? env.COMMUNITY_DISCOVER
       : policy.discover.mode
   );
-  const discoverEnabled = discoverMode !== "off";
-  const discoverQuery = envString(
-    env,
-    "COMMUNITY_DISCOVER_QUERY",
-    policy.discover.query
-  );
-  const discoverMaxCandidates = envNumber(
-    env,
-    "COMMUNITY_DISCOVER_MAX",
-    policy.discover.maxCandidates,
-    { allowZero: false }
-  );
   const minPostableFallback =
     policy.discover.minPostable ?? seedPostableCount();
-  const discoverMinPostable = envNumber(
-    env,
-    "COMMUNITY_DISCOVER_MIN_POSTABLE",
-    minPostableFallback,
-    { allowZero: false }
-  );
-  const discoverExploreSlot = envBool(
-    env,
-    "COMMUNITY_DISCOVER_EXPLORE",
-    policy.discover.exploreSlot
-  );
-  const discoverGoal = envString(
-    env,
-    "COMMUNITY_DISCOVER_GOAL",
-    policy.discover.goal
-  );
-  const discoverRequeueDays = envNumber(
-    env,
-    "COMMUNITY_DISCOVER_REQUEUE_DAYS",
-    policy.discover.requeueDays
-  );
 
   const warmupMode = parseWarmupMode(
     env.COMMUNITY_WARMUP !== undefined && env.COMMUNITY_WARMUP !== ""
       ? env.COMMUNITY_WARMUP
       : policy.warmup.mode
   );
-  const warmupMinAccountDays = envNumber(
-    env,
-    "COMMUNITY_WARMUP_MIN_ACCOUNT_DAYS",
-    policy.warmup.minAccountDays
-  );
-  const warmupMinKarma = envNumber(
-    env,
-    "COMMUNITY_WARMUP_MIN_KARMA",
-    policy.warmup.minKarma
-  );
-  const warmupMinHelpComments = envNumber(
-    env,
-    "COMMUNITY_WARMUP_MIN_HELP_COMMENTS",
-    policy.warmup.minHelpComments
-  );
-
-  const maxJobs = envNumber(env, "COMMUNITY_MAX_JOBS", policy.jobs.maxJobs, {
-    allowZero: false,
-  });
-  const jobDelayMs = envNumber(env, "COMMUNITY_JOB_DELAY_MS", policy.jobs.delayMs);
 
   return {
-    clientId,
-    clientSecret,
-    username,
-    password,
-    userAgent:
-      env.REDDIT_USER_AGENT ?? "relay-community-engager/0.1 by relay-os",
-    oauthConfigured,
-    configured: oauthConfigured,
-    hasUserPass,
-    dryRun,
-    scoutSource,
-    transport,
-    lpBaseUrl: envString(env, "GOSTYLENS_LP_BASE_URL", policy.product.lpBaseUrl),
-    browserHeadless,
-    scoutDelayMs,
-    scoutDelayJitterMs,
-    scoutMaxSubs,
-    scoutScrollRounds,
-    scoutDeepReadMax,
-    scoutSubBudgetMs,
-    interstitialHitl,
-    dataDir,
-    cookieDir,
-    discoverMode,
-    discoverEnabled,
-    discoverQuery,
-    discoverMaxCandidates,
-    discoverMinPostable,
-    discoverExploreSlot,
-    discoverGoal,
-    discoverRequeueDays,
-    warmupMode,
-    warmupMinAccountDays,
-    warmupMinKarma,
-    warmupMinHelpComments,
-    maxJobs,
-    jobDelayMs,
+    reddit: {
+      clientId,
+      clientSecret,
+      username,
+      password,
+      userAgent:
+        env.REDDIT_USER_AGENT ?? "relay-community-engager/0.1 by relay-os",
+      oauthConfigured,
+      configured: oauthConfigured,
+      hasUserPass,
+      dryRun,
+      transport,
+      browserHeadless,
+      interstitialHitl,
+      dataDir,
+      cookieDir,
+    },
+    warmup: {
+      mode: warmupMode,
+      minAccountDays: envNumber(
+        env,
+        "COMMUNITY_WARMUP_MIN_ACCOUNT_DAYS",
+        policy.warmup.minAccountDays
+      ),
+      minKarma: envNumber(
+        env,
+        "COMMUNITY_WARMUP_MIN_KARMA",
+        policy.warmup.minKarma
+      ),
+      minHelpComments: envNumber(
+        env,
+        "COMMUNITY_WARMUP_MIN_HELP_COMMENTS",
+        policy.warmup.minHelpComments
+      ),
+    },
+    discover: {
+      mode: discoverMode,
+      enabled: discoverMode !== "off",
+      query: envString(env, "COMMUNITY_DISCOVER_QUERY", policy.discover.query),
+      maxCandidates: envNumber(
+        env,
+        "COMMUNITY_DISCOVER_MAX",
+        policy.discover.maxCandidates,
+        { allowZero: false }
+      ),
+      minPostable: envNumber(
+        env,
+        "COMMUNITY_DISCOVER_MIN_POSTABLE",
+        minPostableFallback,
+        { allowZero: false }
+      ),
+      exploreSlot: envBool(
+        env,
+        "COMMUNITY_DISCOVER_EXPLORE",
+        policy.discover.exploreSlot
+      ),
+      goal: envString(env, "COMMUNITY_DISCOVER_GOAL", policy.discover.goal),
+      requeueDays: envNumber(
+        env,
+        "COMMUNITY_DISCOVER_REQUEUE_DAYS",
+        policy.discover.requeueDays
+      ),
+    },
+    scout: {
+      source: scoutSource,
+      delayMs: scoutDelayMs,
+      delayJitterMs: scoutDelayJitterMs,
+      maxSubs: scoutMaxSubs,
+      scrollRounds: scoutScrollRounds,
+      deepReadMax: scoutDeepReadMax,
+      subBudgetMs: scoutSubBudgetMs,
+    },
+    jobs: {
+      maxJobs: envNumber(env, "COMMUNITY_MAX_JOBS", policy.jobs.maxJobs, {
+        allowZero: false,
+      }),
+      delayMs: envNumber(env, "COMMUNITY_JOB_DELAY_MS", policy.jobs.delayMs),
+    },
+    product: {
+      lpBaseUrl: envString(
+        env,
+        "GOSTYLENS_LP_BASE_URL",
+        policy.product.lpBaseUrl
+      ),
+    },
   };
 }
 

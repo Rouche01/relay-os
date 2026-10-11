@@ -58,15 +58,15 @@ export function collectSafeRunFlags(): Record<
   const cfg = getCommunityConfig();
   return {
     feedbackAdapter: envFlag("FEEDBACK_ADAPTER") ?? "cli",
-    scoutSource: cfg.scoutSource,
-    redditTransport: envFlag("REDDIT_TRANSPORT") ?? cfg.transport,
-    redditDryRun: cfg.dryRun,
-    redditBrowserHeadless: cfg.browserHeadless,
-    redditInterstitialHitl: cfg.interstitialHitl,
-    communityDiscover: cfg.discoverMode,
-    communityWarmup: cfg.warmupMode,
-    maxJobs: cfg.maxJobs,
-    jobDelayMs: cfg.jobDelayMs,
+    scoutSource: cfg.scout.source,
+    redditTransport: envFlag("REDDIT_TRANSPORT") ?? cfg.reddit.transport,
+    redditDryRun: cfg.reddit.dryRun,
+    redditBrowserHeadless: cfg.reddit.browserHeadless,
+    redditInterstitialHitl: cfg.reddit.interstitialHitl,
+    communityDiscover: cfg.discover.mode,
+    communityWarmup: cfg.warmup.mode,
+    maxJobs: cfg.jobs.maxJobs,
+    jobDelayMs: cfg.jobs.delayMs,
   };
 }
 

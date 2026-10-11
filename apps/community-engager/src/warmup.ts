@@ -223,7 +223,7 @@ export async function resolveWarmupStatus(
   cfg: CommunityRuntimeConfig = getCommunityConfig(),
   opts?: { nowMs?: number; fetchAccount?: boolean }
 ): Promise<WarmupStatus> {
-  const state = await readWarmupState(cfg.dataDir);
+  const state = await readWarmupState(cfg.reddit.dataDir);
   let account =
     resolveEnvAccountSnapshot(process.env) ??
     state.account ??
@@ -231,13 +231,13 @@ export async function resolveWarmupStatus(
 
   const shouldFetch =
     opts?.fetchAccount !== false &&
-    cfg.warmupMode !== "off" &&
-    cfg.oauthConfigured &&
+    cfg.warmup.mode !== "off" &&
+    cfg.reddit.oauthConfigured &&
     account.source !== "env";
 
   if (shouldFetch) {
     try {
-      const client = new RedditClient(cfg);
+      const client = new RedditClient(cfg.reddit);
       const me = await client.fetchMe();
       account = {
         createdUtc: me.createdUtc,
@@ -245,7 +245,7 @@ export async function resolveWarmupStatus(
         source: "oauth",
         fetchedAt: new Date().toISOString(),
       };
-      await writeWarmupState(cfg.dataDir, {
+      await writeWarmupState(cfg.reddit.dataDir, {
         ...state,
         account,
       });
@@ -256,11 +256,11 @@ export async function resolveWarmupStatus(
   }
 
   return evaluateWarmup({
-    mode: cfg.warmupMode,
+    mode: cfg.warmup.mode,
     thresholds: {
-      minAccountDays: cfg.warmupMinAccountDays,
-      minKarma: cfg.warmupMinKarma,
-      minHelpComments: cfg.warmupMinHelpComments,
+      minAccountDays: cfg.warmup.minAccountDays,
+      minKarma: cfg.warmup.minKarma,
+      minHelpComments: cfg.warmup.minHelpComments,
     },
     helpCommentsPosted: state.helpCommentsPosted,
     account,

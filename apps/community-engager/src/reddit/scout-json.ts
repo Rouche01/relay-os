@@ -26,7 +26,7 @@ export interface JsonScoutOptions {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function jsonUserAgent(cfg: CommunityRuntimeConfig): string {
-  const ua = cfg.userAgent;
+  const ua = cfg.reddit.userAgent;
   if (!ua || /relay-community-engager/i.test(ua)) {
     return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
   }
@@ -187,7 +187,7 @@ export async function scoutRedditJson(
   const cfg = opts.cfg ?? getCommunityConfig();
   const subs = opts.subreddits?.length ? opts.subreddits : allowlistedSubNames();
   const limit = opts.limit ?? 5;
-  const delayMs = opts.delayMs ?? cfg.scoutDelayMs;
+  const delayMs = opts.delayMs ?? cfg.scout.delayMs;
   const playwrightFallback = opts.playwrightFallback ?? true;
   const drafts: CommunityDraft[] = [];
   const excludeIds = new Set(opts.excludeIds ?? []);

@@ -7,7 +7,7 @@ import { hasStorageState, loadStorageState, storageStatePath } from "./cookies.j
  * friendlier to a normal Chrome UA for anonymous listing.
  */
 export function browserUserAgent(cfg: CommunityRuntimeConfig): string {
-  const ua = cfg.userAgent;
+  const ua = cfg.reddit.userAgent;
   if (!ua || /relay-community-engager/i.test(ua)) {
     return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
   }
@@ -36,12 +36,12 @@ export async function createRedditBrowserEngine(
   storagePath: string;
 }> {
   const { cfg, useStoredSession = true, headless } = opts;
-  const storagePath = storageStatePath(cfg);
+  const storagePath = storageStatePath(cfg.reddit);
   let sessionLoaded = false;
   let storageState: Awaited<ReturnType<typeof loadStorageState>> | undefined;
 
-  if (useStoredSession && (await hasStorageState(cfg))) {
-    storageState = await loadStorageState(cfg);
+  if (useStoredSession && (await hasStorageState(cfg.reddit))) {
+    storageState = await loadStorageState(cfg.reddit);
     sessionLoaded = Boolean(storageState);
     if (sessionLoaded) {
       console.log(`[browser] restored storageState from ${storagePath}`);
@@ -49,7 +49,7 @@ export async function createRedditBrowserEngine(
   }
 
   const engine = new PlaywrightEngine({
-    headless: headless ?? cfg.browserHeadless,
+    headless: headless ?? cfg.reddit.browserHeadless,
     userAgent: browserUserAgent(cfg),
     storageState: storageState ?? undefined,
   });

@@ -1,4 +1,4 @@
-import type { CommunityRuntimeConfig } from "./config.js";
+import type { RedditSessionConfig } from "./config.js";
 
 export interface RedditListingPost {
   id: string;
@@ -20,7 +20,7 @@ export class RedditClient {
   private accessToken: string | null = null;
   private tokenExpiresAt = 0;
 
-  constructor(private readonly cfg: CommunityRuntimeConfig) {
+  constructor(private readonly cfg: RedditSessionConfig) {
     if (!cfg.oauthConfigured && !cfg.configured) {
       throw new Error("Reddit OAuth credentials not configured (REDDIT_CLIENT_*)");
     }

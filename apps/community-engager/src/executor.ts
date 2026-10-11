@@ -52,9 +52,9 @@ export async function executeApproved(
   opts: ExecuteOptions = {}
 ): Promise<ExecuteResult> {
   const cfg = getCommunityConfig();
-  const dryRun = opts.dryRun ?? cfg.dryRun;
+  const dryRun = opts.dryRun ?? cfg.reddit.dryRun;
   const jobId = executeJobId(draft);
-  const dataDir = opts.dataDir ?? cfg.dataDir;
+  const dataDir = opts.dataDir ?? cfg.reddit.dataDir;
   const jobPath = path.join(dataDir, "jobs", `${jobId.replace(/:/g, "_")}.json`);
   const writeTransport = resolveWriteTransport(cfg);
   const chain = resolveWriteTransportChain(cfg);
@@ -88,7 +88,7 @@ export async function executeApproved(
 
   const text = applyUtmLinks(
     draft.draftText,
-    cfg.lpBaseUrl,
+    cfg.product.lpBaseUrl,
     draft.utmCampaign ?? "community"
   );
 
@@ -99,13 +99,13 @@ export async function executeApproved(
   }
 
   if (dryRun) {
-    const jarPresent = await hasStorageState(cfg);
+    const jarPresent = await hasStorageState(cfg.reddit);
     const log =
       `[dry-run] Would post to r/${draft.subreddit}\n` +
-      `  transport: ${writeTransport} (REDDIT_TRANSPORT=${cfg.transport})\n` +
+      `  transport: ${writeTransport} (REDDIT_TRANSPORT=${cfg.reddit.transport})\n` +
       `  chain: ${chain.join(" → ") || "(none)"}\n` +
-      `  oauthConfigured: ${cfg.oauthConfigured} hasUserPass: ${cfg.hasUserPass}\n` +
-      `  cookieDir: ${cfg.cookieDir}\n` +
+      `  oauthConfigured: ${cfg.reddit.oauthConfigured} hasUserPass: ${cfg.reddit.hasUserPass}\n` +
+      `  cookieDir: ${cfg.reddit.cookieDir}\n` +
       `  storageState: ${jarPresent ? "present" : "missing"}\n` +
       `  jobId: ${jobId}\n` +
       `  thread: ${draft.threadUrl}\n` +
@@ -213,7 +213,7 @@ async function tryOauthPost(
   cfg: CommunityRuntimeConfig,
   jobId: string
 ): Promise<ExecuteResult> {
-  if (!cfg.oauthConfigured) {
+  if (!cfg.reddit.oauthConfigured) {
     return {
       ok: false,
       dryRun: false,
@@ -230,7 +230,7 @@ async function tryOauthPost(
     };
   }
   try {
-    const client = new RedditClient({ ...cfg, dryRun: false });
+    const client = new RedditClient({ ...cfg.reddit, dryRun: false });
     const posted = await client.postComment(draft.redditThingId, text);
     const result: ExecuteResult = {
       ok: true,

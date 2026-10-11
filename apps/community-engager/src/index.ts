@@ -207,12 +207,12 @@ export class CommunityEngagerApp implements FanoutHost {
 
   private maxJobs(): number {
     if (this.options.maxJobs != null) return this.options.maxJobs;
-    return getCommunityConfig().maxJobs;
+    return getCommunityConfig().jobs.maxJobs;
   }
 
   private jobDelayMs(): number {
     if (this.options.jobDelayMs != null) return this.options.jobDelayMs;
-    return getCommunityConfig().jobDelayMs;
+    return getCommunityConfig().jobs.delayMs;
   }
 
   private bindEvents(runtime: AgentRuntime, label?: string): void {

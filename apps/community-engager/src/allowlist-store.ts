@@ -118,7 +118,7 @@ export class AllowlistStore {
   constructor(filePath?: string) {
     const cfg = getCommunityConfig();
     this.filePath =
-      filePath ?? path.join(cfg.dataDir, "allowlist", "subreddits.json");
+      filePath ?? path.join(cfg.reddit.dataDir, "allowlist", "subreddits.json");
   }
 
   async load(): Promise<AllowlistEntry[]> {

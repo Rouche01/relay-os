@@ -26,7 +26,7 @@ export interface BrowserLoginOptions {
   password?: string;
   /**
    * Headed recommended for first login / 2FA.
-   * Default follows cfg.browserHeadless; set REDDIT_LOGIN_HEADED=true to force headed.
+   * Default follows cfg.reddit.browserHeadless; set REDDIT_LOGIN_HEADED=true to force headed.
    */
   headless?: boolean;
   /** Clear existing jar before login (AUTH refresh). Default true. */
@@ -359,7 +359,7 @@ async function persistSuccess(
   challenged?: boolean
 ): Promise<BrowserLoginResult> {
   try {
-    const saved = await saveSession(page, cfg);
+    const saved = await saveSession(page, cfg.reddit);
     console.log(
       `[login] success${challenged ? " after challenge" : ""} → ${saved.storagePath}`
     );
@@ -377,7 +377,7 @@ async function persistSuccess(
       challenged,
       url: page.url(),
       error: `Logged in but could not save cookie jar: ${msg}`,
-      storagePath: storageStatePath(cfg),
+      storagePath: storageStatePath(cfg.reddit),
     };
   }
 }
@@ -391,8 +391,8 @@ export async function loginRedditBrowser(
   opts: BrowserLoginOptions = {}
 ): Promise<BrowserLoginResult> {
   const cfg = opts.cfg ?? getCommunityConfig();
-  const username = (opts.username ?? cfg.username)?.trim();
-  const password = opts.password ?? cfg.password;
+  const username = (opts.username ?? cfg.reddit.username)?.trim();
+  const password = opts.password ?? cfg.reddit.password;
   if (!username || !password) {
     return {
       ok: false,
@@ -408,10 +408,10 @@ export async function loginRedditBrowser(
   const headedEnv =
     process.env.REDDIT_LOGIN_HEADED === "true" ||
     process.env.REDDIT_LOGIN_HEADED === "1";
-  const headless = opts.headless ?? (headedEnv ? false : cfg.browserHeadless);
+  const headless = opts.headless ?? (headedEnv ? false : cfg.reddit.browserHeadless);
 
   if (clearJar) {
-    await deleteSessionCookies(cfg);
+    await deleteSessionCookies(cfg.reddit);
   }
 
   const { engine } = await createRedditBrowserEngine({
@@ -495,13 +495,13 @@ export async function loginRedditBrowser(
       url: page.url(),
       error:
         "Login did not complete — check credentials, try REDDIT_LOGIN_HEADED=true for 2FA/CAPTCHA",
-      storagePath: storageStatePath(cfg),
+      storagePath: storageStatePath(cfg.reddit),
     };
   } catch (err) {
     return {
       ok: false,
       error: err instanceof Error ? err.message : String(err),
-      storagePath: storageStatePath(cfg),
+      storagePath: storageStatePath(cfg.reddit),
     };
   } finally {
     try {

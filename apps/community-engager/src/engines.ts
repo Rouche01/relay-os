@@ -36,14 +36,14 @@ export function createCommunityEngines(
 
   const providers: EngineProviders = {
     browser: new PlaywrightEngine({
-      headless: cfg.browserHeadless,
+      headless: cfg.reddit.browserHeadless,
       userAgent: browserUserAgent(cfg),
     }),
     llm: createLlmDraftEngine(),
     data: createDataEngine(options.memory),
   };
 
-  if (cfg.oauthConfigured) {
+  if (cfg.reddit.oauthConfigured) {
     providers.api = createRedditApiCapabilityEngine(cfg);
   }
 
@@ -153,7 +153,7 @@ export function createRedditApiCapabilityEngine(
       };
     },
     async healthCheck() {
-      return cfg.oauthConfigured;
+      return cfg.reddit.oauthConfigured;
     },
     async teardown() {},
   };

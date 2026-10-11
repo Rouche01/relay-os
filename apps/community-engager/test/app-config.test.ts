@@ -82,11 +82,11 @@ describe("getCommunityConfig policy + env override", () => {
       scout: { source: "browser" },
     });
     const cfg = getCommunityConfig({}, { appConfig });
-    assert.equal(cfg.warmupMode, "force");
-    assert.equal(cfg.warmupMinKarma, 50);
-    assert.equal(cfg.maxJobs, 7);
-    assert.equal(cfg.jobDelayMs, 900);
-    assert.equal(cfg.scoutSource, "browser");
+    assert.equal(cfg.warmup.mode, "force");
+    assert.equal(cfg.warmup.minKarma, 50);
+    assert.equal(cfg.jobs.maxJobs, 7);
+    assert.equal(cfg.jobs.delayMs, 900);
+    assert.equal(cfg.scout.source, "browser");
   });
 
   it("lets env win over file policy", () => {
@@ -103,8 +103,8 @@ describe("getCommunityConfig policy + env override", () => {
       },
       { appConfig }
     );
-    assert.equal(cfg.warmupMode, "off");
-    assert.equal(cfg.maxJobs, 2);
-    assert.equal(cfg.scoutSource, "fixtures");
+    assert.equal(cfg.warmup.mode, "off");
+    assert.equal(cfg.jobs.maxJobs, 2);
+    assert.equal(cfg.scout.source, "fixtures");
   });
 });

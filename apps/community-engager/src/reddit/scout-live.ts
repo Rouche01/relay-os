@@ -24,11 +24,11 @@ export async function scoutRedditLive(
   opts: LiveScoutOptions = {}
 ): Promise<CommunityDraft[]> {
   const cfg = opts.cfg ?? getCommunityConfig();
-  if (!cfg.oauthConfigured && !cfg.configured) {
+  if (!cfg.reddit.oauthConfigured && !cfg.reddit.configured) {
     throw new Error("scoutRedditLive requires REDDIT_* OAuth credentials");
   }
 
-  const client = new RedditClient(cfg);
+  const client = new RedditClient(cfg.reddit);
   const subs = opts.subreddits?.length ? opts.subreddits : allowlistedSubNames();
   const limit = opts.limit ?? 5;
   const drafts: CommunityDraft[] = [];

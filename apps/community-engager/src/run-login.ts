@@ -12,13 +12,13 @@ import { loginRedditBrowser } from "./reddit/browser-login.js";
 async function main(): Promise<void> {
   const cfg = getCommunityConfig();
   console.log("=== Relay · Reddit browser login ===\n");
-  console.log(`cookieDir: ${cfg.cookieDir}`);
-  console.log(`account:   ${cfg.username ?? "(missing)"}`);
+  console.log(`cookieDir: ${cfg.reddit.cookieDir}`);
+  console.log(`account:   ${cfg.reddit.username ?? "(missing)"}`);
   console.log(
     `headed:    ${
       process.env.REDDIT_LOGIN_HEADED === "true" ||
       process.env.REDDIT_LOGIN_HEADED === "1" ||
-      cfg.browserHeadless === false
+      cfg.reddit.browserHeadless === false
     }\n`
   );
 

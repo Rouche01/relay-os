@@ -854,14 +854,14 @@ export class CommunityEngagerController implements AppController {
       process.env.REDDIT_ENSURE_SESSION === "true" ||
       process.env.REDDIT_ENSURE_SESSION === "1";
 
-    if (await hasStorageState(cfg)) {
+    if (await hasStorageState(cfg.reddit)) {
       const result: EnsureSessionResult = { ok: true, source: "jar" };
       this.setEnsureSession(ctx, result);
       console.log("[ensure_session] cookie jar present — skip login");
       return;
     }
 
-    if (cfg.hasUserPass) {
+    if (cfg.reddit.hasUserPass) {
       console.log("[ensure_session] env credentials — logging in…");
       const login = await loginRedditBrowser({ cfg, clearJar: true });
       if (!login.ok) {
@@ -976,10 +976,10 @@ export class CommunityEngagerController implements AppController {
    * OAuth/fixtures/json do not. Force with REDDIT_ENSURE_SESSION=true always works.
    */
   private sessionRequiredForRun(cfg: CommunityRuntimeConfig): boolean {
-    if (cfg.transport === "oauth" && cfg.oauthConfigured) return false;
-    if (cfg.transport === "fixtures" || cfg.transport === "json") return false;
-    if (cfg.transport === "browser" || cfg.transport === "auto") return true;
-    return !cfg.dryRun;
+    if (cfg.reddit.transport === "oauth" && cfg.reddit.oauthConfigured) return false;
+    if (cfg.reddit.transport === "fixtures" || cfg.reddit.transport === "json") return false;
+    if (cfg.reddit.transport === "browser" || cfg.reddit.transport === "auto") return true;
+    return !cfg.reddit.dryRun;
   }
 
   private setEnsureSession(ctx: AgentContext, result: EnsureSessionResult): void {
@@ -997,8 +997,8 @@ export class CommunityEngagerController implements AppController {
         ? ctx.lastPromotedSubreddit
         : undefined;
     const subreddits = await store.pickScoutSubs(
-      cfg.scoutMaxSubs,
-      cfg.discoverExploreSlot,
+      cfg.scout.maxSubs,
+      cfg.discover.exploreSlot,
       prefer ? { prefer } : undefined
     );
     await store.recordScouted(subreddits);
@@ -1042,8 +1042,8 @@ export class CommunityEngagerController implements AppController {
         ? ctx.lastPromotedSubreddit
         : undefined;
     const subreddits = await store.pickScoutSubs(
-      cfg.scoutMaxSubs,
-      cfg.discoverExploreSlot,
+      cfg.scout.maxSubs,
+      cfg.discover.exploreSlot,
       prefer ? { prefer } : undefined
     );
     await store.recordScouted(subreddits);
@@ -1275,7 +1275,7 @@ export class CommunityEngagerController implements AppController {
     }
     if (captchaBlocked.length === 0) return;
 
-    if (!cfg.interstitialHitl) {
+    if (!cfg.reddit.interstitialHitl) {
       console.warn(
         `[scout] ${captchaBlocked.length} sub(s) blocked by interstitial — unattended mode ` +
           `(set REDDIT_INTERSTITIAL_HITL=true or run headed to escalate via Telegram/CLI)`
@@ -1346,7 +1346,7 @@ export class CommunityEngagerController implements AppController {
         url: first.url,
         subreddit: first.subreddit,
         blockedSubs: captchaBlocked.map((b) => b.subreddit),
-        storagePath: storageStatePath(cfg),
+        storagePath: storageStatePath(cfg.reddit),
         reason: "login_wall",
       };
       console.log(
@@ -1359,7 +1359,7 @@ export class CommunityEngagerController implements AppController {
       url: first.url,
       subreddit: first.subreddit,
       blockedSubs: captchaBlocked.map((b) => b.subreddit),
-      storagePath: storageStatePath(cfg),
+      storagePath: storageStatePath(cfg.reddit),
       reason: first.reason,
     };
     console.log(
@@ -1397,8 +1397,8 @@ export class CommunityEngagerController implements AppController {
       console.log("[login-wall] login form open in headed browser");
 
       const cfg = getCommunityConfig();
-      const username = cfg.username?.trim();
-      const password = cfg.password;
+      const username = cfg.reddit.username?.trim();
+      const password = cfg.reddit.password;
       if (username && password) {
         console.log(
           `[login-wall] trying env credentials as u/${username}…`
@@ -1786,7 +1786,7 @@ export class CommunityEngagerController implements AppController {
         result.postedUrl
       ) {
         try {
-          const total = await recordHelpCommentPosted(getCommunityConfig().dataDir);
+          const total = await recordHelpCommentPosted(getCommunityConfig().reddit.dataDir);
           console.log(`[warmup] help comment recorded (total=${total})`);
         } catch (err) {
           console.warn("[warmup] failed to record help comment:", err);

@@ -145,7 +145,7 @@ Warmup (`warmup.mode=auto` in config, overridable via `COMMUNITY_WARMUP`) keeps 
 | [`.env`](./.env) | Secrets, paths, dry-run / browser host toggles |
 | Env vars | Still override any policy key when set (CI / one-offs) |
 
-Load order: built-in defaults → `default.json` → `local.json` → env. Point at another directory with `COMMUNITY_CONFIG_DIR`.
+Load order: built-in defaults → `default.json` → `local.json` → env. Point at another directory with `COMMUNITY_CONFIG_DIR`. Resolved runtime shape is nested (`cfg.warmup.mode`, `cfg.scout.delayMs`, `cfg.reddit.dryRun`, …) via `getCommunityConfig()`.
 
 ## Quick start
 
