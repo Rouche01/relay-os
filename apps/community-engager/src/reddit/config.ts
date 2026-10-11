@@ -1,5 +1,12 @@
 import path from "node:path";
 import type { OpportunityScore } from "../types.js";
+import {
+  envBool,
+  envNumber,
+  envString,
+  loadAppConfig,
+  type CommunityAppConfig,
+} from "../app-config.js";
 
 /** Allowlisted fashion/styling subs for read scout + soft-mention policy notes. */
 export interface SubredditPolicy {
@@ -58,7 +65,11 @@ export type RedditTransport =
   | "json"
   | "fixtures";
 
-export interface RedditEnvConfig {
+/**
+ * Resolved CommunityEngager runtime config (policy file + env secrets/overrides).
+ * Not env-only — use {@link getCommunityConfig} to build it.
+ */
+export interface CommunityRuntimeConfig {
   clientId?: string;
   clientSecret?: string;
   username?: string;
@@ -104,7 +115,7 @@ export interface RedditEnvConfig {
   /** Cookie / storageState directory for browser session. */
   cookieDir: string;
   /**
-   * Discover stage mode (`COMMUNITY_DISCOVER`).
+   * Discover stage mode (`COMMUNITY_DISCOVER` or config discover.mode).
    * - auto: run only when postable allowlist is thin
    * - force: always research this run
    * - off: never run
@@ -128,30 +139,30 @@ export interface RedditEnvConfig {
   discoverExploreSlot: boolean;
   /**
    * Goal string for discover-fit DecisionPort (Noul).
-   * Env: COMMUNITY_DISCOVER_GOAL.
    */
   discoverGoal: string;
   /**
    * Days before a `proposed` allowlist entry may reappear in discover.
-   * Env: COMMUNITY_DISCOVER_REQUEUE_DAYS (default 14). 0 = never re-queue.
+   * 0 = never re-queue.
    */
   discoverRequeueDays: number;
   /**
-   * Warmup mode (`COMMUNITY_WARMUP`).
+   * Warmup mode (`COMMUNITY_WARMUP` or config warmup.mode).
    * - auto: force intensity 0 until age/karma/help-comment thresholds met
    * - force: always intensity 0
    * - off: never apply warmup clamp
    */
   warmupMode: WarmupMode;
-  /** Min Reddit account age in days (auto). Env: COMMUNITY_WARMUP_MIN_ACCOUNT_DAYS. */
+  /** Min Reddit account age in days (auto). */
   warmupMinAccountDays: number;
-  /** Min total karma (auto). Env: COMMUNITY_WARMUP_MIN_KARMA. */
+  /** Min total karma (auto). */
   warmupMinKarma: number;
-  /**
-   * Min live intensity-0 posts recorded locally (auto).
-   * Env: COMMUNITY_WARMUP_MIN_HELP_COMMENTS.
-   */
+  /** Min live intensity-0 posts recorded locally (auto). */
   warmupMinHelpComments: number;
+  /** Max job fanout per run (config jobs.maxJobs / COMMUNITY_MAX_JOBS). */
+  maxJobs: number;
+  /** Pause between jobs (config jobs.delayMs / COMMUNITY_JOB_DELAY_MS). */
+  jobDelayMs: number;
 }
 
 /** COMMUNITY_DISCOVER=auto|force|off (true→force, false→off). */
@@ -222,7 +233,7 @@ export function isOauthScoutSource(source: ScoutSource): boolean {
  * `auto`: prefer browser (HITL); oauth only when no user/pass (API-app-only setup).
  */
 export function resolveWriteTransport(
-  cfg: RedditEnvConfig
+  cfg: CommunityRuntimeConfig
 ): "browser" | "oauth" | "none" {
   const t = cfg.transport;
   if (t === "browser") return "browser";
@@ -239,7 +250,7 @@ export function resolveWriteTransport(
  * Used so OAuth remains an optional fast path after browser failure.
  */
 export function resolveWriteTransportChain(
-  cfg: RedditEnvConfig
+  cfg: CommunityRuntimeConfig
 ): Array<"browser" | "oauth"> {
   const t = cfg.transport;
   if (t === "browser") return ["browser"];
@@ -251,9 +262,21 @@ export function resolveWriteTransportChain(
   return chain;
 }
 
-export function getRedditEnv(
-  env: NodeJS.ProcessEnv = process.env
-): RedditEnvConfig {
+export interface GetCommunityConfigOptions {
+  /** Preloaded policy file (tests). */
+  appConfig?: CommunityAppConfig;
+}
+
+/**
+ * Resolve runtime config: secrets/paths from env; policy from
+ * config/default.json → local.json, with env overrides when set.
+ */
+export function getCommunityConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  opts: GetCommunityConfigOptions = {}
+): CommunityRuntimeConfig {
+  const policy = opts.appConfig ?? loadAppConfig();
+
   const clientId = env.REDDIT_CLIENT_ID;
   const clientSecret = env.REDDIT_CLIENT_SECRET;
   const username = env.REDDIT_USERNAME;
@@ -263,34 +286,35 @@ export function getRedditEnv(
   );
   const hasUserPass = Boolean(username && password);
   const dryRun = env.REDDIT_DRY_RUN !== "false" && env.REDDIT_DRY_RUN !== "0";
-  const scoutSource = parseScoutSource(env.SCOUT_SOURCE ?? "auto");
+
+  const scoutSource = parseScoutSource(
+    envString(env, "SCOUT_SOURCE", policy.scout.source)
+  );
   const transport = parseTransport(env.REDDIT_TRANSPORT ?? "auto");
 
-  // Default 8s base — 1.5s across 4 subs looks automated and trips IP walls.
-  const delayRaw = Number(env.REDDIT_SCOUT_DELAY_MS ?? "8000");
-  const scoutDelayMs =
-    Number.isFinite(delayRaw) && delayRaw >= 0 ? delayRaw : 8000;
-
-  const jitterRaw = Number(env.REDDIT_SCOUT_DELAY_JITTER_MS ?? "4000");
-  const scoutDelayJitterMs =
-    Number.isFinite(jitterRaw) && jitterRaw >= 0 ? jitterRaw : 4000;
-
-  const maxSubsRaw = Number(env.REDDIT_SCOUT_MAX_SUBS ?? "0");
-  const scoutMaxSubs =
-    Number.isFinite(maxSubsRaw) && maxSubsRaw > 0 ? Math.floor(maxSubsRaw) : 0;
-
-  const scrollRaw = Number(env.REDDIT_SCOUT_SCROLL_ROUNDS ?? "4");
-  const scoutScrollRounds =
-    Number.isFinite(scrollRaw) && scrollRaw >= 0 ? Math.floor(scrollRaw) : 4;
-
-  const deepRaw = Number(env.REDDIT_SCOUT_DEEP_READ_MAX ?? "5");
-  const scoutDeepReadMax =
-    Number.isFinite(deepRaw) && deepRaw >= 0 ? Math.floor(deepRaw) : 5;
-
-  // Deeper browse needs more wall-clock per sub (scroll + deep-reads).
-  const budgetRaw = Number(env.REDDIT_SCOUT_SUB_BUDGET_MS ?? "45000");
-  const scoutSubBudgetMs =
-    Number.isFinite(budgetRaw) && budgetRaw >= 3000 ? budgetRaw : 45_000;
+  const scoutDelayMs = envNumber(env, "REDDIT_SCOUT_DELAY_MS", policy.scout.delayMs);
+  const scoutDelayJitterMs = envNumber(
+    env,
+    "REDDIT_SCOUT_DELAY_JITTER_MS",
+    policy.scout.delayJitterMs
+  );
+  const scoutMaxSubs = envNumber(env, "REDDIT_SCOUT_MAX_SUBS", policy.scout.maxSubs);
+  const scoutScrollRounds = envNumber(
+    env,
+    "REDDIT_SCOUT_SCROLL_ROUNDS",
+    policy.scout.scrollRounds
+  );
+  const scoutDeepReadMax = envNumber(
+    env,
+    "REDDIT_SCOUT_DEEP_READ_MAX",
+    policy.scout.deepReadMax
+  );
+  const scoutSubBudgetMs = envNumber(
+    env,
+    "REDDIT_SCOUT_SUB_BUDGET_MS",
+    policy.scout.subBudgetMs,
+    { min: 3000 }
+  );
 
   const browserHeadless =
     env.REDDIT_BROWSER_HEADLESS !== "false" &&
@@ -312,52 +336,72 @@ export function getRedditEnv(
     env.REDDIT_COOKIE_DIR?.trim() || path.join(".data", "cookies", "reddit")
   );
 
-  // Default auto: skip research when postable allowlist is already healthy.
-  const discoverMode = parseDiscoverMode(env.COMMUNITY_DISCOVER ?? "auto");
-  const discoverEnabled = discoverMode !== "off";
-  const discoverQuery =
-    env.COMMUNITY_DISCOVER_QUERY?.trim() ||
-    "fashion style advice wardrobe";
-  const discoverMaxRaw = Number(env.COMMUNITY_DISCOVER_MAX ?? "5");
-  const discoverMaxCandidates =
-    Number.isFinite(discoverMaxRaw) && discoverMaxRaw > 0
-      ? Math.floor(discoverMaxRaw)
-      : 5;
-  const minPostableRaw = Number(
-    env.COMMUNITY_DISCOVER_MIN_POSTABLE ?? String(seedPostableCount())
+  const discoverMode = parseDiscoverMode(
+    env.COMMUNITY_DISCOVER !== undefined && env.COMMUNITY_DISCOVER !== ""
+      ? env.COMMUNITY_DISCOVER
+      : policy.discover.mode
   );
-  const discoverMinPostable =
-    Number.isFinite(minPostableRaw) && minPostableRaw > 0
-      ? Math.floor(minPostableRaw)
-      : seedPostableCount();
-  const exploreRaw = (env.COMMUNITY_DISCOVER_EXPLORE ?? "true").toLowerCase();
-  const discoverExploreSlot =
-    exploreRaw !== "false" && exploreRaw !== "0" && exploreRaw !== "off";
-  const discoverGoal =
-    env.COMMUNITY_DISCOVER_GOAL?.trim() ||
-    "Help-first fashion and styling communities for GoStylens. Soft product mention OK when useful; never hard-sell or spam.";
-  const requeueRaw = Number(env.COMMUNITY_DISCOVER_REQUEUE_DAYS ?? "14");
-  const discoverRequeueDays =
-    Number.isFinite(requeueRaw) && requeueRaw >= 0
-      ? Math.floor(requeueRaw)
-      : 14;
+  const discoverEnabled = discoverMode !== "off";
+  const discoverQuery = envString(
+    env,
+    "COMMUNITY_DISCOVER_QUERY",
+    policy.discover.query
+  );
+  const discoverMaxCandidates = envNumber(
+    env,
+    "COMMUNITY_DISCOVER_MAX",
+    policy.discover.maxCandidates,
+    { allowZero: false }
+  );
+  const minPostableFallback =
+    policy.discover.minPostable ?? seedPostableCount();
+  const discoverMinPostable = envNumber(
+    env,
+    "COMMUNITY_DISCOVER_MIN_POSTABLE",
+    minPostableFallback,
+    { allowZero: false }
+  );
+  const discoverExploreSlot = envBool(
+    env,
+    "COMMUNITY_DISCOVER_EXPLORE",
+    policy.discover.exploreSlot
+  );
+  const discoverGoal = envString(
+    env,
+    "COMMUNITY_DISCOVER_GOAL",
+    policy.discover.goal
+  );
+  const discoverRequeueDays = envNumber(
+    env,
+    "COMMUNITY_DISCOVER_REQUEUE_DAYS",
+    policy.discover.requeueDays
+  );
 
-  const warmupMode = parseWarmupMode(env.COMMUNITY_WARMUP ?? "auto");
-  const warmupDaysRaw = Number(env.COMMUNITY_WARMUP_MIN_ACCOUNT_DAYS ?? "30");
-  const warmupMinAccountDays =
-    Number.isFinite(warmupDaysRaw) && warmupDaysRaw >= 0
-      ? Math.floor(warmupDaysRaw)
-      : 30;
-  const warmupKarmaRaw = Number(env.COMMUNITY_WARMUP_MIN_KARMA ?? "100");
-  const warmupMinKarma =
-    Number.isFinite(warmupKarmaRaw) && warmupKarmaRaw >= 0
-      ? Math.floor(warmupKarmaRaw)
-      : 100;
-  const warmupHelpRaw = Number(env.COMMUNITY_WARMUP_MIN_HELP_COMMENTS ?? "10");
-  const warmupMinHelpComments =
-    Number.isFinite(warmupHelpRaw) && warmupHelpRaw >= 0
-      ? Math.floor(warmupHelpRaw)
-      : 10;
+  const warmupMode = parseWarmupMode(
+    env.COMMUNITY_WARMUP !== undefined && env.COMMUNITY_WARMUP !== ""
+      ? env.COMMUNITY_WARMUP
+      : policy.warmup.mode
+  );
+  const warmupMinAccountDays = envNumber(
+    env,
+    "COMMUNITY_WARMUP_MIN_ACCOUNT_DAYS",
+    policy.warmup.minAccountDays
+  );
+  const warmupMinKarma = envNumber(
+    env,
+    "COMMUNITY_WARMUP_MIN_KARMA",
+    policy.warmup.minKarma
+  );
+  const warmupMinHelpComments = envNumber(
+    env,
+    "COMMUNITY_WARMUP_MIN_HELP_COMMENTS",
+    policy.warmup.minHelpComments
+  );
+
+  const maxJobs = envNumber(env, "COMMUNITY_MAX_JOBS", policy.jobs.maxJobs, {
+    allowZero: false,
+  });
+  const jobDelayMs = envNumber(env, "COMMUNITY_JOB_DELAY_MS", policy.jobs.delayMs);
 
   return {
     clientId,
@@ -372,7 +416,7 @@ export function getRedditEnv(
     dryRun,
     scoutSource,
     transport,
-    lpBaseUrl: env.GOSTYLENS_LP_BASE_URL ?? "https://gostylens.app",
+    lpBaseUrl: envString(env, "GOSTYLENS_LP_BASE_URL", policy.product.lpBaseUrl),
     browserHeadless,
     scoutDelayMs,
     scoutDelayJitterMs,
@@ -395,6 +439,8 @@ export function getRedditEnv(
     warmupMinAccountDays,
     warmupMinKarma,
     warmupMinHelpComments,
+    maxJobs,
+    jobDelayMs,
   };
 }
 

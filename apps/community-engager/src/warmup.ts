@@ -1,8 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
-  getRedditEnv,
-  type RedditEnvConfig,
+  getCommunityConfig,
+  type CommunityRuntimeConfig,
   type WarmupMode,
 } from "./reddit/config.js";
 import { RedditClient } from "./reddit/client.js";
@@ -220,7 +220,7 @@ export function resolveEnvAccountSnapshot(
  * OAuth `/api/v1/me` is best-effort when configured.
  */
 export async function resolveWarmupStatus(
-  cfg: RedditEnvConfig = getRedditEnv(),
+  cfg: CommunityRuntimeConfig = getCommunityConfig(),
   opts?: { nowMs?: number; fetchAccount?: boolean }
 ): Promise<WarmupStatus> {
   const state = await readWarmupState(cfg.dataDir);

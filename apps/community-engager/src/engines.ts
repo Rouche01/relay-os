@@ -12,12 +12,12 @@ import { CommunityEngagerManifest } from "./manifest.js";
 import {
   browserUserAgent,
 } from "./reddit/browser-session.js";
-import { getRedditEnv, type RedditEnvConfig } from "./reddit/config.js";
+import { getCommunityConfig, type CommunityRuntimeConfig } from "./reddit/config.js";
 import type { CommunityDraft } from "./types.js";
 
 export interface CommunityEnginesOptions {
   memory: ContextEngine;
-  cfg?: RedditEnvConfig;
+  cfg?: CommunityRuntimeConfig;
 }
 
 /**
@@ -32,7 +32,7 @@ export interface CommunityEnginesOptions {
 export function createCommunityEngines(
   options: CommunityEnginesOptions
 ): Record<string, ExecutionEngine> {
-  const cfg = options.cfg ?? getRedditEnv();
+  const cfg = options.cfg ?? getCommunityConfig();
 
   const providers: EngineProviders = {
     browser: new PlaywrightEngine({
@@ -142,7 +142,7 @@ export function createDataEngine(memory: ContextEngine): ExecutionEngine {
  * Scout/execute still prefer browser; this documents oauth availability.
  */
 export function createRedditApiCapabilityEngine(
-  cfg: RedditEnvConfig
+  cfg: CommunityRuntimeConfig
 ): ExecutionEngine {
   return {
     type: "api",

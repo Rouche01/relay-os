@@ -3,7 +3,7 @@ import type { CommunityDraft } from "./types.js";
 import { FIXTURE_THREADS, fixtureToDraftSkeleton } from "./fixtures/threads.js";
 import {
   allowlistedSubNames,
-  getRedditEnv,
+  getCommunityConfig,
   isOauthScoutSource,
   type ScoutSource,
 } from "./reddit/config.js";
@@ -107,7 +107,7 @@ function finish(
 export async function scoutOpportunities(
   opts: ScoutOptions = {}
 ): Promise<ScoutResult> {
-  const cfg = getRedditEnv();
+  const cfg = getCommunityConfig();
   const source = opts.source ?? cfg.scoutSource;
   const limit = opts.limit ?? 5;
   let blocked: BrowserScoutBlocked[] = [];

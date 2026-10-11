@@ -8,8 +8,8 @@ import {
 } from "./allowlist-store.js";
 import { resolveDiscoverGate } from "./discover-gate.js";
 import {
-  getRedditEnv,
-  type RedditEnvConfig,
+  getCommunityConfig,
+  type CommunityRuntimeConfig,
 } from "./reddit/config.js";
 import {
   discoverSubredditCandidates,
@@ -33,7 +33,7 @@ export interface DiscoverResult {
  * VoltMem preference/rules facts are written on promote (controller), not here.
  */
 export async function runDiscovery(opts?: {
-  cfg?: RedditEnvConfig;
+  cfg?: CommunityRuntimeConfig;
   store?: AllowlistStore;
   memory?: ContextEngine;
   /** Fit scorer — defaults to createDecisionPort() from env. */
@@ -43,7 +43,7 @@ export async function runDiscovery(opts?: {
   /** Reuse a headed browser that just cleared CAPTCHA (same Chromium). */
   adopt?: { engine: PlaywrightEngine; storagePath: string };
 }): Promise<DiscoverResult> {
-  const cfg = opts?.cfg ?? getRedditEnv();
+  const cfg = opts?.cfg ?? getCommunityConfig();
   const store = opts?.store ?? getAllowlistStore();
   const postable = await store.listPostable();
 

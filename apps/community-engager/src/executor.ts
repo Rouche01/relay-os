@@ -4,10 +4,10 @@ import { isExecutableStatus } from "@relay/action-store";
 import type { CommunityDraft } from "./types.js";
 import { RedditClient } from "./reddit/client.js";
 import {
-  getRedditEnv,
+  getCommunityConfig,
   resolveWriteTransport,
   resolveWriteTransportChain,
-  type RedditEnvConfig,
+  type CommunityRuntimeConfig,
 } from "./reddit/config.js";
 import { hasStorageState } from "./reddit/cookies.js";
 import { postCommentBrowser } from "./reddit/browser-comment.js";
@@ -51,7 +51,7 @@ export async function executeApproved(
   draft: CommunityDraft,
   opts: ExecuteOptions = {}
 ): Promise<ExecuteResult> {
-  const cfg = getRedditEnv();
+  const cfg = getCommunityConfig();
   const dryRun = opts.dryRun ?? cfg.dryRun;
   const jobId = executeJobId(draft);
   const dataDir = opts.dataDir ?? cfg.dataDir;
@@ -172,7 +172,7 @@ export async function executeApproved(
 async function tryBrowserPost(
   draft: CommunityDraft,
   text: string,
-  cfg: RedditEnvConfig,
+  cfg: CommunityRuntimeConfig,
   opts: ExecuteOptions,
   jobId: string
 ): Promise<ExecuteResult> {
@@ -210,7 +210,7 @@ async function tryBrowserPost(
 async function tryOauthPost(
   draft: CommunityDraft,
   text: string,
-  cfg: RedditEnvConfig,
+  cfg: CommunityRuntimeConfig,
   jobId: string
 ): Promise<ExecuteResult> {
   if (!cfg.oauthConfigured) {

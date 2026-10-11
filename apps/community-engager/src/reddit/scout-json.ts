@@ -3,15 +3,15 @@ import type { RedditListingPost } from "./client.js";
 import { createRedditBrowserEngine } from "./browser-session.js";
 import {
   allowlistedSubNames,
-  getRedditEnv,
-  type RedditEnvConfig,
+  getCommunityConfig,
+  type CommunityRuntimeConfig,
 } from "./config.js";
 import { listingPostsToDrafts } from "./map-drafts.js";
 
 export interface JsonScoutOptions {
   limit?: number;
   subreddits?: string[];
-  cfg?: RedditEnvConfig;
+  cfg?: CommunityRuntimeConfig;
   /** Delay between subreddit fetches (ms). */
   delayMs?: number;
   /**
@@ -25,7 +25,7 @@ export interface JsonScoutOptions {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function jsonUserAgent(cfg: RedditEnvConfig): string {
+function jsonUserAgent(cfg: CommunityRuntimeConfig): string {
   const ua = cfg.userAgent;
   if (!ua || /relay-community-engager/i.test(ua)) {
     return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -114,7 +114,7 @@ async function fetchJsonHttp(
  */
 async function fetchJsonViaPlaywright(
   url: string,
-  cfg: RedditEnvConfig
+  cfg: CommunityRuntimeConfig
 ): Promise<unknown> {
   const { engine } = await createRedditBrowserEngine({
     cfg,
@@ -143,7 +143,7 @@ async function fetchJsonViaPlaywright(
 
 async function fetchListingForSub(
   sub: string,
-  cfg: RedditEnvConfig,
+  cfg: CommunityRuntimeConfig,
   playwrightFallback: boolean
 ): Promise<RedditListingPost[]> {
   const ua = jsonUserAgent(cfg);
@@ -184,7 +184,7 @@ async function fetchListingForSub(
 export async function scoutRedditJson(
   opts: JsonScoutOptions = {}
 ): Promise<CommunityDraft[]> {
-  const cfg = opts.cfg ?? getRedditEnv();
+  const cfg = opts.cfg ?? getCommunityConfig();
   const subs = opts.subreddits?.length ? opts.subreddits : allowlistedSubNames();
   const limit = opts.limit ?? 5;
   const delayMs = opts.delayMs ?? cfg.scoutDelayMs;

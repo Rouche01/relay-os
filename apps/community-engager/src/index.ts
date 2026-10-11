@@ -29,6 +29,7 @@ import { createCommunityEngines } from "./engines.js";
 import { watchInterstitialCleared } from "./interstitial-watch.js";
 import { formatRunSummary, runSummaryFromFanout, type RunSummary } from "./job-queue.js";
 import { CommunityEngagerManifest } from "./manifest.js";
+import { getCommunityConfig } from "./reddit/config.js";
 import type {
   DiscoverEvidence,
   SessionEvidence,
@@ -36,9 +37,6 @@ import type {
 import { writeRunLog } from "./run-log.js";
 import type { ScoutReport } from "./scout-report.js";
 import type { CommunityDraft } from "./types.js";
-
-const DEFAULT_MAX_JOBS = 3;
-const DEFAULT_JOB_DELAY_MS = 1_500;
 
 export interface CommunityEngagerAppOptions {
   store?: ActionStore;
@@ -208,19 +206,13 @@ export class CommunityEngagerApp implements FanoutHost {
   }
 
   private maxJobs(): number {
-    const fromEnv = Number(process.env.COMMUNITY_MAX_JOBS);
-    return (
-      this.options.maxJobs ??
-      (Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : DEFAULT_MAX_JOBS)
-    );
+    if (this.options.maxJobs != null) return this.options.maxJobs;
+    return getCommunityConfig().maxJobs;
   }
 
   private jobDelayMs(): number {
-    const fromEnv = Number(process.env.COMMUNITY_JOB_DELAY_MS);
-    return (
-      this.options.jobDelayMs ??
-      (Number.isFinite(fromEnv) && fromEnv >= 0 ? fromEnv : DEFAULT_JOB_DELAY_MS)
-    );
+    if (this.options.jobDelayMs != null) return this.options.jobDelayMs;
+    return getCommunityConfig().jobDelayMs;
   }
 
   private bindEvents(runtime: AgentRuntime, label?: string): void {

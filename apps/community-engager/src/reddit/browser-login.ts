@@ -7,7 +7,7 @@ import {
   actLoginControl,
   decideLoginControl,
 } from "../login-decide.js";
-import { getRedditEnv, type RedditEnvConfig } from "./config.js";
+import { getCommunityConfig, type CommunityRuntimeConfig } from "./config.js";
 import { createRedditBrowserEngine } from "./browser-session.js";
 import {
   deleteSessionCookies,
@@ -19,7 +19,7 @@ import { detectInterstitial } from "./interstitial.js";
 export const REDDIT_LOGIN_URL = "https://www.reddit.com/login/";
 
 export interface BrowserLoginOptions {
-  cfg?: RedditEnvConfig;
+  cfg?: CommunityRuntimeConfig;
   /** Override env username (HITL credential feedback). */
   username?: string;
   /** Override env password (HITL credential feedback). */
@@ -355,7 +355,7 @@ async function detectChallenge(page: Page): Promise<string | null> {
 
 async function persistSuccess(
   page: Page,
-  cfg: RedditEnvConfig,
+  cfg: CommunityRuntimeConfig,
   challenged?: boolean
 ): Promise<BrowserLoginResult> {
   try {
@@ -390,7 +390,7 @@ async function persistSuccess(
 export async function loginRedditBrowser(
   opts: BrowserLoginOptions = {}
 ): Promise<BrowserLoginResult> {
-  const cfg = opts.cfg ?? getRedditEnv();
+  const cfg = opts.cfg ?? getCommunityConfig();
   const username = (opts.username ?? cfg.username)?.trim();
   const password = opts.password ?? cfg.password;
   if (!username || !password) {

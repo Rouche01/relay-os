@@ -169,7 +169,7 @@ REDDIT_BROWSER_HEADLESS=true
    - **Structured extract** → `RedditListingPost` via `shreddit-post` attributes (`id`, `post-title`, `permalink`, …) — not CSS soup; optional LLMController only if extract returns empty
    - Modest delay between subs; teardown browser when done
 3. Isolate extract helpers in one module (not a giant selector table).
-4. Wire `scoutOpportunities` + `getRedditEnv` for `browser` / `auto` **without** requiring `CLIENT_ID`.
+4. Wire `scoutOpportunities` + `getCommunityConfig` for `browser` / `auto` **without** requiring `CLIENT_ID`.
 5. Keep score gate ≥4, allowlist, fixture fallback on empty/error.
 6. Update `.env.example`; note Chromium needed for scout (not only write).
 

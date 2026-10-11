@@ -6,11 +6,11 @@
  *   REDDIT_LOGIN_HEADED=true pnpm login:reddit   # recommended for 2FA
  */
 import "dotenv/config";
-import { getRedditEnv } from "./reddit/config.js";
+import { getCommunityConfig } from "./reddit/config.js";
 import { loginRedditBrowser } from "./reddit/browser-login.js";
 
 async function main(): Promise<void> {
-  const cfg = getRedditEnv();
+  const cfg = getCommunityConfig();
   console.log("=== Relay · Reddit browser login ===\n");
   console.log(`cookieDir: ${cfg.cookieDir}`);
   console.log(`account:   ${cfg.username ?? "(missing)"}`);

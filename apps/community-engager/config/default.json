@@ -1,0 +1,34 @@
+{
+  "warmup": {
+    "mode": "auto",
+    "minAccountDays": 30,
+    "minKarma": 100,
+    "minHelpComments": 10
+  },
+  "discover": {
+    "mode": "auto",
+    "query": "fashion style advice wardrobe",
+    "maxCandidates": 5,
+    "minPostable": null,
+    "exploreSlot": true,
+    "goal": "Help-first fashion and styling communities for GoStylens. Soft product mention OK when useful; never hard-sell or spam.",
+    "requeueDays": 14
+  },
+  "scout": {
+    "source": "auto",
+    "delayMs": 8000,
+    "delayJitterMs": 4000,
+    "maxSubs": 0,
+    "scrollRounds": 4,
+    "deepReadMax": 5,
+    "subBudgetMs": 45000
+  },
+  "jobs": {
+    "maxJobs": 3,
+    "delayMs": 1500
+  },
+  "product": {
+    "lpBaseUrl": "https://gostylens.app"
+  },
+  "draft": {}
+}

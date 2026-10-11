@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import {
   ALLOWLISTED_SUBREDDITS,
-  getRedditEnv,
+  getCommunityConfig,
   type SubredditPolicy,
 } from "./reddit/config.js";
 
@@ -116,7 +116,7 @@ export class AllowlistStore {
   private readonly filePath: string;
 
   constructor(filePath?: string) {
-    const cfg = getRedditEnv();
+    const cfg = getCommunityConfig();
     this.filePath =
       filePath ?? path.join(cfg.dataDir, "allowlist", "subreddits.json");
   }

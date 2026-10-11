@@ -3,15 +3,15 @@ import type { CommunityDraft } from "../types.js";
 import { RedditClient } from "./client.js";
 import {
   allowlistedSubNames,
-  getRedditEnv,
-  type RedditEnvConfig,
+  getCommunityConfig,
+  type CommunityRuntimeConfig,
 } from "./config.js";
 import { listingPostsToDrafts } from "./map-drafts.js";
 
 export interface LiveScoutOptions {
   limit?: number;
   subreddits?: string[];
-  cfg?: RedditEnvConfig;
+  cfg?: CommunityRuntimeConfig;
   /** Already-seen draft ids — skipped so `limit` is fresh for this run. */
   excludeIds?: Iterable<string>;
 }
@@ -23,7 +23,7 @@ export interface LiveScoutOptions {
 export async function scoutRedditLive(
   opts: LiveScoutOptions = {}
 ): Promise<CommunityDraft[]> {
-  const cfg = opts.cfg ?? getRedditEnv();
+  const cfg = opts.cfg ?? getCommunityConfig();
   if (!cfg.oauthConfigured && !cfg.configured) {
     throw new Error("scoutRedditLive requires REDDIT_* OAuth credentials");
   }

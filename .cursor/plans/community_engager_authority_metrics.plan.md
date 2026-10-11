@@ -1,12 +1,15 @@
 ---
 name: CommunityEngager authority + metrics
-overview: "Close the gaps between CommunityEngager’s existing HITL Reddit loop and a human-like authority-building program for GoStylens: app config file (policy vs secrets), warmup, promo-ratio, post-watch, richer scoring, attribution, and admin north-star metrics."
+overview: "Close the gaps between CommunityEngager’s existing HITL Reddit loop and a human-like authority-building program for GoStylens: app config file (policy vs secrets), nested CommunityRuntimeConfig, warmup, promo-ratio, post-watch, richer scoring, attribution, and admin north-star metrics."
 todos:
   - id: p0-warmup-mode
     content: "Warmup mode — force intensity 0 until account age / karma / help-comment thresholds; optional browse+upvote cadence before plugs"
     status: completed
   - id: p0-app-config
     content: "App config file for policy knobs (warmup, discover, scout, draft) — keep .env for secrets/paths/dry-run only; defaults + optional local override; env still wins for CI/deploy"
+    status: completed
+  - id: p0-nest-runtime-config
+    content: "Nest CommunityRuntimeConfig to mirror config/default.json (reddit/session, warmup, discover, scout, jobs, product) — drop flat warmup*/discover*/scout* prefixes; update call sites"
     status: pending
   - id: p0-promo-ratio-ledger
     content: "Account promo-ratio ledger — rolling window of intensity 0 vs 1–2; warn or block HITL when ratio drifts past ~10% promo"
@@ -251,9 +254,10 @@ For the first 30–90 days:
 ### Slice A — enforce being a good citizen (P0)
 
 1. ~~Warmup mode~~ **done** — intensity 0 clamp + thresholds + `{dataDir}/warmup/state.json`; browse+upvote cadence still deferred (`COMMUNITY_WARMUP_BROWSE` reserved)  
-2. **App config file** (`p0-app-config`) — move policy knobs out of `.env` before more P0/P1 flags land; secrets/paths/`REDDIT_DRY_RUN` stay in env; migrate existing `COMMUNITY_WARMUP_*` (and similar) into checked-in defaults + optional gitignored local override  
-3. Promo-ratio ledger + HITL warning / force intensity 0 (new knobs go in config, not `.env`)  
-4. Persist intensity + permalink on every job outcome  
+2. ~~**App config file** (`p0-app-config`)~~ **done** — `config/default.json` + optional `config/local.json`; secrets/paths/`REDDIT_DRY_RUN` stay in `.env`; env still overrides when set; `RedditEnvConfig` → `CommunityRuntimeConfig` / `getCommunityConfig`  
+3. **Nest `CommunityRuntimeConfig`** (`p0-nest-runtime-config`) — align runtime type with file sections before more P0 knobs land; `cfg.warmup.mode` not `cfg.warmupMode`  
+4. Promo-ratio ledger + HITL warning / force intensity 0 (new knobs go in nested config, not `.env`)  
+5. Persist intensity + permalink on every job outcome  
 
 ### Slice B — learn after post (P1)
 

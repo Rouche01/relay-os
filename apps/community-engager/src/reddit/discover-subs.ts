@@ -9,8 +9,8 @@ import {
   DEFAULT_DISCOVER_GOAL,
   scoreDiscoverFit,
 } from "../discover-fit.js";
-import type { RedditEnvConfig } from "./config.js";
-import { getRedditEnv } from "./config.js";
+import type { CommunityRuntimeConfig } from "./config.js";
+import { getCommunityConfig } from "./config.js";
 import { createRedditBrowserEngine } from "./browser-session.js";
 import { storageStatePath } from "./cookies.js";
 import { detectInterstitialDecided } from "../interstitial-decide.js";
@@ -46,7 +46,7 @@ export interface DiscoverSubsResult {
 }
 
 export interface DiscoverSubsOptions {
-  cfg?: RedditEnvConfig;
+  cfg?: CommunityRuntimeConfig;
   query?: string;
   limit?: number;
   exclude?: string[];
@@ -74,7 +74,7 @@ const PROMO_BAN_RE =
 
 const MAX_SAMPLE_SUBS = 8;
 
-function jsonUserAgent(cfg: RedditEnvConfig): string {
+function jsonUserAgent(cfg: CommunityRuntimeConfig): string {
   const ua = cfg.userAgent;
   if (!ua || /relay-community-engager/i.test(ua)) {
     return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -114,7 +114,7 @@ class DiscoverJsonSession {
   private handOff: DiscoverChallengeHandOff | null = null;
 
   constructor(
-    private readonly cfg: RedditEnvConfig,
+    private readonly cfg: CommunityRuntimeConfig,
     private readonly escalateCaptcha: boolean,
     private readonly decide: DecisionPort,
     adopt?: { engine: PlaywrightEngine; storagePath: string }
@@ -380,7 +380,7 @@ async function sampleNewTitles(
 export async function discoverSubredditCandidates(
   opts: DiscoverSubsOptions = {}
 ): Promise<DiscoverSubsResult> {
-  const cfg = opts.cfg ?? getRedditEnv();
+  const cfg = opts.cfg ?? getCommunityConfig();
   const query =
     opts.query?.trim() ||
     cfg.discoverQuery ||

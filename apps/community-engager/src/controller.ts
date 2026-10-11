@@ -39,7 +39,7 @@ import {
   waitUntilRedditLoggedIn,
 } from "./reddit/browser-login.js";
 import { createRedditBrowserEngine } from "./reddit/browser-session.js";
-import { getRedditEnv, type RedditEnvConfig } from "./reddit/config.js";
+import { getCommunityConfig, type CommunityRuntimeConfig } from "./reddit/config.js";
 import type { DiscoveryCandidate } from "./reddit/discover-subs.js";
 import {
   isLoginCredentialPoint,
@@ -849,7 +849,7 @@ export class CommunityEngagerController implements AppController {
   }
 
   private async runEnsureSessionStart(ctx: AgentContext): Promise<void> {
-    const cfg = getRedditEnv();
+    const cfg = getCommunityConfig();
     const force =
       process.env.REDDIT_ENSURE_SESSION === "true" ||
       process.env.REDDIT_ENSURE_SESSION === "1";
@@ -937,7 +937,7 @@ export class CommunityEngagerController implements AppController {
     // Never log password / full credential payload.
     console.log(`[ensure_session] HITL login as u/${creds.username}…`);
 
-    const cfg = getRedditEnv();
+    const cfg = getCommunityConfig();
     const login = await loginRedditBrowser({
       cfg,
       username: creds.username,
@@ -975,7 +975,7 @@ export class CommunityEngagerController implements AppController {
    * Browser scout needs a cookie jar even when dry-run (read path).
    * OAuth/fixtures/json do not. Force with REDDIT_ENSURE_SESSION=true always works.
    */
-  private sessionRequiredForRun(cfg: RedditEnvConfig): boolean {
+  private sessionRequiredForRun(cfg: CommunityRuntimeConfig): boolean {
     if (cfg.transport === "oauth" && cfg.oauthConfigured) return false;
     if (cfg.transport === "fixtures" || cfg.transport === "json") return false;
     if (cfg.transport === "browser" || cfg.transport === "auto") return true;
@@ -990,7 +990,7 @@ export class CommunityEngagerController implements AppController {
   }
 
   private async runScout(ctx: AgentContext): Promise<void> {
-    const cfg = getRedditEnv();
+    const cfg = getCommunityConfig();
     const store = getAllowlistStore();
     const prefer =
       typeof ctx.lastPromotedSubreddit === "string"
@@ -1035,7 +1035,7 @@ export class CommunityEngagerController implements AppController {
     live: NonNullable<ReturnType<typeof getInterstitialSession>>,
     skipSub: string
   ): Promise<void> {
-    const cfg = getRedditEnv();
+    const cfg = getCommunityConfig();
     const store = getAllowlistStore();
     const prefer =
       typeof ctx.lastPromotedSubreddit === "string"
@@ -1244,7 +1244,7 @@ export class CommunityEngagerController implements AppController {
     ctx: AgentContext,
     blocked: Array<{ subreddit: string; url: string; reason: string }>
   ): Promise<void> {
-    const cfg = getRedditEnv();
+    const cfg = getCommunityConfig();
     if (blocked.length === 0) return;
 
     // Rate-limit / already-handled login walls need cool-down or skip — not a
@@ -1396,7 +1396,7 @@ export class CommunityEngagerController implements AppController {
       await openRedditLoginForm(page, { onChallenge });
       console.log("[login-wall] login form open in headed browser");
 
-      const cfg = getRedditEnv();
+      const cfg = getCommunityConfig();
       const username = cfg.username?.trim();
       const password = cfg.password;
       if (username && password) {
@@ -1652,7 +1652,7 @@ export class CommunityEngagerController implements AppController {
       (ctx.opportunity as CommunityDraft | undefined) ??
       this.pickFromQueue(ctx);
 
-    const warmup = await resolveWarmupStatus(getRedditEnv());
+    const warmup = await resolveWarmupStatus(getCommunityConfig());
     ctx.warmupStatus = warmup;
     console.log(formatWarmupLog(warmup));
 
@@ -1750,7 +1750,7 @@ export class CommunityEngagerController implements AppController {
 
     const warmup =
       (ctx.warmupStatus as WarmupStatus | undefined) ??
-      (await resolveWarmupStatus(getRedditEnv()));
+      (await resolveWarmupStatus(getCommunityConfig()));
     const result = await executeApproved(draft, { warmupActive: warmup.active });
     ctx.executeResult = result;
     const executeEvidence: ExecuteEvidence = {
@@ -1786,7 +1786,7 @@ export class CommunityEngagerController implements AppController {
         result.postedUrl
       ) {
         try {
-          const total = await recordHelpCommentPosted(getRedditEnv().dataDir);
+          const total = await recordHelpCommentPosted(getCommunityConfig().dataDir);
           console.log(`[warmup] help comment recorded (total=${total})`);
         } catch (err) {
           console.warn("[warmup] failed to record help comment:", err);

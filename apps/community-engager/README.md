@@ -134,7 +134,18 @@ flowchart TD
 | Discovery proposes, humans promote | A newly researched sub is not postable until approved |
 | Warmup forces intensity 0 | Until account age / karma / help-comment thresholds (`COMMUNITY_WARMUP`) |
 
-Warmup (`COMMUNITY_WARMUP=auto` by default) keeps drafts help-only until local live intensity-0 posts and (when known) Reddit account age/karma clear the thresholds. State lives in `{REDDIT_DATA_DIR}/warmup/state.json`. Use `force` to always clamp, or `off` to disable. See [authority + metrics plan](../../.cursor/plans/community_engager_authority_metrics.plan.md).
+Warmup (`warmup.mode=auto` in config, overridable via `COMMUNITY_WARMUP`) keeps drafts help-only until local live intensity-0 posts and (when known) Reddit account age/karma clear the thresholds. State lives in `{REDDIT_DATA_DIR}/warmup/state.json`. Use `force` to always clamp, or `off` to disable. See [authority + metrics plan](../../.cursor/plans/community_engager_authority_metrics.plan.md).
+
+## Config
+
+| Layer | What goes there |
+|-------|-----------------|
+| [`config/default.json`](./config/default.json) | Policy defaults (warmup, discover, scout pacing, jobs, LP URL) |
+| `config/local.json` | Optional machine overrides (gitignored; copy [`local.example.json`](./config/local.example.json)) |
+| [`.env`](./.env) | Secrets, paths, dry-run / browser host toggles |
+| Env vars | Still override any policy key when set (CI / one-offs) |
+
+Load order: built-in defaults → `default.json` → `local.json` → env. Point at another directory with `COMMUNITY_CONFIG_DIR`.
 
 ## Quick start
 
@@ -142,6 +153,8 @@ Warmup (`COMMUNITY_WARMUP=auto` by default) keeps drafts help-only until local l
 # From repo root (Node 22+)
 pnpm --filter @relay/engines-browser exec playwright install chromium
 cp apps/community-engager/.env.example apps/community-engager/.env
+# Optional policy tweaks:
+# cp apps/community-engager/config/local.example.json apps/community-engager/config/local.json
 # Set Telegram (or FEEDBACK_ADAPTER=cli), REDDIT_USERNAME/PASSWORD for browser path
 
 pnpm --filter @relay/apps-community-engager build
@@ -149,7 +162,7 @@ REDDIT_LOGIN_HEADED=true pnpm --filter @relay/apps-community-engager login:reddi
 pnpm --filter @relay/apps-community-engager start
 ```
 
-See [`.env.example`](./.env.example) for `SCOUT_SOURCE`, `REDDIT_TRANSPORT`, cookie dir, and dry-run flags.
+See [`.env.example`](./.env.example) for secrets/host flags and [`config/default.json`](./config/default.json) for policy knobs.
 
 ## Browse / edit local data
 

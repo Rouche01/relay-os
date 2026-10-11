@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { RunSummary } from "./job-queue.js";
+import { getCommunityConfig } from "./reddit/config.js";
 
 /** v3: memory evidence includes VoltMem eventId + action (addEvent writes). */
 export const RUN_LOG_SCHEMA_VERSION = 3 as const;
@@ -54,18 +55,18 @@ export function collectSafeRunFlags(): Record<
   string,
   string | number | boolean | undefined
 > {
-  const maxJobs = Number(process.env.COMMUNITY_MAX_JOBS);
-  const jobDelay = Number(process.env.COMMUNITY_JOB_DELAY_MS);
+  const cfg = getCommunityConfig();
   return {
     feedbackAdapter: envFlag("FEEDBACK_ADAPTER") ?? "cli",
-    scoutSource: envFlag("SCOUT_SOURCE"),
-    redditTransport: envFlag("REDDIT_TRANSPORT"),
-    redditDryRun: boolEnv("REDDIT_DRY_RUN"),
-    redditBrowserHeadless: boolEnv("REDDIT_BROWSER_HEADLESS"),
-    redditInterstitialHitl: boolEnv("REDDIT_INTERSTITIAL_HITL"),
-    communityDiscover: envFlag("COMMUNITY_DISCOVER") ?? "auto",
-    maxJobs: Number.isFinite(maxJobs) && maxJobs > 0 ? maxJobs : undefined,
-    jobDelayMs: Number.isFinite(jobDelay) && jobDelay >= 0 ? jobDelay : undefined,
+    scoutSource: cfg.scoutSource,
+    redditTransport: envFlag("REDDIT_TRANSPORT") ?? cfg.transport,
+    redditDryRun: cfg.dryRun,
+    redditBrowserHeadless: cfg.browserHeadless,
+    redditInterstitialHitl: cfg.interstitialHitl,
+    communityDiscover: cfg.discoverMode,
+    communityWarmup: cfg.warmupMode,
+    maxJobs: cfg.maxJobs,
+    jobDelayMs: cfg.jobDelayMs,
   };
 }
 

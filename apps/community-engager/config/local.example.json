@@ -1,0 +1,9 @@
+{
+  "_comment": "Copy to local.json (gitignored) for machine-specific policy overrides. Secrets stay in .env.",
+  "warmup": {
+    "mode": "force"
+  },
+  "scout": {
+    "maxSubs": 2
+  }
+}

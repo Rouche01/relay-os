@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { BrowserContext, Cookie, Page } from "playwright";
-import type { RedditEnvConfig } from "./config.js";
+import type { CommunityRuntimeConfig } from "./config.js";
 
 /**
  * Playwright storageState shape (cookies + localStorage origins).
@@ -28,7 +28,7 @@ export function sanitizeAccountId(account: string): string {
 }
 
 export function resolveAccountId(
-  cfg: Pick<RedditEnvConfig, "username">,
+  cfg: Pick<CommunityRuntimeConfig, "username">,
   override?: string
 ): string {
   return sanitizeAccountId(override ?? cfg.username ?? "default");
@@ -36,7 +36,7 @@ export function resolveAccountId(
 
 /** Path to Playwright storageState JSON for an account. */
 export function storageStatePath(
-  cfg: Pick<RedditEnvConfig, "cookieDir" | "username">,
+  cfg: Pick<CommunityRuntimeConfig, "cookieDir" | "username">,
   account?: string
 ): string {
   const id = resolveAccountId(cfg, account);
@@ -45,7 +45,7 @@ export function storageStatePath(
 
 /** HITL-style cookies-only dump (debug / migration). */
 export function cookiesDebugPath(
-  cfg: Pick<RedditEnvConfig, "cookieDir" | "username">,
+  cfg: Pick<CommunityRuntimeConfig, "cookieDir" | "username">,
   account?: string
 ): string {
   const id = resolveAccountId(cfg, account);
@@ -53,7 +53,7 @@ export function cookiesDebugPath(
 }
 
 export async function hasStorageState(
-  cfg: Pick<RedditEnvConfig, "cookieDir" | "username">,
+  cfg: Pick<CommunityRuntimeConfig, "cookieDir" | "username">,
   account?: string
 ): Promise<boolean> {
   const state = await loadStorageState(cfg, account);
@@ -67,7 +67,7 @@ export async function hasStorageState(
  * Returns null if missing or invalid (fail-open for callers).
  */
 export async function loadStorageState(
-  cfg: Pick<RedditEnvConfig, "cookieDir" | "username">,
+  cfg: Pick<CommunityRuntimeConfig, "cookieDir" | "username">,
   account?: string
 ): Promise<RedditStorageState | null> {
   const filePath = storageStatePath(cfg, account);
@@ -96,7 +96,7 @@ export async function loadStorageState(
  */
 export async function saveSession(
   source: BrowserContext | Page,
-  cfg: Pick<RedditEnvConfig, "cookieDir" | "username">,
+  cfg: Pick<CommunityRuntimeConfig, "cookieDir" | "username">,
   account?: string
 ): Promise<{ storagePath: string; cookiesPath: string }> {
   await mkdir(cfg.cookieDir, { recursive: true });
@@ -120,7 +120,7 @@ export async function saveSession(
 /** Alias matching HITL naming. */
 export async function saveSessionCookies(
   source: BrowserContext | Page,
-  cfg: Pick<RedditEnvConfig, "cookieDir" | "username">,
+  cfg: Pick<CommunityRuntimeConfig, "cookieDir" | "username">,
   account?: string
 ): Promise<void> {
   await saveSession(source, cfg, account);
@@ -131,7 +131,7 @@ export async function saveSessionCookies(
  * HITL-compatible helper for debugging / addCookies.
  */
 export async function retrieveSessionCookies(
-  cfg: Pick<RedditEnvConfig, "cookieDir" | "username">,
+  cfg: Pick<CommunityRuntimeConfig, "cookieDir" | "username">,
   account?: string
 ): Promise<Cookie[] | null> {
   const state = await loadStorageState(cfg, account);
@@ -149,7 +149,7 @@ export async function retrieveSessionCookies(
 
 /** Delete storageState + cookies debug dump (AUTH refresh / logout). */
 export async function deleteSessionCookies(
-  cfg: Pick<RedditEnvConfig, "cookieDir" | "username">,
+  cfg: Pick<CommunityRuntimeConfig, "cookieDir" | "username">,
   account?: string
 ): Promise<void> {
   const paths = [storageStatePath(cfg, account), cookiesDebugPath(cfg, account)];

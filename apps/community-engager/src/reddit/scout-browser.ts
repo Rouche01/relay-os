@@ -8,8 +8,8 @@ import { scoreTotal } from "../types.js";
 import type { RedditListingPost } from "./client.js";
 import {
   allowlistedSubNames,
-  getRedditEnv,
-  type RedditEnvConfig,
+  getCommunityConfig,
+  type CommunityRuntimeConfig,
 } from "./config.js";
 import { createRedditBrowserEngine } from "./browser-session.js";
 import {
@@ -87,7 +87,7 @@ export interface BrowserScoutResult {
 export interface BrowserScoutOptions {
   limit?: number;
   subreddits?: string[];
-  cfg?: RedditEnvConfig;
+  cfg?: CommunityRuntimeConfig;
   /** Base delay between subreddit navigations (ms). */
   delayMs?: number;
   /** Load cookie jar if present (default true). */
@@ -200,7 +200,7 @@ async function deepReadPosts(
 export async function scoutRedditBrowser(
   opts: BrowserScoutOptions = {}
 ): Promise<BrowserScoutResult> {
-  const cfg = opts.cfg ?? getRedditEnv();
+  const cfg = opts.cfg ?? getCommunityConfig();
   let subs = opts.subreddits?.length ? opts.subreddits : allowlistedSubNames();
   if (cfg.scoutMaxSubs > 0) {
     subs = subs.slice(0, cfg.scoutMaxSubs);

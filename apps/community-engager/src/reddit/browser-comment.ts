@@ -6,7 +6,7 @@ import {
   decideComposerControl,
   resolveComposerLocator,
 } from "../composer-decide.js";
-import { getRedditEnv, type RedditEnvConfig } from "./config.js";
+import { getCommunityConfig, type CommunityRuntimeConfig } from "./config.js";
 import { createRedditBrowserEngine } from "./browser-session.js";
 import { loginRedditBrowser } from "./browser-login.js";
 import { hasStorageState, saveSession } from "./cookies.js";
@@ -14,7 +14,7 @@ import { hasStorageState, saveSession } from "./cookies.js";
 export interface BrowserCommentOptions {
   threadUrl: string;
   text: string;
-  cfg?: RedditEnvConfig;
+  cfg?: CommunityRuntimeConfig;
   /** If jar missing / auth wall, run loginRedditBrowser first. Default true when hasUserPass. */
   loginIfNeeded?: boolean;
   headless?: boolean;
@@ -251,7 +251,7 @@ async function capturePermalink(
  * Ensure a usable Reddit browser session (jar or interactive login).
  */
 export async function ensureBrowserSession(
-  cfg: RedditEnvConfig,
+  cfg: CommunityRuntimeConfig,
   opts: { loginIfNeeded?: boolean; headless?: boolean } = {}
 ): Promise<{ ok: boolean; error?: string }> {
   const loginIfNeeded = opts.loginIfNeeded ?? cfg.hasUserPass;
@@ -291,7 +291,7 @@ export async function ensureBrowserSession(
 export async function postCommentBrowser(
   opts: BrowserCommentOptions
 ): Promise<BrowserCommentResult> {
-  const cfg = opts.cfg ?? getRedditEnv();
+  const cfg = opts.cfg ?? getCommunityConfig();
   const text = opts.text.trim();
   if (!text) {
     return { ok: false, error: "empty comment text" };

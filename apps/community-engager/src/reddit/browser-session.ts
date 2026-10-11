@@ -1,12 +1,12 @@
 import { PlaywrightEngine } from "@relay/engines-browser";
-import type { RedditEnvConfig } from "./config.js";
+import type { CommunityRuntimeConfig } from "./config.js";
 import { hasStorageState, loadStorageState, storageStatePath } from "./cookies.js";
 
 /**
  * Default UA when env still has the placeholder bot string — www.reddit is
  * friendlier to a normal Chrome UA for anonymous listing.
  */
-export function browserUserAgent(cfg: RedditEnvConfig): string {
+export function browserUserAgent(cfg: CommunityRuntimeConfig): string {
   const ua = cfg.userAgent;
   if (!ua || /relay-community-engager/i.test(ua)) {
     return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -15,7 +15,7 @@ export function browserUserAgent(cfg: RedditEnvConfig): string {
 }
 
 export interface CreateRedditBrowserOptions {
-  cfg: RedditEnvConfig;
+  cfg: CommunityRuntimeConfig;
   /**
    * When true (default), load storageState from cookieDir if present (AUTHED).
    * Login flows that refresh auth should set false and clear jar first.
