@@ -137,6 +137,7 @@ flowchart TD
 | Promo-ratio ledger (~9:1) | Rolling window caps intensity ≥1; `promo.onExceed` = `block` or `warn` |
 | Post-watch (24–72h) | After a live post, poll permalink for replies/removal; queue follow-up drafts |
 | Soft-CTA drafts | Help first; intensity 0 = no product; 1 = name mention only; 2 = disclose + one LP link (`product.lpBaseUrl` / `GOSTYLENS_LP_BASE_URL`) |
+| Sub playbooks | Per-allowlist `playbook`: rules summary, `plugStyle`, `megathreadPolicy`, `maxPlugsPerWeek` — clamps draft intensity and megathread scout |
 
 Warmup (`warmup.mode=auto`) keeps drafts help-only until local live intensity-0 posts and (when known) Reddit account age/karma clear the thresholds. State: `{REDDIT_DATA_DIR}/warmup/state.json`.
 

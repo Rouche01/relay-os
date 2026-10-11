@@ -4,6 +4,11 @@ import {
   isActionable,
   scoreTotal,
 } from "../types.js";
+import {
+  DEFAULT_PLAYBOOK,
+  shouldScoutMegathread,
+  type SubredditPlaybook,
+} from "../playbook.js";
 import type { RedditListingPost } from "./client.js";
 import { HELP_RE, isMegathread, scoreRedditPost } from "./score.js";
 
@@ -23,18 +28,49 @@ export interface ListingScoreStats {
   megathreads: number;
 }
 
+export interface ListingPostsToDraftsOptions {
+  excludeIds?: ReadonlySet<string>;
+  /** Resolve playbook per sub (lowercase name). Defaults to DEFAULT_PLAYBOOK. */
+  playbookFor?: (subreddit: string) => SubredditPlaybook;
+}
+
+function playbookForSub(
+  subreddit: string,
+  playbookFor?: (subreddit: string) => SubredditPlaybook
+): SubredditPlaybook {
+  return playbookFor?.(subreddit) ?? DEFAULT_PLAYBOOK;
+}
+
 /** Map scored listing posts into draft skeletons (shared by OAuth + browser scout). */
 export function listingPostsToDrafts(
   posts: RedditListingPost[],
   limit: number,
-  opts?: { excludeIds?: ReadonlySet<string> }
+  opts?: ListingPostsToDraftsOptions
 ): CommunityDraft[] {
   const exclude = opts?.excludeIds;
   const ranked = posts
-    .filter((post) => !isMegathread(post.title))
+    .filter((post) => {
+      const pb = playbookForSub(post.subreddit, opts?.playbookFor);
+      return shouldScoutMegathread(isMegathread(post.title), pb);
+    })
     .map((post) => {
-      const { score, rationale } = scoreRedditPost(post);
-      return { post, score, rationale, total: scoreTotal(score) };
+      const pb = playbookForSub(post.subreddit, opts?.playbookFor);
+      const mega = isMegathread(post.title);
+      const { score, rationale } = scoreRedditPost(post, {
+        scoreMegathread: mega && pb.megathreadPolicy !== "skip",
+      });
+      const playbookNote =
+        mega && pb.megathreadPolicy === "help_only"
+          ? "megathread help_only (intensity 0)"
+          : `playbook plug=${pb.plugStyle}`;
+      return {
+        post,
+        score,
+        rationale: `${rationale}; ${playbookNote}`,
+        total: scoreTotal(score),
+        mega,
+        playbook: pb,
+      };
     })
     .filter((r) => isActionable(r.score))
     // Best fits first — feed order pins stickies/dailies at the top.
@@ -52,6 +88,7 @@ export function listingPostsToDrafts(
       threadTitle: post.title,
       opText: capOpText(post.selftext),
       draftText: "",
+      // Start help-only; draft stage clamps further via playbook / plugs-week.
       intensity: 0,
       score,
       rationale,
@@ -67,16 +104,23 @@ export function listingPostsToDrafts(
 }
 
 /** Stats for scout logs — how deep we looked vs what passed the gate. */
-export function scoreListingStats(posts: RedditListingPost[]): ListingScoreStats {
+export function scoreListingStats(
+  posts: RedditListingPost[],
+  playbookFor?: (subreddit: string) => SubredditPlaybook
+): ListingScoreStats {
   let actionable = 0;
   let nearMiss = 0;
   let megathreads = 0;
   for (const post of posts) {
+    const pb = playbookForSub(post.subreddit, playbookFor);
     if (isMegathread(post.title)) {
       megathreads += 1;
-      continue;
+      if (pb.megathreadPolicy === "skip") continue;
     }
-    const { score } = scoreRedditPost(post);
+    const mega = isMegathread(post.title);
+    const { score } = scoreRedditPost(post, {
+      scoreMegathread: mega && pb.megathreadPolicy !== "skip",
+    });
     const total = scoreTotal(score);
     if (total >= ACTIONABLE_SCORE_MIN) actionable += 1;
     else if (
@@ -96,15 +140,25 @@ export function scoreListingStats(posts: RedditListingPost[]): ListingScoreStats
 export function pickDeepReadCandidates(
   posts: RedditListingPost[],
   max: number,
-  opts?: { excludeIds?: ReadonlySet<string> }
+  opts?: {
+    excludeIds?: ReadonlySet<string>;
+    playbookFor?: (subreddit: string) => SubredditPlaybook;
+  }
 ): RedditListingPost[] {
   if (max <= 0) return [];
   const exclude = opts?.excludeIds;
   const ranked = posts
-    .filter((post) => !isMegathread(post.title))
+    .filter((post) => {
+      const pb = playbookForSub(post.subreddit, opts?.playbookFor);
+      return shouldScoutMegathread(isMegathread(post.title), pb);
+    })
     .filter((post) => !exclude?.has(`reddit-${post.id}`))
     .map((post) => {
-      const { score } = scoreRedditPost(post);
+      const pb = playbookForSub(post.subreddit, opts?.playbookFor);
+      const mega = isMegathread(post.title);
+      const { score } = scoreRedditPost(post, {
+        scoreMegathread: mega && pb.megathreadPolicy !== "skip",
+      });
       const total = scoreTotal(score);
       const thinBody = post.selftext.trim().length < 80;
       const helpTitle = HELP_RE.test(post.title);

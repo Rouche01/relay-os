@@ -3,6 +3,8 @@ import type { DecisionPort } from "@relay/engines-decide";
 import { createDecisionPort } from "@relay/engines-decide";
 import type { PlaywrightEngine } from "@relay/engines-browser";
 import { detectInterstitialDecided } from "../interstitial-decide.js";
+import { getAllowlistStore } from "../allowlist-store.js";
+import { playbookLookup } from "../playbook.js";
 import type { CommunityDraft } from "../types.js";
 import { scoreTotal } from "../types.js";
 import type { RedditListingPost } from "./client.js";
@@ -219,6 +221,7 @@ export async function scoutRedditBrowser(
   const subOutcomes: BrowserScoutSubOutcome[] = [];
   const excludeIds = new Set(opts.excludeIds ?? []);
   const plannedSubs = [...subs];
+  const playbookFor = playbookLookup(await getAllowlistStore().playbookMap());
 
   // Fair share of *new* drafts per sub; `limit` is the run target after excludes.
   const perSubCap = Math.max(1, Math.ceil(limit / Math.max(1, subs.length)));
@@ -452,6 +455,7 @@ export async function scoutRedditBrowser(
 
         const candidates = pickDeepReadCandidates(posts, deepReadMax, {
           excludeIds,
+          playbookFor,
         });
         if (candidates.length > 0) {
           try {
@@ -492,7 +496,7 @@ export async function scoutRedditBrowser(
           }
         }
 
-        const stats = scoreListingStats(posts);
+        const stats = scoreListingStats(posts, playbookFor);
         console.log(
           `[scout:browser] r/${sub} scanned=${stats.scanned} actionable=${stats.actionable} nearMiss=${stats.nearMiss} megathreads=${stats.megathreads}`
         );
@@ -505,7 +509,10 @@ export async function scoutRedditBrowser(
         }
         const take =
           i === subs.length - 1 ? room : Math.min(perSubCap, room);
-        const mapped = listingPostsToDrafts(posts, take, { excludeIds });
+        const mapped = listingPostsToDrafts(posts, take, {
+          excludeIds,
+          playbookFor,
+        });
         for (const d of mapped) excludeIds.add(d.id);
         drafts.push(...mapped);
         subOutcomes.push({

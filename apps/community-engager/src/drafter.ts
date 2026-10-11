@@ -4,8 +4,14 @@ import {
   prefersHelpFirstMemory,
   PRODUCT_RE,
 } from "./draft-llm.js";
+import {
+  clampIntensityToPlaybook,
+  DEFAULT_PLAYBOOK,
+  type SubredditPlaybook,
+} from "./playbook.js";
 import { getCommunityConfig } from "./reddit/config.js";
 import type { DraftProvider } from "./run-evidence.js";
+import { isMegathread } from "./reddit/score.js";
 import { applySoftCta } from "./soft-cta.js";
 import type { CommunityDraft, PromoIntensity } from "./types.js";
 import { FIXTURE_THREADS } from "./fixtures/threads.js";
@@ -31,6 +37,10 @@ export interface DraftReplyOptions {
   forceIntensity0?: boolean;
   /** Override LP base (tests). Default from getCommunityConfig().product.lpBaseUrl. */
   lpBaseUrl?: string;
+  /** Sub playbook — clamps intensity (plug style + megathread help_only). */
+  playbook?: SubredditPlaybook;
+  /** When true, force intensity 0 (e.g. max plugs/week reached). */
+  plugsWeekBlocked?: boolean;
 }
 
 /**
@@ -43,10 +53,16 @@ export async function draftReply(
   overrides?: DraftReplyOptions
 ): Promise<DraftReplyOutcome> {
   const fixture = FIXTURE_THREADS.find((t) => t.id === draft.id);
+  const playbook = overrides?.playbook ?? DEFAULT_PLAYBOOK;
   const forceIntensity0 = Boolean(
-    overrides?.warmupActive || overrides?.forceIntensity0
+    overrides?.warmupActive ||
+      overrides?.forceIntensity0 ||
+      overrides?.plugsWeekBlocked
   );
   let intensity = clampIntensity(overrides?.intensity ?? draft.intensity);
+  intensity = clampIntensityToPlaybook(intensity, playbook, {
+    isMegathread: isMegathread(draft.threadTitle),
+  });
   const memoryBlock = overrides?.memoryBlock;
   const lpBaseUrl =
     overrides?.lpBaseUrl ?? getCommunityConfig().product.lpBaseUrl;
@@ -62,6 +78,7 @@ export async function draftReply(
         memoryBlock,
         warmupActive: forceIntensity0,
         lpBaseUrl,
+        playbook,
       });
       return {
         provider: "gemini",
@@ -72,7 +89,7 @@ export async function draftReply(
             intensity: llm.intensity,
             status: "pending_approval",
           },
-          { forceIntensity0, lpBaseUrl }
+          { forceIntensity0, lpBaseUrl, playbook }
         ),
       };
     } catch (err) {
@@ -102,20 +119,32 @@ export async function draftReply(
         intensity: forceIntensity0 ? 0 : intensity,
         status: "pending_approval",
       },
-      { forceIntensity0, lpBaseUrl }
+      { forceIntensity0, lpBaseUrl, playbook }
     ),
   };
 }
 
 function finalizeDraft(
   draft: CommunityDraft,
-  opts: { forceIntensity0: boolean; lpBaseUrl: string }
+  opts: {
+    forceIntensity0: boolean;
+    lpBaseUrl: string;
+    playbook: SubredditPlaybook;
+  }
 ): CommunityDraft {
-  const shaped = applySoftCta(draft, {
-    lpBaseUrl: opts.lpBaseUrl,
-    forceIntensity0: opts.forceIntensity0,
-    campaign: draft.utmCampaign,
-  });
+  const clampedIntensity = opts.forceIntensity0
+    ? 0
+    : clampIntensityToPlaybook(draft.intensity, opts.playbook, {
+        isMegathread: isMegathread(draft.threadTitle),
+      });
+  const shaped = applySoftCta(
+    { ...draft, intensity: clampedIntensity },
+    {
+      lpBaseUrl: opts.lpBaseUrl,
+      forceIntensity0: opts.forceIntensity0,
+      campaign: draft.utmCampaign,
+    }
+  );
   return applyWarmupClamp(shaped, opts.forceIntensity0, {
     title: draft.threadTitle,
     subreddit: draft.subreddit,
@@ -124,7 +153,6 @@ function finalizeDraft(
     lpBaseUrl: opts.lpBaseUrl,
   });
 }
-
 /**
  * Hard clamp for warmup: intensity 0 and no GoStylens mention.
  * If the text still plugs the product, replace with a help-only stub.

@@ -6,6 +6,8 @@ import {
   getCommunityConfig,
   type CommunityRuntimeConfig,
 } from "./config.js";
+import { getAllowlistStore } from "../allowlist-store.js";
+import { playbookLookup } from "../playbook.js";
 import { listingPostsToDrafts } from "./map-drafts.js";
 
 export interface JsonScoutOptions {
@@ -194,6 +196,7 @@ export async function scoutRedditJson(
   const playwrightFallback = opts.playwrightFallback ?? true;
   const drafts: CommunityDraft[] = [];
   const excludeIds = new Set(opts.excludeIds ?? []);
+  const playbookFor = playbookLookup(await getAllowlistStore().playbookMap());
 
   for (let i = 0; i < subs.length; i++) {
     const sub = subs[i]!;
@@ -204,6 +207,7 @@ export async function scoutRedditJson(
       console.log(`[scout:json] r/${sub} extracted ${posts.length} posts`);
       const mapped = listingPostsToDrafts(posts, limit - drafts.length, {
         excludeIds,
+        playbookFor,
       });
       for (const d of mapped) excludeIds.add(d.id);
       drafts.push(...mapped);

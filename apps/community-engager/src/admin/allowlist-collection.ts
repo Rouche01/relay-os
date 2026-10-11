@@ -10,6 +10,7 @@ import {
   type AllowlistEntry,
   type AllowlistStatus,
 } from "../allowlist-store.js";
+import { normalizePlaybook } from "../playbook.js";
 import { assertFileSource } from "./sources.js";
 
 const STATUSES: AllowlistStatus[] = ["postable", "proposed", "rejected"];
@@ -25,7 +26,14 @@ function toGet(entry: AllowlistEntry): GetResult {
       kind: "allowlist-entry",
       title: `r/${entry.name}`,
       subtitle: `${entry.source} · ${entry.status}`,
-      editable: ["note", "score", "rulesOk", "status", "evidence"],
+      editable: [
+        "note",
+        "score",
+        "rulesOk",
+        "status",
+        "evidence",
+        "playbook",
+      ],
     },
   };
 }
@@ -64,6 +72,7 @@ export function createAllowlistCollection(
           { key: "status", label: "Status" },
           { key: "name", label: "Sub" },
           { key: "score", label: "Score" },
+          { key: "plugStyle", label: "Plug" },
           { key: "note", label: "Note" },
         ],
         rows: entries.map((e) => ({
@@ -72,6 +81,7 @@ export function createAllowlistCollection(
           updatedAt: e.updatedAt,
           status: e.status,
           score: e.score,
+          plugStyle: e.playbook?.plugStyle ?? "—",
           note: (e.note || "").slice(0, 60) || "—",
         })),
       };
@@ -96,6 +106,14 @@ export function createAllowlistCollection(
           throw new Error(`Invalid allowlist status: ${body.status}`);
         }
         patch.status = body.status;
+      }
+      if (body.playbook !== undefined && body.playbook !== null) {
+        if (typeof body.playbook !== "object") {
+          throw new Error("playbook must be an object");
+        }
+        patch.playbook = normalizePlaybook(
+          body.playbook as Parameters<typeof normalizePlaybook>[0]
+        );
       }
       const entry = await store.patch(id, patch);
       if (!entry) throw new Error(`Allowlist entry not found: ${id}`);

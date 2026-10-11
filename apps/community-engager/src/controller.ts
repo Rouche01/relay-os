@@ -19,6 +19,7 @@ import { draftToFeedbackContext } from "./feedback-map.js";
 import { applyWarmupClamp, draftReply } from "./drafter.js";
 import {
   formatPromoRatioLog,
+  readPromoLedger,
   recordPromoLedgerPost,
   resolvePromoRatioStatus,
   type PromoRatioStatus,
@@ -29,6 +30,11 @@ import {
   resolveWarmupStatus,
   type WarmupStatus,
 } from "./warmup.js";
+import {
+  countPlugsThisWeek,
+  formatPlaybookSummary,
+  shouldBlockPlugForWeek,
+} from "./playbook.js";
 import {
   enrollPostWatch,
   formatPostWatchLog,
@@ -41,7 +47,7 @@ import {
   runDiscovery,
 } from "./discover.js";
 import { executeApproved } from "./executor.js";
-import { getAllowlistStore } from "./allowlist-store.js";
+import { getAllowlistStore, resolvePlaybook } from "./allowlist-store.js";
 import { CommunityMemory, communityFactDomain } from "./memory.js";
 import {
   fillAndSubmitRedditLogin,
@@ -1733,6 +1739,21 @@ export class CommunityEngagerController implements AppController {
     ctx.promoRatioStatus = promo;
     console.log(formatPromoRatioLog(promo));
 
+    const allowEntry = await getAllowlistStore().get(top.subreddit);
+    const playbook = resolvePlaybook(allowEntry ?? top.subreddit);
+    const ledger = await readPromoLedger(runtimeCfg.reddit.dataDir);
+    const plugsThisWeek = countPlugsThisWeek(
+      ledger.entries,
+      top.subreddit
+    );
+    const plugsWeekBlocked = shouldBlockPlugForWeek(playbook, plugsThisWeek);
+    console.log(
+      `[playbook] r/${top.subreddit} ${formatPlaybookSummary(playbook)}` +
+        ` plugsThisWeek=${plugsThisWeek}` +
+        (plugsWeekBlocked ? " BLOCK_PLUGS" : "")
+    );
+    ctx.playbook = playbook;
+
     const memoryBlock = await this.options.memory.rememberForPrompt(
       `community reddit draft r/${top.subreddit} ${top.threadTitle} intensity feedback abort approve`,
       { limit: 5 }
@@ -1744,13 +1765,15 @@ export class CommunityEngagerController implements AppController {
     }
     ctx.agentMemory = memoryBlock;
 
-    const forceIntensity0 = warmup.active || promo.blockPromo;
+    const forceIntensity0 =
+      warmup.active || promo.blockPromo || plugsWeekBlocked;
     const draftOverrides = {
       memoryBlock: memoryBlock || undefined,
       warmupActive: warmup.active,
-      forceIntensity0: promo.blockPromo,
+      forceIntensity0: promo.blockPromo || plugsWeekBlocked,
+      plugsWeekBlocked,
+      playbook,
     };
-
     let drafted: CommunityDraft;
     let provider: DraftProvider = "stub";
     if (engine?.type === "llm") {
@@ -1784,7 +1807,13 @@ export class CommunityEngagerController implements AppController {
     );
 
     ctx.currentDraft = drafted;
-    ctx.feedbackContext = draftToFeedbackContext(drafted, { warmup, promo });
+    ctx.feedbackContext = draftToFeedbackContext(drafted, {
+      warmup,
+      promo,
+      playbook,
+      plugsThisWeek,
+      plugsWeekBlocked,
+    });
     const preview = draftPreview(drafted.draftText);
     const draftEvidence: DraftEvidence = {
       id: drafted.id,
@@ -1886,6 +1915,7 @@ export class CommunityEngagerController implements AppController {
           const n = await recordPromoLedgerPost(dataDir, {
             intensity: draft.intensity,
             jobId: result.jobId,
+            subreddit: draft.subreddit,
             windowDays: runtimeCfg.promo.windowDays,
           });
           console.log(

@@ -8,12 +8,16 @@ import {
   type CommunityAppConfig,
 } from "../app-config.js";
 
+import type { SubredditPlaybook } from "../playbook.js";
+
 /** Allowlisted fashion/styling subs for read scout + soft-mention policy notes. */
 export interface SubredditPolicy {
   name: string;
   /** When false, never enqueue (rules ban promo / self-promo risk). */
   rulesOk: boolean;
   note: string;
+  /** Operational playbook (rules, plug style, megathreads, plugs/week). */
+  playbook?: Partial<SubredditPlaybook>;
 }
 
 export const ALLOWLISTED_SUBREDDITS: SubredditPolicy[] = [
@@ -21,21 +25,47 @@ export const ALLOWLISTED_SUBREDDITS: SubredditPolicy[] = [
     name: "femalefashionadvice",
     rulesOk: true,
     note: "Help-first; soft founder mention OK; avoid hard links unless disclosure + human OK.",
+    playbook: {
+      rulesSummary:
+        "Help-first; soft founder mention OK; avoid hard links unless disclosure + human OK.",
+      plugStyle: "mention",
+      megathreadPolicy: "help_only",
+      maxPlugsPerWeek: 1,
+    },
   },
   {
     name: "malefashionadvice",
     rulesOk: true,
     note: "Advice-heavy culture; intensity 0–1 default; disclose if naming a product.",
+    playbook: {
+      rulesSummary:
+        "Advice-heavy; intensity 0–1 default; disclose if naming a product.",
+      plugStyle: "mention",
+      megathreadPolicy: "skip",
+      maxPlugsPerWeek: 1,
+    },
   },
   {
     name: "fashion",
     rulesOk: true,
     note: "Broader audience; keep value-without-app high; no spammy hauls.",
+    playbook: {
+      rulesSummary: "Broader audience; value-without-app high; no spammy hauls.",
+      plugStyle: "mention",
+      megathreadPolicy: "skip",
+      maxPlugsPerWeek: 1,
+    },
   },
   {
     name: "OldFashionedFashion",
     rulesOk: true,
     note: "Niche; prefer pure advice unless clearly welcomed.",
+    playbook: {
+      rulesSummary: "Niche; prefer pure advice unless clearly welcomed.",
+      plugStyle: "none",
+      megathreadPolicy: "skip",
+      maxPlugsPerWeek: 0,
+    },
   },
 ];
 

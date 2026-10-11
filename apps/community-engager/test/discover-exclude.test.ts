@@ -5,6 +5,7 @@ import {
   isExcludedFromDiscover,
   type AllowlistEntry,
 } from "../src/allowlist-store.js";
+import { DEFAULT_PLAYBOOK } from "../src/playbook.js";
 
 function entry(
   partial: Partial<AllowlistEntry> & Pick<AllowlistEntry, "name" | "status">
@@ -17,6 +18,7 @@ function entry(
     approvedCount: 0,
     abortedCount: 0,
     updatedAt: new Date().toISOString(),
+    playbook: { ...DEFAULT_PLAYBOOK },
     ...partial,
   };
 }

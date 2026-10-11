@@ -3,6 +3,10 @@ import type { CommunityDraft } from "./types.js";
 import { SCORE_MAX, scoreTotal } from "./types.js";
 import type { PromoRatioStatus } from "./promo-ratio.js";
 import type { WarmupStatus } from "./warmup.js";
+import {
+  formatPlaybookSummary,
+  type SubredditPlaybook,
+} from "./playbook.js";
 
 /**
  * Map a community draft into the generic HITL FeedbackContext.
@@ -10,7 +14,13 @@ import type { WarmupStatus } from "./warmup.js";
  */
 export function draftToFeedbackContext(
   draft: CommunityDraft,
-  opts?: { warmup?: WarmupStatus; promo?: PromoRatioStatus }
+  opts?: {
+    warmup?: WarmupStatus;
+    promo?: PromoRatioStatus;
+    playbook?: SubredditPlaybook;
+    plugsThisWeek?: number;
+    plugsWeekBlocked?: boolean;
+  }
 ): FeedbackContext {
   const details: FeedbackDetail[] = [
     { label: "Subreddit", value: `r/${draft.subreddit}` },
@@ -18,6 +28,17 @@ export function draftToFeedbackContext(
     { label: "Intensity", value: String(draft.intensity) },
     { label: "Status", value: draft.status },
   ];
+  if (opts?.playbook) {
+    details.push({
+      label: "Playbook",
+      value:
+        formatPlaybookSummary(opts.playbook) +
+        (opts.plugsThisWeek != null
+          ? ` · plugsThisWeek=${opts.plugsThisWeek}`
+          : "") +
+        (opts.plugsWeekBlocked ? " · plugs capped" : ""),
+    });
+  }
   if (opts?.warmup?.active) {
     details.push({
       label: "Warmup",
@@ -62,6 +83,8 @@ export function draftToFeedbackContext(
       promoBlocked: Boolean(opts?.promo?.blockPromo),
       promoWarned: Boolean(opts?.promo?.warnPromo),
       promoRatio: opts?.promo?.currentRatio,
+      playbookPlugStyle: opts?.playbook?.plugStyle,
+      plugsWeekBlocked: Boolean(opts?.plugsWeekBlocked),
     },
   };
 }

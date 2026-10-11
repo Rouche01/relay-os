@@ -39,7 +39,16 @@ export function isMegathread(title: string): boolean {
  * Heuristic opportunity score for live Reddit posts.
  * Gated by isActionable (≥ {@link ACTIONABLE_SCORE_MIN}/{@link SCORE_MAX}).
  */
-export function scoreRedditPost(post: RedditListingPost): {
+export function scoreRedditPost(
+  post: RedditListingPost,
+  opts?: {
+    /**
+     * When true, do not auto-fail megathread titles (playbook help_only / allow).
+     * Default false — megathreads are treated as non-opportunities.
+     */
+    scoreMegathread?: boolean;
+  }
+): {
   score: OpportunityScore;
   rationale: string;
 } {
@@ -47,13 +56,15 @@ export function scoreRedditPost(post: RedditListingPost): {
   const policy = getSubredditPolicy(post.subreddit);
   const ageMs = Date.now() - post.createdUtc * 1000;
   const mega = isMegathread(post.title);
+  const skipMega = mega && !opts?.scoreMegathread;
   const brandOnly = BRAND_ONLY_RE.test(text);
   const haulFlex = HAUL_FLEX_RE.test(text);
 
-  // Megathreads match “questions” heuristics but are not one-shot help posts.
-  const problemFit = !mega && HELP_RE.test(text);
+  // Megathreads match “questions” heuristics but are not one-shot help posts
+  // unless the sub playbook opts into scoring them.
+  const problemFit = !skipMega && HELP_RE.test(text);
   const wantsHelp =
-    !mega &&
+    !skipMega &&
     (QUESTION_RE.test(text) ||
       HELP_RE.test(text) ||
       /\b(please|any ideas)\b/i.test(text));
@@ -67,14 +78,14 @@ export function scoreRedditPost(post: RedditListingPost): {
   const competition = scoreCompetition(post);
   // ICP is wardrobe/system/planning language — not every "how should I" help ask.
   const icpFit =
-    !mega &&
+    !skipMega &&
     !haulFlex &&
     !brandOnly &&
     (ICP_RE.test(text) ||
       /\b(capsule|wardrobe|closet|cohesive|outfit plan)\b/i.test(text));
   // Prefer explicit system/tool language; else solid help on an allowlisted sub.
   const plugNaturalness =
-    !mega &&
+    !skipMega &&
     !haulFlex &&
     !brandOnly &&
     rulesOk &&
@@ -92,7 +103,8 @@ export function scoreRedditPost(post: RedditListingPost): {
   };
 
   const bits: string[] = [];
-  if (mega) bits.push("skipped megathread/daily");
+  if (mega && opts?.scoreMegathread) bits.push("megathread (playbook allows)");
+  else if (mega) bits.push("skipped megathread/daily");
   if (problemFit) bits.push("problem-fit language");
   if (wantsHelp) bits.push("asks for help");
   if (rulesOk) bits.push(`r/${post.subreddit} allowlisted`);

@@ -3,43 +3,43 @@ name: CommunityEngager authority + metrics
 overview: "Close the gaps between CommunityEngager’s existing HITL Reddit loop and a human-like authority-building program for GoStylens: app config file (policy vs secrets), nested CommunityRuntimeConfig, warmup, promo-ratio, post-watch, richer scoring, attribution, and admin north-star metrics."
 todos:
   - id: p0-warmup-mode
-    content: "Warmup mode — force intensity 0 until account age / karma / help-comment thresholds; optional browse+upvote cadence before plugs"
+    content: Warmup mode — force intensity 0 until account age / karma / help-comment thresholds; optional browse+upvote cadence before plugs
     status: completed
   - id: p0-app-config
-    content: "App config file for policy knobs (warmup, discover, scout, draft) — keep .env for secrets/paths/dry-run only; defaults + optional local override; env still wins for CI/deploy"
+    content: App config file for policy knobs (warmup, discover, scout, draft) — keep .env for secrets/paths/dry-run only; defaults + optional local override; env still wins for CI/deploy
     status: completed
   - id: p0-nest-runtime-config
-    content: "Nest CommunityRuntimeConfig to mirror config/default.json (reddit/session, warmup, discover, scout, jobs, product) — drop flat warmup*/discover*/scout* prefixes; update call sites"
+    content: Nest CommunityRuntimeConfig to mirror config/default.json (reddit/session, warmup, discover, scout, jobs, product) — drop flat warmup*/discover*/scout* prefixes; update call sites
     status: completed
   - id: p0-promo-ratio-ledger
-    content: "Account promo-ratio ledger — rolling window of intensity 0 vs 1–2; warn or block HITL when ratio drifts past ~10% promo"
+    content: Account promo-ratio ledger — rolling window of intensity 0 vs 1–2; warn or block HITL when ratio drifts past ~10% promo
     status: completed
   - id: p1-post-watch
-    content: "Post-approval watch job — after live post, poll thread 24–72h for replies/removal; queue follow-up drafts (domain + temporary parent stage; relocate entrypoint in relay_manifest_entrypoints_schedules)"
+    content: Post-approval watch job — after live post, poll thread 24–72h for replies/removal; queue follow-up drafts (domain + temporary parent stage; relocate entrypoint in relay_manifest_entrypoints_schedules)
     status: completed
   - id: p1-richer-scout-score
-    content: "Richer scout score — add competition, icpFit, plugNaturalness; gate ≥5/8 (was ≥4/5) with equal weights"
+    content: Richer scout score — add competition, icpFit, plugNaturalness; gate ≥5/8 (was ≥4/5) with equal weights
     status: completed
   - id: p1-soft-cta-drafts
-    content: "Soft-CTA draft pattern — offer help before link; intensity 1 = mention, 2 = disclose + link; use GOSTYLENS_LP_BASE_URL when injecting"
+    content: Soft-CTA draft pattern — offer help before link; intensity 1 = mention, 2 = disclose + link; use GOSTYLENS_LP_BASE_URL when injecting
     status: completed
   - id: p2-sub-playbooks
-    content: "Subreddit playbooks on allowlist — rules summary, allowed plug style, megathread policy, max plugs/week"
-    status: pending
+    content: Subreddit playbooks on allowlist — rules summary, allowed plug style, megathread policy, max plugs/week
+    status: completed
   - id: p2-cadence-scheduler
-    content: "Cadence scheduler — e.g. 3–5 help comments/day, ≤1 soft mention/week per sub (blocked on / consumes relay_manifest_entrypoints_schedules; do not invent a second cron)"
+    content: Cadence scheduler — e.g. 3–5 help comments/day, ≤1 soft mention/week per sub (blocked on / consumes relay_manifest_entrypoints_schedules; do not invent a second cron)
     status: pending
   - id: p2-visibility-check
-    content: "Visibility check after execute — logged-out fetch of permalink; detect removal/shadowban early"
+    content: Visibility check after execute — logged-out fetch of permalink; detect removal/shadowban early
     status: pending
   - id: p2-job-utm-attribution
-    content: "UTM per job (campaign=jobId) + join to GoStylens analytics / self-reported Reddit attribution"
+    content: UTM per job (campaign=jobId) + join to GoStylens analytics / self-reported Reddit attribution
     status: pending
   - id: p3-admin-north-star
-    content: "Admin authority score card + series — promoRatio, replyRate, visibilityRate, Reddit-attributed activations"
+    content: Admin authority score card + series — promoRatio, replyRate, visibilityRate, Reddit-attributed activations
     status: pending
   - id: p3-voltmem-outcome-tags
-    content: "VoltMem outcome tags — got_reply, removed, dm_interest, signup_attributed so drafter learns what worked"
+    content: VoltMem outcome tags — got_reply, removed, dm_interest, signup_attributed so drafter learns what worked
     status: pending
 isProject: true
 ---
@@ -50,12 +50,12 @@ Plan derived from the GoStylens Reddit dogfood review (2026-10-11). Builds on th
 
 **Related plans:**
 
-- [`relay_hitl_community_voltmem.plan.md`](./relay_hitl_community_voltmem.plan.md) — core HITL + discover + fanout
-- [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md) — browser scout / session / interstitial
-- [`admin_shell_adapters_226b13a1.plan.md`](./admin_shell_adapters_226b13a1.plan.md) — admin-shell charts / collections
-- [`relay_manifest_entrypoints_schedules.plan.md`](./relay_manifest_entrypoints_schedules.plan.md) — **entrypoint + cron-like schedules** (relocate post-watch off the engage pipeline; cadence consumes this)
+- `[relay_hitl_community_voltmem.plan.md](./relay_hitl_community_voltmem.plan.md)` — core HITL + discover + fanout
+- `[relay_reddit_browser.plan.md](./relay_reddit_browser.plan.md)` — browser scout / session / interstitial
+- `[admin_shell_adapters_226b13a1.plan.md](./admin_shell_adapters_226b13a1.plan.md)` — admin-shell charts / collections
+- `[relay_manifest_entrypoints_schedules.plan.md](./relay_manifest_entrypoints_schedules.plan.md)` — **entrypoint + cron-like schedules** (relocate post-watch off the engage pipeline; cadence consumes this)
 
-**App:** [`apps/community-engager`](../../apps/community-engager)
+**App:** `[apps/community-engager](../../apps/community-engager)`
 
 **Sequencing note:** Finish this plan’s remaining domain todos (richer score → soft-CTA → …) before protocol entrypoints work, unless shared `maxJobs` / scout blocking makes the temporary `post_watch` parent stage painful — then do only slice **A0** of the entrypoints plan as a short interrupt. See that plan’s “Sequencing vs authority-metrics” section.
 
@@ -79,15 +79,17 @@ Make the Reddit account act like a human who:
 ensure_session → discover → scout allowlist → draft → Approve/Edit/Abort → execute → VoltMem learn
 ```
 
-| Strength | Where |
-|----------|--------|
-| HITL Approve/Edit/Abort before any write | `controller.ts`, manifest |
-| Dry-run default | `REDDIT_DRY_RUN` |
-| Discover proposes; human promotes to postable | `discover.ts`, allowlist |
-| Intensity 0–2 + intensity-2 second confirm | `draft-llm.ts`, `executor.ts` |
-| Scout pacing / interstitial HITL | browser scout + interstitial decide |
-| Ops funnel in admin | scouted → jobs → approved / aborted / failed / posted |
-| UTM rewrite on existing gostylens.app links | `executor.ts` |
+
+| Strength                                      | Where                                                 |
+| --------------------------------------------- | ----------------------------------------------------- |
+| HITL Approve/Edit/Abort before any write      | `controller.ts`, manifest                             |
+| Dry-run default                               | `REDDIT_DRY_RUN`                                      |
+| Discover proposes; human promotes to postable | `discover.ts`, allowlist                              |
+| Intensity 0–2 + intensity-2 second confirm    | `draft-llm.ts`, `executor.ts`                         |
+| Scout pacing / interstitial HITL              | browser scout + interstitial decide                   |
+| Ops funnel in admin                           | scouted → jobs → approved / aborted / failed / posted |
+| UTM rewrite on existing gostylens.app links   | `executor.ts`                                         |
+
 
 Hard rule remains: nothing posts without human Approve.
 
@@ -135,17 +137,19 @@ Goal text is fashion/styling help-first, but there is no explicit GoStylens ICP 
 
 ## Workflow improvements
 
-| Priority | Change | Why |
-|----------|--------|-----|
-| P0 | **Warmup mode** — intensity forced to 0 for N days / until karma or help-comment thresholds; optional browse + upvote | Unlocks posting power without ban risk |
-| P0 | **Promo-ratio ledger** — rolling window of intensity 0 vs 1–2; warn or block HITL past ~10% promo | Makes 9:1 enforceable |
-| P1 | **Post-approval watch** — poll thread 24–72h; queue follow-up drafts | Turns one-shots into conversations |
-| P1 | ~~**Richer scout score**~~ — `competition`, `icpFit`, `plugNaturalness`; gate ≥5/8 | Fewer “technically actionable” duds |
-| P1 | ~~**Soft-CTA drafts**~~ — help first; 1 = mention; 2 = disclose + LP | Matches how Reddit converts |
-| P2 | **Subreddit playbooks** on allowlist — rules, plug style, megathread policy, max plugs/week | Promote becomes operational |
-| P2 | **Cadence scheduler** — e.g. 3–5 help/day, ≤1 soft mention/week per sub | Looks like a person, not a batch |
-| P2 | **Visibility check** after execute (logged-out permalink fetch) | Detect removal/shadowban early |
-| P3 | **Close loop to GoStylens** — unique UTM per job + Reddit survey option | Prove users, not just comments |
+
+| Priority | Change                                                                                                                | Why                                    |
+| -------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| P0       | **Warmup mode** — intensity forced to 0 for N days / until karma or help-comment thresholds; optional browse + upvote | Unlocks posting power without ban risk |
+| P0       | **Promo-ratio ledger** — rolling window of intensity 0 vs 1–2; warn or block HITL past ~10% promo                     | Makes 9:1 enforceable                  |
+| P1       | **Post-approval watch** — poll thread 24–72h; queue follow-up drafts                                                  | Turns one-shots into conversations     |
+| P1       | ~~**Richer scout score**~~ — `competition`, `icpFit`, `plugNaturalness`; gate ≥5/8                                    | Fewer “technically actionable” duds    |
+| P1       | ~~**Soft-CTA drafts**~~ — help first; 1 = mention; 2 = disclose + LP                                                  | Matches how Reddit converts            |
+| P2       | ~~**Subreddit playbooks**~~ — rules, plug style, megathread policy, max plugs/week on allowlist                       | Promote becomes operational            |
+| P2       | **Cadence scheduler** — e.g. 3–5 help/day, ≤1 soft mention/week per sub                                               | Looks like a person, not a batch       |
+| P2       | **Visibility check** after execute (logged-out permalink fetch)                                                       | Detect removal/shadowban early         |
+| P3       | **Close loop to GoStylens** — unique UTM per job + Reddit survey option                                               | Prove users, not just comments         |
+
 
 Default setup stays; these are additive gates and stages.
 
@@ -172,7 +176,9 @@ flowchart TD
   Attr --> Admin[admin north-star card]
 ```
 
-> **Note:** `p1-post-watch` shipped domain logic + a temporary `post_watch` stage on the engage parent. Long-term placement is a separate `post_watch` entrypoint/schedule in [`relay_manifest_entrypoints_schedules.plan.md`](./relay_manifest_entrypoints_schedules.plan.md).
+
+
+> **Note:** `p1-post-watch` shipped domain logic + a temporary `post_watch` stage on the engage parent. Long-term placement is a separate `post_watch` entrypoint/schedule in `[relay_manifest_entrypoints_schedules.plan.md](./relay_manifest_entrypoints_schedules.plan.md)`.
 
 ---
 
@@ -259,30 +265,29 @@ For the first 30–90 days:
 
 ### Slice A — enforce being a good citizen (P0)
 
-1. ~~Warmup mode~~ **done** — intensity 0 clamp + thresholds + `{dataDir}/warmup/state.json`; browse+upvote cadence still deferred (`COMMUNITY_WARMUP_BROWSE` reserved)  
-2. ~~**App config file** (`p0-app-config`)~~ **done** — `config/default.json` + optional `config/local.json`; secrets/paths/`REDDIT_DRY_RUN` stay in `.env`; env still overrides when set; `RedditEnvConfig` → `CommunityRuntimeConfig` / `getCommunityConfig`  
-3. ~~**Nest `CommunityRuntimeConfig`** (`p0-nest-runtime-config`)~~ **done** — `reddit` / `warmup` / `discover` / `scout` / `jobs` / `product`; `RedditSessionConfig` for OAuth/cookies; `cfg.warmup.mode` not `cfg.warmupMode`  
-4. ~~Promo-ratio ledger~~ **done** — `promo` in `config/default.json`; ledger at `{dataDir}/promo/ledger.json`; `onExceed` block|warn; HITL surfaces ratio; execute refuses promo when blocked  
-5. Persist intensity + permalink on every job outcome  
+1. ~~Warmup mode~~ **done** — intensity 0 clamp + thresholds + `{dataDir}/warmup/state.json`; browse+upvote cadence still deferred (`COMMUNITY_WARMUP_BROWSE` reserved)
+2. ~~**App config file** (`p0-app-config`)~~ **done** — `config/default.json` + optional `config/local.json`; secrets/paths/`REDDIT_DRY_RUN` stay in `.env`; env still overrides when set; `RedditEnvConfig` → `CommunityRuntimeConfig` / `getCommunityConfig`
+3. ~~**Nest `CommunityRuntimeConfig`** (`p0-nest-runtime-config`)~~ **done** — `reddit` / `warmup` / `discover` / `scout` / `jobs` / `product`; `RedditSessionConfig` for OAuth/cookies; `cfg.warmup.mode` not `cfg.warmupMode`
+4. ~~Promo-ratio ledger~~ **done** — `promo` in `config/default.json`; ledger at `{dataDir}/promo/ledger.json`; `onExceed` block|warn; HITL surfaces ratio; execute refuses promo when blocked
+5. Persist intensity + permalink on every job outcome
 
 ### Slice B — learn after post (P1)
 
-1. Visibility check after live execute  
-2. ~~Post-watch domain (enroll + poll + follow-up drafts)~~ **done** — temporary parent stage; **relocate** via [`relay_manifest_entrypoints_schedules.plan.md`](./relay_manifest_entrypoints_schedules.plan.md) A0  
-3. ~~Soft-CTA~~ **done** — help-first prompt; `soft-cta.ts` shapes 0/1/2; LP from `product.lpBaseUrl` + UTM on intensity 2 / execute  
-
+1. Visibility check after live execute
+2. ~~Post-watch domain (enroll + poll + follow-up drafts)~~ **done** — temporary parent stage; **relocate** via `[relay_manifest_entrypoints_schedules.plan.md](./relay_manifest_entrypoints_schedules.plan.md)` A0
+3. ~~Soft-CTA~~ **done** — help-first prompt; `soft-cta.ts` shapes 0/1/2; LP from `product.lpBaseUrl` + UTM on intensity 2 / execute
 
 ### Slice C — score for ICP + prove users (P1–P2)
 
-1. ~~Extend `OpportunityScore` / `scoreRedditPost`~~ **done** — `competition`, `icpFit`, `plugNaturalness`; gate ≥5/8; `numComments` on listings  
-2. UTM per `jobId`  
-3. Wire attributed signup count into admin (even if manually pasted JSON at first)  
+1. ~~Extend `OpportunityScore` / `scoreRedditPost`~~ **done** — `competition`, `icpFit`, `plugNaturalness`; gate ≥5/8; `numComments` on listings
+2. UTM per `jobId`
+3. Wire attributed signup count into admin (even if manually pasted JSON at first)
 
 ### Slice D — north-star surface (P3)
 
-1. Authority score card + series in admin-shell  
-2. VoltMem outcome tags feeding draft memory  
-3. Sub playbooks + cadence caps on allowlist  
+1. Authority score card + series in admin-shell
+2. VoltMem outcome tags feeding draft memory
+3. ~~Sub playbooks~~ **done** (cadence scheduler still pending via entrypoints plan)
 
 ---
 
@@ -298,10 +303,13 @@ For the first 30–90 days:
 
 ## Success criteria
 
-| Criterion | Signal |
-|-----------|--------|
-| Safe growth | Promo ratio stays ≤ ~10%; removals rare; no shadowban surprises |
-| Authority | Reply rate and visibility trend up on allowlisted subs |
-| Product | Non-zero Reddit-attributed activations with UTM or survey evidence |
-| Learning | Abort/approve + reply/removal tags change future draft intensity usefully |
-| Ops | Admin shows north-star + ladder, not only scout→post funnel |
+
+| Criterion   | Signal                                                                    |
+| ----------- | ------------------------------------------------------------------------- |
+| Safe growth | Promo ratio stays ≤ ~10%; removals rare; no shadowban surprises           |
+| Authority   | Reply rate and visibility trend up on allowlisted subs                    |
+| Product     | Non-zero Reddit-attributed activations with UTM or survey evidence        |
+| Learning    | Abort/approve + reply/removal tags change future draft intensity usefully |
+| Ops         | Admin shows north-star + ladder, not only scout→post funnel               |
+
+

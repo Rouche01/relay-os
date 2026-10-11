@@ -148,6 +148,12 @@ describe("draftReply soft-CTA stubs", () => {
     const outcome = await draftReply(draft({ intensity: 2 }), {
       intensity: 2,
       lpBaseUrl: "https://gostylens.app/start",
+      playbook: {
+        rulesSummary: "test",
+        plugStyle: "disclose_link",
+        megathreadPolicy: "skip",
+        maxPlugsPerWeek: 2,
+      },
     });
     assert.equal(outcome.draft.intensity, 2);
     assert.match(outcome.draft.draftText, /disclosure|founder/i);

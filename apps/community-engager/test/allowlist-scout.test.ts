@@ -8,6 +8,7 @@ import {
   compareScoutPriority,
   type AllowlistEntry,
 } from "../src/allowlist-store.js";
+import { DEFAULT_PLAYBOOK } from "../src/playbook.js";
 import { ALLOWLISTED_SUBREDDITS } from "../src/reddit/config.js";
 
 function entry(
@@ -22,6 +23,7 @@ function entry(
     approvedCount: 0,
     abortedCount: 0,
     updatedAt: "2026-01-01T00:00:00.000Z",
+    playbook: { ...DEFAULT_PLAYBOOK },
     ...partial,
   };
 }

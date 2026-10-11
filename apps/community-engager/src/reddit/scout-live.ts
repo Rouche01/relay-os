@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { getAllowlistStore } from "../allowlist-store.js";
+import { playbookLookup } from "../playbook.js";
 import type { CommunityDraft } from "../types.js";
 import { RedditClient } from "./client.js";
 import {
@@ -33,6 +35,7 @@ export async function scoutRedditLive(
   const limit = opts.limit ?? 5;
   const drafts: CommunityDraft[] = [];
   const excludeIds = new Set(opts.excludeIds ?? []);
+  const playbookFor = playbookLookup(await getAllowlistStore().playbookMap());
 
   for (const sub of subs) {
     let posts;
@@ -45,6 +48,7 @@ export async function scoutRedditLive(
 
     const mapped = listingPostsToDrafts(posts, limit - drafts.length, {
       excludeIds,
+      playbookFor,
     });
     for (const d of mapped) excludeIds.add(d.id);
     drafts.push(...mapped);

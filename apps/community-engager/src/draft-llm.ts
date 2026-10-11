@@ -1,3 +1,4 @@
+import type { SubredditPlaybook } from "./playbook.js";
 import type { CommunityDraft, PromoIntensity } from "./types.js";
 import {
   DISCLOSURE_RE,
@@ -33,7 +34,11 @@ export function prefersHelpFirstMemory(memoryBlock: string): boolean {
 export function buildDraftPrompt(
   draft: CommunityDraft,
   memoryBlock?: string,
-  opts?: { warmupActive?: boolean; lpBaseUrl?: string }
+  opts?: {
+    warmupActive?: boolean;
+    lpBaseUrl?: string;
+    playbook?: SubredditPlaybook;
+  }
 ): string {
   const opText = (draft.opText ?? "").trim().slice(0, OP_TEXT_MAX_CHARS);
   const memory = (memoryBlock ?? "").trim().slice(0, MEMORY_MAX_CHARS);
@@ -41,6 +46,17 @@ export function buildDraftPrompt(
     ? `Past human feedback (do not quote it; only become more conservative):\n${memory}`
     : "Past human feedback: none.";
   const lp = normalizeLpBase(opts?.lpBaseUrl ?? "https://gostylens.app");
+  const pb = opts?.playbook;
+  const playbookSection = pb
+    ? [
+        "Subreddit playbook (required):",
+        `- Rules: ${pb.rulesSummary}`,
+        `- Max plug style: ${pb.plugStyle} (none→intensity 0, mention→0–1, disclose_link→0–2).`,
+        `- Megathreads: ${pb.megathreadPolicy}.`,
+        `- Max plugs/week on this sub: ${pb.maxPlugsPerWeek}.`,
+        "",
+      ]
+    : [];
   const warmupSection = opts?.warmupActive
     ? [
         "WARMUP MODE (required):",
@@ -56,6 +72,7 @@ export function buildDraftPrompt(
     "The product is GoStylens, a small styling helper. Voice is help-first.",
     "",
     ...warmupSection,
+    ...playbookSection,
     "Soft-CTA pattern (always):",
     "- Lead with concrete help for this thread. Product comes after help, never before.",
     "- Never hard-sell. The reader must get value if they ignore the product entirely.",
@@ -141,6 +158,7 @@ export async function generateGeminiDraft(input: {
   apiKey?: string;
   warmupActive?: boolean;
   lpBaseUrl?: string;
+  playbook?: SubredditPlaybook;
 }): Promise<ParsedDraftJson> {
   const apiKey = geminiDraftKey(input.apiKey);
   if (!apiKey) {
@@ -155,6 +173,7 @@ export async function generateGeminiDraft(input: {
     contents: buildDraftPrompt(input.draft, input.memoryBlock, {
       warmupActive: input.warmupActive,
       lpBaseUrl: input.lpBaseUrl,
+      playbook: input.playbook,
     }),
     config: {
       responseMimeType: "application/json",

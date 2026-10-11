@@ -11,6 +11,8 @@ export interface PromoLedgerEntry {
   postedAt: string;
   intensity: PromoIntensity;
   jobId?: string;
+  /** Subreddit name (for per-sub playbook plugs/week). */
+  subreddit?: string;
 }
 
 export interface PromoLedgerState {
@@ -91,6 +93,7 @@ export async function recordPromoLedgerPost(
   input: {
     intensity: PromoIntensity;
     jobId?: string;
+    subreddit?: string;
     windowDays: number;
     postedAt?: string;
     nowMs?: number;
@@ -102,6 +105,7 @@ export async function recordPromoLedgerPost(
     postedAt,
     intensity: input.intensity,
     jobId: input.jobId,
+    subreddit: input.subreddit?.replace(/^r\//i, "").trim() || undefined,
   });
   state.entries = pruneEntries(
     state.entries,
@@ -244,5 +248,9 @@ function normalizeEntry(raw: unknown): PromoLedgerEntry | null {
     postedAt,
     intensity,
     jobId: typeof row.jobId === "string" ? row.jobId : undefined,
+    subreddit:
+      typeof row.subreddit === "string" && row.subreddit.trim()
+        ? row.subreddit.replace(/^r\//i, "").trim()
+        : undefined,
   };
 }

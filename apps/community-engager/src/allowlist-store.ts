@@ -1,8 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
+  normalizePlaybook,
+  seedPlaybookFor,
+  type SubredditPlaybook,
+} from "./playbook.js";
+import {
   ALLOWLISTED_SUBREDDITS,
   getCommunityConfig,
+  getSubredditPolicy,
   type SubredditPolicy,
 } from "./reddit/config.js";
 
@@ -26,6 +32,8 @@ export interface AllowlistEntry {
    * Used for rotation (not demotion) so high-score subs do not monopolize.
    */
   lastScoutedAt?: string;
+  /** Operational playbook (rules, plug style, megathreads, plugs/week). */
+  playbook: SubredditPlaybook;
 }
 
 interface AllowlistFile {
@@ -105,6 +113,32 @@ function seedEntry(policy: SubredditPolicy): AllowlistEntry {
     approvedCount: 0,
     abortedCount: 0,
     updatedAt: new Date().toISOString(),
+    playbook: seedPlaybookFor(policy.name, policy),
+  };
+}
+
+/** Resolve playbook for a sub (allowlist entry → seed → default). */
+export function resolvePlaybook(
+  entryOrName: AllowlistEntry | string | undefined
+): SubredditPlaybook {
+  if (typeof entryOrName === "string" || entryOrName === undefined) {
+    const policy = entryOrName ? getSubredditPolicy(entryOrName) : undefined;
+    return seedPlaybookFor(entryOrName ?? "", policy);
+  }
+  return normalizePlaybook(entryOrName.playbook, entryOrName.note);
+}
+
+function ensurePlaybook(entry: AllowlistEntry): AllowlistEntry {
+  if (entry.playbook && typeof entry.playbook === "object") {
+    return {
+      ...entry,
+      playbook: normalizePlaybook(entry.playbook, entry.note),
+    };
+  }
+  const policy = getSubredditPolicy(entry.name);
+  return {
+    ...entry,
+    playbook: seedPlaybookFor(entry.name, policy ?? { note: entry.note }),
   };
 }
 
@@ -123,7 +157,20 @@ export class AllowlistStore {
 
   async load(): Promise<AllowlistEntry[]> {
     const file = await this.readFile();
-    return this.mergeSeed(file.entries);
+    return this.mergeSeed(file.entries).map(ensurePlaybook);
+  }
+
+  /** name → playbook for scout/draft (postable + seed defaults). */
+  async playbookMap(): Promise<Map<string, SubredditPlaybook>> {
+    const map = new Map<string, SubredditPlaybook>();
+    for (const e of await this.load()) {
+      map.set(e.name.toLowerCase(), resolvePlaybook(e));
+    }
+    for (const policy of ALLOWLISTED_SUBREDDITS) {
+      const key = policy.name.toLowerCase();
+      if (!map.has(key)) map.set(key, seedPlaybookFor(policy.name, policy));
+    }
+    return map;
   }
 
   async listPostable(): Promise<AllowlistEntry[]> {
@@ -185,6 +232,7 @@ export class AllowlistStore {
       approvedCount: 0,
       abortedCount: 0,
       updatedAt: now,
+      playbook: normalizePlaybook(undefined, candidate.note),
     };
     entries.push(created);
     await this.writeFile(entries);
@@ -210,6 +258,7 @@ export class AllowlistStore {
         approvedCount: 0,
         abortedCount: 0,
         updatedAt: now,
+        playbook: normalizePlaybook(undefined, note ?? "Human-promoted discovery candidate"),
       };
       entries.push(created);
       await this.writeFile(entries);
@@ -247,7 +296,10 @@ export class AllowlistStore {
   async patch(
     name: string,
     patch: Partial<
-      Pick<AllowlistEntry, "note" | "score" | "rulesOk" | "status" | "evidence">
+      Pick<
+        AllowlistEntry,
+        "note" | "score" | "rulesOk" | "status" | "evidence" | "playbook"
+      >
     >
   ): Promise<AllowlistEntry | null> {
     const entries = await this.load();
@@ -274,6 +326,9 @@ export class AllowlistStore {
         next.rulesOk = true;
         next.score = Math.max(next.score, 12);
       }
+    }
+    if (patch.playbook !== undefined) {
+      next.playbook = normalizePlaybook(patch.playbook, next.note);
     }
     entries[idx] = next;
     await this.writeFile(entries);
@@ -373,7 +428,7 @@ export class AllowlistStore {
 
   private mergeSeed(existing: AllowlistEntry[]): AllowlistEntry[] {
     const byName = new Map(
-      existing.map((e) => [e.name.toLowerCase(), e] as const)
+      existing.map((e) => [e.name.toLowerCase(), ensurePlaybook(e)] as const)
     );
     for (const policy of ALLOWLISTED_SUBREDDITS) {
       const key = policy.name.toLowerCase();
