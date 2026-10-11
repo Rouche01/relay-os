@@ -18,7 +18,7 @@ export interface LiveScoutOptions {
 
 /**
  * Read-only Reddit scout over allowlisted subs (OAuth).
- * Refuses low scores (< 4/5). Never writes.
+ * Refuses low scores (< 5/8). Never writes.
  */
 export async function scoutRedditLive(
   opts: LiveScoutOptions = {}

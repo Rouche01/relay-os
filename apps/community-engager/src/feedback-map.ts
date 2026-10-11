@@ -1,6 +1,6 @@
 import type { FeedbackContext, FeedbackDetail } from "@relay/protocol";
 import type { CommunityDraft } from "./types.js";
-import { scoreTotal } from "./types.js";
+import { SCORE_MAX, scoreTotal } from "./types.js";
 import type { PromoRatioStatus } from "./promo-ratio.js";
 import type { WarmupStatus } from "./warmup.js";
 
@@ -14,7 +14,7 @@ export function draftToFeedbackContext(
 ): FeedbackContext {
   const details: FeedbackDetail[] = [
     { label: "Subreddit", value: `r/${draft.subreddit}` },
-    { label: "Score", value: `${scoreTotal(draft.score)}/5` },
+    { label: "Score", value: `${scoreTotal(draft.score)}/${SCORE_MAX}` },
     { label: "Intensity", value: String(draft.intensity) },
     { label: "Status", value: draft.status },
   ];

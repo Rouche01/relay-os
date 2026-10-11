@@ -32,7 +32,11 @@ function draft(overrides: Partial<CommunityDraft> = {}): CommunityDraft {
       rulesOk: true,
       freshnessOk: true,
       valueWithoutApp: true,
+      competition: true,
+      icpFit: true,
+      plugNaturalness: true,
     },
+
     rationale: "help ask",
     status: "proposed",
     createdAt: new Date().toISOString(),

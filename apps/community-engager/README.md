@@ -56,7 +56,7 @@ flowchart TD
     Wall{Anti-bot interstitial?}
     Human[[Human solves challenge · save jar]]
     Blocked[Mark sub blocked · notify · next sub]
-    Score[Score ≥ 4 / 5]
+    Score[Score ≥ 5 / 8]
     Src -->|browser| SB[Playwright DOM extract]
     Src -->|json| SJ[Public *.json if allowed]
     Src -->|oauth| SO[Reddit API if CLIENT_*]
@@ -130,7 +130,7 @@ flowchart TD
 | Nothing posts without Approve | Abort skips execute |
 | `REDDIT_DRY_RUN=true` | Safe default — logs only |
 | Browser first | Playwright + cookies; OAuth optional backup |
-| Allowlist + score ≥4 | Only certain subs / strong fits |
+| Allowlist + score ≥5/8 | problemFit, help, rules, freshness, value, competition, icpFit, plugNaturalness |
 | CAPTCHAs are never auto-solved | Detect, then escalate to a human or degrade quietly |
 | Discovery proposes, humans promote | A newly researched sub is not postable until approved |
 | Warmup forces intensity 0 | Until account age / karma / help-comment thresholds (`warmup` in config) |

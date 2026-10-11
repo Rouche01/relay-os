@@ -134,7 +134,7 @@ export async function scoutOpportunities(
   const tryBrowser = source === "browser" || source === "auto";
   if (tryBrowser) {
     console.log(
-      "[scout] source=browser (Playwright / www.reddit extract, score ≥ 4)"
+      "[scout] source=browser (Playwright / www.reddit extract, score ≥ 5/8)"
     );
     try {
       const live = await scoutRedditBrowser({
@@ -192,7 +192,7 @@ export async function scoutOpportunities(
 
   const tryJson = source === "json" || source === "auto" || source === "browser";
   if (tryJson) {
-    console.log("[scout] source=json (public *.json listings, score ≥ 4)");
+    console.log("[scout] source=json (public *.json listings, score ≥ 5/8)");
     try {
       const live = await scoutRedditJson({
         limit,
@@ -223,7 +223,7 @@ export async function scoutOpportunities(
         "SCOUT_SOURCE=reddit|oauth but REDDIT_CLIENT_* OAuth credentials are missing"
       );
     }
-    console.log("[scout] source=reddit (OAuth allowlisted subs, score ≥ 4)");
+    console.log("[scout] source=reddit (OAuth allowlisted subs, score ≥ 5/8)");
     try {
       const live = await scoutRedditLive({
         limit,

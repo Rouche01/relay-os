@@ -171,6 +171,9 @@ describe("draftReply promo block", () => {
       intensity: 1,
       score: {
         problemFit: true,
+        competition: true,
+        icpFit: true,
+        plugNaturalness: true,
         wantsHelp: true,
         rulesOk: true,
         freshnessOk: true,

@@ -18,8 +18,8 @@ todos:
     content: "Post-approval watch job — after live post, poll thread 24–72h for replies/removal; queue follow-up drafts (domain + temporary parent stage; relocate entrypoint in relay_manifest_entrypoints_schedules)"
     status: completed
   - id: p1-richer-scout-score
-    content: "Richer scout score — add competition, icpFit, plugNaturalness; keep ≥4 gate with clearer weights"
-    status: pending
+    content: "Richer scout score — add competition, icpFit, plugNaturalness; gate ≥5/8 (was ≥4/5) with equal weights"
+    status: completed
   - id: p1-soft-cta-drafts
     content: "Soft-CTA draft pattern — offer help before link; intensity 1 = mention, 2 = disclose + link; use GOSTYLENS_LP_BASE_URL when injecting"
     status: pending
@@ -140,7 +140,7 @@ Goal text is fashion/styling help-first, but there is no explicit GoStylens ICP 
 | P0 | **Warmup mode** — intensity forced to 0 for N days / until karma or help-comment thresholds; optional browse + upvote | Unlocks posting power without ban risk |
 | P0 | **Promo-ratio ledger** — rolling window of intensity 0 vs 1–2; warn or block HITL past ~10% promo | Makes 9:1 enforceable |
 | P1 | **Post-approval watch** — poll thread 24–72h; queue follow-up drafts | Turns one-shots into conversations |
-| P1 | **Richer scout score** — `competition`, `icpFit`, `plugNaturalness` | Fewer “technically actionable” duds |
+| P1 | ~~**Richer scout score**~~ — `competition`, `icpFit`, `plugNaturalness`; gate ≥5/8 | Fewer “technically actionable” duds |
 | P1 | **Soft-CTA drafts** — offer help before link; intensity 1 = mention, 2 = disclose + link | Matches how Reddit converts |
 | P2 | **Subreddit playbooks** on allowlist — rules, plug style, megathread policy, max plugs/week | Promote becomes operational |
 | P2 | **Cadence scheduler** — e.g. 3–5 help/day, ≤1 soft mention/week per sub | Looks like a person, not a batch |
@@ -273,7 +273,7 @@ For the first 30–90 days:
 
 ### Slice C — score for ICP + prove users (P1–P2)
 
-1. Extend `OpportunityScore` / `scoreRedditPost`  
+1. ~~Extend `OpportunityScore` / `scoreRedditPost`~~ **done** — `competition`, `icpFit`, `plugNaturalness`; gate ≥5/8; `numComments` on listings  
 2. UTM per `jobId`  
 3. Wire attributed signup count into admin (even if manually pasted JSON at first)  
 

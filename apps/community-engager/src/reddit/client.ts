@@ -10,6 +10,8 @@ export interface RedditListingPost {
   permalink: string;
   createdUtc: number;
   author: string;
+  /** Present on JSON/OAuth listings; omitted when browser extract lacks it. */
+  numComments?: number;
 }
 
 /**
@@ -58,6 +60,9 @@ export class RedditClient {
           : `https://reddit.com${permalink}`,
         createdUtc: Number(d.created_utc ?? 0),
         author: String(d.author ?? ""),
+        numComments: Number.isFinite(Number(d.num_comments))
+          ? Number(d.num_comments)
+          : undefined,
       };
     });
   }

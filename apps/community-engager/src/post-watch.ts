@@ -279,7 +279,11 @@ export function buildFollowUpDraft(
       rulesOk: true,
       freshnessOk: true,
       valueWithoutApp: true,
+      competition: true,
+      icpFit: true,
+      plugNaturalness: true,
     },
+
     rationale: `post-watch follow-up: ${replies.length} reply(ies) on ${watch.postedUrl}`,
     status: "proposed",
     createdAt: now,

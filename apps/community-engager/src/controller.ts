@@ -67,7 +67,7 @@ import {
 } from "./reddit/interstitial-session.js";
 import { scoutOpportunities } from "./scout.js";
 import type { CommunityDraft } from "./types.js";
-import { isActionable, scoreTotal } from "./types.js";
+import { ACTIONABLE_SCORE_MIN, isActionable, SCORE_MAX, scoreTotal } from "./types.js";
 import {
   draftPreview,
   type DiscoverEvidence,
@@ -1216,12 +1216,12 @@ export class CommunityEngagerController implements AppController {
     const opportunities = result.drafts;
 
     console.log(
-      `[scout] ${opportunities.length} actionable (score ≥ 4) via ${result.source}` +
+      `[scout] ${opportunities.length} actionable (score ≥ ${ACTIONABLE_SCORE_MIN}/${SCORE_MAX}) via ${result.source}` +
         (excludedSeen ? ` · excluded ${excludedSeen} already-seen` : "")
     );
     for (const d of opportunities) {
       console.log(
-        `  - [${scoreTotal(d.score)}/5] r/${d.subreddit} · ${d.threadTitle}`
+        `  - [${scoreTotal(d.score)}/${SCORE_MAX}] r/${d.subreddit} · ${d.threadTitle}`
       );
     }
     ctx.opportunities = opportunities;

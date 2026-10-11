@@ -33,7 +33,7 @@ export interface ScoutReport {
   opportunityCount: number;
   /** At least one sub extracted a listing without a wall. */
   listingOk: boolean;
-  /** At least one actionable draft (score ≥ 4). */
+  /** At least one actionable draft (score ≥ 5/8). */
   foundOpportunities: boolean;
   blockedCount: number;
   timedOutCount: number;

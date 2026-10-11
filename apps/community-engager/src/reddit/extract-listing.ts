@@ -10,6 +10,8 @@ export interface ExtractedListingRow {
   author: string;
   createdUtc: number;
   permalinkPath: string;
+  /** From shreddit-post comment-count when present. */
+  numComments?: number;
 }
 
 /**
@@ -52,6 +54,13 @@ export function extractListingRowsFromDocument(): ExtractedListingRow[] {
       if (!Number.isNaN(ms)) createdUtc = Math.floor(ms / 1000);
     }
 
+    const commentRaw =
+      el.getAttribute("comment-count") ||
+      el.getAttribute("number-of-comments") ||
+      "";
+    const commentN = Number(commentRaw);
+    const numComments = Number.isFinite(commentN) ? commentN : undefined;
+
     // Feed snippets often live in non-title comment links under the post.
     let selftext = "";
     const expando = el.querySelector(
@@ -78,6 +87,7 @@ export function extractListingRowsFromDocument(): ExtractedListingRow[] {
       author,
       createdUtc,
       permalinkPath,
+      numComments,
     });
   }
 
@@ -105,6 +115,7 @@ export function rowsToListingPosts(
       permalink: path,
       createdUtc: r.createdUtc || Math.floor(Date.now() / 1000),
       author: r.author,
+      numComments: r.numComments,
     };
   });
 }

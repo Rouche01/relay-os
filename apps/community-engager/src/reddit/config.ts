@@ -512,5 +512,8 @@ export function emptyScore(): OpportunityScore {
     rulesOk: false,
     freshnessOk: false,
     valueWithoutApp: false,
+    competition: false,
+    icpFit: false,
+    plugNaturalness: false,
   };
 }

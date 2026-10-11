@@ -106,7 +106,7 @@ export interface GoalChecklist {
   sessionOk: boolean;
   /** Scout extracted at least one listing without only walls (or fixtures/json ok). */
   scoutListingOk: boolean;
-  /** At least one actionable opportunity (score ≥ 4). */
+  /** At least one actionable opportunity (score ≥ 5/8). */
   scoutFoundOpportunities: boolean;
   /** Every processed job got a HITL decision (approve/edit/abort) or failed earlier. */
   hitlDecided: boolean;

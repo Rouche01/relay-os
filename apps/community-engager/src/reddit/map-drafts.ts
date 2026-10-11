@@ -1,5 +1,9 @@
 import type { CommunityDraft } from "../types.js";
-import { isActionable, scoreTotal } from "../types.js";
+import {
+  ACTIONABLE_SCORE_MIN,
+  isActionable,
+  scoreTotal,
+} from "../types.js";
 import type { RedditListingPost } from "./client.js";
 import { HELP_RE, isMegathread, scoreRedditPost } from "./score.js";
 
@@ -74,8 +78,11 @@ export function scoreListingStats(posts: RedditListingPost[]): ListingScoreStats
     }
     const { score } = scoreRedditPost(post);
     const total = scoreTotal(score);
-    if (total >= 4) actionable += 1;
-    else if (total === 3 || HELP_RE.test(`${post.title}\n${post.selftext}`)) {
+    if (total >= ACTIONABLE_SCORE_MIN) actionable += 1;
+    else if (
+      total >= ACTIONABLE_SCORE_MIN - 2 ||
+      HELP_RE.test(`${post.title}\n${post.selftext}`)
+    ) {
       nearMiss += 1;
     }
   }

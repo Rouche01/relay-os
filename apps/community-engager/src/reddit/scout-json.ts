@@ -71,6 +71,9 @@ function mapListingChildren(
         permalink: href,
         createdUtc: Number(d.created_utc ?? 0),
         author: String(d.author ?? ""),
+        numComments: Number.isFinite(Number(d.num_comments))
+          ? Number(d.num_comments)
+          : undefined,
       };
     })
     .filter((p) => p.id && p.title);

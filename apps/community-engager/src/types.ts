@@ -13,6 +13,10 @@ export type PromoIntensity = 0 | 1 | 2;
 
 export type CommunityPlatform = "reddit";
 
+/**
+ * Opportunity score dimensions (equal weight 1 each).
+ * Actionable when {@link scoreTotal} ≥ {@link ACTIONABLE_SCORE_MIN} (5/8).
+ */
 export interface OpportunityScore {
   /** Clear problem the product solves */
   problemFit: boolean;
@@ -24,7 +28,22 @@ export interface OpportunityScore {
   freshnessOk: boolean;
   /** Can help without the app first */
   valueWithoutApp: boolean;
+  /** Thread still has room to contribute (low comment competition) */
+  competition: boolean;
+  /** Matches GoStylens ICP (wardrobe/system/planning, not haul/flex) */
+  icpFit: boolean;
+  /** Soft product mention / founder disclosure would feel natural */
+  plugNaturalness: boolean;
 }
+
+/** Max {@link scoreTotal} (one point per dimension). */
+export const SCORE_MAX = 8;
+
+/**
+ * Minimum total to enqueue (was ≥4/5; raised to ≥5/8 so new dimensions
+ * actually filter duds while keeping similar strictness).
+ */
+export const ACTIONABLE_SCORE_MIN = 5;
 
 export interface CommunityDraft {
   id: string;
@@ -52,11 +71,14 @@ export function scoreTotal(score: OpportunityScore): number {
     Number(score.wantsHelp) +
     Number(score.rulesOk) +
     Number(score.freshnessOk) +
-    Number(score.valueWithoutApp)
+    Number(score.valueWithoutApp) +
+    Number(score.competition) +
+    Number(score.icpFit) +
+    Number(score.plugNaturalness)
   );
 }
 
-/** Act only when ≥ 4/5. */
+/** Act only when ≥ {@link ACTIONABLE_SCORE_MIN}/{@link SCORE_MAX}. */
 export function isActionable(score: OpportunityScore): boolean {
-  return scoreTotal(score) >= 4;
+  return scoreTotal(score) >= ACTIONABLE_SCORE_MIN;
 }
