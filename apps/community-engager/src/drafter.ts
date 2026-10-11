@@ -4,7 +4,9 @@ import {
   prefersHelpFirstMemory,
   PRODUCT_RE,
 } from "./draft-llm.js";
+import { getCommunityConfig } from "./reddit/config.js";
 import type { DraftProvider } from "./run-evidence.js";
+import { applySoftCta } from "./soft-cta.js";
 import type { CommunityDraft, PromoIntensity } from "./types.js";
 import { FIXTURE_THREADS } from "./fixtures/threads.js";
 
@@ -27,11 +29,14 @@ export interface DraftReplyOptions {
    * Same clamp as warmup — used when promo-ratio ledger blocks plugs.
    */
   forceIntensity0?: boolean;
+  /** Override LP base (tests). Default from getCommunityConfig().product.lpBaseUrl. */
+  lpBaseUrl?: string;
 }
 
 /**
  * Draft a reply. Uses Gemini when GEMINI_API_KEY is set and no text override
  * was supplied; otherwise the stub. API or validation failure falls back to the stub.
+ * Soft-CTA shaping runs on every path (help first; 1=mention; 2=disclose+LP).
  */
 export async function draftReply(
   draft: CommunityDraft,
@@ -43,6 +48,8 @@ export async function draftReply(
   );
   let intensity = clampIntensity(overrides?.intensity ?? draft.intensity);
   const memoryBlock = overrides?.memoryBlock;
+  const lpBaseUrl =
+    overrides?.lpBaseUrl ?? getCommunityConfig().product.lpBaseUrl;
 
   if (forceIntensity0 || (memoryBlock && prefersHelpFirstMemory(memoryBlock))) {
     intensity = 0;
@@ -54,18 +61,18 @@ export async function draftReply(
         draft,
         memoryBlock,
         warmupActive: forceIntensity0,
+        lpBaseUrl,
       });
       return {
         provider: "gemini",
-        draft: applyWarmupClamp(
+        draft: finalizeDraft(
           {
             ...draft,
             draftText: llm.draftText,
             intensity: llm.intensity,
             status: "pending_approval",
           },
-          forceIntensity0,
-          { title: draft.threadTitle, subreddit: draft.subreddit, memoryHint: Boolean(memoryBlock) }
+          { forceIntensity0, lpBaseUrl }
         ),
       };
     } catch (err) {
@@ -82,26 +89,40 @@ export async function draftReply(
       intensity: forceIntensity0 ? 0 : intensity,
       subreddit: draft.subreddit,
       memoryHint: Boolean(memoryBlock),
+      lpBaseUrl,
+      campaign: draft.utmCampaign,
     });
 
   return {
     provider: "stub",
-    draft: applyWarmupClamp(
+    draft: finalizeDraft(
       {
         ...draft,
         draftText: text,
         intensity: forceIntensity0 ? 0 : intensity,
         status: "pending_approval",
       },
-      forceIntensity0,
-      {
-        title: draft.threadTitle,
-        subreddit: draft.subreddit,
-        memoryHint: Boolean(memoryBlock),
-        opText: draft.opText ?? fixture?.opText ?? "",
-      }
+      { forceIntensity0, lpBaseUrl }
     ),
   };
+}
+
+function finalizeDraft(
+  draft: CommunityDraft,
+  opts: { forceIntensity0: boolean; lpBaseUrl: string }
+): CommunityDraft {
+  const shaped = applySoftCta(draft, {
+    lpBaseUrl: opts.lpBaseUrl,
+    forceIntensity0: opts.forceIntensity0,
+    campaign: draft.utmCampaign,
+  });
+  return applyWarmupClamp(shaped, opts.forceIntensity0, {
+    title: draft.threadTitle,
+    subreddit: draft.subreddit,
+    memoryHint: true,
+    opText: draft.opText,
+    lpBaseUrl: opts.lpBaseUrl,
+  });
 }
 
 /**
@@ -116,6 +137,7 @@ export function applyWarmupClamp(
     subreddit: string;
     opText?: string;
     memoryHint?: boolean;
+    lpBaseUrl?: string;
   }
 ): CommunityDraft {
   if (!warmupActive) return draft;
@@ -129,6 +151,7 @@ export function applyWarmupClamp(
     intensity: 0,
     subreddit: stubCtx?.subreddit ?? draft.subreddit,
     memoryHint: stubCtx?.memoryHint ?? true,
+    lpBaseUrl: stubCtx?.lpBaseUrl,
   });
   return {
     ...draft,
@@ -137,17 +160,20 @@ export function applyWarmupClamp(
   };
 }
 
-function clampIntensity(n: PromoIntensity): 0 | 1 {
-  // Fixtures / v1 default to 0–1; intensity 2 needs extra confirmation later.
-  return n === 2 ? 1 : n;
+function clampIntensity(n: PromoIntensity): PromoIntensity {
+  if (n === 2) return 2;
+  if (n === 1) return 1;
+  return 0;
 }
 
 function buildStubDraft(input: {
   title: string;
   opText: string;
-  intensity: 0 | 1;
+  intensity: PromoIntensity;
   subreddit: string;
   memoryHint?: boolean;
+  lpBaseUrl?: string;
+  campaign?: string;
 }): string {
   const helpFirst =
     `Hey — for “${input.title}”, a simple approach that works without buying anything new:\n` +
@@ -163,10 +189,20 @@ function buildStubDraft(input: {
     return helpFirst + `\n(Happy to unpack any of those steps if useful.)` + memoryNote;
   }
 
+  if (input.intensity === 1) {
+    return (
+      helpFirst +
+      `\nI've been dogfooding a small styling helper (GoStylens) for the “system” part — ` +
+      `no link, just mentioning in case the structure resonates.` +
+      memoryNote
+    );
+  }
+
+  // Intensity 2 stub — disclosure + LP (soft-cta will normalize UTM).
+  const lp = input.lpBaseUrl ?? "https://gostylens.app";
   return (
     helpFirst +
-    `\nI've been dogfooding a small styling helper (GoStylens) for the “system” part — ` +
-    `no hard sell, just mentioning in case the structure resonates. Happy to share the free approach either way.` +
+    `\nFull disclosure: I'm the founder of GoStylens. If a lightweight system helper sounds useful: ${lp}` +
     memoryNote
   );
 }

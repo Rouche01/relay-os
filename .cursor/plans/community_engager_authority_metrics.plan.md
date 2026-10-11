@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: p1-soft-cta-drafts
     content: "Soft-CTA draft pattern — offer help before link; intensity 1 = mention, 2 = disclose + link; use GOSTYLENS_LP_BASE_URL when injecting"
-    status: pending
+    status: completed
   - id: p2-sub-playbooks
     content: "Subreddit playbooks on allowlist — rules summary, allowed plug style, megathread policy, max plugs/week"
     status: pending
@@ -141,7 +141,7 @@ Goal text is fashion/styling help-first, but there is no explicit GoStylens ICP 
 | P0 | **Promo-ratio ledger** — rolling window of intensity 0 vs 1–2; warn or block HITL past ~10% promo | Makes 9:1 enforceable |
 | P1 | **Post-approval watch** — poll thread 24–72h; queue follow-up drafts | Turns one-shots into conversations |
 | P1 | ~~**Richer scout score**~~ — `competition`, `icpFit`, `plugNaturalness`; gate ≥5/8 | Fewer “technically actionable” duds |
-| P1 | **Soft-CTA drafts** — offer help before link; intensity 1 = mention, 2 = disclose + link | Matches how Reddit converts |
+| P1 | ~~**Soft-CTA drafts**~~ — help first; 1 = mention; 2 = disclose + LP | Matches how Reddit converts |
 | P2 | **Subreddit playbooks** on allowlist — rules, plug style, megathread policy, max plugs/week | Promote becomes operational |
 | P2 | **Cadence scheduler** — e.g. 3–5 help/day, ≤1 soft mention/week per sub | Looks like a person, not a batch |
 | P2 | **Visibility check** after execute (logged-out permalink fetch) | Detect removal/shadowban early |
@@ -269,7 +269,8 @@ For the first 30–90 days:
 
 1. Visibility check after live execute  
 2. ~~Post-watch domain (enroll + poll + follow-up drafts)~~ **done** — temporary parent stage; **relocate** via [`relay_manifest_entrypoints_schedules.plan.md`](./relay_manifest_entrypoints_schedules.plan.md) A0  
-3. Soft-CTA bias in `draft-llm.ts` + LP URL injection when intensity ≥ 1  
+3. ~~Soft-CTA~~ **done** — help-first prompt; `soft-cta.ts` shapes 0/1/2; LP from `product.lpBaseUrl` + UTM on intensity 2 / execute  
+
 
 ### Slice C — score for ICP + prove users (P1–P2)
 

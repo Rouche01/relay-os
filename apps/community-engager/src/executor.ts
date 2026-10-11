@@ -12,6 +12,9 @@ import {
 import { hasStorageState } from "./reddit/cookies.js";
 import { postCommentBrowser } from "./reddit/browser-comment.js";
 import { executeJobId } from "./reddit/scout-live.js";
+import { applyUtmLinks } from "./soft-cta.js";
+
+export { applyUtmLinks } from "./soft-cta.js";
 
 export interface ExecuteResult {
   ok: boolean;
@@ -260,24 +263,6 @@ async function tryOauthPost(
     const error = err instanceof Error ? err.message : String(err);
     return { ok: false, dryRun: false, jobId, error };
   }
-}
-
-/** Append UTM params to gostylens / lp links in the draft. */
-export function applyUtmLinks(
-  text: string,
-  _lpBaseUrl: string,
-  campaign: string
-): string {
-  const utm = `utm_source=reddit&utm_medium=community&utm_campaign=${encodeURIComponent(campaign)}`;
-
-  return text.replace(
-    /(https?:\/\/(?:www\.)?gostylens\.app[^\s)]*)/gi,
-    (url) => {
-      const join = url.includes("?") ? "&" : "?";
-      if (url.includes("utm_")) return url;
-      return `${url}${join}${utm}`;
-    }
-  );
 }
 
 async function readJob(jobPath: string): Promise<ExecuteResult | null> {

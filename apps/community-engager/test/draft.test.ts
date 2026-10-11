@@ -106,8 +106,9 @@ describe("buildDraftPrompt", () => {
     assert.match(prompt, /warehouse shift/);
     assert.match(prompt, /Human aborted a hard sell last week/);
     assert.match(prompt, /Intensity rules:/);
+    assert.match(prompt, /Soft-CTA pattern/);
     assert.match(prompt, /Do not mention GoStylens/);
-    assert.match(prompt, /soft GoStylens/);
+    assert.match(prompt, /mention by name only/);
     assert.match(prompt, /founder disclosure/);
   });
 });

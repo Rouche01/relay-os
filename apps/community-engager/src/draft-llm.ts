@@ -1,4 +1,11 @@
 import type { CommunityDraft, PromoIntensity } from "./types.js";
+import {
+  DISCLOSURE_RE,
+  normalizeLpBase,
+  PRODUCT_RE,
+} from "./soft-cta.js";
+
+export { PRODUCT_RE } from "./soft-cta.js";
 
 /** Same model as GeminiProvider in @relay/llm-controller. */
 export const DRAFT_MODEL = "gemini-2.5-flash";
@@ -6,10 +13,6 @@ export const DRAFT_MODEL = "gemini-2.5-flash";
 const OP_TEXT_MAX_CHARS = 4000;
 const MEMORY_MAX_CHARS = 2000;
 const DRAFT_TEXT_MAX_CHARS = 4000;
-
-export const PRODUCT_RE = /\bgostylens\b/i;
-const DISCLOSURE_RE =
-  /\b(disclosure|disclos(?:e|ing)|i(?:'m| am) the (?:founder|maker|builder)|i built|full disclosure)\b/i;
 
 export interface ParsedDraftJson {
   draftText: string;
@@ -30,13 +33,14 @@ export function prefersHelpFirstMemory(memoryBlock: string): boolean {
 export function buildDraftPrompt(
   draft: CommunityDraft,
   memoryBlock?: string,
-  opts?: { warmupActive?: boolean }
+  opts?: { warmupActive?: boolean; lpBaseUrl?: string }
 ): string {
   const opText = (draft.opText ?? "").trim().slice(0, OP_TEXT_MAX_CHARS);
   const memory = (memoryBlock ?? "").trim().slice(0, MEMORY_MAX_CHARS);
   const memorySection = memory
     ? `Past human feedback (do not quote it; only become more conservative):\n${memory}`
     : "Past human feedback: none.";
+  const lp = normalizeLpBase(opts?.lpBaseUrl ?? "https://gostylens.app");
   const warmupSection = opts?.warmupActive
     ? [
         "WARMUP MODE (required):",
@@ -52,10 +56,15 @@ export function buildDraftPrompt(
     "The product is GoStylens, a small styling helper. Voice is help-first.",
     "",
     ...warmupSection,
+    "Soft-CTA pattern (always):",
+    "- Lead with concrete help for this thread. Product comes after help, never before.",
+    "- Never hard-sell. The reader must get value if they ignore the product entirely.",
+    "",
     "Intensity rules:",
-    "- 0: answer the post with concrete help only. Do not mention GoStylens.",
-    "- 1: give the help first, then one soft GoStylens sentence the reader can ignore. Never hard-sell.",
-    "- 2: rare. Use only when the comment already includes a clear founder disclosure. Otherwise use 0 or 1.",
+    "- 0: concrete help only. Do not mention GoStylens. No links.",
+    "- 1: help first, then one soft GoStylens *mention by name only*. No URL. No CTA button language.",
+    `- 2: rare. Help first, then clear founder disclosure, then exactly one link: ${lp}`,
+    "- Prefer 0. Use 1 only when a system/tool framing clearly fits. Use 2 only when disclosure feels natural.",
     "- If past feedback mentions abort, spam, hard sell, or too much promo, intensity must be 0 and GoStylens must not appear.",
     "",
     "Reply rules:",
@@ -131,6 +140,7 @@ export async function generateGeminiDraft(input: {
   memoryBlock?: string;
   apiKey?: string;
   warmupActive?: boolean;
+  lpBaseUrl?: string;
 }): Promise<ParsedDraftJson> {
   const apiKey = geminiDraftKey(input.apiKey);
   if (!apiKey) {
@@ -144,6 +154,7 @@ export async function generateGeminiDraft(input: {
     model: DRAFT_MODEL,
     contents: buildDraftPrompt(input.draft, input.memoryBlock, {
       warmupActive: input.warmupActive,
+      lpBaseUrl: input.lpBaseUrl,
     }),
     config: {
       responseMimeType: "application/json",
@@ -156,7 +167,8 @@ export async function generateGeminiDraft(input: {
           },
           intensity: {
             type: Type.INTEGER,
-            description: "0 help only, 1 soft mention, 2 only with founder disclosure.",
+            description:
+              "0 help only, 1 soft name mention (no URL), 2 disclosure + one LP link.",
           },
           rationale: {
             type: Type.STRING,
