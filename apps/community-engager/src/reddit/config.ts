@@ -153,6 +153,15 @@ export interface PromoRuntimeConfig {
   onExceed: PromoOnExceed;
 }
 
+/** Poll live-posted comments for replies/removal; queue follow-up drafts. */
+export interface PostWatchRuntimeConfig {
+  enabled: boolean;
+  minAgeHours: number;
+  maxAgeHours: number;
+  maxPerRun: number;
+  followUpIntensity: 0 | 1 | 2;
+}
+
 /**
  * Resolved CommunityEngager runtime config (policy file + env secrets/overrides).
  * Nested to mirror `config/default.json`. Use {@link getCommunityConfig}.
@@ -161,6 +170,7 @@ export interface CommunityRuntimeConfig {
   reddit: RedditSessionConfig;
   warmup: WarmupRuntimeConfig;
   promo: PromoRuntimeConfig;
+  postWatch: PostWatchRuntimeConfig;
   discover: DiscoverRuntimeConfig;
   scout: ScoutRuntimeConfig;
   jobs: JobsRuntimeConfig;
@@ -398,6 +408,47 @@ export function getCommunityConfig(
         const raw = env.COMMUNITY_PROMO_ON_EXCEED?.trim().toLowerCase();
         if (raw === "warn" || raw === "block") return raw;
         return policy.promo.onExceed === "warn" ? "warn" : "block";
+      })(),
+    },
+    postWatch: {
+      enabled: envBool(
+        env,
+        "COMMUNITY_POST_WATCH_ENABLED",
+        policy.postWatch.enabled
+      ),
+      minAgeHours: envNumber(
+        env,
+        "COMMUNITY_POST_WATCH_MIN_AGE_HOURS",
+        policy.postWatch.minAgeHours
+      ),
+      maxAgeHours: (() => {
+        const minH = envNumber(
+          env,
+          "COMMUNITY_POST_WATCH_MIN_AGE_HOURS",
+          policy.postWatch.minAgeHours
+        );
+        const maxH = envNumber(
+          env,
+          "COMMUNITY_POST_WATCH_MAX_AGE_HOURS",
+          policy.postWatch.maxAgeHours
+        );
+        return Math.max(minH, maxH);
+      })(),
+      maxPerRun: envNumber(
+        env,
+        "COMMUNITY_POST_WATCH_MAX_PER_RUN",
+        policy.postWatch.maxPerRun,
+        { allowZero: false }
+      ),
+      followUpIntensity: (() => {
+        const raw = env.COMMUNITY_POST_WATCH_FOLLOW_UP_INTENSITY;
+        if (raw === undefined || raw.trim() === "") {
+          return policy.postWatch.followUpIntensity;
+        }
+        const n = Number(raw);
+        if (n === 2) return 2;
+        if (n === 1) return 1;
+        return 0;
       })(),
     },
     discover: {

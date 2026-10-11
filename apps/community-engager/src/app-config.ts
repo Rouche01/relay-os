@@ -58,6 +58,18 @@ export interface PromoFileConfig {
   onExceed?: "block" | "warn";
 }
 
+export interface PostWatchFileConfig {
+  enabled?: boolean;
+  /** Hours after post before first check. Default 24. */
+  minAgeHours?: number;
+  /** Stop polling after this many hours. Default 72. */
+  maxAgeHours?: number;
+  /** Max watches to poll per parent run. Default 10. */
+  maxPerRun?: number;
+  /** Intensity for queued follow-up drafts (usually 0). */
+  followUpIntensity?: 0 | 1 | 2;
+}
+
 export interface CommunityAppConfig {
   warmup: Required<
     Pick<WarmupFileConfig, "mode" | "minAccountDays" | "minKarma" | "minHelpComments">
@@ -67,6 +79,13 @@ export interface CommunityAppConfig {
     maxRatio: number;
     windowDays: number;
     onExceed: "block" | "warn";
+  };
+  postWatch: {
+    enabled: boolean;
+    minAgeHours: number;
+    maxAgeHours: number;
+    maxPerRun: number;
+    followUpIntensity: 0 | 1 | 2;
   };
   discover: {
     mode: string;
@@ -109,6 +128,7 @@ export interface LoadAppConfigOptions {
 export interface CommunityAppConfigFile {
   warmup?: WarmupFileConfig;
   promo?: PromoFileConfig;
+  postWatch?: PostWatchFileConfig;
   discover?: DiscoverFileConfig;
   scout?: ScoutFileConfig;
   jobs?: JobsFileConfig;
@@ -128,6 +148,13 @@ const BUILTIN_DEFAULTS: CommunityAppConfig = {
     maxRatio: 0.1,
     windowDays: 30,
     onExceed: "block",
+  },
+  postWatch: {
+    enabled: true,
+    minAgeHours: 24,
+    maxAgeHours: 72,
+    maxPerRun: 10,
+    followUpIntensity: 0,
   },
   discover: {
     mode: "auto",
@@ -241,6 +268,13 @@ export function mergeConfig(
           layer.promo?.onExceed ?? out.promo.onExceed
         ),
       },
+      postWatch: {
+        ...out.postWatch,
+        ...pickDefined(layer.postWatch),
+        followUpIntensity: parseFollowUpIntensity(
+          layer.postWatch?.followUpIntensity ?? out.postWatch.followUpIntensity
+        ),
+      },
       discover: { ...out.discover, ...pickDefined(layer.discover) },
       scout: { ...out.scout, ...pickDefined(layer.scout) },
       jobs: { ...out.jobs, ...pickDefined(layer.jobs) },
@@ -252,6 +286,8 @@ export function mergeConfig(
 }
 
 function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
+  const minAge = nonNegInt(raw.postWatch?.minAgeHours, 24);
+  const maxAge = nonNegInt(raw.postWatch?.maxAgeHours, 72);
   return {
     warmup: {
       mode: String(raw.warmup.mode ?? "auto"),
@@ -264,6 +300,15 @@ function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
       maxRatio: clampRatio(raw.promo?.maxRatio, 0.1),
       windowDays: nonNegInt(raw.promo?.windowDays, 30),
       onExceed: parseOnExceed(raw.promo?.onExceed),
+    },
+    postWatch: {
+      enabled: Boolean(raw.postWatch?.enabled ?? true),
+      minAgeHours: minAge,
+      maxAgeHours: Math.max(minAge, maxAge),
+      maxPerRun: positiveInt(raw.postWatch?.maxPerRun, 10),
+      followUpIntensity: parseFollowUpIntensity(
+        raw.postWatch?.followUpIntensity
+      ),
     },
     discover: {
       mode: String(raw.discover.mode ?? "auto"),
@@ -341,6 +386,13 @@ function clampRatio(raw: unknown, fallback: number): number {
 function parseOnExceed(raw: unknown): "block" | "warn" {
   const v = String(raw ?? "block").trim().toLowerCase();
   return v === "warn" ? "warn" : "block";
+}
+
+function parseFollowUpIntensity(raw: unknown): 0 | 1 | 2 {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (n === 2) return 2;
+  if (n === 1) return 1;
+  return 0;
 }
 
 /** Env wins when the variable is set (non-empty). */

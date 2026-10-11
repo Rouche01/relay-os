@@ -15,8 +15,8 @@ todos:
     content: "Account promo-ratio ledger — rolling window of intensity 0 vs 1–2; warn or block HITL when ratio drifts past ~10% promo"
     status: completed
   - id: p1-post-watch
-    content: "Post-approval watch job — after live post, poll thread 24–72h for replies/removal; queue follow-up drafts"
-    status: pending
+    content: "Post-approval watch job — after live post, poll thread 24–72h for replies/removal; queue follow-up drafts (domain + temporary parent stage; relocate entrypoint in relay_manifest_entrypoints_schedules)"
+    status: completed
   - id: p1-richer-scout-score
     content: "Richer scout score — add competition, icpFit, plugNaturalness; keep ≥4 gate with clearer weights"
     status: pending
@@ -27,7 +27,7 @@ todos:
     content: "Subreddit playbooks on allowlist — rules summary, allowed plug style, megathread policy, max plugs/week"
     status: pending
   - id: p2-cadence-scheduler
-    content: "Cadence scheduler — e.g. 3–5 help comments/day, ≤1 soft mention/week per sub"
+    content: "Cadence scheduler — e.g. 3–5 help comments/day, ≤1 soft mention/week per sub (blocked on / consumes relay_manifest_entrypoints_schedules; do not invent a second cron)"
     status: pending
   - id: p2-visibility-check
     content: "Visibility check after execute — logged-out fetch of permalink; detect removal/shadowban early"
@@ -53,8 +53,11 @@ Plan derived from the GoStylens Reddit dogfood review (2026-10-11). Builds on th
 - [`relay_hitl_community_voltmem.plan.md`](./relay_hitl_community_voltmem.plan.md) — core HITL + discover + fanout
 - [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md) — browser scout / session / interstitial
 - [`admin_shell_adapters_226b13a1.plan.md`](./admin_shell_adapters_226b13a1.plan.md) — admin-shell charts / collections
+- [`relay_manifest_entrypoints_schedules.plan.md`](./relay_manifest_entrypoints_schedules.plan.md) — **entrypoint + cron-like schedules** (relocate post-watch off the engage pipeline; cadence consumes this)
 
 **App:** [`apps/community-engager`](../../apps/community-engager)
+
+**Sequencing note:** Finish this plan’s remaining domain todos (richer score → soft-CTA → …) before protocol entrypoints work, unless shared `maxJobs` / scout blocking makes the temporary `post_watch` parent stage painful — then do only slice **A0** of the entrypoints plan as a short interrupt. See that plan’s “Sequencing vs authority-metrics” section.
 
 ---
 
@@ -160,13 +163,16 @@ flowchart TD
   Draft --> Gate[Approve / Edit / Abort]
   Gate -->|approve| Exec[execute]
   Exec --> Vis[visibility check]
-  Vis --> Watch[post-watch 24-72h]
+  Exec --> Enroll[enroll post-watch queue]
+  Enroll -.->|separate entrypoint — see entrypoints plan| Watch[post-watch 24-72h]
   Watch -->|reply| Follow[follow-up draft job]
   Watch -->|removed| Mem[VoltMem risk tag]
   Follow --> Gate
   Exec --> Attr[UTM jobId → product analytics]
   Attr --> Admin[admin north-star card]
 ```
+
+> **Note:** `p1-post-watch` shipped domain logic + a temporary `post_watch` stage on the engage parent. Long-term placement is a separate `post_watch` entrypoint/schedule in [`relay_manifest_entrypoints_schedules.plan.md`](./relay_manifest_entrypoints_schedules.plan.md).
 
 ---
 
@@ -262,7 +268,7 @@ For the first 30–90 days:
 ### Slice B — learn after post (P1)
 
 1. Visibility check after live execute  
-2. Post-watch stage / cron-style re-entry for reply follow-ups  
+2. ~~Post-watch domain (enroll + poll + follow-up drafts)~~ **done** — temporary parent stage; **relocate** via [`relay_manifest_entrypoints_schedules.plan.md`](./relay_manifest_entrypoints_schedules.plan.md) A0  
 3. Soft-CTA bias in `draft-llm.ts` + LP URL injection when intensity ≥ 1  
 
 ### Slice C — score for ICP + prove users (P1–P2)

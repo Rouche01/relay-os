@@ -30,6 +30,11 @@ import {
   type WarmupStatus,
 } from "./warmup.js";
 import {
+  enrollPostWatch,
+  formatPostWatchLog,
+  processDuePostWatches,
+} from "./post-watch.js";
+import {
   DISCOVER_SKIP_OPTION,
   discoveryChoiceOptions,
   parseDiscoveryChoices,
@@ -98,7 +103,8 @@ type EnsureSessionResult = {
 };
 
 /**
- * Stage logic: ensure_session → discover → scout → draft → HITL → execute → learn.
+ * Stage logic: ensure_session → discover → scout → post_watch →
+ * draft → HITL → execute → learn.
  */
 export class CommunityEngagerController implements AppController {
   constructor(private readonly options: CommunityControllerOptions) {}
@@ -115,6 +121,9 @@ export class CommunityEngagerController implements AppController {
         break;
       case "scout":
         await this.runScout(ctx);
+        break;
+      case "post_watch":
+        await this.runPostWatch(ctx);
         break;
       case "draft":
         await this.runDraft(ctx, engine);
@@ -1032,6 +1041,57 @@ export class CommunityEngagerController implements AppController {
   }
 
   /**
+   * Poll enrolled live posts for replies/removal; prepend follow-up drafts
+   * onto opportunities so the jobs fanout picks them up first.
+   */
+  private async runPostWatch(ctx: AgentContext): Promise<void> {
+    const cfg = getCommunityConfig();
+    if (!cfg.postWatch.enabled) {
+      console.log("[post-watch] disabled — skipping");
+      ctx.stageResults = {
+        ...(ctx.stageResults ?? {}),
+        post_watch: { skipped: true, reason: "disabled" },
+      };
+      return;
+    }
+
+    let result;
+    try {
+      result = await processDuePostWatches(cfg);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[post-watch] process failed: ${message}`);
+      ctx.stageResults = {
+        ...(ctx.stageResults ?? {}),
+        post_watch: { ok: false, error: message },
+      };
+      return;
+    }
+
+    console.log(formatPostWatchLog(result));
+    const existing =
+      (ctx.opportunities as CommunityDraft[] | undefined) ?? [];
+    if (result.followUps.length > 0) {
+      ctx.opportunities = [...result.followUps, ...existing];
+      console.log(
+        `[post-watch] prepended ${result.followUps.length} follow-up draft(s)`
+      );
+    }
+
+    ctx.stageResults = {
+      ...(ctx.stageResults ?? {}),
+      post_watch: {
+        checked: result.checked,
+        replied: result.replied,
+        removed: result.removed,
+        expired: result.expired,
+        errors: result.errors,
+        followUpIds: result.followUps.map((d) => d.id),
+      },
+    };
+  }
+
+  /**
    * Continue scout in the live headed browser after login/CAPTCHA HITL.
    * Skips re-prompting login for `skipSub` if still gated; scouts the rest.
    *
@@ -1833,6 +1893,26 @@ export class CommunityEngagerController implements AppController {
           );
         } catch (err) {
           console.warn("[promo] failed to record ledger entry:", err);
+        }
+        // Enroll for 24–72h reply/removal watch (next parent run).
+        if (runtimeCfg.postWatch.enabled) {
+          try {
+            const watch = await enrollPostWatch(dataDir, {
+              postedUrl: result.postedUrl,
+              subreddit: draft.subreddit,
+              threadUrl: draft.threadUrl,
+              threadTitle: draft.threadTitle,
+              draftId: draft.id,
+              jobId: result.jobId,
+              minAgeHours: runtimeCfg.postWatch.minAgeHours,
+              maxAgeHours: runtimeCfg.postWatch.maxAgeHours,
+            });
+            console.log(
+              `[post-watch] enrolled ${watch.id} checkAfter=${watch.checkAfter}`
+            );
+          } catch (err) {
+            console.warn("[post-watch] failed to enroll:", err);
+          }
         }
       }
     } else {

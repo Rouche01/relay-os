@@ -11,6 +11,13 @@
     "windowDays": 30,
     "onExceed": "block"
   },
+  "postWatch": {
+    "enabled": true,
+    "minAgeHours": 24,
+    "maxAgeHours": 72,
+    "maxPerRun": 10,
+    "followUpIntensity": 0
+  },
   "discover": {
     "mode": "auto",
     "query": "fashion style advice wardrobe",

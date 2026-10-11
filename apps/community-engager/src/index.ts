@@ -57,7 +57,8 @@ export interface CommunityEngagerAppOptions {
 
 /**
  * Thin host over a nested-manifest runtime.
- * Parent stages: ensure_session → scout → jobs (fanout → CommunityJobManifest).
+ * Parent stages: ensure_session → discover → scout → post_watch →
+ * jobs (fanout → CommunityJobManifest).
  */
 export class CommunityEngagerApp implements FanoutHost {
   private readonly runtime: AgentRuntime;

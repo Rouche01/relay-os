@@ -190,6 +190,12 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
       ],
     },
     {
+      name: "post_watch",
+      description:
+        "Poll enrolled live posts (24–72h) for replies/removal; prepend follow-up drafts",
+      engine: "none",
+    },
+    {
       name: "jobs",
       description:
         "One isolated nested job per opportunity (draft → HITL → execute → learn)",

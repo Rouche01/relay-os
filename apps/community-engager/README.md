@@ -115,12 +115,13 @@ flowchart TD
 | `ensure_session` | Cookie jar / HITL login before live browser work (skipped when dry-run unless `REDDIT_ENSURE_SESSION=true`) |
 | `discover` | Read-only subreddit research → `choice` HITL to promote onto allowlist (or skip) |
 | `scout` | Find actionable threads on **postable** allowlist (browser → json → oauth → fixtures); anti-bot wall → headed browser + Telegram/CLI Approve (never auto-solved) |
+| `post_watch` | Poll enrolled live posts (24–72h) for replies/removal; prepend follow-up drafts |
 | `draft` | Write a reply with Gemini when `GEMINI_API_KEY` is set; otherwise a stub. May pull VoltMem context |
 | `await_approval` | You Approve / Edit / Abort (Telegram or CLI) |
 | `execute` | Dry-run log, or live browser/oauth post |
 | `learn` | Persist outcome to VoltMem (`community_outcome`) + allowlist ranking |
 
-`ensure_session`, `discover`, and `scout` run once on the parent manifest. The `jobs` stage **fans out** into the nested `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. A job that fails or gets aborted is recorded and the queue moves on. Budget with `COMMUNITY_MAX_JOBS` (default 3) and `COMMUNITY_JOB_DELAY_MS` (default 1500). Discover defaults to `COMMUNITY_DISCOVER=auto` (skip when the postable allowlist is healthy); use `force` / `--force-discover` to research anyway, or `off` to never run.
+`ensure_session`, `discover`, `scout`, and `post_watch` run once on the parent manifest. The `jobs` stage **fans out** into the nested `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. A job that fails or gets aborted is recorded and the queue moves on. Budget with `COMMUNITY_MAX_JOBS` (default 3) and `COMMUNITY_JOB_DELAY_MS` (default 1500). Discover defaults to `COMMUNITY_DISCOVER=auto` (skip when the postable allowlist is healthy); use `force` / `--force-discover` to research anyway, or `off` to never run.
 
 ### Rules that matter
 
@@ -134,16 +135,19 @@ flowchart TD
 | Discovery proposes, humans promote | A newly researched sub is not postable until approved |
 | Warmup forces intensity 0 | Until account age / karma / help-comment thresholds (`warmup` in config) |
 | Promo-ratio ledger (~9:1) | Rolling window caps intensity ≥1; `promo.onExceed` = `block` or `warn` |
+| Post-watch (24–72h) | After a live post, poll permalink for replies/removal; queue follow-up drafts |
 
 Warmup (`warmup.mode=auto`) keeps drafts help-only until local live intensity-0 posts and (when known) Reddit account age/karma clear the thresholds. State: `{REDDIT_DATA_DIR}/warmup/state.json`.
 
 Promo ratio (`promo.maxRatio` default `0.1`, `windowDays` `30`) tracks live posts in `{REDDIT_DATA_DIR}/promo/ledger.json`. When a soft mention would push the window over the max, **`block`** forces intensity 0 (default) or **`warn`** surfaces the ratio in HITL without clamping. See [authority + metrics plan](../../.cursor/plans/community_engager_authority_metrics.plan.md).
 
+Post-watch (`postWatch.enabled`, default on) enrolls each live-posted comment and, on the next parent run after `minAgeHours` (24) and before `maxAgeHours` (72), fetches the public permalink JSON. Replies become intensity-0 follow-up opportunities prepended ahead of scout results; removals are marked. Queue: `{REDDIT_DATA_DIR}/post-watch/queue.json`.
+
 ## Config
 
 | Layer | What goes there |
 |-------|-----------------|
-| [`config/default.json`](./config/default.json) | Policy defaults (warmup, discover, scout pacing, jobs, LP URL) |
+| [`config/default.json`](./config/default.json) | Policy defaults (warmup, promo, postWatch, discover, scout, jobs, LP URL) |
 | `config/local.json` | Optional machine overrides (gitignored; copy [`local.example.json`](./config/local.example.json)) |
 | [`.env`](./.env) | Secrets, paths, dry-run / browser host toggles |
 | Env vars | Still override any policy key when set (CI / one-offs) |

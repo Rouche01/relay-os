@@ -6,6 +6,10 @@
   "promo": {
     "onExceed": "warn"
   },
+  "postWatch": {
+    "minAgeHours": 24,
+    "maxAgeHours": 72
+  },
   "scout": {
     "maxSubs": 2
   }
