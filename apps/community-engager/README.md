@@ -138,6 +138,7 @@ flowchart TD
 | Post-watch (24–72h) | After a live post, poll permalink for replies/removal; queue follow-up drafts |
 | Soft-CTA drafts | Help first; intensity 0 = no product; 1 = name mention only; 2 = disclose + one LP link (`product.lpBaseUrl` / `GOSTYLENS_LP_BASE_URL`) |
 | Sub playbooks | Per-allowlist `playbook`: rules summary, `plugStyle`, `megathreadPolicy`, `maxPlugsPerWeek` — clamps draft intensity and megathread scout |
+| Daily cadence | Caps live help/promo posts per local day (`cadence.maxHelpPerDay` / `maxPromoPerDay`); cron entrypoints stay in the schedules plan |
 
 Warmup (`warmup.mode=auto`) keeps drafts help-only until local live intensity-0 posts and (when known) Reddit account age/karma clear the thresholds. State: `{REDDIT_DATA_DIR}/warmup/state.json`.
 
@@ -145,11 +146,13 @@ Promo ratio (`promo.maxRatio` default `0.1`, `windowDays` `30`) tracks live post
 
 Post-watch (`postWatch.enabled`, default on) enrolls each live-posted comment and, on the next parent run after `minAgeHours` (24) and before `maxAgeHours` (72), fetches the public permalink JSON. Replies become intensity-0 follow-up opportunities prepended ahead of scout results; removals are marked. Queue: `{REDDIT_DATA_DIR}/post-watch/queue.json`.
 
+Daily cadence (`cadence.enabled`, default on) counts today's ledger posts and caps opportunities / execute by `maxHelpPerDay` (default 5) and `maxPromoPerDay` (default 1). Per-sub weekly soft mentions stay in playbook `maxPlugsPerWeek`. Separate cron entrypoints are deferred to the schedules plan.
+
 ## Config
 
 | Layer | What goes there |
 |-------|-----------------|
-| [`config/default.json`](./config/default.json) | Policy defaults (warmup, promo, postWatch, discover, scout, jobs, LP URL) |
+| [`config/default.json`](./config/default.json) | Policy defaults (warmup, promo, postWatch, cadence, discover, scout, jobs, LP URL) |
 | `config/local.json` | Optional machine overrides (gitignored; copy [`local.example.json`](./config/local.example.json)) |
 | [`.env`](./.env) | Secrets, paths, dry-run / browser host toggles |
 | Env vars | Still override any policy key when set (CI / one-offs) |

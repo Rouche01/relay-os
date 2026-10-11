@@ -43,6 +43,10 @@ export interface ExecuteOptions {
    * When true, refuse intensity > 0 (promo-ratio ledger would exceed max).
    */
   promoBlocked?: boolean;
+  /**
+   * When true, refuse this intensity (daily cadence help/promo budget exhausted).
+   */
+  cadenceBlocked?: boolean;
 }
 
 /**
@@ -91,6 +95,18 @@ export async function executeApproved(
       jobId,
       error:
         "promo ratio exceeded — refusing intensity > 0 (help-only until window recovers)",
+    };
+  }
+
+  if (opts.cadenceBlocked) {
+    return {
+      ok: false,
+      dryRun,
+      jobId,
+      error:
+        draft.intensity > 0
+          ? "cadence promo budget exhausted — refusing intensity > 0 today"
+          : "cadence help budget exhausted — refusing intensity 0 today",
     };
   }
 

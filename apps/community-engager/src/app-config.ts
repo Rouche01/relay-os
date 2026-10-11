@@ -70,6 +70,14 @@ export interface PostWatchFileConfig {
   followUpIntensity?: 0 | 1 | 2;
 }
 
+export interface CadenceFileConfig {
+  enabled?: boolean;
+  /** Max intensity-0 live posts per local calendar day. Default 5. */
+  maxHelpPerDay?: number;
+  /** Max intensity ≥1 live posts per local calendar day. Default 1. */
+  maxPromoPerDay?: number;
+}
+
 export interface CommunityAppConfig {
   warmup: Required<
     Pick<WarmupFileConfig, "mode" | "minAccountDays" | "minKarma" | "minHelpComments">
@@ -86,6 +94,11 @@ export interface CommunityAppConfig {
     maxAgeHours: number;
     maxPerRun: number;
     followUpIntensity: 0 | 1 | 2;
+  };
+  cadence: {
+    enabled: boolean;
+    maxHelpPerDay: number;
+    maxPromoPerDay: number;
   };
   discover: {
     mode: string;
@@ -129,6 +142,7 @@ export interface CommunityAppConfigFile {
   warmup?: WarmupFileConfig;
   promo?: PromoFileConfig;
   postWatch?: PostWatchFileConfig;
+  cadence?: CadenceFileConfig;
   discover?: DiscoverFileConfig;
   scout?: ScoutFileConfig;
   jobs?: JobsFileConfig;
@@ -155,6 +169,11 @@ const BUILTIN_DEFAULTS: CommunityAppConfig = {
     maxAgeHours: 72,
     maxPerRun: 10,
     followUpIntensity: 0,
+  },
+  cadence: {
+    enabled: true,
+    maxHelpPerDay: 5,
+    maxPromoPerDay: 1,
   },
   discover: {
     mode: "auto",
@@ -275,6 +294,7 @@ export function mergeConfig(
           layer.postWatch?.followUpIntensity ?? out.postWatch.followUpIntensity
         ),
       },
+      cadence: { ...out.cadence, ...pickDefined(layer.cadence) },
       discover: { ...out.discover, ...pickDefined(layer.discover) },
       scout: { ...out.scout, ...pickDefined(layer.scout) },
       jobs: { ...out.jobs, ...pickDefined(layer.jobs) },
@@ -309,6 +329,11 @@ function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
       followUpIntensity: parseFollowUpIntensity(
         raw.postWatch?.followUpIntensity
       ),
+    },
+    cadence: {
+      enabled: Boolean(raw.cadence?.enabled ?? true),
+      maxHelpPerDay: nonNegInt(raw.cadence?.maxHelpPerDay, 5),
+      maxPromoPerDay: nonNegInt(raw.cadence?.maxPromoPerDay, 1),
     },
     discover: {
       mode: String(raw.discover.mode ?? "auto"),

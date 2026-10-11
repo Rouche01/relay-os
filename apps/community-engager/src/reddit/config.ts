@@ -192,6 +192,13 @@ export interface PostWatchRuntimeConfig {
   followUpIntensity: 0 | 1 | 2;
 }
 
+/** Daily post budgets (config gates; cron entrypoint is a separate plan). */
+export interface CadenceRuntimeConfig {
+  enabled: boolean;
+  maxHelpPerDay: number;
+  maxPromoPerDay: number;
+}
+
 /**
  * Resolved CommunityEngager runtime config (policy file + env secrets/overrides).
  * Nested to mirror `config/default.json`. Use {@link getCommunityConfig}.
@@ -201,6 +208,7 @@ export interface CommunityRuntimeConfig {
   warmup: WarmupRuntimeConfig;
   promo: PromoRuntimeConfig;
   postWatch: PostWatchRuntimeConfig;
+  cadence: CadenceRuntimeConfig;
   discover: DiscoverRuntimeConfig;
   scout: ScoutRuntimeConfig;
   jobs: JobsRuntimeConfig;
@@ -480,6 +488,25 @@ export function getCommunityConfig(
         if (n === 1) return 1;
         return 0;
       })(),
+    },
+    cadence: {
+      enabled: envBool(
+        env,
+        "COMMUNITY_CADENCE_ENABLED",
+        policy.cadence.enabled
+      ),
+      maxHelpPerDay: envNumber(
+        env,
+        "COMMUNITY_CADENCE_MAX_HELP_PER_DAY",
+        policy.cadence.maxHelpPerDay,
+        { allowZero: true }
+      ),
+      maxPromoPerDay: envNumber(
+        env,
+        "COMMUNITY_CADENCE_MAX_PROMO_PER_DAY",
+        policy.cadence.maxPromoPerDay,
+        { allowZero: true }
+      ),
     },
     discover: {
       mode: discoverMode,

@@ -28,7 +28,7 @@ todos:
     status: completed
   - id: p2-cadence-scheduler
     content: Cadence scheduler — e.g. 3–5 help comments/day, ≤1 soft mention/week per sub (blocked on / consumes relay_manifest_entrypoints_schedules; do not invent a second cron)
-    status: pending
+    status: completed
   - id: p2-visibility-check
     content: Visibility check after execute — logged-out fetch of permalink; detect removal/shadowban early
     status: pending
@@ -146,7 +146,7 @@ Goal text is fashion/styling help-first, but there is no explicit GoStylens ICP 
 | P1       | ~~**Richer scout score**~~ — `competition`, `icpFit`, `plugNaturalness`; gate ≥5/8                                    | Fewer “technically actionable” duds    |
 | P1       | ~~**Soft-CTA drafts**~~ — help first; 1 = mention; 2 = disclose + LP                                                  | Matches how Reddit converts            |
 | P2       | ~~**Subreddit playbooks**~~ — rules, plug style, megathread policy, max plugs/week on allowlist                       | Promote becomes operational            |
-| P2       | **Cadence scheduler** — e.g. 3–5 help/day, ≤1 soft mention/week per sub                                               | Looks like a person, not a batch       |
+| P2       | ~~**Cadence scheduler**~~ — daily help/promo budgets in config; weekly per-sub via playbooks; cron via entrypoints plan | Looks like a person, not a batch       |
 | P2       | **Visibility check** after execute (logged-out permalink fetch)                                                       | Detect removal/shadowban early         |
 | P3       | **Close loop to GoStylens** — unique UTM per job + Reddit survey option                                               | Prove users, not just comments         |
 
@@ -287,7 +287,8 @@ For the first 30–90 days:
 
 1. Authority score card + series in admin-shell
 2. VoltMem outcome tags feeding draft memory
-3. ~~Sub playbooks~~ **done** (cadence scheduler still pending via entrypoints plan)
+3. ~~Sub playbooks~~ **done**
+4. ~~Cadence daily budgets~~ **done** — `cadence` config gates (`maxHelpPerDay` / `maxPromoPerDay`) from promo ledger; trim after post_watch; execute refuses when exhausted; cron entrypoints remain in schedules plan
 
 ---
 

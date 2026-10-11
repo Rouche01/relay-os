@@ -1,6 +1,7 @@
 import type { FeedbackContext, FeedbackDetail } from "@relay/protocol";
 import type { CommunityDraft } from "./types.js";
 import { SCORE_MAX, scoreTotal } from "./types.js";
+import type { CadenceStatus } from "./cadence.js";
 import type { PromoRatioStatus } from "./promo-ratio.js";
 import type { WarmupStatus } from "./warmup.js";
 import {
@@ -17,6 +18,7 @@ export function draftToFeedbackContext(
   opts?: {
     warmup?: WarmupStatus;
     promo?: PromoRatioStatus;
+    cadence?: CadenceStatus;
     playbook?: SubredditPlaybook;
     plugsThisWeek?: number;
     plugsWeekBlocked?: boolean;
@@ -62,6 +64,16 @@ export function draftToFeedbackContext(
       value: `${(opts.promo.currentRatio * 100).toFixed(1)}% (${opts.promo.promoCount} promo / ${opts.promo.helpCount} help, max ${(opts.promo.maxRatio * 100).toFixed(0)}%)`,
     });
   }
+  if (opts?.cadence?.enabled) {
+    const c = opts.cadence;
+    details.push({
+      label: "Cadence",
+      value:
+        `day ${c.dayKey} · help ${c.helpPostedToday}/${c.maxHelpPerDay}` +
+        ` · promo ${c.promoPostedToday}/${c.maxPromoPerDay}` +
+        (c.reasons.length ? ` · ${c.reasons.join("; ")}` : ""),
+    });
+  }
   if (draft.rationale) {
     details.push({ label: "Rationale", value: draft.rationale });
   }
@@ -83,6 +95,8 @@ export function draftToFeedbackContext(
       promoBlocked: Boolean(opts?.promo?.blockPromo),
       promoWarned: Boolean(opts?.promo?.warnPromo),
       promoRatio: opts?.promo?.currentRatio,
+      cadenceHelpRemaining: opts?.cadence?.helpRemaining,
+      cadencePromoRemaining: opts?.cadence?.promoRemaining,
       playbookPlugStyle: opts?.playbook?.plugStyle,
       plugsWeekBlocked: Boolean(opts?.plugsWeekBlocked),
     },

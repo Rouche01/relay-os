@@ -10,6 +10,10 @@
     "minAgeHours": 24,
     "maxAgeHours": 72
   },
+  "cadence": {
+    "maxHelpPerDay": 5,
+    "maxPromoPerDay": 1
+  },
   "scout": {
     "maxSubs": 2
   }

@@ -50,6 +50,11 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
       maxPerRun: 10,
       followUpIntensity: 0,
     },
+    cadence: {
+      enabled: true,
+      maxHelpPerDay: 5,
+      maxPromoPerDay: 1,
+    },
     discover: {
       mode: "off",
       enabled: false,

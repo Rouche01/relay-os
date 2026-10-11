@@ -52,6 +52,9 @@ export interface DraftEvidence {
   promoWarned?: boolean;
   /** Rolling promo ratio at draft time (0–1). */
   promoRatio?: number;
+  /** Daily cadence remaining slots at draft time. */
+  cadenceHelpRemaining?: number;
+  cadencePromoRemaining?: number;
 }
 
 const PREVIEW_MAX = 140;

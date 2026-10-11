@@ -41,6 +41,13 @@ import {
   processDuePostWatches,
 } from "./post-watch.js";
 import {
+  cadenceBlocksIntensity,
+  formatCadenceLog,
+  resolveCadenceStatus,
+  trimOpportunitiesForCadence,
+  type CadenceStatus,
+} from "./cadence.js";
+import {
   DISCOVER_SKIP_OPTION,
   discoveryChoiceOptions,
   parseDiscoveryChoices,
@@ -222,7 +229,10 @@ export class CommunityEngagerController implements AppController {
       draft.status = "edited";
       const warmup = ctx.warmupStatus as WarmupStatus | undefined;
       const promo = ctx.promoRatioStatus as PromoRatioStatus | undefined;
-      const forceIntensity0 = Boolean(warmup?.active || promo?.blockPromo);
+      const cadence = ctx.cadenceStatus as CadenceStatus | undefined;
+      const forceIntensity0 = Boolean(
+        warmup?.active || promo?.blockPromo || cadence?.promoExhausted
+      );
       const clamped = applyWarmupClamp(draft, forceIntensity0, {
         title: draft.threadTitle,
         subreddit: draft.subreddit,
@@ -238,7 +248,11 @@ export class CommunityEngagerController implements AppController {
         },
       });
       ctx.currentDraft = draft;
-      ctx.feedbackContext = draftToFeedbackContext(draft, { warmup, promo });
+      ctx.feedbackContext = draftToFeedbackContext(draft, {
+        warmup,
+        promo,
+        cadence,
+      });
       ctx.hitlOutcome = "edited";
       this.recordJobHitl(ctx, "edited");
       return;
@@ -403,7 +417,8 @@ export class CommunityEngagerController implements AppController {
     if (!draft) return undefined;
     const warmup = context.warmupStatus as WarmupStatus | undefined;
     const promo = context.promoRatioStatus as PromoRatioStatus | undefined;
-    return draftToFeedbackContext(draft, { warmup, promo });
+    const cadence = context.cadenceStatus as CadenceStatus | undefined;
+    return draftToFeedbackContext(draft, { warmup, promo, cadence });
   }
 
   async shouldSkipFeedbackPoint(
@@ -1052,47 +1067,87 @@ export class CommunityEngagerController implements AppController {
    */
   private async runPostWatch(ctx: AgentContext): Promise<void> {
     const cfg = getCommunityConfig();
-    if (!cfg.postWatch.enabled) {
-      console.log("[post-watch] disabled — skipping");
-      ctx.stageResults = {
-        ...(ctx.stageResults ?? {}),
-        post_watch: { skipped: true, reason: "disabled" },
-      };
-      return;
-    }
-
-    let result;
     try {
-      result = await processDuePostWatches(cfg);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn(`[post-watch] process failed: ${message}`);
-      ctx.stageResults = {
-        ...(ctx.stageResults ?? {}),
-        post_watch: { ok: false, error: message },
-      };
-      return;
-    }
+      if (!cfg.postWatch.enabled) {
+        console.log("[post-watch] disabled — skipping");
+        ctx.stageResults = {
+          ...(ctx.stageResults ?? {}),
+          post_watch: { skipped: true, reason: "disabled" },
+        };
+      } else {
+        let result;
+        try {
+          result = await processDuePostWatches(cfg);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.warn(`[post-watch] process failed: ${message}`);
+          ctx.stageResults = {
+            ...(ctx.stageResults ?? {}),
+            post_watch: { ok: false, error: message },
+          };
+          return;
+        }
 
-    console.log(formatPostWatchLog(result));
-    const existing =
+        console.log(formatPostWatchLog(result));
+        const existing =
+          (ctx.opportunities as CommunityDraft[] | undefined) ?? [];
+        if (result.followUps.length > 0) {
+          ctx.opportunities = [...result.followUps, ...existing];
+          console.log(
+            `[post-watch] prepended ${result.followUps.length} follow-up draft(s)`
+          );
+        }
+
+        ctx.stageResults = {
+          ...(ctx.stageResults ?? {}),
+          post_watch: {
+            checked: result.checked,
+            replied: result.replied,
+            removed: result.removed,
+            expired: result.expired,
+            errors: result.errors,
+            followUpIds: result.followUps.map((d) => d.id),
+          },
+        };
+      }
+    } finally {
+      await this.applyCadenceGate(ctx);
+    }
+  }
+
+  /**
+   * Cap opportunities by remaining daily help/promo slots (ledger-backed).
+   * Runs after post_watch so follow-ups are included before jobs fanout.
+   */
+  private async applyCadenceGate(ctx: AgentContext): Promise<void> {
+    const cfg = getCommunityConfig();
+    const cadence = await resolveCadenceStatus(cfg);
+    ctx.cadenceStatus = cadence;
+    console.log(formatCadenceLog(cadence));
+
+    const before =
       (ctx.opportunities as CommunityDraft[] | undefined) ?? [];
-    if (result.followUps.length > 0) {
-      ctx.opportunities = [...result.followUps, ...existing];
+    const after = trimOpportunitiesForCadence(before, cadence);
+    if (after.length !== before.length) {
+      ctx.opportunities = after;
       console.log(
-        `[post-watch] prepended ${result.followUps.length} follow-up draft(s)`
+        `[cadence] trimmed opportunities ${before.length} → ${after.length}` +
+          (cadence.dayExhausted ? " (day exhausted)" : "")
       );
     }
 
     ctx.stageResults = {
       ...(ctx.stageResults ?? {}),
-      post_watch: {
-        checked: result.checked,
-        replied: result.replied,
-        removed: result.removed,
-        expired: result.expired,
-        errors: result.errors,
-        followUpIds: result.followUps.map((d) => d.id),
+      cadence: {
+        enabled: cadence.enabled,
+        dayKey: cadence.dayKey,
+        helpPostedToday: cadence.helpPostedToday,
+        promoPostedToday: cadence.promoPostedToday,
+        helpRemaining: cadence.helpRemaining,
+        promoRemaining: cadence.promoRemaining,
+        dayExhausted: cadence.dayExhausted,
+        trimmedFrom: before.length,
+        trimmedTo: after.length,
       },
     };
   }
@@ -1739,6 +1794,28 @@ export class CommunityEngagerController implements AppController {
     ctx.promoRatioStatus = promo;
     console.log(formatPromoRatioLog(promo));
 
+    const cadence =
+      (ctx.cadenceStatus as CadenceStatus | undefined) ??
+      (await resolveCadenceStatus(runtimeCfg));
+    ctx.cadenceStatus = cadence;
+    console.log(formatCadenceLog(cadence));
+    if (cadence.enabled && cadence.dayExhausted) {
+      throw new Error(
+        `cadence day exhausted — help ${cadence.helpPostedToday}/${cadence.maxHelpPerDay}, ` +
+          `promo ${cadence.promoPostedToday}/${cadence.maxPromoPerDay} (day ${cadence.dayKey})`
+      );
+    }
+    if (
+      cadence.enabled &&
+      cadence.helpExhausted &&
+      cadence.promoExhausted === false
+    ) {
+      // Only promo slots left; refuse pure help drafts at execute via intensity check.
+      console.log(
+        "[cadence] help exhausted — remaining slot(s) are promo-only"
+      );
+    }
+
     const allowEntry = await getAllowlistStore().get(top.subreddit);
     const playbook = resolvePlaybook(allowEntry ?? top.subreddit);
     const ledger = await readPromoLedger(runtimeCfg.reddit.dataDir);
@@ -1766,11 +1843,15 @@ export class CommunityEngagerController implements AppController {
     ctx.agentMemory = memoryBlock;
 
     const forceIntensity0 =
-      warmup.active || promo.blockPromo || plugsWeekBlocked;
+      warmup.active ||
+      promo.blockPromo ||
+      plugsWeekBlocked ||
+      cadence.promoExhausted;
     const draftOverrides = {
       memoryBlock: memoryBlock || undefined,
       warmupActive: warmup.active,
-      forceIntensity0: promo.blockPromo || plugsWeekBlocked,
+      forceIntensity0:
+        promo.blockPromo || plugsWeekBlocked || cadence.promoExhausted,
       plugsWeekBlocked,
       playbook,
     };
@@ -1810,6 +1891,7 @@ export class CommunityEngagerController implements AppController {
     ctx.feedbackContext = draftToFeedbackContext(drafted, {
       warmup,
       promo,
+      cadence,
       playbook,
       plugsThisWeek,
       plugsWeekBlocked,
@@ -1831,6 +1913,8 @@ export class CommunityEngagerController implements AppController {
       promoBlocked: promo.blockPromo,
       promoWarned: promo.warnPromo,
       promoRatio: promo.currentRatio,
+      cadenceHelpRemaining: cadence.helpRemaining,
+      cadencePromoRemaining: cadence.promoRemaining,
       ...(preview ? { preview } : {}),
     };
     ctx.stageResults = {
@@ -1869,9 +1953,13 @@ export class CommunityEngagerController implements AppController {
       (await resolvePromoRatioStatus(runtimeCfg, {
         proposedIntensity: draft.intensity,
       }));
+    const cadence =
+      (ctx.cadenceStatus as CadenceStatus | undefined) ??
+      (await resolveCadenceStatus(runtimeCfg));
     const result = await executeApproved(draft, {
       warmupActive: warmup.active,
       promoBlocked: promo.blockPromo,
+      cadenceBlocked: cadenceBlocksIntensity(cadence, draft.intensity),
     });
     ctx.executeResult = result;
     const executeEvidence: ExecuteEvidence = {

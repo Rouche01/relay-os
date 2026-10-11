@@ -33,6 +33,9 @@ describe("app-config", () => {
     assert.equal(cfg.postWatch.enabled, true);
     assert.equal(cfg.postWatch.minAgeHours, 24);
     assert.equal(cfg.postWatch.maxAgeHours, 72);
+    assert.equal(cfg.cadence.enabled, true);
+    assert.equal(cfg.cadence.maxHelpPerDay, 5);
+    assert.equal(cfg.cadence.maxPromoPerDay, 1);
     assert.match(cfg.discover.goal, /GoStylens/);
   });
 
