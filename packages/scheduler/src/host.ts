@@ -54,12 +54,15 @@ export interface ScheduleStatus {
   evidence: ScheduleEvidence;
   nextRunAt: string | null;
   running: boolean;
+  /** True when {@link SchedulerHost.pause} was called; cron ticks and trigger are blocked. */
+  paused: boolean;
 }
 
 interface ArmedJob {
   schedule: ScheduleDefinition;
   job: Cron;
   running: boolean;
+  paused: boolean;
 }
 
 const defaultLogger: SchedulerLogger = {
@@ -127,28 +130,78 @@ export class SchedulerHost {
     return this.evidenceCache.get(scheduleId);
   }
 
+  /** Whether the schedule is currently armed (may still be paused). */
+  isArmed(scheduleId: string): boolean {
+    return this.armed.has(scheduleId);
+  }
+
+  /** Whether an armed schedule is paused (no ticks / trigger until resume). */
+  isPaused(scheduleId: string): boolean {
+    return this.armed.get(scheduleId)?.paused === true;
+  }
+
   listStatus(): ScheduleStatus[] {
     return [...this.armed.values()].map((armed) => {
       const evidence =
         this.evidenceCache.get(armed.schedule.id) ??
         emptyEvidence(armed.schedule.id, armed.schedule.entrypoint);
-      const next = armed.job.nextRun();
+      const next = armed.paused ? null : armed.job.nextRun();
       return {
         schedule: armed.schedule,
         evidence,
         nextRunAt: next ? next.toISOString() : null,
         running: armed.running,
+        paused: armed.paused,
       };
     });
   }
 
-  /** Force one schedule to fire now (tests / ops). Still respects lease + protect. */
+  /**
+   * Pause an armed schedule: croner stops ticking; {@link trigger} rejects until resume.
+   * Does not remove the schedule from the armed set ({@link isArmed} stays true).
+   */
+  pause(scheduleId: string): void {
+    const armed = this.requireArmed(scheduleId);
+    if (armed.paused) return;
+    armed.job.pause();
+    armed.paused = true;
+    this.log.info(`[scheduler] ${scheduleId} paused`);
+    void this.record(armed.schedule, { nextRunAt: null });
+  }
+
+  /** Resume a paused schedule (no-op if already running). */
+  resume(scheduleId: string): void {
+    const armed = this.requireArmed(scheduleId);
+    if (!armed.paused) return;
+    armed.job.resume();
+    armed.paused = false;
+    const next = armed.job.nextRun()?.toISOString() ?? null;
+    this.log.info(
+      `[scheduler] ${scheduleId} resumed` + (next ? ` next=${next}` : "")
+    );
+    void this.record(armed.schedule, { nextRunAt: next });
+  }
+
+  /**
+   * Force one schedule to fire now (tests / ops).
+   * Rejects if not armed or paused. Still respects lease + protect.
+   */
   async trigger(scheduleId: string): Promise<void> {
+    const armed = this.requireArmed(scheduleId);
+    if (armed.paused) {
+      throw new Error(
+        `Schedule "${scheduleId}" is paused — resume before trigger`
+      );
+    }
+    await armed.job.trigger();
+  }
+
+  private requireArmed(scheduleId: string): ArmedJob {
     const armed = this.armed.get(scheduleId);
     if (!armed) {
       throw new Error(`Schedule "${scheduleId}" is not armed`);
     }
-    await armed.job.trigger();
+    return armed;
   }
 
   private async arm(schedule: ScheduleDefinition): Promise<void> {
@@ -192,7 +245,12 @@ export class SchedulerHost {
       (): Promise<void> => this.onFire(schedule, job)
     );
 
-    this.armed.set(schedule.id, { schedule, job, running: false });
+    this.armed.set(schedule.id, {
+      schedule,
+      job,
+      running: false,
+      paused: false,
+    });
 
     const next = job.nextRun()?.toISOString();
     await this.record(schedule, { nextRunAt: next });
@@ -227,6 +285,10 @@ export class SchedulerHost {
   private async onFire(schedule: ScheduleDefinition, job: Cron): Promise<void> {
     const armed = this.armed.get(schedule.id);
     if (!armed) return;
+    if (armed.paused) {
+      // pause() should stop ticks; ignore stray fires
+      return;
+    }
     if (armed.running) {
       // protect should already block; belt-and-suspenders
       return;
@@ -290,7 +352,8 @@ export class SchedulerHost {
       error?: string;
       startedAt?: string;
       finishedAt?: string;
-      nextRunAt?: string;
+      /** ISO string, or null to clear (e.g. while paused). */
+      nextRunAt?: string | null;
       incrementRuns?: boolean;
     }
   ): Promise<void> {
@@ -313,7 +376,9 @@ export class SchedulerHost {
     } else if (patch.status === "ok") {
       next.lastError = undefined;
     }
-    if (patch.nextRunAt !== undefined) next.nextRunAt = patch.nextRunAt;
+    if (patch.nextRunAt !== undefined) {
+      next.nextRunAt = patch.nextRunAt ?? undefined;
+    }
     if (patch.incrementRuns) next.runs = (prev.runs ?? 0) + 1;
 
     this.evidenceCache.set(schedule.id, next);

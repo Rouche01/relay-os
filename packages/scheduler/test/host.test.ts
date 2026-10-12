@@ -108,6 +108,75 @@ describe("SchedulerHost", () => {
     host.stop();
   });
 
+  it("pause rejects trigger; resume allows trigger again", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "relay-sched-"));
+    const calls: string[] = [];
+
+    const host = new SchedulerHost({
+      dataDir: dir,
+      schedules: [
+        {
+          id: "post_watch",
+          entrypoint: "post_watch",
+          every_ms: 60_000,
+          enabled: true,
+        },
+      ],
+      invoke: async (entrypoint) => {
+        calls.push(entrypoint);
+      },
+      logger: silentLogger(),
+      runOnStart: false,
+    });
+
+    await host.start();
+    assert.equal(host.isArmed("post_watch"), true);
+    assert.equal(host.isPaused("post_watch"), false);
+    assert.equal(host.listStatus()[0]!.paused, false);
+
+    host.pause("post_watch");
+    assert.equal(host.isArmed("post_watch"), true);
+    assert.equal(host.isPaused("post_watch"), true);
+    assert.equal(host.listStatus()[0]!.paused, true);
+    assert.equal(host.listStatus()[0]!.nextRunAt, null);
+
+    await assert.rejects(
+      () => host.trigger("post_watch"),
+      /paused/
+    );
+    assert.equal(calls.length, 0);
+
+    host.resume("post_watch");
+    assert.equal(host.isPaused("post_watch"), false);
+    assert.equal(host.listStatus()[0]!.paused, false);
+    assert.ok(host.listStatus()[0]!.nextRunAt);
+
+    await host.trigger("post_watch");
+    for (let i = 0; i < 50 && calls.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    assert.deepEqual(calls, ["post_watch"]);
+
+    host.stop();
+    assert.equal(host.isArmed("post_watch"), false);
+  });
+
+  it("pause/resume/trigger throw when schedule is not armed", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "relay-sched-"));
+    const host = new SchedulerHost({
+      dataDir: dir,
+      schedules: [],
+      invoke: async () => {},
+      logger: silentLogger(),
+    });
+    await host.start();
+    assert.equal(host.isArmed("missing"), false);
+    assert.throws(() => host.pause("missing"), /not armed/);
+    assert.throws(() => host.resume("missing"), /not armed/);
+    await assert.rejects(() => host.trigger("missing"), /not armed/);
+    host.stop();
+  });
+
   it("skips invoke when lease is held", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "relay-sched-"));
     const lockDir = path.join(dir, "schedules");
