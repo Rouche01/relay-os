@@ -1,4 +1,8 @@
-import { AgenticAppManifest } from "@relay/protocol";
+import {
+  type AgenticAppManifest,
+  projectEntrypoint,
+  resolveEntrypoint,
+} from "@relay/protocol";
 
 /**
  * Nested job manifest: one opportunity, start to finish.
@@ -32,7 +36,7 @@ export const CommunityJobManifest: AgenticAppManifest = {
   stages: [
     {
       name: "draft",
-      description: "Draft a helpful reply for this opportunity",
+      description: "Draft a reply for this opportunity",
       engine: "llm",
     },
     {
@@ -93,12 +97,61 @@ const jobsFanoutStage = {
 };
 
 /**
+ * Post-watch pipeline stages (also exposed as `entrypoints.post_watch` on
+ * {@link CommunityEngagerManifest}). Kept as a full sibling manifest for docs /
+ * discovery until admin reads the entrypoints map.
+ */
+export const CommunityPostWatchManifest: AgenticAppManifest = {
+  name: "CommunityPostWatch",
+  version: "0.1.0",
+  description:
+    "Drain the post-watch queue (24–72h reply/removal checks) and run HITL jobs for follow-up drafts.",
+  author: "Relay OS Built-in",
+
+  triggers: [
+    {
+      pattern: "watch posts",
+      description: "Poll enrolled Reddit comments for replies and queue follow-ups",
+      examples: ["watch posts", "drain post-watch queue"],
+    },
+  ],
+
+  capabilities: [
+    "community.post_watch",
+    "community.draft",
+    "community.approve",
+    "community.execute",
+  ],
+  engines_required: ["llm", "data"],
+  engines_optional: ["browser", "api"],
+  permissions: ["community.reddit.read", "community.reddit.write"],
+
+  stages: [
+    {
+      name: "post_watch",
+      description:
+        "Poll enrolled live posts (24–72h) for replies/removal; set follow-up drafts as opportunities",
+      engine: "none",
+    },
+    jobsFanoutStage,
+  ],
+  feedback_patterns: [
+    "approval",
+    "freeform",
+    "confirmation",
+    "progress",
+    "error",
+  ],
+  composes_with: ["CommunityEngagerJob", "CommunityEngager"],
+};
+
+/**
  * Parent engage manifest: session + discover + scout, then fan out jobs.
- * Post-watch lives on {@link CommunityPostWatchManifest} (separate entrypoint).
+ * Named `post_watch` entrypoint drains the watch queue without scout.
  */
 export const CommunityEngagerManifest: AgenticAppManifest = {
   name: "CommunityEngager",
-  version: "0.5.0",
+  version: "0.6.0",
   description:
     "Discover fashion/styling subs (HITL promote), scout postable allowlist, run one isolated HITL job per opportunity.",
   author: "Relay OS Built-in",
@@ -208,6 +261,13 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
     },
     jobsFanoutStage,
   ],
+  entrypoints: {
+    post_watch: {
+      description: CommunityPostWatchManifest.description,
+      stages: CommunityPostWatchManifest.stages,
+      triggers: CommunityPostWatchManifest.triggers,
+    },
+  },
   feedback_patterns: [
     "credential",
     "choice",
@@ -220,62 +280,35 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
   composes_with: ["CommunityEngagerJob", "CommunityPostWatch"],
 };
 
-/**
- * Post-watch entrypoint: poll enrolled live posts, then fan out follow-up jobs.
- * No session/discover/scout — public .json polls only. Enroll still happens on engage execute.
- * Run via CLI `--entrypoint post_watch` (scheduler host comes later).
- */
-export const CommunityPostWatchManifest: AgenticAppManifest = {
-  name: "CommunityPostWatch",
-  version: "0.1.0",
-  description:
-    "Drain the post-watch queue (24–72h reply/removal checks) and run HITL jobs for follow-up drafts.",
-  author: "Relay OS Built-in",
-
-  triggers: [
-    {
-      pattern: "watch posts",
-      description: "Poll enrolled Reddit comments for replies and queue follow-ups",
-      examples: ["watch posts", "drain post-watch queue"],
-    },
-  ],
-
-  capabilities: [
-    "community.post_watch",
-    "community.draft",
-    "community.approve",
-    "community.execute",
-  ],
-  engines_required: ["llm", "data"],
-  engines_optional: ["browser", "api"],
-  permissions: ["community.reddit.read", "community.reddit.write"],
-
-  stages: [
-    {
-      name: "post_watch",
-      description:
-        "Poll enrolled live posts (24–72h) for replies/removal; set follow-up drafts as opportunities",
-      engine: "none",
-    },
-    jobsFanoutStage,
-  ],
-  feedback_patterns: [
-    "approval",
-    "freeform",
-    "confirmation",
-    "progress",
-    "error",
-  ],
-  composes_with: ["CommunityEngagerJob", "CommunityEngager"],
-};
-
-/** Named entrypoints until protocol-level `entrypoints` map lands. */
+/** App CLI / host names; `engage` maps to protocol default (root `stages`). */
 export type CommunityEntrypoint = "engage" | "post_watch";
 
+/**
+ * Protocol entrypoint key for AgentRuntime (`undefined` = root stages).
+ */
+export function protocolEntrypointName(
+  entrypoint: CommunityEntrypoint = "engage"
+): string | undefined {
+  return entrypoint === "engage" ? undefined : entrypoint;
+}
+
+/**
+ * Flat stages view for the selected pipeline (tests / callers that want
+ * only the active stages without the full entrypoints map).
+ */
 export function manifestForEntrypoint(
   entrypoint: CommunityEntrypoint = "engage"
 ): AgenticAppManifest {
-  return entrypoint === "post_watch"
-    ? CommunityPostWatchManifest
-    : CommunityEngagerManifest;
+  return projectEntrypoint(
+    CommunityEngagerManifest,
+    protocolEntrypointName(entrypoint)
+  );
+}
+
+/** Resolve stages for an app entrypoint name. */
+export function resolveCommunityEntrypoint(entrypoint: CommunityEntrypoint = "engage") {
+  return resolveEntrypoint(
+    CommunityEngagerManifest,
+    protocolEntrypointName(entrypoint)
+  );
 }

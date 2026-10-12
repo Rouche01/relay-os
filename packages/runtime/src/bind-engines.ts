@@ -80,7 +80,16 @@ function resolveProvider(
   return engine;
 }
 
-/** Walk parent + nested fanout manifests for engines_required / optional. */
+/** Root stages plus every named entrypoint's stages (and nested fanouts). */
+function allStageLists(manifest: AgenticAppManifest): StageDefinition[][] {
+  const lists: StageDefinition[][] = [manifest.stages];
+  for (const ep of Object.values(manifest.entrypoints ?? {})) {
+    lists.push(ep.stages);
+  }
+  return lists;
+}
+
+/** Walk parent + entrypoints + nested fanout manifests for engines_required / optional. */
 function collectEngineTypes(
   manifest: AgenticAppManifest,
   kind: "required" | "optional"
@@ -92,9 +101,11 @@ function collectEngineTypes(
     for (const type of list) {
       if (type !== "none") seen.add(type);
     }
-    for (const stage of m.stages) {
-      if (stage.fanout?.manifest) {
-        walk(stage.fanout.manifest);
+    for (const stages of allStageLists(m)) {
+      for (const stage of stages) {
+        if (stage.fanout?.manifest) {
+          walk(stage.fanout.manifest);
+        }
       }
     }
   };
@@ -111,16 +122,19 @@ function assertStagesBound(
   if (seen.has(manifest.name)) return;
   seen.add(manifest.name);
 
-  for (const stage of manifest.stages) {
-    assertStageEngine(stage, engines, manifest.name);
-    if (stage.fanout?.manifest) {
-      if (stage.fanout.manifest.stages.some((s) => s.fanout)) {
-        throw new Error(
-          `Nested manifest "${stage.fanout.manifest.name}" declares fanout — recursive fanout is not supported in v1`
-        );
+  for (const stages of allStageLists(manifest)) {
+    for (const stage of stages) {
+      assertStageEngine(stage, engines, manifest.name);
+      if (stage.fanout?.manifest) {
+        if (stage.fanout.manifest.stages.some((s) => s.fanout)) {
+          throw new Error(
+            `Nested manifest "${stage.fanout.manifest.name}" declares fanout — recursive fanout is not supported in v1`
+          );
+        }
+        // Nested fanout children do not declare entrypoints in v1; still walk theirs if present.
+        assertEnginesForManifest(stage.fanout.manifest, engines);
+        assertStagesBound(stage.fanout.manifest, engines, seen);
       }
-      assertEnginesForManifest(stage.fanout.manifest, engines);
-      assertStagesBound(stage.fanout.manifest, engines, seen);
     }
   }
 }

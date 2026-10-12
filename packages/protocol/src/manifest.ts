@@ -1,6 +1,17 @@
 import { EngineType } from "./engines";
 import { FeedbackType } from "./feedback";
 
+/**
+ * Named alternate pipeline on an {@link AgenticAppManifest}.
+ * Root `stages` remain the default entrypoint body (backward compatible).
+ */
+export interface EntrypointDefinition {
+  description: string;
+  stages: StageDefinition[];
+  /** Intent triggers for this pipeline; falls back to the manifest root triggers. */
+  triggers?: IntentTrigger[];
+}
+
 export interface AgenticAppManifest {
   // Identity
   name: string;
@@ -19,14 +30,87 @@ export interface AgenticAppManifest {
   permissions: string[];
 
   // Workflow
+  /** Default entrypoint body when no named entrypoint is selected. */
   stages: StageDefinition[];
   feedback_patterns: FeedbackType[];
+
+  /**
+   * Named alternate pipelines the host can start independently
+   * (e.g. `post_watch` backlog drain). Host / AgentRuntime selects by name;
+   * schedules (A2) reference these keys — runtime does not interpret cron.
+   */
+  entrypoints?: Record<string, EntrypointDefinition>;
 
   /**
    * Names of nested manifests this app composes (documentation / discovery).
    * Runtime nesting is declared per-stage via `StageDefinition.fanout`.
    */
   composes_with?: string[];
+}
+
+/** Conventional name for the root `stages` pipeline when listing entrypoints. */
+export const DEFAULT_ENTRYPOINT = "default";
+
+export interface ResolvedEntrypoint {
+  /** `default` when using root `stages`, otherwise the map key. */
+  name: string;
+  description: string;
+  stages: StageDefinition[];
+  triggers: IntentTrigger[];
+}
+
+/**
+ * Resolve which stage list a host should run.
+ * Omit `entrypoint` (or pass {@link DEFAULT_ENTRYPOINT}) → root `stages`.
+ * Named keys must exist on `manifest.entrypoints`.
+ */
+export function resolveEntrypoint(
+  manifest: AgenticAppManifest,
+  entrypoint?: string
+): ResolvedEntrypoint {
+  if (entrypoint == null || entrypoint === "" || entrypoint === DEFAULT_ENTRYPOINT) {
+    return {
+      name: DEFAULT_ENTRYPOINT,
+      description: manifest.description,
+      stages: manifest.stages,
+      triggers: manifest.triggers,
+    };
+  }
+  const ep = manifest.entrypoints?.[entrypoint];
+  if (!ep) {
+    const known = listEntrypointNames(manifest).join(", ");
+    throw new Error(
+      `Unknown entrypoint "${entrypoint}" on manifest "${manifest.name}" (known: ${known})`
+    );
+  }
+  return {
+    name: entrypoint,
+    description: ep.description,
+    stages: ep.stages,
+    triggers: ep.triggers ?? manifest.triggers,
+  };
+}
+
+/** Root default plus every key in `entrypoints` (discovery / admin). */
+export function listEntrypointNames(manifest: AgenticAppManifest): string[] {
+  return [DEFAULT_ENTRYPOINT, ...Object.keys(manifest.entrypoints ?? {})];
+}
+
+/**
+ * Shallow project: same manifest identity, stages/triggers swapped for the
+ * selected entrypoint. Useful for hosts that still pass a flat stages[] view.
+ */
+export function projectEntrypoint(
+  manifest: AgenticAppManifest,
+  entrypoint?: string
+): AgenticAppManifest {
+  const resolved = resolveEntrypoint(manifest, entrypoint);
+  return {
+    ...manifest,
+    description: resolved.description,
+    stages: resolved.stages,
+    triggers: resolved.triggers,
+  };
 }
 
 export interface IntentTrigger {

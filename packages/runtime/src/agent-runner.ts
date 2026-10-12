@@ -13,6 +13,7 @@ import {
   AgentRuntimeEvent,
   isAbortResponse,
   isEditResponse,
+  resolveEntrypoint,
 } from "@relay/protocol";
 import { AppController } from "./types";
 import { assertEnginesForManifest } from "./bind-engines";
@@ -33,6 +34,15 @@ class AgentAbortError extends Error {
   }
 }
 
+/** Optional AgentRuntime knobs (additive — positional args stay stable). */
+export interface AgentRuntimeOptions {
+  /**
+   * Named pipeline from `manifest.entrypoints`.
+   * Omit (or `"default"`) to run root `stages`.
+   */
+  entrypoint?: string;
+}
+
 export interface AgentRuntime {
   on<K extends keyof AgentRuntimeEvents>(event: K, listener: AgentRuntimeEvents[K]): this;
   once<K extends keyof AgentRuntimeEvents>(event: K, listener: AgentRuntimeEvents[K]): this;
@@ -47,6 +57,8 @@ export class AgentRuntime extends EventEmitter {
   private context: AgentContext;
   private pendingFeedbackResolver: ((response: FeedbackResponse) => void) | null = null;
   private pendingRequestId: string | null = null;
+  private readonly entrypointName: string;
+  private readonly activeStages: StageDefinition[];
 
   constructor(
     private manifest: AgenticAppManifest,
@@ -54,10 +66,14 @@ export class AgentRuntime extends EventEmitter {
     initialContext: AgentContext,
     private controller?: AppController,
     /** Required when the manifest has a `fanout` stage. Not passed to children (no recursive fanout). */
-    private fanoutHost?: FanoutHost
+    private fanoutHost?: FanoutHost,
+    options?: AgentRuntimeOptions
   ) {
     super();
     assertEnginesForManifest(manifest, engines);
+    const resolved = resolveEntrypoint(manifest, options?.entrypoint);
+    this.entrypointName = resolved.name;
+    this.activeStages = resolved.stages;
     this.context = {
       ...initialContext,
       stageResults: { ...(initialContext.stageResults ?? {}) },
@@ -74,6 +90,16 @@ export class AgentRuntime extends EventEmitter {
 
   public getManifest(): AgenticAppManifest {
     return this.manifest;
+  }
+
+  /** Resolved entrypoint name (`default` when using root `stages`). */
+  public getEntrypoint(): string {
+    return this.entrypointName;
+  }
+
+  /** Stages that `start()` will execute for the selected entrypoint. */
+  public getActiveStages(): StageDefinition[] {
+    return this.activeStages;
   }
 
   /** Read a value previously stored for a stage (e.g. approved draft). */
@@ -112,7 +138,7 @@ export class AgentRuntime extends EventEmitter {
     this.updateState("RUNNING");
 
     try {
-      for (const stage of this.manifest.stages) {
+      for (const stage of this.activeStages) {
         await this.executeStage(stage);
       }
       this.updateState("COMPLETE");

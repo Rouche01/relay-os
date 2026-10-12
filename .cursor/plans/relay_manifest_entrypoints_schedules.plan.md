@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: a1-entrypoint-protocol
     content: "Protocol — optional entrypoints map on AgenticAppManifest (or sibling manifests + composes_with); default entrypoint = current stages[]; AgentRuntime/host selects by name"
-    status: pending
+    status: completed
   - id: a2-schedule-declaration
     content: "Protocol — optional schedules[] (id, cron|every_ms, entrypoint, enabled); documentation + discovery only in v1 (host owns the clock)"
     status: pending
@@ -25,7 +25,7 @@ isProject: true
 
 # Relay — manifest entrypoints and cron-like schedules
 
-**Status:** In progress — **A0 done** (post_watch carved to `CommunityPostWatchManifest` + `--entrypoint post_watch` / `pnpm watch:posts`). Spawned from the post-watch architecture discussion while executing [`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md).
+**Status:** In progress — **A0–A1 done** (protocol `entrypoints` + AgentRuntime selection; CommunityEngager declares `post_watch`). Next: A2 `schedules[]`. Spawned from the post-watch architecture discussion while executing [`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md).
 
 **Related plans:**
 

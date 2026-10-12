@@ -121,8 +121,8 @@ flowchart TD
 | `learn` | Persist HITL outcome to VoltMem (`community_outcome`) + allowlist ranking |
 | `post_watch` | **Separate entrypoint** — poll enrolled live posts (24–72h); fan out follow-up jobs |
 
-**Engage** (`pnpm start`): `ensure_session` → `discover` → `scout` → `jobs`.  
-**Post-watch** (`pnpm watch:posts` or `--entrypoint post_watch`): `post_watch` → `jobs` only (no scout). Engage no longer drains the watch queue — schedule or run post-watch separately.
+**Engage** (`pnpm start`): default `stages` — `ensure_session` → `discover` → `scout` → `jobs`.  
+**Post-watch** (`pnpm watch:posts` or `--entrypoint post_watch`): protocol `entrypoints.post_watch` — `post_watch` → `jobs` only (no scout). Engage no longer drains the watch queue — schedule or run post-watch separately.
 
 The `jobs` stage **fans out** into `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. Budget engage with `COMMUNITY_MAX_JOBS` (default 3); post-watch fanout is capped by `min(jobs.maxJobs, postWatch.maxPerRun)`. Discover defaults to `COMMUNITY_DISCOVER=auto`; use `force` / `--force-discover` or `off`.
 

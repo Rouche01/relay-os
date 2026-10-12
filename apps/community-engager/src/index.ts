@@ -29,7 +29,8 @@ import { createCommunityEngines } from "./engines.js";
 import { watchInterstitialCleared } from "./interstitial-watch.js";
 import { formatRunSummary, runSummaryFromFanout, type RunSummary } from "./job-queue.js";
 import {
-  manifestForEntrypoint,
+  CommunityEngagerManifest,
+  protocolEntrypointName,
   type CommunityEntrypoint,
 } from "./manifest.js";
 import { getCommunityConfig } from "./reddit/config.js";
@@ -100,7 +101,7 @@ export class CommunityEngagerApp implements FanoutHost {
     this.engines = createCommunityEngines({ memory: this.memory });
 
     this.runtime = new AgentRuntime(
-      manifestForEntrypoint(this.entrypoint),
+      CommunityEngagerManifest,
       this.engines,
       {
         agentId: options.agentId ?? "community-engager-1",
@@ -108,7 +109,8 @@ export class CommunityEngagerApp implements FanoutHost {
         sessionId: options.sessionId ?? `sess-${Date.now()}`,
       },
       this.controller,
-      this
+      this,
+      { entrypoint: protocolEntrypointName(this.entrypoint) }
     );
 
     this.bindEvents(this.runtime);
