@@ -10,7 +10,7 @@ import {
   type SubredditPlaybook,
 } from "../../policy/playbook.js";
 import { getCommunityConfig } from "../../reddit/config.js";
-import type { DraftProvider } from "../../run-evidence.js";
+import type { DraftProvider } from "../../metrics/run-evidence.js";
 import { isMegathread } from "../../reddit/scout/score.js";
 import { applySoftCta } from "./soft-cta.js";
 import type { CommunityDraft, PromoIntensity } from "../../types.js";

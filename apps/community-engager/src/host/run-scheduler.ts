@@ -6,7 +6,7 @@ import {
 } from "@relay/adapters-telegram";
 import { SchedulerHost } from "@relay/scheduler";
 import { CommunityEngagerApp } from "../index.js";
-import { formatRunSummary } from "../job-queue.js";
+import { formatRunSummary } from "../metrics/job-queue.js";
 import {
   CommunityEngagerManifest,
   type CommunityEntrypoint,

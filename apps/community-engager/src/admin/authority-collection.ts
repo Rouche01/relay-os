@@ -13,7 +13,7 @@ import {
   resolveAuthorityScoreCard,
   writeActivationsImport,
   type AuthorityScoreCard,
-} from "../authority-metrics.js";
+} from "../metrics/authority-metrics.js";
 import { assertFileSource } from "./sources.js";
 
 /**

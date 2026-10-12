@@ -118,6 +118,7 @@ flowchart TD
 | `src/admin/` | Admin-shell collections |
 | `src/host/` | Process entrypoints (`run-dev`, `run-scheduler`, `admin`, …) |
 | `src/decide/` | Decide engines + HITL feedback mapping (`login`, `composer`, `interstitial`, `feedback-map`) |
+| `src/metrics/` | Run recording (`job-queue`, `run-evidence`, `run-log`, `authority-metrics`) |
 | Root (`controller`, `manifest`, `index`, …) | App wiring |
 
 ### Stages (short)

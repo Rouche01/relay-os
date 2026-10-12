@@ -7,7 +7,7 @@ import {
   evaluateAuthorityScore,
   formatAuthorityLog,
   resolveAuthorityScoreCard,
-} from "../src/authority-metrics.js";
+} from "../src/metrics/authority-metrics.js";
 
 describe("evaluateAuthorityScore", () => {
   const nowMs = Date.parse("2026-10-12T12:00:00Z");

@@ -1,5 +1,5 @@
-import type { PromoIntensity } from "./types.js";
-import type { ScoutReport } from "./stages/scout/scout-report.js";
+import type { PromoIntensity } from "../types.js";
+import type { ScoutReport } from "../stages/scout/scout-report.js";
 
 /** Parent-run session stage evidence. */
 export interface SessionEvidence {

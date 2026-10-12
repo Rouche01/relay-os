@@ -9,7 +9,7 @@ import {
   communityFactDomain,
   type OutcomeTag,
 } from "../../memory.js";
-import type { MemoryWriteEvidence } from "../../run-evidence.js";
+import type { MemoryWriteEvidence } from "../../metrics/run-evidence.js";
 
 export interface OutcomeTagMeta {
   draftId?: string;

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { RunSummary } from "./job-queue.js";
-import { getCommunityConfig } from "./reddit/config.js";
+import { getCommunityConfig } from "../reddit/config.js";
 
 /** v3: memory evidence includes VoltMem eventId + action (addEvent writes). */
 export const RUN_LOG_SCHEMA_VERSION = 3 as const;

@@ -5,7 +5,7 @@ import {
   TelegramFeedbackAdapter,
 } from "@relay/adapters-telegram";
 import { CommunityEngagerApp } from "../index.js";
-import { formatRunSummary } from "../job-queue.js";
+import { formatRunSummary } from "../metrics/job-queue.js";
 import type { CommunityEntrypoint } from "../manifest.js";
 
 /** CLI: --force-discover | --discover=auto|force|off */

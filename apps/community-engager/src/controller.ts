@@ -100,7 +100,7 @@ import {
   type HitlEvidence,
   type MemoryWriteEvidence,
   type SessionEvidence,
-} from "./run-evidence.js";
+} from "./metrics/run-evidence.js";
 
 const APP_ID = "community-engager";
 

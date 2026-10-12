@@ -27,7 +27,7 @@ import {
 import { CommunityEngagerController } from "./controller.js";
 import { createCommunityEngines } from "./engines.js";
 import { watchInterstitialCleared } from "./reddit/interstitial/interstitial-watch.js";
-import { formatRunSummary, runSummaryFromFanout, type RunSummary } from "./job-queue.js";
+import { formatRunSummary, runSummaryFromFanout, type RunSummary } from "./metrics/job-queue.js";
 import {
   CommunityEngagerManifest,
   protocolEntrypointName,
@@ -37,8 +37,8 @@ import { getCommunityConfig } from "./reddit/config.js";
 import type {
   DiscoverEvidence,
   SessionEvidence,
-} from "./run-evidence.js";
-import { writeRunLog } from "./run-log.js";
+} from "./metrics/run-evidence.js";
+import { writeRunLog } from "./metrics/run-log.js";
 import type { ScoutReport } from "./stages/scout/scout-report.js";
 import type { CommunityDraft } from "./types.js";
 
@@ -294,9 +294,9 @@ export * from "./types.js";
 export * from "./decide/feedback-map.js";
 export * from "./manifest.js";
 export * from "./engines.js";
-export * from "./job-queue.js";
-export * from "./run-log.js";
-export * from "./run-evidence.js";
+export * from "./metrics/job-queue.js";
+export * from "./metrics/run-log.js";
+export * from "./metrics/run-evidence.js";
 export * from "./stages/scout/scout.js";
 export * from "./stages/scout/scout-report.js";
 export * from "./stages/draft/drafter.js";
