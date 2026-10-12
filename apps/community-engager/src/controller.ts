@@ -53,6 +53,11 @@ import {
   type VisibilityCheckResult,
 } from "./visibility.js";
 import {
+  OUTCOME_REMEMBER_TOKENS,
+  writeOutcomeTag,
+  writeOutcomeTagHints,
+} from "./outcome-tags.js";
+import {
   DISCOVER_SKIP_OPTION,
   discoveryChoiceOptions,
   parseDiscoveryChoices,
@@ -1103,6 +1108,19 @@ export class CommunityEngagerController implements AppController {
           );
         }
 
+        let outcomeTagsWritten = 0;
+        if (result.outcomeHints.length > 0) {
+          try {
+            const written = await writeOutcomeTagHints(
+              this.options.memory,
+              result.outcomeHints
+            );
+            outcomeTagsWritten = written.filter((w) => w.ok).length;
+          } catch (err) {
+            console.warn("[post-watch] outcome tag write failed:", err);
+          }
+        }
+
         ctx.stageResults = {
           ...(ctx.stageResults ?? {}),
           post_watch: {
@@ -1112,6 +1130,8 @@ export class CommunityEngagerController implements AppController {
             expired: result.expired,
             errors: result.errors,
             followUpIds: result.followUps.map((d) => d.id),
+            outcomeHints: result.outcomeHints.map((h) => h.tag),
+            outcomeTagsWritten,
           },
         };
       }
@@ -1837,7 +1857,7 @@ export class CommunityEngagerController implements AppController {
     ctx.playbook = playbook;
 
     const memoryBlock = await this.options.memory.rememberForPrompt(
-      `community reddit draft r/${top.subreddit} ${top.threadTitle} intensity feedback abort approve`,
+      `community reddit draft r/${top.subreddit} ${top.threadTitle} intensity feedback abort approve ${OUTCOME_REMEMBER_TOKENS}`,
       { limit: 5 }
     );
     if (memoryBlock) {
@@ -2047,6 +2067,19 @@ export class CommunityEngagerController implements AppController {
             console.warn(
               `[visibility] comment not publicly visible after post (${visibility.status}) — check for removal or shadowban`
             );
+            try {
+              await writeOutcomeTag(this.options.memory, "removed", {
+                draftId: draft.id,
+                jobId: result.jobId,
+                subreddit: draft.subreddit,
+                threadUrl: draft.threadUrl,
+                threadTitle: draft.threadTitle,
+                intensity: draft.intensity,
+                note: `visibility=${visibility.status}`,
+              });
+            } catch (tagErr) {
+              console.warn("[visibility] outcome tag write failed:", tagErr);
+            }
           }
         } catch (err) {
           console.warn("[visibility] check failed:", err);

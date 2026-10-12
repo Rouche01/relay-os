@@ -26,9 +26,13 @@ export function geminiDraftKey(explicit?: string): string | undefined {
   return key || undefined;
 }
 
-/** Past abort / spam feedback should keep the reply help-only. */
+/** Past abort / spam / removal feedback should keep the reply help-only. */
 export function prefersHelpFirstMemory(memoryBlock: string): boolean {
-  return /abort/i.test(memoryBlock) || /spam|hard sell|too promo|intensity=2/i.test(memoryBlock);
+  return (
+    /abort/i.test(memoryBlock) ||
+    /spam|hard sell|too promo|intensity=2/i.test(memoryBlock) ||
+    /tag=removed|comment removed|not publicly visible/i.test(memoryBlock)
+  );
 }
 
 export function buildDraftPrompt(

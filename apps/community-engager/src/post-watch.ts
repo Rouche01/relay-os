@@ -8,6 +8,8 @@ import {
   commentIdFromPermalink,
   fetchRedditComment,
 } from "./reddit/comment-fetch.js";
+import type { OutcomeTagHint } from "./outcome-tags.js";
+import { detectDmInterest } from "./outcome-tags.js";
 import type { CommunityDraft, PromoIntensity } from "./types.js";
 
 export type PostWatchStatus =
@@ -52,6 +54,8 @@ export interface PostWatchProcessResult {
   expired: number;
   errors: number;
   followUps: CommunityDraft[];
+  /** VoltMem outcome tags to write after the poll (got_reply / removed / dm_interest). */
+  outcomeHints: OutcomeTagHint[];
 }
 
 const MS_PER_HOUR = 60 * 60 * 1000;
@@ -172,6 +176,7 @@ export async function processDuePostWatches(
       expired: 0,
       errors: 0,
       followUps: [],
+      outcomeHints: [],
     };
   }
 
@@ -187,6 +192,7 @@ export async function processDuePostWatches(
     expired: 0,
     errors: 0,
     followUps: [],
+    outcomeHints: [],
   };
 
   for (const watch of due) {
@@ -203,6 +209,7 @@ export async function processDuePostWatches(
         watch.status = "removed";
         watch.lastError = fetched.error;
         result.removed += 1;
+        result.outcomeHints.push(removedHint(watch, fetched.error));
         continue;
       }
       watch.lastError = fetched.error ?? "fetch failed";
@@ -219,6 +226,9 @@ export async function processDuePostWatches(
     if (comment.removed || comment.deleted) {
       watch.status = "removed";
       result.removed += 1;
+      result.outcomeHints.push(
+        removedHint(watch, comment.deleted ? "deleted" : "removed")
+      );
       continue;
     }
 
@@ -233,6 +243,30 @@ export async function processDuePostWatches(
       watch.followUpDraftId = followUp.id;
       result.followUps.push(followUp);
       result.replied += 1;
+      result.outcomeHints.push({
+        tag: "got_reply",
+        meta: {
+          draftId: watch.draftId,
+          jobId: watch.jobId,
+          subreddit: watch.subreddit,
+          threadUrl: watch.threadUrl,
+          threadTitle: watch.threadTitle,
+          note: `replies=${replies.length}`,
+        },
+      });
+      if (detectDmInterest(replies)) {
+        result.outcomeHints.push({
+          tag: "dm_interest",
+          meta: {
+            draftId: watch.draftId,
+            jobId: watch.jobId,
+            subreddit: watch.subreddit,
+            threadUrl: watch.threadUrl,
+            threadTitle: watch.threadTitle,
+            note: "reply text suggests DM/private follow-up",
+          },
+        });
+      }
       continue;
     }
 
@@ -298,6 +332,23 @@ export function formatPostWatchLog(result: PostWatchProcessResult): string {
     `removed=${result.removed} expired=${result.expired} errors=${result.errors} ` +
     `followUps=${result.followUps.length}`
   );
+}
+
+function removedHint(
+  watch: PostWatchEntry,
+  note?: string
+): OutcomeTagHint {
+  return {
+    tag: "removed",
+    meta: {
+      draftId: watch.draftId,
+      jobId: watch.jobId,
+      subreddit: watch.subreddit,
+      threadUrl: watch.threadUrl,
+      threadTitle: watch.threadTitle,
+      note,
+    },
+  };
 }
 
 function isWatchEntry(raw: unknown): raw is PostWatchEntry {

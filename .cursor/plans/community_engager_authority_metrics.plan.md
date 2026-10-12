@@ -40,7 +40,7 @@ todos:
     status: completed
   - id: p3-voltmem-outcome-tags
     content: VoltMem outcome tags — got_reply, removed, dm_interest, signup_attributed so drafter learns what worked
-    status: pending
+    status: completed
 isProject: true
 ---
 
@@ -286,7 +286,7 @@ For the first 30–90 days:
 ### Slice D — north-star surface (P3)
 
 1. ~~Authority score card + series in admin-shell~~ **done** — `authority-metrics.ts` + Authority collection; runs series exposes promo/visibility; paste activations via `attribution/activations.json`
-2. VoltMem outcome tags feeding draft memory
+2. ~~VoltMem outcome tags~~ **done** — `got_reply` / `removed` / `dm_interest` from post-watch + visibility; `signup_attributed` helper after activations import; draft remember + help-first on `removed`
 3. ~~Sub playbooks~~ **done**
 4. ~~Cadence daily budgets~~ **done** — `cadence` config gates (`maxHelpPerDay` / `maxPromoPerDay`) from promo ledger; trim after post_watch; execute refuses when exhausted; cron entrypoints remain in schedules plan
 

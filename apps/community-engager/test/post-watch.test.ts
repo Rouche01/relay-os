@@ -188,6 +188,7 @@ describe("post-watch enroll + process", () => {
     assert.equal(result.followUps[0]!.intensity, 0);
     assert.match(result.followUps[0]!.opText ?? "", /what about shoes/);
     assert.match(result.followUps[0]!.threadTitle, /^Re:/);
+    assert.ok(result.outcomeHints.some((h) => h.tag === "got_reply"));
 
     const queue = await readPostWatchQueue(dir);
     assert.equal(queue.watches[0]!.status, "replied");
@@ -226,6 +227,8 @@ describe("post-watch enroll + process", () => {
         },
       }),
     });
+
+    assert.ok(result.outcomeHints.some((h) => h.tag === "removed"));
 
     assert.equal(result.removed, 1);
     assert.equal(result.followUps.length, 0);

@@ -5,7 +5,19 @@
     {"name": "community_outcome", "volatility": 0.55}
   ],
   "keywords": {
-    "community_outcome": ["[community_outcome]", "[outcome]", "aborted"],
+    "community_outcome": [
+      "[community_outcome]",
+      "[outcome]",
+      "aborted",
+      "got_reply",
+      "removed",
+      "dm_interest",
+      "signup_attributed",
+      "tag=got_reply",
+      "tag=removed",
+      "tag=dm_interest",
+      "tag=signup_attributed"
+    ],
     "community_rules": ["[community_rules]", "Subreddit rules"],
     "community_preference": ["[community_preference]", "[preference]", "allowlist"]
   }

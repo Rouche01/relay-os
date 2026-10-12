@@ -114,4 +114,63 @@ export const CommunityMemory = {
   voiceConstraint(note: string): string {
     return `Voice constraint: ${note}`;
   },
+
+  /**
+   * Post-execute Reddit outcomes for drafter learning (beyond HITL approve/abort).
+   * Leading token is the tag so VoltMem keyword routing + remember queries hit.
+   */
+  outcomeTag(
+    tag: OutcomeTag,
+    meta: {
+      draftId?: string;
+      jobId?: string;
+      subreddit: string;
+      threadUrl?: string;
+      threadTitle?: string;
+      note?: string;
+      intensity?: number;
+    }
+  ): string {
+    const bits = [
+      `tag=${tag}`,
+      meta.draftId ? `draft=${meta.draftId}` : undefined,
+      meta.jobId ? `job=${meta.jobId}` : undefined,
+      `r/${meta.subreddit}`,
+      outcomeTagLabel(tag),
+    ].filter(Boolean) as string[];
+    if (meta.intensity != null) bits.push(`intensity=${meta.intensity}`);
+    if (meta.threadUrl) bits.push(`url=${meta.threadUrl}`);
+    const title = clipTitle(meta.threadTitle);
+    if (title) bits.push(`title=${title}`);
+    const note = trimNote(meta.note);
+    if (note) bits.push(note);
+    return bits.join("; ");
+  },
 };
+
+/** Post-engagement tags written into `community_outcome`. */
+export type OutcomeTag =
+  | "got_reply"
+  | "removed"
+  | "dm_interest"
+  | "signup_attributed";
+
+export const OUTCOME_TAGS: readonly OutcomeTag[] = [
+  "got_reply",
+  "removed",
+  "dm_interest",
+  "signup_attributed",
+] as const;
+
+function outcomeTagLabel(tag: OutcomeTag): string {
+  switch (tag) {
+    case "got_reply":
+      return "thread got a reply after our comment";
+    case "removed":
+      return "comment removed or not publicly visible";
+    case "dm_interest":
+      return "reply suggests DM / private follow-up interest";
+    case "signup_attributed":
+      return "Reddit-attributed product signup / activation";
+  }
+}

@@ -119,7 +119,8 @@ flowchart TD
 | `draft` | Write a reply with Gemini when `GEMINI_API_KEY` is set; otherwise a stub. May pull VoltMem context |
 | `await_approval` | You Approve / Edit / Abort (Telegram or CLI) |
 | `execute` | Dry-run log, or live browser/oauth post |
-| `learn` | Persist outcome to VoltMem (`community_outcome`) + allowlist ranking |
+| `learn` | Persist HITL outcome to VoltMem (`community_outcome`) + allowlist ranking |
+| post-watch / visibility | Also write outcome tags: `got_reply`, `removed`, `dm_interest`; activations import → `signup_attributed` |
 
 `ensure_session`, `discover`, `scout`, and `post_watch` run once on the parent manifest. The `jobs` stage **fans out** into the nested `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. A job that fails or gets aborted is recorded and the queue moves on. Budget with `COMMUNITY_MAX_JOBS` (default 3) and `COMMUNITY_JOB_DELAY_MS` (default 1500). Discover defaults to `COMMUNITY_DISCOVER=auto` (skip when the postable allowlist is healthy); use `force` / `--force-discover` to research anyway, or `off` to never run.
 
@@ -221,6 +222,8 @@ pnpm --filter @relay/apps-community-engager run actions list --status pending_ap
 pnpm --filter @relay/apps-community-engager run actions get <id>
 ```
 
-Authority score (`visibility × replyRate × (1 − promoRatio)`, × activations when imported) is computed from `{REDDIT_DATA_DIR}` ledgers. Paste product counts into `{REDDIT_DATA_DIR}/attribution/activations.json` as `{ "count": N, "updatedAt": "…" }` when GoStylens reports Reddit-attributed signups.
+Authority score (`visibility × replyRate × (1 − promoRatio)`, × activations when imported) is computed from `{REDDIT_DATA_DIR}` ledgers. Paste product counts into `{REDDIT_DATA_DIR}/attribution/activations.json` as `{ "count": N, "updatedAt": "…" }` (or Authority collection action `set_activations`) when GoStylens reports Reddit-attributed signups.
+
+VoltMem outcome tags (beyond approve/abort): `got_reply` / `removed` / `dm_interest` from post-watch + visibility; `signup_attributed` via `writeSignupAttributedForDelta` after activation bumps. Draft remember queries include these tokens; `tag=removed` forces help-first drafting.
 
 Do not hand-edit JSON while the agent is writing.

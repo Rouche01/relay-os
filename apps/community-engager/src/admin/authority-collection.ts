@@ -1,4 +1,5 @@
 import type {
+  AuthorityScorecardViz,
   CollectionAdapter,
   GetResult,
   ListFilter,
@@ -10,6 +11,7 @@ import type {
 import {
   formatAuthorityLog,
   resolveAuthorityScoreCard,
+  writeActivationsImport,
   type AuthorityScoreCard,
 } from "../authority-metrics.js";
 import { assertFileSource } from "./sources.js";
@@ -32,6 +34,7 @@ export function createAuthorityCollection(
       list: true,
       get: true,
       series: true,
+      actions: ["set_activations"],
     },
 
     async list(_filter: ListFilter = {}): Promise<ListResult> {
@@ -60,6 +63,40 @@ export function createAuthorityCollection(
           kind: "authority-scorecard",
           title: "Authority score card",
           subtitle: `score ${card.score.toFixed(3)} · window ${card.windowDays}d`,
+          viz: cardToViz(card),
+        },
+      };
+    },
+
+    async action(
+      name: string,
+      _id: string,
+      body?: Record<string, unknown>
+    ): Promise<GetResult> {
+      if (name !== "set_activations") {
+        throw new Error(`Unknown authority action: ${name}`);
+      }
+      const count = Number(body?.count);
+      if (!Number.isFinite(count) || count < 0) {
+        throw new Error("set_activations requires body.count ≥ 0");
+      }
+      const notes =
+        typeof body?.notes === "string" ? body.notes : undefined;
+      const { previous, next, updatedAt } = await writeActivationsImport(
+        dataDir,
+        { count, notes }
+      );
+      console.log(
+        `[authority] activations ${previous} → ${next} (updatedAt=${updatedAt})` +
+          " — restart engage or call writeSignupAttributedForDelta to tag VoltMem"
+      );
+      const card = await resolveAuthorityScoreCard(dataDir);
+      return {
+        record: { ...card, activationsDelta: { previous, next, updatedAt } },
+        detail: {
+          kind: "authority-scorecard",
+          title: "Authority score card",
+          subtitle: `activations ${previous}→${next} · score ${card.score.toFixed(3)}`,
           viz: cardToViz(card),
         },
       };
@@ -124,7 +161,7 @@ function cardToRow(card: AuthorityScoreCard): Record<string, unknown> {
   };
 }
 
-function cardToViz(card: AuthorityScoreCard): Record<string, unknown> {
+function cardToViz(card: AuthorityScoreCard): AuthorityScorecardViz {
   return {
     score: card.score,
     scoreWithActivations: card.scoreWithActivations,

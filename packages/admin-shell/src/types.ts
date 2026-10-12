@@ -84,6 +84,35 @@ export interface RunDebugViz {
   runState?: string;
 }
 
+/** Authority north-star scorecard (kind: "authority-scorecard"). */
+export interface AuthorityScorecardViz {
+  score: number;
+  scoreWithActivations?: number;
+  ladder: {
+    promoRatio: number;
+    visibilityRate: number;
+    replyRate: number;
+    attributedActivations: number;
+  };
+  counts: {
+    help: number;
+    promo: number;
+    visibilityOk: number;
+    visibilityChecked: number;
+    replied: number;
+    settled: number;
+    removed: number;
+    attributionJobs: number;
+  };
+  constraints: {
+    promoOk: boolean;
+    visibilityHealthy: boolean;
+    replyHealthy: boolean;
+  };
+  windowDays: number;
+  computedAt: string;
+}
+
 export interface GetResult {
   record: unknown;
   detail?: {
@@ -92,8 +121,8 @@ export interface GetResult {
     subtitle?: string;
     /** Editable field keys when patch is supported */
     editable?: string[];
-    /** Present when kind is "run-debug" */
-    viz?: RunDebugViz;
+    /** Present for kind "run-debug" or "authority-scorecard" */
+    viz?: RunDebugViz | AuthorityScorecardViz;
   };
 }
 

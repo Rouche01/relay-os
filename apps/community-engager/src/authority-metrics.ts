@@ -3,7 +3,7 @@
  * Admin surfaces these; product analytics join remains optional via activations import.
  */
 
-import { readdir, readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { readPromoLedger, type PromoLedgerEntry } from "./promo-ratio.js";
 import {
@@ -249,6 +249,32 @@ export async function readActivationsImport(
     }
     throw err;
   }
+}
+
+/**
+ * Persist GoStylens Reddit-attributed activation count for the authority card.
+ * Returns previous/new counts so callers can emit `signup_attributed` VoltMem tags.
+ */
+export async function writeActivationsImport(
+  dataDir: string,
+  input: { count: number; notes?: string }
+): Promise<{ previous: number; next: number; updatedAt: string }> {
+  const previous = (await readActivationsImport(dataDir)).count;
+  const next = Math.max(0, Math.floor(input.count));
+  const updatedAt = new Date().toISOString();
+  const dir = path.join(dataDir, "attribution");
+  await mkdir(dir, { recursive: true });
+  const payload: ActivationsImport = {
+    count: next,
+    updatedAt,
+    ...(input.notes ? { notes: input.notes } : {}),
+  };
+  await writeFile(
+    path.join(dir, "activations.json"),
+    JSON.stringify(payload, null, 2),
+    "utf8"
+  );
+  return { previous, next, updatedAt };
 }
 
 function clamp01(n: number): number {
