@@ -1,4 +1,8 @@
-export type { TelegramAdapterConfig, TelegramAdapterEnv } from "./types.js";
+export type {
+  TelegramAdapterConfig,
+  TelegramAdapterEnv,
+  TelegramIdleMessageHandler,
+} from "./types.js";
 export { TelegramClient } from "./client.js";
 export {
   resolveFeedbackKind,
@@ -12,4 +16,5 @@ export {
 export {
   TelegramFeedbackAdapter,
   createTelegramAdapterFromEnv,
+  truncateTelegramText,
 } from "./adapter.js";

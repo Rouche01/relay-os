@@ -7,7 +7,11 @@ import {
   parseCallbackData,
   parseEditCommand,
 } from "./format.js";
-import type { TelegramAdapterConfig, TelegramAdapterEnv } from "./types.js";
+import type {
+  TelegramAdapterConfig,
+  TelegramAdapterEnv,
+  TelegramIdleMessageHandler,
+} from "./types.js";
 
 interface Pending {
   request: FeedbackRequest;
@@ -17,9 +21,18 @@ interface Pending {
   reject: (err: Error) => void;
 }
 
+/** Telegram Bot API hard limit for message text. */
+const TELEGRAM_MAX_TEXT = 4096;
+
+type TelegramClientLike = NonNullable<TelegramAdapterConfig["client"]>;
+
 /**
  * Telegram FeedbackAdapter — Approve / Abort inline buttons; reply `edit: …`.
  * Only TELEGRAM_ALLOWLIST_USER_ID may decide.
+ *
+ * Optional `onIdleMessage` / {@link TelegramFeedbackAdapter.setOnIdleMessage}:
+ * when no HITL present is in flight, allowlisted text is forwarded (ops intents).
+ * HITL always wins when a present is pending.
  *
  * Call `start()` before attaching the FeedbackBroker (begins long-poll).
  * Call `stop()` on shutdown.
@@ -27,10 +40,11 @@ interface Pending {
 export class TelegramFeedbackAdapter implements FeedbackAdapter {
   readonly name = "telegram";
 
-  private readonly client: TelegramClient;
+  private readonly client: TelegramClientLike;
   private readonly allowlistUserId: number;
   private readonly chatId: number;
   private readonly pollTimeoutSec: number;
+  private onIdleMessage: TelegramIdleMessageHandler | undefined;
 
   private pendingByRequestId = new Map<string, Pending>();
   private pendingByMessageId = new Map<number, Pending>();
@@ -39,16 +53,26 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
   private loopPromise: Promise<void> | null = null;
 
   constructor(config: TelegramAdapterConfig) {
-    if (!config.botToken) {
+    if (!config.botToken && !config.client) {
       throw new Error("TelegramFeedbackAdapter requires botToken");
     }
     if (!Number.isFinite(config.allowlistUserId)) {
       throw new Error("TelegramFeedbackAdapter requires allowlistUserId");
     }
-    this.client = new TelegramClient(config.botToken);
+    this.client =
+      config.client ?? new TelegramClient(config.botToken);
     this.allowlistUserId = config.allowlistUserId;
     this.chatId = config.chatId ?? config.allowlistUserId;
     this.pollTimeoutSec = config.pollTimeoutSec ?? 25;
+    this.onIdleMessage = config.onIdleMessage;
+  }
+
+  /**
+   * Attach or replace the idle-message handler (ops bridge).
+   * Safe to call after construction / before or after {@link start}.
+   */
+  setOnIdleMessage(handler: TelegramIdleMessageHandler | undefined): void {
+    this.onIdleMessage = handler;
   }
 
   /** Begin long-polling getUpdates. Safe to call once. */
@@ -126,10 +150,47 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
     });
   }
 
+  /** True when at least one HITL present is awaiting a reply. */
+  hasPendingHitl(): boolean {
+    return this.pendingByRequestId.size > 0;
+  }
+
+  /**
+   * Simulate an allowlisted text message (unit tests / local harness).
+   * Does not run the poll loop.
+   */
+  async ingestAllowlistedText(
+    text: string,
+    opts?: { replyToMessageId?: number }
+  ): Promise<void> {
+    const replyTo =
+      opts?.replyToMessageId != null
+        ? {
+            message_id: opts.replyToMessageId,
+            date: 0,
+            chat: { id: this.chatId, type: "private" },
+          }
+        : undefined;
+    await this.handleMessage({
+      update_id: 0,
+      message: {
+        message_id: Date.now() % 1_000_000,
+        date: Math.floor(Date.now() / 1000),
+        chat: { id: this.chatId, type: "private" },
+        from: { id: this.allowlistUserId, first_name: "ops" },
+        text,
+        ...(replyTo ? { reply_to_message: replyTo } : {}),
+      },
+    });
+  }
+
   private async pollLoop(): Promise<void> {
     while (this.running) {
       try {
-        const updates = await this.client.getUpdates(this.offset, this.pollTimeoutSec);
+        const updates = (await this.client.getUpdates(
+          this.offset,
+          this.pollTimeoutSec
+        )) as TelegramUpdate[];
         for (const update of updates) {
           this.offset = update.update_id + 1;
           await this.handleUpdate(update);
@@ -193,6 +254,7 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
       return;
     }
     const text = msg.text!.trim();
+    if (!text) return;
 
     // Prefer reply-to matching our card; else single pending fallback.
     let pending: Pending | undefined;
@@ -202,7 +264,17 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
     if (!pending && this.pendingByRequestId.size === 1) {
       pending = [...this.pendingByRequestId.values()][0];
     }
-    if (!pending) return;
+
+    // HITL in flight but unmatched (e.g. multiple cards, no reply-to): do not
+    // steal for ops — operator must reply to the card / use buttons.
+    if (!pending && this.pendingByRequestId.size > 0) {
+      return;
+    }
+
+    if (!pending) {
+      await this.dispatchIdle(text);
+      return;
+    }
 
     const edited = parseEditCommand(text);
     if (edited !== null) {
@@ -270,6 +342,31 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
     }
   }
 
+  private async dispatchIdle(text: string): Promise<void> {
+    if (!this.onIdleMessage) return;
+    try {
+      const reply = await this.onIdleMessage(text);
+      if (reply == null || reply === "") return;
+      await this.client.sendMessage({
+        chat_id: this.chatId,
+        text: truncateTelegramText(reply),
+        disable_web_page_preview: true,
+      });
+    } catch (err) {
+      console.error("[telegram-adapter] idle message handler failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      try {
+        await this.client.sendMessage({
+          chat_id: this.chatId,
+          text: truncateTelegramText(`Ops error: ${message}`),
+          disable_web_page_preview: true,
+        });
+      } catch {
+        // ignore secondary send failure
+      }
+    }
+  }
+
   private settle(pending: Pending, response: FeedbackResponse): void {
     this.pendingByRequestId.delete(pending.request.id);
     this.pendingByMessageId.delete(pending.messageId);
@@ -307,6 +404,15 @@ export function createTelegramAdapterFromEnv(
     allowlistUserId,
     chatId,
   });
+}
+
+export function truncateTelegramText(
+  text: string,
+  max = TELEGRAM_MAX_TEXT
+): string {
+  if (text.length <= max) return text;
+  const suffix = "\n…(truncated)";
+  return text.slice(0, Math.max(0, max - suffix.length)) + suffix;
 }
 
 function sleep(ms: number): Promise<void> {

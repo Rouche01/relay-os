@@ -51,7 +51,7 @@ function toCommunityEntrypoint(name: string): CommunityEntrypoint {
 /**
  * Long-lived ops daemon: SchedulerHost + OpsController.
  * - CLI: type ops intents on stdin (paused while an app run owns HITL).
- * - Telegram idle → ops is P2 (`onIdleMessage`).
+ * - Telegram: idle allowlisted messages → OpsController (HITL pending wins).
  * Escape hatch: `--once` / `--schedule` still work via the same controller.
  */
 async function main(): Promise<void> {
@@ -74,13 +74,6 @@ async function main(): Promise<void> {
   const adapter = useTelegram
     ? ((telegram = createTelegramAdapterFromEnv()), telegram)
     : new CliFeedbackAdapter();
-
-  if (telegram) {
-    telegram.start();
-    console.log("Feedback adapter: telegram\n");
-  } else {
-    console.log("Feedback adapter: cli\n");
-  }
 
   /** Pause stdin ops while HITL / app.run owns the terminal. */
   let opsRl: readline.Interface | undefined;
@@ -127,6 +120,17 @@ async function main(): Promise<void> {
     createApp: (entrypoint) => createApp(entrypoint),
   });
 
+  if (telegram) {
+    telegram.setOnIdleMessage(async (text) => {
+      console.log(`[ops-telegram] ${text}`);
+      return ops.handleText(text);
+    });
+    telegram.start();
+    console.log("Feedback adapter: telegram (idle → ops)\n");
+  } else {
+    console.log("Feedback adapter: cli\n");
+  }
+
   let shuttingDown = false;
   const shutdown = (): void => {
     if (shuttingDown) return;
@@ -166,8 +170,8 @@ async function main(): Promise<void> {
 
     if (useTelegram) {
       console.log(
-        "Ops daemon running (Ctrl+C to stop). Telegram idle → ops lands in P2.\n" +
-          "Meanwhile: pnpm ops -- \"status\" is a separate short-lived process.\n"
+        "Ops daemon running (Ctrl+C to stop).\n" +
+          "Telegram: send status / stop cadence / engage / … when no HITL card is pending.\n"
       );
     } else {
       console.log(
