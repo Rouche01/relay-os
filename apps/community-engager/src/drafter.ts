@@ -15,6 +15,7 @@ import { isMegathread } from "./reddit/score.js";
 import { applySoftCta } from "./soft-cta.js";
 import type { CommunityDraft, PromoIntensity } from "./types.js";
 import { FIXTURE_THREADS } from "./fixtures/threads.js";
+import { buildJobUtm } from "./utm.js";
 
 export interface DraftReplyOutcome {
   draft: CommunityDraft;
@@ -142,7 +143,11 @@ function finalizeDraft(
     {
       lpBaseUrl: opts.lpBaseUrl,
       forceIntensity0: opts.forceIntensity0,
-      campaign: draft.utmCampaign,
+      // Preview UTMs: app campaign + draft id as content (execute rewrites with jobId).
+      utm: buildJobUtm({
+        jobId: draft.id,
+        subreddit: draft.subreddit,
+      }),
     }
   );
   return applyWarmupClamp(shaped, opts.forceIntensity0, {

@@ -33,8 +33,8 @@ todos:
     content: Visibility check after execute — logged-out fetch of permalink; detect removal/shadowban early
     status: completed
   - id: p2-job-utm-attribution
-    content: UTM per job (campaign=jobId) + join to GoStylens analytics / self-reported Reddit attribution
-    status: pending
+    content: UTM per job (medium=community-engager, campaign=community_<sub>, content=jobId) + join to GoStylens analytics / self-reported Reddit attribution
+    status: completed
   - id: p3-admin-north-star
     content: Admin authority score card + series — promoRatio, replyRate, visibilityRate, Reddit-attributed activations
     status: pending
@@ -148,7 +148,7 @@ Goal text is fashion/styling help-first, but there is no explicit GoStylens ICP 
 | P2       | ~~**Subreddit playbooks**~~ — rules, plug style, megathread policy, max plugs/week on allowlist                       | Promote becomes operational            |
 | P2       | ~~**Cadence scheduler**~~ — daily help/promo budgets in config; weekly per-sub via playbooks; cron via entrypoints plan | Looks like a person, not a batch       |
 | P2       | ~~**Visibility check**~~ after execute (logged-out permalink fetch)                                                   | Detect removal/shadowban early         |
-| P3       | **Close loop to GoStylens** — unique UTM per job + Reddit survey option                                               | Prove users, not just comments         |
+| P3       | **Close loop to GoStylens** — UTM layers shipped; survey option + admin import still open                             | Prove users, not just comments         |
 
 
 Default setup stays; these are additive gates and stages.
@@ -230,7 +230,7 @@ Per sub: posts, approve/abort rates (partially exist), plus **plugs/week** and *
 
 ### 3. Product analytics join
 
-Set `utm_campaign` = `jobId` (or `runId+sub`). In GoStylens analytics, a “Reddit community” insight: sessions → signup by campaign. Surface summary in admin-shell as external tile or nightly JSON import.
+UTM layers: `utm_medium=community-engager` (app rollup), `utm_campaign=community_<subreddit>` (community + sub), `utm_content=<jobId>` (join key), `source=reddit`. Local join ledger at `{dataDir}/attribution/`. In GoStylens analytics, filter medium = community-engager then break down by campaign/content. Surface summary in admin-shell as external tile or nightly JSON import.
 
 **Touch:** `executor.ts`, GoStylens product analytics, optional admin tile
 
@@ -280,7 +280,7 @@ For the first 30–90 days:
 ### Slice C — score for ICP + prove users (P1–P2)
 
 1. ~~Extend `OpportunityScore` / `scoreRedditPost`~~ **done** — `competition`, `icpFit`, `plugNaturalness`; gate ≥5/8; `numComments` on listings
-2. UTM per `jobId`
+2. ~~UTM per job~~ **done** — `utm_medium=community-engager`, `utm_campaign=community_<sub>`, `utm_content=jobId`; `{dataDir}/attribution/`
 3. Wire attributed signup count into admin (even if manually pasted JSON at first)
 
 ### Slice D — north-star surface (P3)

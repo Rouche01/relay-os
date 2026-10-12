@@ -287,7 +287,8 @@ export function buildFollowUpDraft(
     rationale: `post-watch follow-up: ${replies.length} reply(ies) on ${watch.postedUrl}`,
     status: "proposed",
     createdAt: now,
-    utmCampaign: watch.jobId ? `followup-${watch.jobId}` : undefined,
+    // App id; execute rewrites utm_content to the follow-up jobId.
+    utmCampaign: "community-engager",
   };
 }
 

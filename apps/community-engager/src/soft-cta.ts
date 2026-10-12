@@ -1,8 +1,17 @@
 import type { CommunityDraft, PromoIntensity } from "./types.js";
+import {
+  buildJobUtm,
+  UTM_APP_ID,
+  utmQueryString,
+  type UtmParams,
+} from "./utm.js";
 
 export const PRODUCT_RE = /\bgostylens\b/i;
 export const DISCLOSURE_RE =
   /\b(disclosure|disclos(?:e|ing)|i(?:'m| am) the (?:founder|maker|builder)|i built|full disclosure)\b/i;
+
+export type { UtmParams } from "./utm.js";
+export { buildJobUtm, UTM_APP_ID, utmQueryString } from "./utm.js";
 
 /**
  * Soft-CTA shaping after draft generation:
@@ -14,6 +23,11 @@ export function applySoftCta(
   draft: CommunityDraft,
   opts: {
     lpBaseUrl: string;
+    /** Full UTM set (preferred). */
+    utm?: UtmParams;
+    /**
+     * @deprecated Prefer `utm`. Treated as utm_content when building defaults.
+     */
     campaign?: string;
     /** Warmup / promo block — force help-only. */
     forceIntensity0?: boolean;
@@ -28,12 +42,17 @@ export function applySoftCta(
         : 0;
 
   let text = draft.draftText.trim();
-  const campaign = opts.campaign ?? draft.utmCampaign ?? "community";
+  const utm = resolveUtmOpts(draft, opts);
   const lp = normalizeLpBase(opts.lpBaseUrl);
 
   if (intensity === 0) {
     text = stripProductAndLpLinks(text, lp);
-    return { ...draft, intensity: 0, draftText: text };
+    return {
+      ...draft,
+      intensity: 0,
+      draftText: text,
+      utmCampaign: utm.campaign,
+    };
   }
 
   // Always strip bare LP URLs before re-applying per intensity rules.
@@ -45,7 +64,12 @@ export function applySoftCta(
     }
     // Intensity 1 must not carry a product URL.
     text = stripLpUrls(text, lp);
-    return { ...draft, intensity: 1, draftText: text };
+    return {
+      ...draft,
+      intensity: 1,
+      draftText: text,
+      utmCampaign: utm.campaign,
+    };
   }
 
   // Intensity 2: disclosure + one tracked LP link.
@@ -55,23 +79,28 @@ export function applySoftCta(
   if (!PRODUCT_RE.test(text)) {
     text = `${text} GoStylens is the small helper I built for this.`.trim();
   }
-  const tracked = withUtm(lp, campaign);
+  const tracked = withUtm(lp, utm);
   if (!containsLpUrl(text, lp)) {
     text = `${text}\n\n${tracked}`.trim();
   } else {
-    text = applyUtmToLpUrls(text, lp, campaign);
+    text = applyUtmToLpUrls(text, lp, utm);
   }
-  return { ...draft, intensity: 2, draftText: text };
+  return {
+    ...draft,
+    intensity: 2,
+    draftText: text,
+    utmCampaign: utm.campaign,
+  };
 }
 
 /** Append UTM params to LP / gostylens links (execute path). */
 export function applyUtmLinks(
   text: string,
   lpBaseUrl: string,
-  campaign: string
+  utm: UtmParams | string
 ): string {
   const lp = normalizeLpBase(lpBaseUrl);
-  return applyUtmToLpUrls(text, lp, campaign);
+  return applyUtmToLpUrls(text, lp, coerceUtm(utm));
 }
 
 export function normalizeLpBase(raw: string): string {
@@ -80,16 +109,34 @@ export function normalizeLpBase(raw: string): string {
   return `https://${trimmed}`;
 }
 
-export function withUtm(lpBaseUrl: string, campaign: string): string {
+export function withUtm(lpBaseUrl: string, utm: UtmParams | string): string {
   const base = normalizeLpBase(lpBaseUrl);
-  const utm = utmQuery(campaign);
+  const params = coerceUtm(utm);
+  const qs = utmQueryString(params);
   const join = base.includes("?") ? "&" : "?";
   if (/[?&]utm_/i.test(base)) return base;
-  return `${base}${join}${utm}`;
+  return `${base}${join}${qs}`;
 }
 
-function utmQuery(campaign: string): string {
-  return `utm_source=reddit&utm_medium=community&utm_campaign=${encodeURIComponent(campaign)}`;
+function resolveUtmOpts(
+  draft: CommunityDraft,
+  opts: { utm?: UtmParams; campaign?: string }
+): UtmParams {
+  if (opts.utm) return opts.utm;
+  const content =
+    opts.campaign ?? draft.utmCampaign ?? draft.id ?? "community";
+  return buildJobUtm({
+    jobId: content,
+    subreddit: draft.subreddit,
+  });
+}
+
+/** String arg = legacy campaign/content token → full job UTM. */
+function coerceUtm(utm: UtmParams | string): UtmParams {
+  if (typeof utm === "string") {
+    return buildJobUtm({ jobId: utm });
+  }
+  return utm;
 }
 
 function lpHostPattern(lpBaseUrl: string): RegExp {
@@ -132,13 +179,13 @@ function containsLpUrl(text: string, lpBaseUrl: string): boolean {
 function applyUtmToLpUrls(
   text: string,
   lpBaseUrl: string,
-  campaign: string
+  utm: UtmParams
 ): string {
-  const utm = utmQuery(campaign);
+  const qs = utmQueryString(utm);
   return text.replace(lpHostPattern(lpBaseUrl), (url) => {
     if (/[?&]utm_/i.test(url)) return url;
     const join = url.includes("?") ? "&" : "?";
-    return `${url}${join}${utm}`;
+    return `${url}${join}${qs}`;
   });
 }
 

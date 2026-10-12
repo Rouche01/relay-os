@@ -140,6 +140,7 @@ flowchart TD
 | Sub playbooks | Per-allowlist `playbook`: rules summary, `plugStyle`, `megathreadPolicy`, `maxPlugsPerWeek` — clamps draft intensity and megathread scout |
 | Daily cadence | Caps live help/promo posts per local day (`cadence.maxHelpPerDay` / `maxPromoPerDay`); cron entrypoints stay in the schedules plan |
 | Visibility check | After live execute, logged-out permalink fetch; flags removal / missing (shadowban-adjacent) |
+| Job UTM attribution | LP links: `utm_medium=community-engager`, `utm_campaign=community_<sub>`, `utm_content=<jobId>`; attribution ledger |
 
 Warmup (`warmup.mode=auto`) keeps drafts help-only until local live intensity-0 posts and (when known) Reddit account age/karma clear the thresholds. State: `{REDDIT_DATA_DIR}/warmup/state.json`.
 
@@ -150,6 +151,18 @@ Post-watch (`postWatch.enabled`, default on) enrolls each live-posted comment an
 Daily cadence (`cadence.enabled`, default on) counts today's ledger posts and caps opportunities / execute by `maxHelpPerDay` (default 5) and `maxPromoPerDay` (default 1). Per-sub weekly soft mentions stay in playbook `maxPlugsPerWeek`. Separate cron entrypoints are deferred to the schedules plan.
 
 Visibility (`visibility.enabled`, default on) waits `delayMs` (default 3000) then fetches the posted permalink as a logged-out client. Results: `visible` / `removed` / `missing` / `error`; persisted under `{REDDIT_DATA_DIR}/visibility/`. Does not fail the execute stage — warns loudly for ops follow-up. Longer-horizon reply/removal polling stays in post-watch.
+
+UTM on intensity-2 / execute LP links (see `utm.ts`):
+
+| Param | Value | Why |
+|-------|--------|-----|
+| `utm_source` | `reddit` | Platform |
+| `utm_medium` | `community-engager` | This app (stable product filter) |
+| `utm_campaign` | `community_<subreddit>` | Community + sub (matches scout draft label) |
+| `utm_content` | sanitized `jobId` | Per-post join key |
+| `utm_term` | subreddit | Optional bare-sub slice |
+
+Join records: `{REDDIT_DATA_DIR}/attribution/<jobId>.json`.
 
 ## Config
 

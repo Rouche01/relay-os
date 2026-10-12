@@ -95,8 +95,12 @@ describe("applySoftCta", () => {
     assert.equal(out.intensity, 2);
     assert.match(out.draftText, /disclosure|founder/i);
     assert.match(out.draftText, /gostylens\.app/i);
-    assert.match(out.draftText, /utm_campaign=camp-9/);
+    // App in medium; community+sub in campaign; token in content.
+    assert.match(out.draftText, /utm_medium=community-engager/);
+    assert.match(out.draftText, /utm_campaign=community_femalefashionadvice/);
+    assert.match(out.draftText, /utm_content=camp-9/);
     assert.match(out.draftText, /utm_source=reddit/);
+    assert.equal(out.utmCampaign, "community_femalefashionadvice");
   });
 
   it("forceIntensity0 overrides plugs", () => {
@@ -119,14 +123,16 @@ describe("applyUtmLinks", () => {
       "https://example.test/app",
       "job-z"
     );
-    assert.match(text, /utm_campaign=job-z/);
+    assert.match(text, /utm_medium=community-engager/);
+    assert.match(text, /utm_campaign=community/);
+    assert.match(text, /utm_content=job-z/);
     assert.match(text, /example\.test\/app\?/);
   });
 
-  it("withUtm builds a tracked base URL", () => {
+  it("withUtm builds a tracked base URL with app medium + content layers", () => {
     assert.equal(
       withUtm("https://gostylens.app", "abc"),
-      "https://gostylens.app?utm_source=reddit&utm_medium=community&utm_campaign=abc"
+      "https://gostylens.app?utm_source=reddit&utm_medium=community-engager&utm_campaign=community&utm_content=abc"
     );
   });
 });

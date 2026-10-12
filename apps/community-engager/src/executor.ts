@@ -12,9 +12,12 @@ import {
 import { hasStorageState } from "./reddit/cookies.js";
 import { postCommentBrowser } from "./reddit/browser-comment.js";
 import { executeJobId } from "./reddit/scout-live.js";
+import { recordAttribution } from "./attribution.js";
 import { applyUtmLinks } from "./soft-cta.js";
+import { formatUtmLog, resolveExecuteUtm } from "./utm.js";
 
 export { applyUtmLinks } from "./soft-cta.js";
+export { buildJobUtm, resolveExecuteUtm, UTM_APP_ID } from "./utm.js";
 
 export interface ExecuteResult {
   ok: boolean;
@@ -119,11 +122,13 @@ export async function executeApproved(
     };
   }
 
-  const text = applyUtmLinks(
-    draft.draftText,
-    cfg.product.lpBaseUrl,
-    draft.utmCampaign ?? "community"
-  );
+  const utm = resolveExecuteUtm({
+    jobId,
+    subreddit: draft.subreddit,
+  });
+  draft.utmCampaign = utm.campaign;
+  const text = applyUtmLinks(draft.draftText, cfg.product.lpBaseUrl, utm);
+  console.log(formatUtmLog(utm));
 
   const prior = await readJob(jobPath);
   if (prior?.ok) {
@@ -141,6 +146,9 @@ export async function executeApproved(
       `  cookieDir: ${cfg.reddit.cookieDir}\n` +
       `  storageState: ${jarPresent ? "present" : "missing"}\n` +
       `  jobId: ${jobId}\n` +
+      `  utm: campaign=${utm.campaign} content=${utm.content}` +
+      (utm.term ? ` term=${utm.term}` : "") +
+      `\n` +
       `  thread: ${draft.threadUrl}\n` +
       `  thing: ${draft.redditThingId ?? "(fixture — no thing id)"}\n` +
       `  intensity: ${draft.intensity}\n` +
@@ -155,6 +163,14 @@ export async function executeApproved(
       postedUrl: undefined,
     };
     await writeJob(jobPath, result);
+    await safeRecordAttribution(dataDir, {
+      jobId,
+      draftId: draft.id,
+      subreddit: draft.subreddit,
+      intensity: draft.intensity,
+      utm,
+      dryRun: true,
+    });
     return result;
   }
 
@@ -173,6 +189,15 @@ export async function executeApproved(
       const browserResult = await tryBrowserPost(draft, text, cfg, opts, jobId);
       if (browserResult.ok) {
         await writeJob(jobPath, browserResult);
+        await safeRecordAttribution(dataDir, {
+          jobId,
+          draftId: draft.id,
+          subreddit: draft.subreddit,
+          postedUrl: browserResult.postedUrl,
+          intensity: draft.intensity,
+          utm,
+          dryRun: false,
+        });
         return browserResult;
       }
       errors.push(`browser: ${browserResult.error}`);
@@ -188,6 +213,15 @@ export async function executeApproved(
       const oauthResult = await tryOauthPost(draft, text, cfg, jobId);
       if (oauthResult.ok) {
         await writeJob(jobPath, oauthResult);
+        await safeRecordAttribution(dataDir, {
+          jobId,
+          draftId: draft.id,
+          subreddit: draft.subreddit,
+          postedUrl: oauthResult.postedUrl,
+          intensity: draft.intensity,
+          utm,
+          dryRun: false,
+        });
         return oauthResult;
       }
       errors.push(`oauth: ${oauthResult.error}`);
@@ -278,6 +312,34 @@ async function tryOauthPost(
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     return { ok: false, dryRun: false, jobId, error };
+  }
+}
+
+async function safeRecordAttribution(
+  dataDir: string,
+  input: {
+    jobId: string;
+    draftId: string;
+    subreddit: string;
+    postedUrl?: string;
+    intensity: number;
+    utm: ReturnType<typeof resolveExecuteUtm>;
+    dryRun: boolean;
+  }
+): Promise<void> {
+  try {
+    await recordAttribution(dataDir, {
+      jobId: input.jobId,
+      draftId: input.draftId,
+      subreddit: input.subreddit,
+      postedUrl: input.postedUrl,
+      intensity: input.intensity,
+      utm: input.utm,
+      recordedAt: new Date().toISOString(),
+      dryRun: input.dryRun,
+    });
+  } catch (err) {
+    console.warn("[attribution] record failed:", err);
   }
 }
 

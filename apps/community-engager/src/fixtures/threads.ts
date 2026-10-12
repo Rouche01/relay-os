@@ -94,6 +94,6 @@ export function fixtureToDraftSkeleton(thread: FixtureThread): Omit<
     rationale: thread.rationale,
     status: "proposed",
     createdAt: new Date().toISOString(),
-    utmCampaign: "community_fixture",
+    utmCampaign: "community-engager",
   };
 }
