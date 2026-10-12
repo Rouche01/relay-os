@@ -58,6 +58,14 @@ export function authoritySource(env: NodeJS.ProcessEnv = process.env): SourceCon
   };
 }
 
+/** Data root for schedule evidence (`schedules/*.evidence.json`). */
+export function schedulesSource(env: NodeJS.ProcessEnv = process.env): SourceConfig {
+  return {
+    driver: "file",
+    path: resolveDataRoot(env),
+  };
+}
+
 export function assertFileSource(source: SourceConfig, label: string): asserts source is {
   driver: "file";
   path: string;

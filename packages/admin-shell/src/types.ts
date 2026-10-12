@@ -42,6 +42,7 @@ export type DetailKind =
   | "allowlist-entry"
   | "run-debug"
   | "authority-scorecard"
+  | "schedules-overview"
   | string;
 
 /** Per-item investigation payload (e.g. run-debug charts). */
@@ -113,6 +114,29 @@ export interface AuthorityScorecardViz {
   computedAt: string;
 }
 
+/** Entrypoints + schedules discovery (kind: "schedules-overview"). */
+export interface SchedulesOverviewViz {
+  entrypoints: Array<{
+    name: string;
+    description: string;
+    stageNames: string[];
+    isDefault?: boolean;
+  }>;
+  schedules: Array<{
+    id: string;
+    entrypoint: string;
+    enabled: boolean;
+    cron?: string;
+    everyMs?: number;
+    description?: string;
+    lastStatus?: string;
+    lastFinishedAt?: string;
+    nextRunAt?: string;
+    runs?: number;
+    lastError?: string;
+  }>;
+}
+
 export interface GetResult {
   record: unknown;
   detail?: {
@@ -121,8 +145,8 @@ export interface GetResult {
     subtitle?: string;
     /** Editable field keys when patch is supported */
     editable?: string[];
-    /** Present for kind "run-debug" or "authority-scorecard" */
-    viz?: RunDebugViz | AuthorityScorecardViz;
+    /** Present for kind "run-debug", "authority-scorecard", or "schedules-overview" */
+    viz?: RunDebugViz | AuthorityScorecardViz | SchedulesOverviewViz;
   };
 }
 

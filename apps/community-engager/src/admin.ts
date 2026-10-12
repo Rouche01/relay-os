@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * CommunityEngager operator console — Actions + Allowlist + Jobs + Runs + Authority
- * on @relay/admin-shell with independent SourceConfig paths.
+ * CommunityEngager operator console — Actions + Allowlist + Jobs + Runs +
+ * Authority + Schedules on @relay/admin-shell with independent SourceConfig paths.
  */
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -14,6 +14,7 @@ import { createAllowlistCollection } from "./admin/allowlist-collection.js";
 import { createAuthorityCollection } from "./admin/authority-collection.js";
 import { createJobsCollection } from "./admin/jobs-collection.js";
 import { createRunsCollection } from "./admin/runs-collection.js";
+import { createSchedulesCollection } from "./admin/schedules-collection.js";
 import {
   actionsSource,
   allowlistSource,
@@ -21,6 +22,7 @@ import {
   authoritySource,
   jobsSource,
   runsSource,
+  schedulesSource,
 } from "./admin/sources.js";
 
 const requireFromHere = createRequire(__filename);
@@ -43,11 +45,13 @@ async function main(): Promise<void> {
   const jobs = jobsSource();
   const runs = runsSource();
   const authority = authoritySource();
+  const schedules = schedulesSource();
   assertFileSource(actions, "actions");
   assertFileSource(allowlist, "allowlist");
   assertFileSource(jobs, "jobs");
   assertFileSource(runs, "runs");
   assertFileSource(authority, "authority");
+  assertFileSource(schedules, "schedules");
 
   const store = createActionStoreFromEnv();
   const port = Number(
@@ -64,6 +68,7 @@ async function main(): Promise<void> {
       createJobsCollection(jobs),
       createRunsCollection(runs),
       createAuthorityCollection(authority),
+      createSchedulesCollection(schedules),
     ],
   });
 }

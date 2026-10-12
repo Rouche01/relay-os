@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: a4-admin-surface
     content: Admin-shell — list app entrypoints + schedules; last run / next due when host reports evidence
-    status: pending
+    status: completed
   - id: a5-cadence-handoff
     content: Wire CommunityEngager cadence (from authority-metrics p2-cadence-scheduler) as a scheduled entrypoint once a0–a3 land — do not invent a second cron mechanism in the app
     status: pending
@@ -25,7 +25,7 @@ isProject: true
 
 # Relay — manifest entrypoints and cron-like schedules
 
-**Status:** In progress — **A0–A3 done** (`@relay/scheduler` + croner; CommunityEngager `pnpm scheduler`). Next: A4 admin surface. Spawned from the post-watch architecture discussion while executing [`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md).
+**Status:** In progress — **A0–A4 done** (admin Schedules collection + evidence). Next: A5 cadence handoff. Spawned from the post-watch architecture discussion while executing [`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md).
 
 **Related plans:**
 

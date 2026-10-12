@@ -582,6 +582,85 @@ function renderRunDebug(viz) {
   `;
 }
 
+function formatEveryMs(ms) {
+  if (ms == null || !Number.isFinite(Number(ms))) return "—";
+  const n = Number(ms);
+  if (n % 3_600_000 === 0) return `every ${n / 3_600_000}h`;
+  if (n % 60_000 === 0) return `every ${n / 60_000}m`;
+  if (n % 1000 === 0) return `every ${n / 1000}s`;
+  return `every ${n}ms`;
+}
+
+function renderSchedulesOverview(viz) {
+  if (!viz || typeof viz !== "object") {
+    return `<p class="muted">No schedule data.</p>`;
+  }
+  const entrypoints = Array.isArray(viz.entrypoints) ? viz.entrypoints : [];
+  const schedules = Array.isArray(viz.schedules) ? viz.schedules : [];
+
+  const epRows =
+    entrypoints.length === 0
+      ? `<tr><td colspan="3" class="muted">No entrypoints.</td></tr>`
+      : entrypoints
+          .map((ep) => {
+            const stages = Array.isArray(ep.stageNames)
+              ? ep.stageNames.join(" → ")
+              : "—";
+            const label = ep.isDefault
+              ? `${ep.name} (default)`
+              : ep.name;
+            return `<tr>
+              <td><strong>${escapeHtml(label)}</strong><div class="muted">${escapeHtml(ep.description || "")}</div></td>
+              <td class="preview">${escapeHtml(stages)}</td>
+            </tr>`;
+          })
+          .join("");
+
+  const schedRows =
+    schedules.length === 0
+      ? `<tr><td colspan="5" class="muted">No schedules declared.</td></tr>`
+      : schedules
+          .map((s) => {
+            const timing = s.cron
+              ? `cron ${s.cron}`
+              : formatEveryMs(s.everyMs);
+            const on = s.enabled === false ? "off" : "on";
+            const next = s.nextRunAt
+              ? new Date(s.nextRunAt).toLocaleString()
+              : "—";
+            const last = s.lastStatus
+              ? `${s.lastStatus}${s.lastFinishedAt ? ` · ${new Date(s.lastFinishedAt).toLocaleString()}` : ""}`
+              : "never";
+            const err = s.lastError
+              ? `<div class="error" style="font-size:0.8rem">${escapeHtml(s.lastError)}</div>`
+              : "";
+            return `<tr>
+              <td><strong>${escapeHtml(s.id)}</strong><div class="muted">${escapeHtml(s.description || "")}</div>${err}</td>
+              <td>${escapeHtml(s.entrypoint || "—")}</td>
+              <td><span class="badge">${escapeHtml(on)}</span> · ${escapeHtml(timing)}</td>
+              <td>${escapeHtml(last)}<div class="muted">runs ${escapeHtml(String(s.runs ?? 0))}</div></td>
+              <td>${escapeHtml(next)}</td>
+            </tr>`;
+          })
+          .join("");
+
+  return `
+    <div class="schedules-overview">
+      <h3>Entrypoints</h3>
+      <table class="run-table">
+        <thead><tr><th>Name</th><th>Stages</th></tr></thead>
+        <tbody>${epRows}</tbody>
+      </table>
+      <h3>Schedules</h3>
+      <table class="run-table">
+        <thead><tr><th>Id</th><th>Entrypoint</th><th>Timing</th><th>Last</th><th>Next due</th></tr></thead>
+        <tbody>${schedRows}</tbody>
+      </table>
+      <p class="muted" style="margin-top:0.5rem">Evidence lives under <code>{dataDir}/schedules/*.evidence.json</code> when <code>pnpm scheduler</code> runs.</p>
+    </div>
+  `;
+}
+
 function renderAuthorityCard(a) {
   if (!a || typeof a !== "object") return `<p class="muted">No authority data.</p>`;
   const ladder = a.ladder ?? a;
@@ -630,7 +709,9 @@ function renderDetail(id, data) {
       ? renderRunDebug(detail.viz)
       : detail.kind === "authority-scorecard" && detail.viz
         ? renderAuthorityCard(detail.viz)
-        : "";
+        : detail.kind === "schedules-overview" && detail.viz
+          ? renderSchedulesOverview(detail.viz)
+          : "";
 
   const editFields =
     caps.patch && editable.length > 0

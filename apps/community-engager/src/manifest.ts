@@ -269,8 +269,8 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
     },
   },
   /**
-   * Discovery-only until the scheduler host (A3) reads these.
-   * Escape hatch remains CLI / `pnpm watch:posts`.
+   * Read by `@relay/scheduler` (`pnpm scheduler`) and the admin Schedules collection.
+   * Escape hatch: CLI / `pnpm watch:posts`.
    */
   schedules: [
     {

@@ -207,14 +207,17 @@ Loopback admin (`@relay/admin-shell`) with app-owned adapters:
 | Jobs | `JOBS_DIR` | inspect, delete |
 | Runs | `COMMUNITY_RUNS_DIR` (may be outside `.data/`) | inspect, delete, debug charts (timeline, duration×outcome, scout funnel, authority slice) |
 | Authority | `{REDDIT_DATA_DIR}` | north-star score card — promoRatio, visibilityRate, replyRate, attributed activations |
+| Schedules | `{REDDIT_DATA_DIR}` | entrypoints + `schedules[]`; last/next from `schedules/*.evidence.json` when `pnpm scheduler` has run |
 
 ```bash
 pnpm --filter @relay/admin-shell build
 pnpm --filter @relay/action-store build
+pnpm --filter @relay/scheduler build
 pnpm --filter @relay/apps-community-engager build
 pnpm --filter @relay/apps-community-engager admin:store
 # → http://127.0.0.1:8787
 ```
+
 
 Paths are set in [`.env`](./.env) (see [`.env.example`](./.env.example)). Relative values resolve against the `.env` directory.
 
