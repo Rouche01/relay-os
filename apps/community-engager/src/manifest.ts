@@ -75,13 +75,30 @@ export const CommunityJobManifest: AgenticAppManifest = {
   ],
 };
 
+/** Shared jobs fanout stage (engage + post_watch entrypoints). */
+const jobsFanoutStage = {
+  name: "jobs",
+  description:
+    "One isolated nested job per opportunity (draft → HITL → execute → learn)",
+  engine: "none" as const,
+  fanout: {
+    manifest: CommunityJobManifest,
+    from: "opportunities",
+    itemKey: "opportunity",
+    mode: "serial" as const,
+    // Defaults; CommunityEngagerApp may override via FanoutHost + env
+    max: 3,
+    delay_ms: 1_500,
+  },
+};
+
 /**
- * Parent manifest: session + scout once, then fan out one nested job
- * runtime per actionable opportunity (CommunityJobManifest).
+ * Parent engage manifest: session + discover + scout, then fan out jobs.
+ * Post-watch lives on {@link CommunityPostWatchManifest} (separate entrypoint).
  */
 export const CommunityEngagerManifest: AgenticAppManifest = {
   name: "CommunityEngager",
-  version: "0.4.0",
+  version: "0.5.0",
   description:
     "Discover fashion/styling subs (HITL promote), scout postable allowlist, run one isolated HITL job per opportunity.",
   author: "Relay OS Built-in",
@@ -189,27 +206,7 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
         },
       ],
     },
-    {
-      name: "post_watch",
-      description:
-        "Poll enrolled live posts (24–72h) for replies/removal; prepend follow-up drafts",
-      engine: "none",
-    },
-    {
-      name: "jobs",
-      description:
-        "One isolated nested job per opportunity (draft → HITL → execute → learn)",
-      engine: "none",
-      fanout: {
-        manifest: CommunityJobManifest,
-        from: "opportunities",
-        itemKey: "opportunity",
-        mode: "serial",
-        // Defaults; CommunityEngagerApp may override via FanoutHost + env
-        max: 3,
-        delay_ms: 1_500,
-      },
-    },
+    jobsFanoutStage,
   ],
   feedback_patterns: [
     "credential",
@@ -220,5 +217,65 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
     "progress",
     "error",
   ],
-  composes_with: ["CommunityEngagerJob"],
+  composes_with: ["CommunityEngagerJob", "CommunityPostWatch"],
 };
+
+/**
+ * Post-watch entrypoint: poll enrolled live posts, then fan out follow-up jobs.
+ * No session/discover/scout — public .json polls only. Enroll still happens on engage execute.
+ * Run via CLI `--entrypoint post_watch` (scheduler host comes later).
+ */
+export const CommunityPostWatchManifest: AgenticAppManifest = {
+  name: "CommunityPostWatch",
+  version: "0.1.0",
+  description:
+    "Drain the post-watch queue (24–72h reply/removal checks) and run HITL jobs for follow-up drafts.",
+  author: "Relay OS Built-in",
+
+  triggers: [
+    {
+      pattern: "watch posts",
+      description: "Poll enrolled Reddit comments for replies and queue follow-ups",
+      examples: ["watch posts", "drain post-watch queue"],
+    },
+  ],
+
+  capabilities: [
+    "community.post_watch",
+    "community.draft",
+    "community.approve",
+    "community.execute",
+  ],
+  engines_required: ["llm", "data"],
+  engines_optional: ["browser", "api"],
+  permissions: ["community.reddit.read", "community.reddit.write"],
+
+  stages: [
+    {
+      name: "post_watch",
+      description:
+        "Poll enrolled live posts (24–72h) for replies/removal; set follow-up drafts as opportunities",
+      engine: "none",
+    },
+    jobsFanoutStage,
+  ],
+  feedback_patterns: [
+    "approval",
+    "freeform",
+    "confirmation",
+    "progress",
+    "error",
+  ],
+  composes_with: ["CommunityEngagerJob", "CommunityEngager"],
+};
+
+/** Named entrypoints until protocol-level `entrypoints` map lands. */
+export type CommunityEntrypoint = "engage" | "post_watch";
+
+export function manifestForEntrypoint(
+  entrypoint: CommunityEntrypoint = "engage"
+): AgenticAppManifest {
+  return entrypoint === "post_watch"
+    ? CommunityPostWatchManifest
+    : CommunityEngagerManifest;
+}

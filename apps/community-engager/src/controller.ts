@@ -126,8 +126,9 @@ type EnsureSessionResult = {
 };
 
 /**
- * Stage logic: ensure_session → discover → scout → post_watch →
- * draft → HITL → execute → learn.
+ * Stage logic (engage): ensure_session → discover → scout → jobs…
+ * Stage logic (post_watch entrypoint): post_watch → jobs…
+ * Job stages: draft → HITL → execute → learn.
  */
 export class CommunityEngagerController implements AppController {
   constructor(private readonly options: CommunityControllerOptions) {}
@@ -1069,11 +1070,14 @@ export class CommunityEngagerController implements AppController {
       excludeIds,
     });
     await this.applyScoutResult(ctx, result, excludeIds.length);
+    // Cadence used to run only after post_watch (same parent). Engage no longer
+    // includes that stage — trim scout opportunities here before jobs fanout.
+    await this.applyCadenceGate(ctx);
   }
 
   /**
-   * Poll enrolled live posts for replies/removal; prepend follow-up drafts
-   * onto opportunities so the jobs fanout picks them up first.
+   * Poll enrolled live posts for replies/removal; set follow-up drafts as
+   * opportunities for the jobs fanout (own entrypoint — not part of engage).
    */
   private async runPostWatch(ctx: AgentContext): Promise<void> {
     const cfg = getCommunityConfig();

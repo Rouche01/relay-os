@@ -115,14 +115,16 @@ flowchart TD
 | `ensure_session` | Cookie jar / HITL login before live browser work (skipped when dry-run unless `REDDIT_ENSURE_SESSION=true`) |
 | `discover` | Read-only subreddit research → `choice` HITL to promote onto allowlist (or skip) |
 | `scout` | Find actionable threads on **postable** allowlist (browser → json → oauth → fixtures); anti-bot wall → headed browser + Telegram/CLI Approve (never auto-solved) |
-| `post_watch` | Poll enrolled live posts (24–72h) for replies/removal; prepend follow-up drafts |
 | `draft` | Write a reply with Gemini when `GEMINI_API_KEY` is set; otherwise a stub. May pull VoltMem context |
 | `await_approval` | You Approve / Edit / Abort (Telegram or CLI) |
-| `execute` | Dry-run log, or live browser/oauth post |
+| `execute` | Dry-run log, or live browser/oauth post (also enrolls post-watch) |
 | `learn` | Persist HITL outcome to VoltMem (`community_outcome`) + allowlist ranking |
-| post-watch / visibility | Also write outcome tags: `got_reply`, `removed`, `dm_interest`; activations import → `signup_attributed` |
+| `post_watch` | **Separate entrypoint** — poll enrolled live posts (24–72h); fan out follow-up jobs |
 
-`ensure_session`, `discover`, `scout`, and `post_watch` run once on the parent manifest. The `jobs` stage **fans out** into the nested `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. A job that fails or gets aborted is recorded and the queue moves on. Budget with `COMMUNITY_MAX_JOBS` (default 3) and `COMMUNITY_JOB_DELAY_MS` (default 1500). Discover defaults to `COMMUNITY_DISCOVER=auto` (skip when the postable allowlist is healthy); use `force` / `--force-discover` to research anyway, or `off` to never run.
+**Engage** (`pnpm start`): `ensure_session` → `discover` → `scout` → `jobs`.  
+**Post-watch** (`pnpm watch:posts` or `--entrypoint post_watch`): `post_watch` → `jobs` only (no scout). Engage no longer drains the watch queue — schedule or run post-watch separately.
+
+The `jobs` stage **fans out** into `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. Budget engage with `COMMUNITY_MAX_JOBS` (default 3); post-watch fanout is capped by `min(jobs.maxJobs, postWatch.maxPerRun)`. Discover defaults to `COMMUNITY_DISCOVER=auto`; use `force` / `--force-discover` or `off`.
 
 ### Rules that matter
 
@@ -136,7 +138,7 @@ flowchart TD
 | Discovery proposes, humans promote | A newly researched sub is not postable until approved |
 | Warmup forces intensity 0 | Until account age / karma / help-comment thresholds (`warmup` in config) |
 | Promo-ratio ledger (~9:1) | Rolling window caps intensity ≥1; `promo.onExceed` = `block` or `warn` |
-| Post-watch (24–72h) | After a live post, poll permalink for replies/removal; queue follow-up drafts |
+| Post-watch (24–72h) | Live execute enrolls; separate `watch:posts` entrypoint polls + follow-up jobs |
 | Soft-CTA drafts | Help first; intensity 0 = no product; 1 = name mention only; 2 = disclose + one LP link (`product.lpBaseUrl` / `GOSTYLENS_LP_BASE_URL`) |
 | Sub playbooks | Per-allowlist `playbook`: rules summary, `plugStyle`, `megathreadPolicy`, `maxPlugsPerWeek` — clamps draft intensity and megathread scout |
 | Daily cadence | Caps live help/promo posts per local day (`cadence.maxHelpPerDay` / `maxPromoPerDay`); cron entrypoints stay in the schedules plan |

@@ -11,6 +11,7 @@
     "test": "tsc -p tsconfig.test.json && node --test dist-test/test/*.test.js",
     "clean": "rm -rf dist dist-test",
     "start": "node dist/run-dev.js",
+    "watch:posts": "node dist/run-dev.js --entrypoint post_watch",
     "e2e": "node dist/e2e-hitl.js",
     "smoke": "node dist/e2e-hitl.js",
     "verify:voltmem-events": "node dist/verify-voltmem-events.js",

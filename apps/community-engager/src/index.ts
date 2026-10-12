@@ -28,7 +28,10 @@ import { CommunityEngagerController } from "./controller.js";
 import { createCommunityEngines } from "./engines.js";
 import { watchInterstitialCleared } from "./interstitial-watch.js";
 import { formatRunSummary, runSummaryFromFanout, type RunSummary } from "./job-queue.js";
-import { CommunityEngagerManifest } from "./manifest.js";
+import {
+  manifestForEntrypoint,
+  type CommunityEntrypoint,
+} from "./manifest.js";
 import { getCommunityConfig } from "./reddit/config.js";
 import type {
   DiscoverEvidence,
@@ -53,12 +56,18 @@ export interface CommunityEngagerAppOptions {
   maxJobs?: number;
   /** Pause between jobs (default COMMUNITY_JOB_DELAY_MS, else 1500ms). */
   jobDelayMs?: number;
+  /**
+   * Which parent pipeline to run.
+   * - `engage` (default): ensure_session → discover → scout → jobs
+   * - `post_watch`: post_watch → jobs (follow-ups only; no scout)
+   */
+  entrypoint?: CommunityEntrypoint;
 }
 
 /**
  * Thin host over a nested-manifest runtime.
- * Parent stages: ensure_session → discover → scout → post_watch →
- * jobs (fanout → CommunityJobManifest).
+ * Engage: ensure_session → discover → scout → jobs.
+ * Post-watch: post_watch → jobs (separate CLI / future scheduler).
  */
 export class CommunityEngagerApp implements FanoutHost {
   private readonly runtime: AgentRuntime;
@@ -68,9 +77,11 @@ export class CommunityEngagerApp implements FanoutHost {
   private readonly engines: Record<string, ExecutionEngine>;
   private readonly brokers = new WeakMap<AgentRuntime, FeedbackBroker>();
   private readonly options: CommunityEngagerAppOptions;
+  private readonly entrypoint: CommunityEntrypoint;
 
   constructor(options: CommunityEngagerAppOptions = {}) {
     this.options = options;
+    this.entrypoint = options.entrypoint ?? "engage";
     this.store = options.store ?? createActionStoreFromEnv();
     this.memory =
       options.memory ??
@@ -89,7 +100,7 @@ export class CommunityEngagerApp implements FanoutHost {
     this.engines = createCommunityEngines({ memory: this.memory });
 
     this.runtime = new AgentRuntime(
-      CommunityEngagerManifest,
+      manifestForEntrypoint(this.entrypoint),
       this.engines,
       {
         agentId: options.agentId ?? "community-engager-1",
@@ -138,9 +149,14 @@ export class CommunityEngagerApp implements FanoutHost {
     return { max: this.maxJobs(), delayMs: this.jobDelayMs() };
   }
 
-  /** Run the nested parent manifest end-to-end (fanout included). */
+  getEntrypoint(): CommunityEntrypoint {
+    return this.entrypoint;
+  }
+
+  /** Run the selected parent manifest end-to-end (fanout included). */
   async run(): Promise<RunSummary> {
     const startedAt = new Date().toISOString();
+    console.log(`[run] entrypoint=${this.entrypoint}`);
     let memoryHealthy: boolean | undefined;
     try {
       memoryHealthy = await this.memory.health();
@@ -208,7 +224,13 @@ export class CommunityEngagerApp implements FanoutHost {
 
   private maxJobs(): number {
     if (this.options.maxJobs != null) return this.options.maxJobs;
-    return getCommunityConfig().jobs.maxJobs;
+    const cfg = getCommunityConfig();
+    // Post-watch entrypoint: do not share engage's scout job budget blindly —
+    // cap fanout by how many watches we poll per run.
+    if (this.entrypoint === "post_watch") {
+      return Math.min(cfg.jobs.maxJobs, cfg.postWatch.maxPerRun);
+    }
+    return cfg.jobs.maxJobs;
   }
 
   private jobDelayMs(): number {

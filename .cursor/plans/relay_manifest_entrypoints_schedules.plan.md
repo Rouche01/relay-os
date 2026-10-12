@@ -4,7 +4,7 @@ overview: "Extend AgenticAppManifest / host runtime so wall-clock backlog drains
 todos:
   - id: a0-carve-post-watch
     content: "App-local carve-out — remove post_watch from CommunityEngager parent stages; add CommunityPostWatchManifest (post_watch → jobs fanout); CLI/trigger to run it; keep enroll on execute"
-    status: pending
+    status: completed
   - id: a1-entrypoint-protocol
     content: "Protocol — optional entrypoints map on AgenticAppManifest (or sibling manifests + composes_with); default entrypoint = current stages[]; AgentRuntime/host selects by name"
     status: pending
@@ -25,7 +25,7 @@ isProject: true
 
 # Relay — manifest entrypoints and cron-like schedules
 
-**Status:** Planned (not started). Spawned from the post-watch architecture discussion while executing [`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md).
+**Status:** In progress — **A0 done** (post_watch carved to `CommunityPostWatchManifest` + `--entrypoint post_watch` / `pnpm watch:posts`). Spawned from the post-watch architecture discussion while executing [`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md).
 
 **Related plans:**
 
