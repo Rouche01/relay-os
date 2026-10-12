@@ -18,6 +18,12 @@ export interface ScheduleEvidence {
   lastError?: string;
   /** ISO time of the next planned fire (from croner / host). */
   nextRunAt?: string;
+  /**
+   * True when the schedule was paused via ops (`SchedulerHost.pause`).
+   * Cleared on resume. Survives process restarts in evidence files so admin
+   * can show last known pause state.
+   */
+  paused?: boolean;
   updatedAt: string;
 }
 

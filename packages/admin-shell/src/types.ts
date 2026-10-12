@@ -134,6 +134,8 @@ export interface SchedulesOverviewViz {
     nextRunAt?: string;
     runs?: number;
     lastError?: string;
+    /** Last known ops pause from schedule evidence (`SchedulerHost.pause`). */
+    paused?: boolean;
   }>;
 }
 

@@ -105,8 +105,9 @@ describe("OpsController", () => {
     assert.match(paused, /paused/i);
 
     const status = await ops.handleText("status");
-    assert.match(status, /cadence.*paused/);
-    assert.match(status, /post_watch.*active/);
+    assert.match(status, /Armed schedules \(1 paused\)/);
+    assert.match(status, /cadence.*\[armed,paused\]/);
+    assert.match(status, /post_watch.*\[armed,active\]/);
 
     const rejected = await ops.handleText("run cadence now");
     assert.match(rejected, /paused/i);

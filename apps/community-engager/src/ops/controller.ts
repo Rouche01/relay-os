@@ -165,17 +165,27 @@ export class OpsController {
           ? `every_ms=${row.schedule.every_ms}`
           : "";
       const flags = [
+        "armed",
         row.paused ? "paused" : "active",
         row.running ? "running" : null,
       ]
         .filter(Boolean)
         .join(",");
-      const next = row.nextRunAt ? ` next=${row.nextRunAt}` : "";
+      const next = row.paused
+        ? " next=—"
+        : row.nextRunAt
+          ? ` next=${row.nextRunAt}`
+          : "";
       const last = row.evidence.lastStatus
         ? ` last=${row.evidence.lastStatus}`
         : "";
       return `  · ${row.schedule.id} → ${row.schedule.entrypoint} [${flags}] ${timing}${next}${last}`;
     });
-    return `Armed schedules:\n${lines.join("\n")}`;
+    const pausedN = rows.filter((r) => r.paused).length;
+    const header =
+      pausedN > 0
+        ? `Armed schedules (${pausedN} paused):`
+        : "Armed schedules:";
+    return `${header}\n${lines.join("\n")}`;
   }
 }

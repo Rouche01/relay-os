@@ -58,16 +58,53 @@ describe("schedules admin collection (A4)", () => {
     assert.ok(overview!.detail?.viz);
     const viz = overview!.detail!.viz as {
       entrypoints: unknown[];
-      schedules: Array<{ id: string; nextRunAt?: string; runs?: number }>;
+      schedules: Array<{
+        id: string;
+        nextRunAt?: string;
+        runs?: number;
+        paused?: boolean;
+      }>;
     };
     assert.ok(viz.entrypoints.length >= 2);
     const pw = viz.schedules.find((s) => s.id === "post_watch");
     assert.equal(pw?.nextRunAt, "2026-10-12T16:00:00.000Z");
     assert.equal(pw?.runs, 3);
+    assert.equal(pw?.paused, false);
 
     const item = await col.get("post_watch");
     assert.ok(item);
     assert.equal(item!.detail?.kind, "schedules-overview");
     assert.match(item!.detail?.subtitle ?? "", /next 2026-10-12T16:00:00/);
+  });
+
+  it("surfaces paused runtime from evidence", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "relay-sched-admin-"));
+    await writeScheduleEvidence(dir, {
+      scheduleId: "cadence",
+      entrypoint: "default",
+      runs: 1,
+      lastStatus: "ok",
+      paused: true,
+      updatedAt: "2026-10-12T10:00:00.000Z",
+    });
+
+    const col = createSchedulesCollection(
+      { driver: "file", path: dir },
+      { manifest: CommunityEngagerManifest, applyRuntimeConfig: false }
+    );
+
+    const list = await col.list();
+    const cadence = list.rows.find((r) => r.id === "cadence");
+    assert.equal(cadence?.runtime, "paused");
+    assert.equal(cadence?.nextRunAt, "—");
+
+    const item = await col.get("cadence");
+    assert.ok(item);
+    assert.match(item!.detail?.subtitle ?? "", /paused/);
+    const viz = item!.detail!.viz as {
+      schedules: Array<{ id: string; paused?: boolean; nextRunAt?: string }>;
+    };
+    assert.equal(viz.schedules[0]?.paused, true);
+    assert.equal(viz.schedules[0]?.nextRunAt, undefined);
   });
 });

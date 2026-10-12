@@ -171,7 +171,7 @@ export class SchedulerHost {
     armed.job.pause();
     armed.paused = true;
     this.log.info(`[scheduler] ${scheduleId} paused`);
-    void this.record(armed.schedule, { nextRunAt: null });
+    void this.record(armed.schedule, { nextRunAt: null, paused: true });
   }
 
   /** Resume a paused schedule (no-op if already running). */
@@ -184,7 +184,7 @@ export class SchedulerHost {
     this.log.info(
       `[scheduler] ${scheduleId} resumed` + (next ? ` next=${next}` : "")
     );
-    void this.record(armed.schedule, { nextRunAt: next });
+    void this.record(armed.schedule, { nextRunAt: next, paused: false });
   }
 
   /**
@@ -258,7 +258,7 @@ export class SchedulerHost {
     });
 
     const next = job.nextRun()?.toISOString();
-    await this.record(schedule, { nextRunAt: next });
+    await this.record(schedule, { nextRunAt: next, paused: false });
     this.log.info(
       `[scheduler] ${schedule.id} → entrypoint=${schedule.entrypoint}` +
         (schedule.cron ? ` cron=${schedule.cron}` : "") +
@@ -359,6 +359,7 @@ export class SchedulerHost {
       finishedAt?: string;
       /** ISO string, or null to clear (e.g. while paused). */
       nextRunAt?: string | null;
+      paused?: boolean;
       incrementRuns?: boolean;
     }
   ): Promise<void> {
@@ -383,6 +384,9 @@ export class SchedulerHost {
     }
     if (patch.nextRunAt !== undefined) {
       next.nextRunAt = patch.nextRunAt ?? undefined;
+    }
+    if (patch.paused !== undefined) {
+      next.paused = patch.paused || undefined;
     }
     if (patch.incrementRuns) next.runs = (prev.runs ?? 0) + 1;
 

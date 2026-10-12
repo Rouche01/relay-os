@@ -139,6 +139,12 @@ describe("SchedulerHost", () => {
     assert.equal(host.isPaused("post_watch"), true);
     assert.equal(host.listStatus()[0]!.paused, true);
     assert.equal(host.listStatus()[0]!.nextRunAt, null);
+    for (let i = 0; i < 30; i++) {
+      const ev = await readScheduleEvidence(dir, "post_watch");
+      if (ev?.paused) break;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    assert.equal((await readScheduleEvidence(dir, "post_watch"))?.paused, true);
 
     await assert.rejects(
       () => host.trigger("post_watch"),
@@ -150,6 +156,12 @@ describe("SchedulerHost", () => {
     assert.equal(host.isPaused("post_watch"), false);
     assert.equal(host.listStatus()[0]!.paused, false);
     assert.ok(host.listStatus()[0]!.nextRunAt);
+    for (let i = 0; i < 30; i++) {
+      const ev = await readScheduleEvidence(dir, "post_watch");
+      if (ev && !ev.paused) break;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    assert.equal((await readScheduleEvidence(dir, "post_watch"))?.paused, undefined);
 
     await host.trigger("post_watch");
     for (let i = 0; i < 50 && calls.length === 0; i++) {

@@ -625,9 +625,12 @@ function renderSchedulesOverview(viz) {
               ? `cron ${s.cron}`
               : formatEveryMs(s.everyMs);
             const on = s.enabled === false ? "off" : "on";
-            const next = s.nextRunAt
-              ? new Date(s.nextRunAt).toLocaleString()
-              : "—";
+            const runtime =
+              s.enabled === false ? "off" : s.paused ? "paused" : "ready";
+            const next =
+              s.paused || !s.nextRunAt
+                ? "—"
+                : new Date(s.nextRunAt).toLocaleString();
             const last = s.lastStatus
               ? `${s.lastStatus}${s.lastFinishedAt ? ` · ${new Date(s.lastFinishedAt).toLocaleString()}` : ""}`
               : "never";
@@ -637,7 +640,7 @@ function renderSchedulesOverview(viz) {
             return `<tr>
               <td><strong>${escapeHtml(s.id)}</strong><div class="muted">${escapeHtml(s.description || "")}</div>${err}</td>
               <td>${escapeHtml(s.entrypoint || "—")}</td>
-              <td><span class="badge">${escapeHtml(on)}</span> · ${escapeHtml(timing)}</td>
+              <td><span class="badge">${escapeHtml(on)}</span> · <span class="badge">${escapeHtml(runtime)}</span> · ${escapeHtml(timing)}</td>
               <td>${escapeHtml(last)}<div class="muted">runs ${escapeHtml(String(s.runs ?? 0))}</div></td>
               <td>${escapeHtml(next)}</td>
             </tr>`;
@@ -653,10 +656,10 @@ function renderSchedulesOverview(viz) {
       </table>
       <h3>Schedules</h3>
       <table class="run-table">
-        <thead><tr><th>Id</th><th>Entrypoint</th><th>Timing</th><th>Last</th><th>Next due</th></tr></thead>
+        <thead><tr><th>Id</th><th>Entrypoint</th><th>On / runtime / timing</th><th>Last</th><th>Next due</th></tr></thead>
         <tbody>${schedRows}</tbody>
       </table>
-      <p class="muted" style="margin-top:0.5rem">Evidence lives under <code>{dataDir}/schedules/*.evidence.json</code> when <code>pnpm scheduler</code> runs.</p>
+      <p class="muted" style="margin-top:0.5rem">Evidence lives under <code>{dataDir}/schedules/*.evidence.json</code> when <code>pnpm scheduler</code> runs. <code>paused</code> is last ops pause from the daemon.</p>
     </div>
   `;
 }

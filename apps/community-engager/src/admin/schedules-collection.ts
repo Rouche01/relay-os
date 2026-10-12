@@ -71,6 +71,7 @@ export function createSchedulesCollection(
         { key: "entrypoint", label: "Entrypoint" },
         { key: "timing", label: "Timing" },
         { key: "enabled", label: "On" },
+        { key: "runtime", label: "Runtime" },
         { key: "lastStatus", label: "Last" },
         { key: "nextRunAt", label: "Next due" },
         { key: "preview", label: "Preview" },
@@ -83,6 +84,7 @@ export function createSchedulesCollection(
           entrypoint: "—",
           timing: "—",
           enabled: "—",
+          runtime: "—",
           lastStatus: "—",
           nextRunAt: "—",
           preview: `${overview.entrypoints.length} entrypoints · ${overview.schedules.length} schedules`,
@@ -96,6 +98,7 @@ export function createSchedulesCollection(
           entrypoint: ep.name,
           timing: ep.stageNames.join(" → "),
           enabled: "—",
+          runtime: "—",
           lastStatus: "—",
           nextRunAt: "—",
           preview: ep.description,
@@ -109,8 +112,9 @@ export function createSchedulesCollection(
           entrypoint: s.entrypoint,
           timing: formatTiming(s),
           enabled: s.enabled === false ? "off" : "on",
+          runtime: runtimeLabel(s),
           lastStatus: s.lastStatus ?? "never",
-          nextRunAt: s.nextRunAt ?? "—",
+          nextRunAt: s.paused ? "—" : (s.nextRunAt ?? "—"),
           preview: s.description ?? "",
         });
       }
@@ -224,10 +228,18 @@ function scheduleToViz(
     description: s.description,
     lastStatus: evidence?.lastStatus,
     lastFinishedAt: evidence?.lastFinishedAt,
-    nextRunAt: evidence?.nextRunAt,
+    nextRunAt: evidence?.paused ? undefined : evidence?.nextRunAt,
     runs: evidence?.runs ?? 0,
     lastError: evidence?.lastError,
+    paused: evidence?.paused === true,
   };
+}
+
+/** Config on/off vs last-known ops pause from evidence. */
+function runtimeLabel(s: SchedulesOverviewViz["schedules"][number]): string {
+  if (s.enabled === false) return "off";
+  if (s.paused) return "paused";
+  return "ready";
 }
 
 function formatTiming(s: {
@@ -251,9 +263,10 @@ function nextSubtitle(
   const parts = [
     `→ ${s.entrypoint}`,
     formatTiming(s),
-    s.enabled === false ? "disabled" : "enabled",
+    s.enabled === false ? "disabled" : s.paused ? "paused" : "enabled",
   ];
-  if (s.nextRunAt) parts.push(`next ${s.nextRunAt}`);
+  if (s.paused) parts.push("ops pause");
+  else if (s.nextRunAt) parts.push(`next ${s.nextRunAt}`);
   else if (s.lastStatus) parts.push(`last ${s.lastStatus}`);
   return parts.join(" · ");
 }
