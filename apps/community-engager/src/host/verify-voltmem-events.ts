@@ -2,13 +2,13 @@
  * Dogfood verify: episodic addEvent writes stay distinct (no false-merge).
  *
  * Uses a scratch tenant so relay-local production dogfood is untouched.
- * Run: pnpm exec tsx src/verify-voltmem-events.ts
- *   or: node --import tsx src/verify-voltmem-events.ts
- *   or: node dist/verify-voltmem-events.js (after build)
+ * Run: pnpm exec tsx src/host/verify-voltmem-events.ts
+ *   or: node --import tsx src/host/verify-voltmem-events.ts
+ *   or: node dist/host/verify-voltmem-events.js (after build)
  */
 import "dotenv/config";
 import { createContextEngine } from "@relay/context-engine";
-import { CommunityMemory, communityFactDomain } from "./memory.js";
+import { CommunityMemory, communityFactDomain } from "../memory.js";
 
 const TENANT = process.env.VOLTMEM_VERIFY_TENANT?.trim() || "relay-verify-events";
 

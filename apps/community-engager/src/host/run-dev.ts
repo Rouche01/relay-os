@@ -4,9 +4,9 @@ import {
   createTelegramAdapterFromEnv,
   TelegramFeedbackAdapter,
 } from "@relay/adapters-telegram";
-import { CommunityEngagerApp } from "./index.js";
-import { formatRunSummary } from "./job-queue.js";
-import type { CommunityEntrypoint } from "./manifest.js";
+import { CommunityEngagerApp } from "../index.js";
+import { formatRunSummary } from "../job-queue.js";
+import type { CommunityEntrypoint } from "../manifest.js";
 
 /** CLI: --force-discover | --discover=auto|force|off */
 function applyDiscoverCliFlags(argv: string[]): void {

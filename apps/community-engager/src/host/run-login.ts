@@ -6,8 +6,8 @@
  *   REDDIT_LOGIN_HEADED=true pnpm login:reddit   # recommended for 2FA
  */
 import "dotenv/config";
-import { getCommunityConfig } from "./reddit/config.js";
-import { loginRedditBrowser } from "./reddit/session/browser-login.js";
+import { getCommunityConfig } from "../reddit/config.js";
+import { loginRedditBrowser } from "../reddit/session/browser-login.js";
 
 async function main(): Promise<void> {
   const cfg = getCommunityConfig();

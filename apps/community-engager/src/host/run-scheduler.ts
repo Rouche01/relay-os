@@ -5,17 +5,17 @@ import {
   TelegramFeedbackAdapter,
 } from "@relay/adapters-telegram";
 import { SchedulerHost } from "@relay/scheduler";
-import { CommunityEngagerApp } from "./index.js";
-import { formatRunSummary } from "./job-queue.js";
+import { CommunityEngagerApp } from "../index.js";
+import { formatRunSummary } from "../job-queue.js";
 import {
   CommunityEngagerManifest,
   type CommunityEntrypoint,
-} from "./manifest.js";
-import { getCommunityConfig } from "./reddit/config.js";
+} from "../manifest.js";
+import { getCommunityConfig } from "../reddit/config.js";
 import {
   maxJobsForSchedule,
   resolveEnabledCommunitySchedules,
-} from "./schedule-resolve.js";
+} from "../schedule-resolve.js";
 
 function parseFlags(argv: string[]): {
   once: boolean;

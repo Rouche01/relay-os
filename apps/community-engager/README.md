@@ -116,7 +116,8 @@ flowchart TD
 | `src/policy/` | Cross-stage gates (cadence, promo, warmup, playbook, allowlist) |
 | `src/reddit/` | `config` + `client`; procedures under `session/`, `interstitial/`, `scout/`, `write/` |
 | `src/admin/` | Admin-shell collections |
-| Root (`controller`, `manifest`, `run-*`, …) | Host / wiring |
+| `src/host/` | Process entrypoints (`run-dev`, `run-scheduler`, `admin`, …) |
+| Root (`controller`, `manifest`, `index`, …) | App wiring |
 
 ### Stages (short)
 

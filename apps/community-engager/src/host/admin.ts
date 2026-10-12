@@ -10,11 +10,11 @@ import {
   createActionStoreCollection,
   createActionStoreFromEnv,
 } from "@relay/action-store";
-import { createAllowlistCollection } from "./admin/allowlist-collection.js";
-import { createAuthorityCollection } from "./admin/authority-collection.js";
-import { createJobsCollection } from "./admin/jobs-collection.js";
-import { createRunsCollection } from "./admin/runs-collection.js";
-import { createSchedulesCollection } from "./admin/schedules-collection.js";
+import { createAllowlistCollection } from "../admin/allowlist-collection.js";
+import { createAuthorityCollection } from "../admin/authority-collection.js";
+import { createJobsCollection } from "../admin/jobs-collection.js";
+import { createRunsCollection } from "../admin/runs-collection.js";
+import { createSchedulesCollection } from "../admin/schedules-collection.js";
 import {
   actionsSource,
   allowlistSource,
@@ -23,7 +23,7 @@ import {
   jobsSource,
   runsSource,
   schedulesSource,
-} from "./admin/sources.js";
+} from "../admin/sources.js";
 
 const requireFromHere = createRequire(__filename);
 

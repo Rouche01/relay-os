@@ -7,8 +7,8 @@ import {
 } from "@relay/action-store";
 import type { FeedbackAdapter } from "@relay/feedback-broker";
 import type { FeedbackRequest, FeedbackResponse } from "@relay/protocol";
-import { CommunityEngagerApp } from "./index.js";
-import { formatRunSummary, type RunSummary } from "./job-queue.js";
+import { CommunityEngagerApp } from "../index.js";
+import { formatRunSummary, type RunSummary } from "../job-queue.js";
 
 const E2E_ROOT = path.resolve(process.cwd(), ".data", "e2e");
 
