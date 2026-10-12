@@ -1,4 +1,5 @@
 import "dotenv/config";
+import * as readline from "node:readline";
 import { CliFeedbackAdapter } from "@relay/feedback-broker";
 import {
   createTelegramAdapterFromEnv,
@@ -11,6 +12,7 @@ import {
   CommunityEngagerManifest,
   type CommunityEntrypoint,
 } from "../manifest.js";
+import { OpsController } from "../ops/index.js";
 import { getCommunityConfig } from "../reddit/config.js";
 import {
   maxJobsForSchedule,
@@ -46,6 +48,12 @@ function toCommunityEntrypoint(name: string): CommunityEntrypoint {
   );
 }
 
+/**
+ * Long-lived ops daemon: SchedulerHost + OpsController.
+ * - CLI: type ops intents on stdin (paused while an app run owns HITL).
+ * - Telegram idle → ops is P2 (`onIdleMessage`).
+ * Escape hatch: `--once` / `--schedule` still work via the same controller.
+ */
 async function main(): Promise<void> {
   const { once, scheduleId, runOnStart } = parseFlags(process.argv.slice(2));
   const cfg = getCommunityConfig();
@@ -55,7 +63,7 @@ async function main(): Promise<void> {
     cfg
   );
 
-  console.log("=== Relay · CommunityEngager scheduler ===\n");
+  console.log("=== Relay · CommunityEngager ops daemon ===\n");
   console.log(`dataDir: ${dataDir}`);
   console.log(
     `schedules: ${schedules.map((s) => s.id).join(", ") || "(none enabled)"}\n`
@@ -74,6 +82,29 @@ async function main(): Promise<void> {
     console.log("Feedback adapter: cli\n");
   }
 
+  /** Pause stdin ops while HITL / app.run owns the terminal. */
+  let opsRl: readline.Interface | undefined;
+  const withStdinReleased = async <T>(fn: () => Promise<T>): Promise<T> => {
+    opsRl?.pause();
+    try {
+      return await fn();
+    } finally {
+      opsRl?.resume();
+    }
+  };
+
+  const createApp = (entrypoint: CommunityEntrypoint, maxJobs?: number) => ({
+    run: () =>
+      withStdinReleased(async () => {
+        const app = new CommunityEngagerApp({
+          adapter,
+          entrypoint,
+          ...(maxJobs != null ? { maxJobs } : {}),
+        });
+        return app.run();
+      }),
+  });
+
   const host = new SchedulerHost({
     dataDir,
     schedules,
@@ -85,38 +116,40 @@ async function main(): Promise<void> {
         `[scheduler-invoke] schedule=${ctx.schedule.id} entrypoint=${appEntrypoint}` +
           (maxJobs != null ? ` maxJobs=${maxJobs}` : "")
       );
-      const app = new CommunityEngagerApp({
-        adapter,
-        entrypoint: appEntrypoint,
-        ...(maxJobs != null ? { maxJobs } : {}),
-      });
-      const summary = await app.run();
+      const summary = await createApp(appEntrypoint, maxJobs).run();
       console.log(`\n=== Run summary ===\n${formatRunSummary(summary)}`);
     },
   });
 
-  try {
-    await host.start();
+  const ops = new OpsController({
+    host,
+    manifest: CommunityEngagerManifest,
+    createApp: (entrypoint) => createApp(entrypoint),
+  });
 
-    if (scheduleId) {
-      const known = host.listStatus().map((s) => s.schedule.id);
-      if (!known.includes(scheduleId)) {
-        throw new Error(
-          `Schedule "${scheduleId}" is not armed (known: ${known.join(", ") || "none"})`
-        );
-      }
+  let shuttingDown = false;
+  const shutdown = (): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    opsRl?.close();
+    if (host.isStarted()) host.stop();
+  };
+
+  try {
+    if (schedules.length > 0) {
+      await host.start();
+    } else {
+      console.log("[ops] no enabled schedules — host idle until start schedules\n");
     }
 
-    for (const row of host.listStatus()) {
-      console.log(
-        `  · ${row.schedule.id} → ${row.schedule.entrypoint}` +
-          (row.schedule.cron ? ` cron=${row.schedule.cron}` : "") +
-          (row.schedule.every_ms != null
-            ? ` every_ms=${row.schedule.every_ms}`
-            : "") +
-          (row.nextRunAt ? ` next=${row.nextRunAt}` : "")
+    if (scheduleId && !host.isArmed(scheduleId)) {
+      const known = host.listStatus().map((s) => s.schedule.id);
+      throw new Error(
+        `Schedule "${scheduleId}" is not armed (known: ${known.join(", ") || "none"})`
       );
     }
+
+    console.log(await ops.handle({ kind: "status" }));
     console.log("");
 
     if (once) {
@@ -124,28 +157,62 @@ async function main(): Promise<void> {
         ? [scheduleId]
         : host.listStatus().map((s) => s.schedule.id);
       for (const id of ids) {
-        console.log(`[scheduler] --once trigger ${id}`);
-        await host.trigger(id);
-        // Allow async croner callback + lease IO to settle
-        await new Promise((r) => setTimeout(r, 250));
+        console.log(`[ops] --once → run ${id} now`);
+        console.log(await ops.handle({ kind: "trigger", scheduleId: id }));
       }
-      host.stop();
+      shutdown();
       return;
     }
 
-    console.log(
-      "Scheduler running (Ctrl+C to stop). Escape hatches: pnpm start / pnpm watch:posts\n"
-    );
+    if (useTelegram) {
+      console.log(
+        "Ops daemon running (Ctrl+C to stop). Telegram idle → ops lands in P2.\n" +
+          "Meanwhile: pnpm ops -- \"status\" is a separate short-lived process.\n"
+      );
+    } else {
+      console.log(
+        "Ops daemon running. Type intents (status, stop cadence, engage, …),\n" +
+          "or quit / Ctrl+C. Escape hatches: pnpm start / pnpm watch:posts / --once\n"
+      );
+      opsRl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        terminal: process.stdin.isTTY === true,
+      });
+      opsRl.on("line", (line) => {
+        void (async () => {
+          const text = line.trim();
+          if (!text) return;
+          if (text === "quit" || text === "exit") {
+            shutdown();
+            return;
+          }
+          try {
+            const reply = await ops.handleText(text);
+            console.log(`${reply}\n`);
+          } catch (err) {
+            console.error("[ops]", err);
+          }
+        })();
+      });
+      opsRl.on("close", () => {
+        if (!shuttingDown) shutdown();
+      });
+    }
 
     await new Promise<void>((resolve) => {
-      const shutdown = () => {
-        host.stop();
+      const onSignal = () => {
+        shutdown();
         resolve();
       };
-      process.once("SIGINT", shutdown);
-      process.once("SIGTERM", shutdown);
+      process.once("SIGINT", onSignal);
+      process.once("SIGTERM", onSignal);
+      if (opsRl) {
+        opsRl.once("close", () => resolve());
+      }
     });
   } finally {
+    shutdown();
     if (telegram) await telegram.stop();
   }
 }

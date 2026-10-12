@@ -22,7 +22,10 @@ function usage(): never {
   pnpm ops -- engage
   pnpm ops -- "stop cadence"
 
-Same vocabulary as Telegram idle ops (see ops help).
+Short-lived process (arms schedules, runs one intent, exits).
+For a long-lived host that keeps pause/resume state, use:
+  pnpm scheduler
+and type the same intents on stdin (CLI adapter).
 `);
   process.exit(1);
 }
