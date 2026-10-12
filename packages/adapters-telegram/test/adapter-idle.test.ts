@@ -106,6 +106,63 @@ describe("TelegramFeedbackAdapter idle ops", () => {
     await adapter.ingestAllowlistedText("help");
     assert.equal(sent.at(-1), "got help");
   });
+
+  it("after HITL settles, idle ops works again", async () => {
+    const { client, sent } = mockClient();
+    const idleCalls: string[] = [];
+    const adapter = new TelegramFeedbackAdapter({
+      botToken: "test",
+      allowlistUserId: 42,
+      client,
+      onIdleMessage: async (text) => {
+        idleCalls.push(text);
+        return `ops:${text}`;
+      },
+    });
+
+    const presentPromise = adapter.present(approvalRequest());
+    await Promise.resolve();
+    await adapter.ingestAllowlistedText("status");
+    assert.deepEqual(idleCalls, []);
+
+    await adapter.ingestAllowlistedText("approve");
+    await presentPromise;
+    assert.equal(adapter.hasPendingHitl(), false);
+
+    await adapter.ingestAllowlistedText("status");
+    assert.deepEqual(idleCalls, ["status"]);
+    assert.equal(sent.at(-1), "ops:status");
+    await adapter.stop();
+  });
+
+  it("multiple pending HITL cards do not route unmatched text to ops", async () => {
+    const { client, sent } = mockClient();
+    let idleCalls = 0;
+    const adapter = new TelegramFeedbackAdapter({
+      botToken: "test",
+      allowlistUserId: 42,
+      client,
+      onIdleMessage: async () => {
+        idleCalls += 1;
+        return "ops-leak";
+      },
+    });
+
+    const p1 = adapter.present(approvalRequest("req-a"));
+    const p2 = adapter.present(approvalRequest("req-b"));
+    await Promise.resolve();
+    assert.equal(adapter.hasPendingHitl(), true);
+
+    await adapter.ingestAllowlistedText("status");
+    assert.equal(idleCalls, 0);
+    assert.ok(!sent.some((t) => t === "ops-leak"));
+
+    // Settle both so the test can exit cleanly
+    await adapter.ingestAllowlistedText("approve", { replyToMessageId: 101 });
+    await adapter.ingestAllowlistedText("abort", { replyToMessageId: 102 });
+    await Promise.all([p1, p2]);
+    await adapter.stop();
+  });
 });
 
 describe("truncateTelegramText", () => {

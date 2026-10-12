@@ -104,6 +104,12 @@ describe("OpsController", () => {
     const paused = await ops.handleText("stop cadence");
     assert.match(paused, /paused/i);
 
+    // Pause isolation: cadence paused, post_watch still armed + active
+    assert.equal(host.isArmed("cadence"), true);
+    assert.equal(host.isPaused("cadence"), true);
+    assert.equal(host.isArmed("post_watch"), true);
+    assert.equal(host.isPaused("post_watch"), false);
+
     const status = await ops.handleText("status");
     assert.match(status, /Armed schedules \(1 paused\)/);
     assert.match(status, /cadence.*\[armed,paused\]/);
