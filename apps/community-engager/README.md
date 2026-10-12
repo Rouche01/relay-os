@@ -142,7 +142,7 @@ The `jobs` stage **fans out** into `CommunityJobManifest` — one isolated `Agen
 | Post-watch (24–72h) | Live execute enrolls; separate `watch:posts` entrypoint polls + follow-up jobs |
 | Soft-CTA drafts | Help first; intensity 0 = no product; 1 = name mention only; 2 = disclose + one LP link (`product.lpBaseUrl` / `GOSTYLENS_LP_BASE_URL`) |
 | Sub playbooks | Per-allowlist `playbook`: rules summary, `plugStyle`, `megathreadPolicy`, `maxPlugsPerWeek` — clamps draft intensity and megathread scout |
-| Daily cadence | Caps live help/promo posts per local day (`cadence.maxHelpPerDay` / `maxPromoPerDay`); cron entrypoints stay in the schedules plan |
+| Daily cadence | Caps live help/promo posts per local day; `pnpm scheduler` arms `cadence` (engage) + `post_watch` via `@relay/scheduler` |
 | Visibility check | After live execute, logged-out permalink fetch; flags removal / missing (shadowban-adjacent) |
 | Job UTM attribution | LP links: `utm_medium=community-engager`, `utm_campaign=community_<sub>`, `utm_content=<jobId>`; attribution ledger |
 
@@ -152,7 +152,7 @@ Promo ratio (`promo.maxRatio` default `0.1`, `windowDays` `30`) tracks live post
 
 Post-watch (`postWatch.enabled`, default on) enrolls each live-posted comment. The `post_watch` entrypoint (CLI or future scheduler) polls after `minAgeHours` (24) and before `maxAgeHours` (72) via public permalink JSON. Replies become intensity-0 follow-up opportunities; removals are marked. Queue: `{REDDIT_DATA_DIR}/post-watch/queue.json`. Manifest schedule: `every_ms` 6h (host not started yet).
 
-Daily cadence (`cadence.enabled`, default on) counts today's ledger posts and caps opportunities / execute by `maxHelpPerDay` (default 5) and `maxPromoPerDay` (default 1). Per-sub weekly soft mentions stay in playbook `maxPlugsPerWeek`. A scheduled cadence entrypoint is still deferred (plan A5).
+Daily cadence (`cadence.enabled`, default on) counts today's ledger posts and caps opportunities / execute by `maxHelpPerDay` (default 5) and `maxPromoPerDay` (default 1). Per-sub weekly soft mentions stay in playbook `maxPlugsPerWeek`. Scheduled engage: manifest schedule `cadence` → default entrypoint, cron `cadence.scheduleCron` (default `0 9,13,18 * * *`), `maxJobsPerRun` (default 2) per fire — same `@relay/scheduler` host as post_watch (`pnpm scheduler`).
 
 Visibility (`visibility.enabled`, default on) waits `delayMs` (default 3000) then fetches the posted permalink as a logged-out client. Results: `visible` / `removed` / `missing` / `error`; persisted under `{REDDIT_DATA_DIR}/visibility/`. Does not fail the execute stage — warns loudly for ops follow-up. Longer-horizon reply/removal polling stays in post-watch.
 

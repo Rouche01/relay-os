@@ -76,6 +76,12 @@ export interface CadenceFileConfig {
   maxHelpPerDay?: number;
   /** Max intensity ≥1 live posts per local calendar day. Default 1. */
   maxPromoPerDay?: number;
+  /** Arm the `cadence` schedule in `@relay/scheduler`. Default true. */
+  scheduleEnabled?: boolean;
+  /** Cron for scheduled engage (default morning/midday/evening). */
+  scheduleCron?: string;
+  /** Max fanout jobs per scheduled cadence fire. Default 2. */
+  maxJobsPerRun?: number;
 }
 
 export interface VisibilityFileConfig {
@@ -105,6 +111,9 @@ export interface CommunityAppConfig {
     enabled: boolean;
     maxHelpPerDay: number;
     maxPromoPerDay: number;
+    scheduleEnabled: boolean;
+    scheduleCron: string;
+    maxJobsPerRun: number;
   };
   visibility: {
     enabled: boolean;
@@ -185,6 +194,9 @@ const BUILTIN_DEFAULTS: CommunityAppConfig = {
     enabled: true,
     maxHelpPerDay: 5,
     maxPromoPerDay: 1,
+    scheduleEnabled: true,
+    scheduleCron: "0 9,13,18 * * *",
+    maxJobsPerRun: 2,
   },
   visibility: {
     enabled: true,
@@ -350,6 +362,11 @@ function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
       enabled: Boolean(raw.cadence?.enabled ?? true),
       maxHelpPerDay: nonNegInt(raw.cadence?.maxHelpPerDay, 5),
       maxPromoPerDay: nonNegInt(raw.cadence?.maxPromoPerDay, 1),
+      scheduleEnabled: Boolean(raw.cadence?.scheduleEnabled ?? true),
+      scheduleCron: String(
+        raw.cadence?.scheduleCron?.trim() || "0 9,13,18 * * *"
+      ),
+      maxJobsPerRun: positiveInt(raw.cadence?.maxJobsPerRun, 2),
     },
     visibility: {
       enabled: Boolean(raw.visibility?.enabled ?? true),

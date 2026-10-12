@@ -192,11 +192,19 @@ export interface PostWatchRuntimeConfig {
   followUpIntensity: 0 | 1 | 2;
 }
 
-/** Daily post budgets (config gates; cron entrypoint is a separate plan). */
+/**
+ * Daily post budgets + scheduled engage (via `@relay/scheduler`, not a second cron).
+ */
 export interface CadenceRuntimeConfig {
   enabled: boolean;
   maxHelpPerDay: number;
   maxPromoPerDay: number;
+  /** When false, the `cadence` schedule stays disarmed. */
+  scheduleEnabled: boolean;
+  /** Cron expression for scheduled engage fires. */
+  scheduleCron: string;
+  /** Fanout maxJobs for each cadence schedule fire. */
+  maxJobsPerRun: number;
 }
 
 /** Immediate logged-out permalink check after live execute. */
@@ -513,6 +521,22 @@ export function getCommunityConfig(
         "COMMUNITY_CADENCE_MAX_PROMO_PER_DAY",
         policy.cadence.maxPromoPerDay,
         { allowZero: true }
+      ),
+      scheduleEnabled: envBool(
+        env,
+        "COMMUNITY_CADENCE_SCHEDULE_ENABLED",
+        policy.cadence.scheduleEnabled
+      ),
+      scheduleCron: envString(
+        env,
+        "COMMUNITY_CADENCE_SCHEDULE_CRON",
+        policy.cadence.scheduleCron
+      ),
+      maxJobsPerRun: envNumber(
+        env,
+        "COMMUNITY_CADENCE_MAX_JOBS_PER_RUN",
+        policy.cadence.maxJobsPerRun,
+        { allowZero: false }
       ),
     },
     visibility: {

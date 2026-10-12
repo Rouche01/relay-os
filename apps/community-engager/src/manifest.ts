@@ -270,9 +270,18 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
   },
   /**
    * Read by `@relay/scheduler` (`pnpm scheduler`) and the admin Schedules collection.
-   * Escape hatch: CLI / `pnpm watch:posts`.
+   * Cadence schedule invokes default (engage) under daily help/promo caps — no second cron.
+   * Escape hatches: `pnpm start` / `pnpm watch:posts`.
    */
   schedules: [
+    {
+      id: "cadence",
+      entrypoint: "default",
+      cron: "0 9,13,18 * * *",
+      enabled: true,
+      description:
+        "Human-like engage (morning / midday / evening). Daily help/promo caps still gate posts; per-fire jobs via cadence.maxJobsPerRun.",
+    },
     {
       id: "post_watch",
       entrypoint: "post_watch",

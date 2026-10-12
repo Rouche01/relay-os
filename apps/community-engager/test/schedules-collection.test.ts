@@ -12,7 +12,7 @@ describe("schedules admin collection (A4)", () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "relay-sched-admin-"));
     const col = createSchedulesCollection(
       { driver: "file", path: dir },
-      { manifest: CommunityEngagerManifest }
+      { manifest: CommunityEngagerManifest, applyRuntimeConfig: false }
     );
 
     const list = await col.list();
@@ -20,7 +20,13 @@ describe("schedules admin collection (A4)", () => {
     assert.ok(ids.includes("overview"));
     assert.ok(ids.includes("entrypoint:engage"));
     assert.ok(ids.includes("entrypoint:post_watch"));
+    assert.ok(ids.includes("cadence"));
     assert.ok(ids.includes("post_watch"));
+
+    const cadenceRow = list.rows.find((r) => r.id === "cadence");
+    assert.equal(cadenceRow?.kind, "schedule");
+    assert.equal(cadenceRow?.entrypoint, "default");
+    assert.equal(cadenceRow?.enabled, "on");
 
     const scheduleRow = list.rows.find((r) => r.id === "post_watch");
     assert.equal(scheduleRow?.kind, "schedule");
@@ -43,7 +49,7 @@ describe("schedules admin collection (A4)", () => {
 
     const col = createSchedulesCollection(
       { driver: "file", path: dir },
-      { manifest: CommunityEngagerManifest }
+      { manifest: CommunityEngagerManifest, applyRuntimeConfig: false }
     );
 
     const overview = await col.get("overview");

@@ -12,7 +12,9 @@
   },
   "cadence": {
     "maxHelpPerDay": 5,
-    "maxPromoPerDay": 1
+    "maxPromoPerDay": 1,
+    "scheduleCron": "0 9,13,18 * * *",
+    "maxJobsPerRun": 2
   },
   "visibility": {
     "delayMs": 3000

@@ -288,7 +288,7 @@ For the first 30–90 days:
 1. ~~Authority score card + series in admin-shell~~ **done** — `authority-metrics.ts` + Authority collection; runs series exposes promo/visibility; paste activations via `attribution/activations.json`
 2. ~~VoltMem outcome tags~~ **done** — `got_reply` / `removed` / `dm_interest` from post-watch + visibility; `signup_attributed` helper after activations import; draft remember + help-first on `removed`
 3. ~~Sub playbooks~~ **done**
-4. ~~Cadence daily budgets~~ **done** — `cadence` config gates (`maxHelpPerDay` / `maxPromoPerDay`) from promo ledger; trim after post_watch; execute refuses when exhausted; cron entrypoints remain in schedules plan
+4. ~~Cadence daily budgets~~ **done** — `cadence` config gates (`maxHelpPerDay` / `maxPromoPerDay`) from promo ledger; trim after scout; execute refuses when exhausted; scheduled engage via `[relay_manifest_entrypoints_schedules.plan.md](./relay_manifest_entrypoints_schedules.plan.md)` A5 (`cadence` schedule → default entrypoint)
 
 ---
 

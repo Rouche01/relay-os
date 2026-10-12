@@ -12,6 +12,10 @@ import {
   type CommunityEntrypoint,
 } from "./manifest.js";
 import { getCommunityConfig } from "./reddit/config.js";
+import {
+  maxJobsForSchedule,
+  resolveEnabledCommunitySchedules,
+} from "./schedule-resolve.js";
 
 function parseFlags(argv: string[]): {
   once: boolean;
@@ -46,13 +50,15 @@ async function main(): Promise<void> {
   const { once, scheduleId, runOnStart } = parseFlags(process.argv.slice(2));
   const cfg = getCommunityConfig();
   const dataDir = cfg.reddit.dataDir;
+  const schedules = resolveEnabledCommunitySchedules(
+    CommunityEngagerManifest,
+    cfg
+  );
 
   console.log("=== Relay · CommunityEngager scheduler ===\n");
   console.log(`dataDir: ${dataDir}`);
   console.log(
-    `schedules: ${(CommunityEngagerManifest.schedules ?? [])
-      .map((s) => `${s.id}(enabled=${s.enabled !== false})`)
-      .join(", ") || "(none)"}\n`
+    `schedules: ${schedules.map((s) => s.id).join(", ") || "(none enabled)"}\n`
   );
 
   const useTelegram = process.env.FEEDBACK_ADAPTER === "telegram";
@@ -68,13 +74,22 @@ async function main(): Promise<void> {
     console.log("Feedback adapter: cli\n");
   }
 
-  const host = SchedulerHost.fromManifest(CommunityEngagerManifest, {
+  const host = new SchedulerHost({
     dataDir,
+    schedules,
     runOnStart,
-    invoke: async (entrypoint) => {
+    invoke: async (entrypoint, ctx) => {
       const appEntrypoint = toCommunityEntrypoint(entrypoint);
-      console.log(`[scheduler-invoke] entrypoint=${appEntrypoint}`);
-      const app = new CommunityEngagerApp({ adapter, entrypoint: appEntrypoint });
+      const maxJobs = maxJobsForSchedule(ctx.schedule.id, cfg);
+      console.log(
+        `[scheduler-invoke] schedule=${ctx.schedule.id} entrypoint=${appEntrypoint}` +
+          (maxJobs != null ? ` maxJobs=${maxJobs}` : "")
+      );
+      const app = new CommunityEngagerApp({
+        adapter,
+        entrypoint: appEntrypoint,
+        ...(maxJobs != null ? { maxJobs } : {}),
+      });
       const summary = await app.run();
       console.log(`\n=== Run summary ===\n${formatRunSummary(summary)}`);
     },
@@ -95,6 +110,10 @@ async function main(): Promise<void> {
     for (const row of host.listStatus()) {
       console.log(
         `  · ${row.schedule.id} → ${row.schedule.entrypoint}` +
+          (row.schedule.cron ? ` cron=${row.schedule.cron}` : "") +
+          (row.schedule.every_ms != null
+            ? ` every_ms=${row.schedule.every_ms}`
+            : "") +
           (row.nextRunAt ? ` next=${row.nextRunAt}` : "")
       );
     }
@@ -115,7 +134,7 @@ async function main(): Promise<void> {
     }
 
     console.log(
-      "Scheduler running (Ctrl+C to stop). Escape hatch: pnpm watch:posts\n"
+      "Scheduler running (Ctrl+C to stop). Escape hatches: pnpm start / pnpm watch:posts\n"
     );
 
     await new Promise<void>((resolve) => {

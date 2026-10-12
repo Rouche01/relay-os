@@ -49,6 +49,9 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
       enabled: false,
       maxHelpPerDay: 5,
       maxPromoPerDay: 1,
+      scheduleEnabled: false,
+      scheduleCron: "0 9,13,18 * * *",
+      maxJobsPerRun: 2,
     },
     visibility: {
       enabled: true,

@@ -16,6 +16,8 @@ import type {
   SourceConfig,
 } from "@relay/admin-shell";
 import { CommunityEngagerManifest } from "../manifest.js";
+import { getCommunityConfig } from "../reddit/config.js";
+import { resolveCommunitySchedules } from "../schedule-resolve.js";
 import { assertFileSource } from "./sources.js";
 
 export interface SchedulesCollectionOptions {
@@ -26,6 +28,8 @@ export interface SchedulesCollectionOptions {
    * CommunityEngager CLI uses `engage`.
    */
   defaultEntrypointLabel?: string;
+  /** When false, skip cadence/postWatch config merge (tests). Default true. */
+  applyRuntimeConfig?: boolean;
 }
 
 /**
@@ -38,8 +42,16 @@ export function createSchedulesCollection(
 ): CollectionAdapter {
   assertFileSource(source, "schedules");
   const dataDir = source.path;
-  const manifest = options.manifest ?? CommunityEngagerManifest;
+  const baseManifest = options.manifest ?? CommunityEngagerManifest;
   const defaultLabel = options.defaultEntrypointLabel ?? "engage";
+  const applyRuntime = options.applyRuntimeConfig !== false;
+
+  function activeManifest(): AgenticAppManifest {
+    if (!applyRuntime) return baseManifest;
+    const cfg = getCommunityConfig();
+    const schedules = resolveCommunitySchedules(baseManifest, cfg);
+    return { ...baseManifest, schedules };
+  }
 
   return {
     id: "schedules",
@@ -51,6 +63,7 @@ export function createSchedulesCollection(
     },
 
     async list(_filter: ListFilter = {}): Promise<ListResult> {
+      const manifest = activeManifest();
       const overview = await buildOverview(dataDir, manifest, defaultLabel);
       const columns = [
         { key: "kind", label: "Kind" },
@@ -106,6 +119,7 @@ export function createSchedulesCollection(
     },
 
     async get(id: string): Promise<GetResult | null> {
+      const manifest = activeManifest();
       const overview = await buildOverview(dataDir, manifest, defaultLabel);
 
       if (id === "overview" || id === "latest") {

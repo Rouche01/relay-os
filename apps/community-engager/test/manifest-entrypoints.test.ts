@@ -198,13 +198,15 @@ describe("manifest entrypoints (A1)", () => {
     );
   });
 
-  it("declares post_watch schedule metadata (discovery only)", () => {
+  it("declares cadence + post_watch schedules", () => {
     const schedules = listSchedules(CommunityEngagerManifest);
-    assert.equal(schedules.length, 1);
-    assert.equal(schedules[0]!.id, "post_watch");
-    assert.equal(schedules[0]!.entrypoint, "post_watch");
-    assert.equal(schedules[0]!.every_ms, 6 * 60 * 60 * 1000);
-    assert.equal(schedules[0]!.enabled, true);
+    assert.equal(schedules.length, 2);
+    assert.equal(schedules[0]!.id, "cadence");
+    assert.equal(schedules[0]!.entrypoint, "default");
+    assert.equal(schedules[0]!.cron, "0 9,13,18 * * *");
+    assert.equal(schedules[1]!.id, "post_watch");
+    assert.equal(schedules[1]!.entrypoint, "post_watch");
+    assert.equal(schedules[1]!.every_ms, 6 * 60 * 60 * 1000);
     assert.deepEqual(listEnabledSchedules(CommunityEngagerManifest), schedules);
     assert.doesNotThrow(() => assertSchedulesValid(CommunityEngagerManifest));
   });
