@@ -1,5 +1,5 @@
 import { PlaywrightEngine } from "@relay/engines-browser";
-import type { CommunityRuntimeConfig } from "./config.js";
+import type { CommunityRuntimeConfig } from "../config.js";
 import { hasStorageState, loadStorageState, storageStatePath } from "./cookies.js";
 
 /**

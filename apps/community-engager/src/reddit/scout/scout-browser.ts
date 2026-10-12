@@ -2,18 +2,18 @@ import type { Page } from "playwright";
 import type { DecisionPort } from "@relay/engines-decide";
 import { createDecisionPort } from "@relay/engines-decide";
 import type { PlaywrightEngine } from "@relay/engines-browser";
-import { detectInterstitialDecided } from "../interstitial-decide.js";
-import { getAllowlistStore } from "../policy/allowlist-store.js";
-import { playbookLookup } from "../policy/playbook.js";
-import type { CommunityDraft } from "../types.js";
-import { scoreTotal } from "../types.js";
-import type { RedditListingPost } from "./client.js";
+import { detectInterstitialDecided } from "../interstitial/interstitial-decide.js";
+import { getAllowlistStore } from "../../policy/allowlist-store.js";
+import { playbookLookup } from "../../policy/playbook.js";
+import type { CommunityDraft } from "../../types.js";
+import { scoreTotal } from "../../types.js";
+import type { RedditListingPost } from "../client.js";
 import {
   allowlistedSubNames,
   getCommunityConfig,
   type CommunityRuntimeConfig,
-} from "./config.js";
-import { createRedditBrowserEngine } from "./browser-session.js";
+} from "../config.js";
+import { createRedditBrowserEngine } from "../session/browser-session.js";
 import {
   extractListingRowsFromDocument,
   extractPostBodyFromDocument,
@@ -24,7 +24,7 @@ import {
 import {
   isRateLimit,
   type InterstitialDetection,
-} from "./interstitial.js";
+} from "../interstitial/interstitial.js";
 import {
   listingPostsToDrafts,
   pickDeepReadCandidates,

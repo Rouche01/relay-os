@@ -1,13 +1,13 @@
-import type { CommunityDraft } from "../types.js";
-import type { RedditListingPost } from "./client.js";
-import { createRedditBrowserEngine } from "./browser-session.js";
+import type { CommunityDraft } from "../../types.js";
+import type { RedditListingPost } from "../client.js";
+import { createRedditBrowserEngine } from "../session/browser-session.js";
 import {
   allowlistedSubNames,
   getCommunityConfig,
   type CommunityRuntimeConfig,
-} from "./config.js";
-import { getAllowlistStore } from "../policy/allowlist-store.js";
-import { playbookLookup } from "../policy/playbook.js";
+} from "../config.js";
+import { getAllowlistStore } from "../../policy/allowlist-store.js";
+import { playbookLookup } from "../../policy/playbook.js";
 import { listingPostsToDrafts } from "./map-drafts.js";
 
 export interface JsonScoutOptions {

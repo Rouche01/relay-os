@@ -9,9 +9,9 @@ import {
   resolveWriteTransportChain,
   type CommunityRuntimeConfig,
 } from "../../reddit/config.js";
-import { hasStorageState } from "../../reddit/cookies.js";
-import { postCommentBrowser } from "../../reddit/browser-comment.js";
-import { executeJobId } from "../../reddit/scout-live.js";
+import { hasStorageState } from "../../reddit/session/cookies.js";
+import { postCommentBrowser } from "../../reddit/write/browser-comment.js";
+import { executeJobId } from "../../reddit/scout/scout-live.js";
 import { recordAttribution } from "./attribution.js";
 import { applyUtmLinks } from "../draft/soft-cta.js";
 import { formatUtmLog, resolveExecuteUtm } from "./utm.js";

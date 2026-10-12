@@ -114,7 +114,7 @@ flowchart TD
 |------|------|
 | `src/stages/{discover,scout,post-watch,draft,execute,learn}/` | Stage-owned domain modules |
 | `src/policy/` | Cross-stage gates (cadence, promo, warmup, playbook, allowlist) |
-| `src/reddit/` | Platform/session/scout transport |
+| `src/reddit/` | `config` + `client`; procedures under `session/`, `interstitial/`, `scout/`, `write/` |
 | `src/admin/` | Admin-shell collections |
 | Root (`controller`, `manifest`, `run-*`, …) | Host / wiring |
 

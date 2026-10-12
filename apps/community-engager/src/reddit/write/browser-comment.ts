@@ -5,11 +5,11 @@ import {
   actComposerControl,
   decideComposerControl,
   resolveComposerLocator,
-} from "../composer-decide.js";
-import { getCommunityConfig, type CommunityRuntimeConfig } from "./config.js";
-import { createRedditBrowserEngine } from "./browser-session.js";
-import { loginRedditBrowser } from "./browser-login.js";
-import { hasStorageState, saveSession } from "./cookies.js";
+} from "../../composer-decide.js";
+import { getCommunityConfig, type CommunityRuntimeConfig } from "../config.js";
+import { createRedditBrowserEngine } from "../session/browser-session.js";
+import { loginRedditBrowser } from "../session/browser-login.js";
+import { hasStorageState, saveSession } from "../session/cookies.js";
 
 export interface BrowserCommentOptions {
   threadUrl: string;

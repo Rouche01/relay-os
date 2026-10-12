@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
-import type { FetchCommentResult } from "../src/reddit/comment-fetch.js";
+import type { FetchCommentResult } from "../src/reddit/write/comment-fetch.js";
 import type { CommunityRuntimeConfig } from "../src/reddit/config.js";
 import {
   checkCommentVisibility,

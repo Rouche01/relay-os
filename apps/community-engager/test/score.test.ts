@@ -5,7 +5,7 @@ import {
   COMPETITION_MAX_COMMENTS,
   scoreCompetition,
   scoreRedditPost,
-} from "../src/reddit/score.js";
+} from "../src/reddit/scout/score.js";
 import {
   ACTIONABLE_SCORE_MIN,
   isActionable,

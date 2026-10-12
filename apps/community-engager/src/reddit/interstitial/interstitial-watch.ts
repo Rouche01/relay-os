@@ -1,6 +1,6 @@
 import type { FeedbackRequest, FeedbackResponse } from "@relay/protocol";
-import { detectInterstitial } from "./reddit/interstitial.js";
-import { getInterstitialSession } from "./reddit/interstitial-session.js";
+import { detectInterstitial } from "./interstitial.js";
+import { getInterstitialSession } from "./interstitial-session.js";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

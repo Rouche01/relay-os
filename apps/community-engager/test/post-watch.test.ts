@@ -7,7 +7,7 @@ import {
   commentIdFromPermalink,
   permalinkToJsonUrl,
   type FetchCommentResult,
-} from "../src/reddit/comment-fetch.js";
+} from "../src/reddit/write/comment-fetch.js";
 import {
   buildFollowUpDraft,
   enrollPostWatch,

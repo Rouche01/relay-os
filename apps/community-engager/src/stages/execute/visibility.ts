@@ -8,7 +8,7 @@ import path from "node:path";
 import {
   fetchRedditComment,
   type FetchCommentResult,
-} from "../../reddit/comment-fetch.js";
+} from "../../reddit/write/comment-fetch.js";
 import {
   getCommunityConfig,
   type CommunityRuntimeConfig,

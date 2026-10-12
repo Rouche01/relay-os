@@ -1,4 +1,4 @@
-import type { RedditListingPost } from "./client.js";
+import type { RedditListingPost } from "../client.js";
 
 /** Raw shape returned from in-page evaluate (www.reddit shreddit-post attrs). */
 export interface ExtractedListingRow {

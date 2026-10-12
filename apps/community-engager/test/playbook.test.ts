@@ -8,7 +8,7 @@ import {
   shouldBlockPlugForWeek,
   shouldScoutMegathread,
 } from "../src/policy/playbook.js";
-import { listingPostsToDrafts } from "../src/reddit/map-drafts.js";
+import { listingPostsToDrafts } from "../src/reddit/scout/map-drafts.js";
 import type { RedditListingPost } from "../src/reddit/client.js";
 import { seedPlaybookFor } from "../src/policy/playbook.js";
 import { getSubredditPolicy } from "../src/reddit/config.js";

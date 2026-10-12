@@ -8,16 +8,16 @@ import type { PlaywrightEngine } from "@relay/engines-browser";
 import {
   DEFAULT_DISCOVER_GOAL,
   scoreDiscoverFit,
-} from "../stages/discover/discover-fit.js";
-import type { CommunityRuntimeConfig } from "./config.js";
-import { getCommunityConfig } from "./config.js";
-import { createRedditBrowserEngine } from "./browser-session.js";
-import { storageStatePath } from "./cookies.js";
-import { detectInterstitialDecided } from "../interstitial-decide.js";
+} from "../../stages/discover/discover-fit.js";
+import type { CommunityRuntimeConfig } from "../config.js";
+import { getCommunityConfig } from "../config.js";
+import { createRedditBrowserEngine } from "../session/browser-session.js";
+import { storageStatePath } from "../session/cookies.js";
+import { detectInterstitialDecided } from "../interstitial/interstitial-decide.js";
 import {
   isRateLimit,
   type InterstitialDetection,
-} from "./interstitial.js";
+} from "../interstitial/interstitial.js";
 
 export interface DiscoveryCandidate {
   name: string;

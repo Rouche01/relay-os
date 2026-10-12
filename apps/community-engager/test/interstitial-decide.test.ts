@@ -10,8 +10,8 @@ import {
   heuristicToPageClass,
   interpretPageClassAnswer,
   pageClassToDetection,
-} from "../src/interstitial-decide.js";
-import type { InterstitialDetection } from "../src/reddit/interstitial.js";
+} from "../src/reddit/interstitial/interstitial-decide.js";
+import type { InterstitialDetection } from "../src/reddit/interstitial/interstitial.js";
 
 const clearFeed: InterstitialDetection = {
   challenged: false,

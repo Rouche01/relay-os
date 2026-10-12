@@ -1,15 +1,15 @@
-import type { CommunityDraft } from "../types.js";
+import type { CommunityDraft } from "../../types.js";
 import {
   ACTIONABLE_SCORE_MIN,
   isActionable,
   scoreTotal,
-} from "../types.js";
+} from "../../types.js";
 import {
   DEFAULT_PLAYBOOK,
   shouldScoutMegathread,
   type SubredditPlaybook,
-} from "../policy/playbook.js";
-import type { RedditListingPost } from "./client.js";
+} from "../../policy/playbook.js";
+import type { RedditListingPost } from "../client.js";
 import { HELP_RE, isMegathread, scoreRedditPost } from "./score.js";
 
 /** Keep OP body small enough for later draft prompts. */

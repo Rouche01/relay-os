@@ -7,7 +7,7 @@ import {
 import {
   commentIdFromPermalink,
   fetchRedditComment,
-} from "../../reddit/comment-fetch.js";
+} from "../../reddit/write/comment-fetch.js";
 import type { OutcomeTagHint } from "../learn/outcome-tags.js";
 import { detectDmInterest } from "../learn/outcome-tags.js";
 import type { CommunityDraft, PromoIntensity } from "../../types.js";

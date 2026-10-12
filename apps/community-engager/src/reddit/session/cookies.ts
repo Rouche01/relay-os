@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { BrowserContext, Cookie, Page } from "playwright";
-import type { RedditSessionConfig } from "./config.js";
+import type { RedditSessionConfig } from "../config.js";
 
 /**
  * Playwright storageState shape (cookies + localStorage origins).

@@ -11,7 +11,7 @@ import { communityFactDomain } from "./memory.js";
 import { CommunityEngagerManifest } from "./manifest.js";
 import {
   browserUserAgent,
-} from "./reddit/browser-session.js";
+} from "./reddit/session/browser-session.js";
 import { getCommunityConfig, type CommunityRuntimeConfig } from "./reddit/config.js";
 import type { CommunityDraft } from "./types.js";
 

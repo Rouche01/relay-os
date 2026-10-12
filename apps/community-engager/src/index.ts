@@ -26,7 +26,7 @@ import {
 } from "@relay/runtime";
 import { CommunityEngagerController } from "./controller.js";
 import { createCommunityEngines } from "./engines.js";
-import { watchInterstitialCleared } from "./interstitial-watch.js";
+import { watchInterstitialCleared } from "./reddit/interstitial/interstitial-watch.js";
 import { formatRunSummary, runSummaryFromFanout, type RunSummary } from "./job-queue.js";
 import {
   CommunityEngagerManifest,
@@ -305,11 +305,11 @@ export * from "./memory.js";
 export * from "./policy/allowlist-store.js";
 export * from "./stages/discover/discover.js";
 export * from "./reddit/config.js";
-export * from "./reddit/cookies.js";
-export * from "./reddit/browser-login.js";
-export * from "./reddit/browser-session.js";
-export * from "./reddit/browser-comment.js";
-export * from "./reddit/credentials.js";
-export * from "./reddit/interstitial.js";
-export * from "./reddit/discover-subs.js";
-export * from "./reddit/scout-json.js";
+export * from "./reddit/session/cookies.js";
+export * from "./reddit/session/browser-login.js";
+export * from "./reddit/session/browser-session.js";
+export * from "./reddit/write/browser-comment.js";
+export * from "./reddit/session/credentials.js";
+export * from "./reddit/interstitial/interstitial.js";
+export * from "./reddit/scout/discover-subs.js";
+export * from "./reddit/scout/scout-json.js";

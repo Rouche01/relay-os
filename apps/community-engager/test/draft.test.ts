@@ -11,7 +11,7 @@ import {
   fixtureToDraftSkeleton,
 } from "../src/fixtures/threads.js";
 import type { RedditListingPost } from "../src/reddit/client.js";
-import { listingPostsToDrafts } from "../src/reddit/map-drafts.js";
+import { listingPostsToDrafts } from "../src/reddit/scout/map-drafts.js";
 import type { CommunityDraft } from "../src/types.js";
 
 const savedKey = process.env.GEMINI_API_KEY;

@@ -13,9 +13,9 @@ import {
   type BrowserScoutBlocked,
   type BrowserScoutSubOutcome,
   type ScoutChallengeHandOff,
-} from "../../reddit/scout-browser.js";
-import { scoutRedditJson } from "../../reddit/scout-json.js";
-import { scoutRedditLive } from "../../reddit/scout-live.js";
+} from "../../reddit/scout/scout-browser.js";
+import { scoutRedditJson } from "../../reddit/scout/scout-json.js";
+import { scoutRedditLive } from "../../reddit/scout/scout-live.js";
 import {
   buildScoutReport,
   type ScoutReport,

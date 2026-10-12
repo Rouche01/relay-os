@@ -3,7 +3,7 @@ import type { ScoutSource } from "../../reddit/config.js";
 import type {
   BrowserScoutBlocked,
   ScoutChallengeHandOff,
-} from "../../reddit/scout-browser.js";
+} from "../../reddit/scout/scout-browser.js";
 
 /** Per-subreddit scout outcome for run logs / analysis. */
 export type ScoutSubStatus =

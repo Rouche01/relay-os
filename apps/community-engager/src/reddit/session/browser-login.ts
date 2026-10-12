@@ -6,15 +6,15 @@ import { createDecisionPort } from "@relay/engines-decide";
 import {
   actLoginControl,
   decideLoginControl,
-} from "../login-decide.js";
-import { getCommunityConfig, type CommunityRuntimeConfig } from "./config.js";
+} from "../../login-decide.js";
+import { getCommunityConfig, type CommunityRuntimeConfig } from "../config.js";
 import { createRedditBrowserEngine } from "./browser-session.js";
 import {
   deleteSessionCookies,
   saveSession,
   storageStatePath,
 } from "./cookies.js";
-import { detectInterstitial } from "./interstitial.js";
+import { detectInterstitial } from "../interstitial/interstitial.js";
 
 export const REDDIT_LOGIN_URL = "https://www.reddit.com/login/";
 

@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
-import { getAllowlistStore } from "../policy/allowlist-store.js";
-import { playbookLookup } from "../policy/playbook.js";
-import type { CommunityDraft } from "../types.js";
-import { RedditClient } from "./client.js";
+import { getAllowlistStore } from "../../policy/allowlist-store.js";
+import { playbookLookup } from "../../policy/playbook.js";
+import type { CommunityDraft } from "../../types.js";
+import { RedditClient } from "../client.js";
 import {
   allowlistedSubNames,
   getCommunityConfig,
   type CommunityRuntimeConfig,
-} from "./config.js";
+} from "../config.js";
 import { listingPostsToDrafts } from "./map-drafts.js";
 
 export interface LiveScoutOptions {

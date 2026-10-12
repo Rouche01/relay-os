@@ -15,7 +15,7 @@ import {
   discoverSubredditCandidates,
   type DiscoverChallengeHandOff,
   type DiscoveryCandidate,
-} from "../../reddit/discover-subs.js";
+} from "../../reddit/scout/discover-subs.js";
 
 export interface DiscoverResult {
   enabled: boolean;

@@ -7,7 +7,7 @@
  */
 import "dotenv/config";
 import { getCommunityConfig } from "./reddit/config.js";
-import { loginRedditBrowser } from "./reddit/browser-login.js";
+import { loginRedditBrowser } from "./reddit/session/browser-login.js";
 
 async function main(): Promise<void> {
   const cfg = getCommunityConfig();

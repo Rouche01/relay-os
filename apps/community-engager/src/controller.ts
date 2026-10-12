@@ -71,23 +71,23 @@ import {
   loginRedditBrowser,
   openRedditLoginForm,
   waitUntilRedditLoggedIn,
-} from "./reddit/browser-login.js";
-import { createRedditBrowserEngine } from "./reddit/browser-session.js";
+} from "./reddit/session/browser-login.js";
+import { createRedditBrowserEngine } from "./reddit/session/browser-session.js";
 import { getCommunityConfig, type CommunityRuntimeConfig } from "./reddit/config.js";
-import type { DiscoveryCandidate } from "./reddit/discover-subs.js";
+import type { DiscoveryCandidate } from "./reddit/scout/discover-subs.js";
 import {
   isLoginCredentialPoint,
   isOtpCredentialPoint,
   parseCredentialValue,
-} from "./reddit/credentials.js";
-import { hasStorageState, storageStatePath } from "./reddit/cookies.js";
-import { detectInterstitial } from "./reddit/interstitial.js";
+} from "./reddit/session/credentials.js";
+import { hasStorageState, storageStatePath } from "./reddit/session/cookies.js";
+import { detectInterstitial } from "./reddit/interstitial/interstitial.js";
 import {
   clearInterstitialSession,
   getInterstitialSession,
   saveInterstitialCookies,
   setInterstitialSession,
-} from "./reddit/interstitial-session.js";
+} from "./reddit/interstitial/interstitial-session.js";
 import { scoutOpportunities } from "./stages/scout/scout.js";
 import type { CommunityDraft } from "./types.js";
 import { ACTIONABLE_SCORE_MIN, isActionable, SCORE_MAX, scoreTotal } from "./types.js";

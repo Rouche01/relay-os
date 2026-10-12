@@ -2,9 +2,9 @@ import {
   ACTIONABLE_SCORE_MIN,
   SCORE_MAX,
   type OpportunityScore,
-} from "../types.js";
-import { getSubredditPolicy } from "./config.js";
-import type { RedditListingPost } from "./client.js";
+} from "../../types.js";
+import { getSubredditPolicy } from "../config.js";
+import type { RedditListingPost } from "../client.js";
 
 export const HELP_RE =
   /\b(how (do|can|should)|advice|help|tips?|suggest|recommend|looking for|struggle|can't figure|build a|capsule|system|wardrobe)\b/i;
