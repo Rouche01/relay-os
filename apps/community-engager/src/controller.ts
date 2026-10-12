@@ -15,7 +15,7 @@ import {
 } from "@relay/protocol";
 import type { AppController } from "@relay/runtime";
 import type { FeedbackAdapter } from "@relay/feedback-broker";
-import { draftToFeedbackContext } from "./feedback-map.js";
+import { draftToFeedbackContext } from "./decide/feedback-map.js";
 import { applyWarmupClamp, draftReply } from "./stages/draft/drafter.js";
 import {
   formatPromoRatioLog,

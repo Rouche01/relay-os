@@ -11,7 +11,7 @@ import {
   detectInterstitial,
   type InterstitialDetection,
   type InterstitialReason,
-} from "./interstitial.js";
+} from "../reddit/interstitial/interstitial.js";
 
 /** Page classes for DecisionPort Choice (Phase B). */
 export type PageClass =

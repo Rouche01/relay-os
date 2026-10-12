@@ -291,7 +291,7 @@ export class CommunityEngagerApp implements FanoutHost {
 export { formatRunSummary };
 
 export * from "./types.js";
-export * from "./feedback-map.js";
+export * from "./decide/feedback-map.js";
 export * from "./manifest.js";
 export * from "./engines.js";
 export * from "./job-queue.js";

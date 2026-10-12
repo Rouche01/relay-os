@@ -11,7 +11,7 @@ import {
   filterLoginCandidates,
   interpretLoginControlAnswer,
   suggestLoginCandidateId,
-} from "../src/login-decide.js";
+} from "../src/decide/login-decide.js";
 
 const loginCandidates: ObserveCandidate[] = [
   {

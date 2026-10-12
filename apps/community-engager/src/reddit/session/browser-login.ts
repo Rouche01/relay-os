@@ -6,7 +6,7 @@ import { createDecisionPort } from "@relay/engines-decide";
 import {
   actLoginControl,
   decideLoginControl,
-} from "../../login-decide.js";
+} from "../../decide/login-decide.js";
 import { getCommunityConfig, type CommunityRuntimeConfig } from "../config.js";
 import { createRedditBrowserEngine } from "./browser-session.js";
 import {

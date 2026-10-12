@@ -13,7 +13,7 @@ import type { CommunityRuntimeConfig } from "../config.js";
 import { getCommunityConfig } from "../config.js";
 import { createRedditBrowserEngine } from "../session/browser-session.js";
 import { storageStatePath } from "../session/cookies.js";
-import { detectInterstitialDecided } from "../interstitial/interstitial-decide.js";
+import { detectInterstitialDecided } from "../../decide/interstitial-decide.js";
 import {
   isRateLimit,
   type InterstitialDetection,

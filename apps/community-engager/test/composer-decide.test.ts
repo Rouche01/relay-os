@@ -11,7 +11,7 @@ import {
   filterComposerCandidates,
   interpretComposerControlAnswer,
   suggestComposerCandidateId,
-} from "../src/composer-decide.js";
+} from "../src/decide/composer-decide.js";
 
 const composerCandidates: ObserveCandidate[] = [
   {

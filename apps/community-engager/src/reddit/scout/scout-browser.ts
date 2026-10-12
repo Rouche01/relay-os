@@ -2,7 +2,7 @@ import type { Page } from "playwright";
 import type { DecisionPort } from "@relay/engines-decide";
 import { createDecisionPort } from "@relay/engines-decide";
 import type { PlaywrightEngine } from "@relay/engines-browser";
-import { detectInterstitialDecided } from "../interstitial/interstitial-decide.js";
+import { detectInterstitialDecided } from "../../decide/interstitial-decide.js";
 import { getAllowlistStore } from "../../policy/allowlist-store.js";
 import { playbookLookup } from "../../policy/playbook.js";
 import type { CommunityDraft } from "../../types.js";

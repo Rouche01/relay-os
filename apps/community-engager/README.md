@@ -117,6 +117,7 @@ flowchart TD
 | `src/reddit/` | `config` + `client`; procedures under `session/`, `interstitial/`, `scout/`, `write/` |
 | `src/admin/` | Admin-shell collections |
 | `src/host/` | Process entrypoints (`run-dev`, `run-scheduler`, `admin`, …) |
+| `src/decide/` | Decide engines + HITL feedback mapping (`login`, `composer`, `interstitial`, `feedback-map`) |
 | Root (`controller`, `manifest`, `index`, …) | App wiring |
 
 ### Stages (short)

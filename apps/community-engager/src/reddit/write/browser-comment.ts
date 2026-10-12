@@ -5,7 +5,7 @@ import {
   actComposerControl,
   decideComposerControl,
   resolveComposerLocator,
-} from "../../composer-decide.js";
+} from "../../decide/composer-decide.js";
 import { getCommunityConfig, type CommunityRuntimeConfig } from "../config.js";
 import { createRedditBrowserEngine } from "../session/browser-session.js";
 import { loginRedditBrowser } from "../session/browser-login.js";
