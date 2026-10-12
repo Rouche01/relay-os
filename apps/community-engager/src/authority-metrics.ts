@@ -5,13 +5,13 @@
 
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { readPromoLedger, type PromoLedgerEntry } from "./promo-ratio.js";
+import { readPromoLedger, type PromoLedgerEntry } from "./policy/promo-ratio.js";
 import {
   readPostWatchQueue,
   type PostWatchEntry,
-} from "./post-watch.js";
-import type { VisibilityCheckResult } from "./visibility.js";
-import type { AttributionRecord } from "./attribution.js";
+} from "./stages/post-watch/post-watch.js";
+import type { VisibilityCheckResult } from "./stages/execute/visibility.js";
+import type { AttributionRecord } from "./stages/execute/attribution.js";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_PROMO_MAX = 0.1;

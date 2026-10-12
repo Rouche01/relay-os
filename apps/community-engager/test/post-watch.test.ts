@@ -13,9 +13,9 @@ import {
   enrollPostWatch,
   processDuePostWatches,
   readPostWatchQueue,
-} from "../src/post-watch.js";
+} from "../src/stages/post-watch/post-watch.js";
 import type { CommunityRuntimeConfig } from "../src/reddit/config.js";
-import type { PostWatchEntry } from "../src/post-watch.js";
+import type { PostWatchEntry } from "../src/stages/post-watch/post-watch.js";
 
 function baseCfg(dataDir: string): CommunityRuntimeConfig {
   return {

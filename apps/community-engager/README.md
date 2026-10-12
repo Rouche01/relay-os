@@ -108,6 +108,16 @@ flowchart TD
   Summary --> End([Done])
 ```
 
+### Source layout
+
+| Path | Role |
+|------|------|
+| `src/stages/{discover,scout,post-watch,draft,execute,learn}/` | Stage-owned domain modules |
+| `src/policy/` | Cross-stage gates (cadence, promo, warmup, playbook, allowlist) |
+| `src/reddit/` | Platform/session/scout transport |
+| `src/admin/` | Admin-shell collections |
+| Root (`controller`, `manifest`, `run-*`, …) | Host / wiring |
+
 ### Stages (short)
 
 | Stage | What happens |

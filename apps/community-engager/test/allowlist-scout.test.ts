@@ -7,8 +7,8 @@ import {
   AllowlistStore,
   compareScoutPriority,
   type AllowlistEntry,
-} from "../src/allowlist-store.js";
-import { DEFAULT_PLAYBOOK } from "../src/playbook.js";
+} from "../src/policy/allowlist-store.js";
+import { DEFAULT_PLAYBOOK } from "../src/policy/playbook.js";
 import { ALLOWLISTED_SUBREDDITS } from "../src/reddit/config.js";
 
 function entry(

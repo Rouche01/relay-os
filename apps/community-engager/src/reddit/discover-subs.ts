@@ -8,7 +8,7 @@ import type { PlaywrightEngine } from "@relay/engines-browser";
 import {
   DEFAULT_DISCOVER_GOAL,
   scoreDiscoverFit,
-} from "../discover-fit.js";
+} from "../stages/discover/discover-fit.js";
 import type { CommunityRuntimeConfig } from "./config.js";
 import { getCommunityConfig } from "./config.js";
 import { createRedditBrowserEngine } from "./browser-session.js";

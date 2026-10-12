@@ -8,11 +8,11 @@ import path from "node:path";
 import {
   fetchRedditComment,
   type FetchCommentResult,
-} from "./reddit/comment-fetch.js";
+} from "../../reddit/comment-fetch.js";
 import {
   getCommunityConfig,
   type CommunityRuntimeConfig,
-} from "./reddit/config.js";
+} from "../../reddit/config.js";
 
 export type VisibilityStatus =
   | "visible"

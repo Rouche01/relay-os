@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import { draftReply } from "../src/drafter.js";
+import { draftReply } from "../src/stages/draft/drafter.js";
 import {
   buildDraftPrompt,
   clampModelIntensity,
   parseDraftModelJson,
-} from "../src/draft-llm.js";
+} from "../src/stages/draft/draft-llm.js";
 import {
   FIXTURE_THREADS,
   fixtureToDraftSkeleton,

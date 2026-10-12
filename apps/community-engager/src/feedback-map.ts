@@ -1,13 +1,13 @@
 import type { FeedbackContext, FeedbackDetail } from "@relay/protocol";
 import type { CommunityDraft } from "./types.js";
 import { SCORE_MAX, scoreTotal } from "./types.js";
-import type { CadenceStatus } from "./cadence.js";
-import type { PromoRatioStatus } from "./promo-ratio.js";
-import type { WarmupStatus } from "./warmup.js";
+import type { CadenceStatus } from "./policy/cadence.js";
+import type { PromoRatioStatus } from "./policy/promo-ratio.js";
+import type { WarmupStatus } from "./policy/warmup.js";
 import {
   formatPlaybookSummary,
   type SubredditPlaybook,
-} from "./playbook.js";
+} from "./policy/playbook.js";
 
 /**
  * Map a community draft into the generic HITL FeedbackContext.

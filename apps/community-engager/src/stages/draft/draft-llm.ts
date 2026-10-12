@@ -1,5 +1,5 @@
-import type { SubredditPlaybook } from "./playbook.js";
-import type { CommunityDraft, PromoIntensity } from "./types.js";
+import type { SubredditPlaybook } from "../../policy/playbook.js";
+import type { CommunityDraft, PromoIntensity } from "../../types.js";
 import {
   DISCLOSURE_RE,
   normalizeLpBase,

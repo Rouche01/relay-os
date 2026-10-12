@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { resolveDiscoverGate } from "../src/discover-gate.js";
+import { resolveDiscoverGate } from "../src/stages/discover/discover-gate.js";
 import { parseDiscoverMode, seedPostableCount } from "../src/reddit/config.js";
 
 describe("parseDiscoverMode", () => {

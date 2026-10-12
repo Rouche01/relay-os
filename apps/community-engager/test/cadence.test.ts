@@ -7,8 +7,8 @@ import {
   formatCadenceLog,
   localDayKey,
   trimOpportunitiesForCadence,
-} from "../src/cadence.js";
-import type { PromoLedgerEntry } from "../src/promo-ratio.js";
+} from "../src/policy/cadence.js";
+import type { PromoLedgerEntry } from "../src/policy/promo-ratio.js";
 
 function entry(
   hoursAgo: number,

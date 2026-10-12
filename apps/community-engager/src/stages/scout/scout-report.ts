@@ -1,9 +1,9 @@
-import type { CommunityDraft } from "./types.js";
-import type { ScoutSource } from "./reddit/config.js";
+import type { CommunityDraft } from "../../types.js";
+import type { ScoutSource } from "../../reddit/config.js";
 import type {
   BrowserScoutBlocked,
   ScoutChallengeHandOff,
-} from "./reddit/scout-browser.js";
+} from "../../reddit/scout-browser.js";
 
 /** Per-subreddit scout outcome for run logs / analysis. */
 export type ScoutSubStatus =

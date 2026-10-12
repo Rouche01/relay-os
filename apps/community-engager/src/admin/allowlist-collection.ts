@@ -9,8 +9,8 @@ import {
   AllowlistStore,
   type AllowlistEntry,
   type AllowlistStatus,
-} from "../allowlist-store.js";
-import { normalizePlaybook } from "../playbook.js";
+} from "../policy/allowlist-store.js";
+import { normalizePlaybook } from "../policy/playbook.js";
 import { assertFileSource } from "./sources.js";
 
 const STATUSES: AllowlistStatus[] = ["postable", "proposed", "rejected"];

@@ -5,17 +5,17 @@ import type { PlaywrightEngine } from "@relay/engines-browser";
 import {
   getAllowlistStore,
   type AllowlistStore,
-} from "./allowlist-store.js";
+} from "../../policy/allowlist-store.js";
 import { resolveDiscoverGate } from "./discover-gate.js";
 import {
   getCommunityConfig,
   type CommunityRuntimeConfig,
-} from "./reddit/config.js";
+} from "../../reddit/config.js";
 import {
   discoverSubredditCandidates,
   type DiscoverChallengeHandOff,
   type DiscoveryCandidate,
-} from "./reddit/discover-subs.js";
+} from "../../reddit/discover-subs.js";
 
 export interface DiscoverResult {
   enabled: boolean;

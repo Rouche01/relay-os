@@ -8,8 +8,8 @@ import {
   CommunityMemory,
   communityFactDomain,
   type OutcomeTag,
-} from "./memory.js";
-import type { MemoryWriteEvidence } from "./run-evidence.js";
+} from "../../memory.js";
+import type { MemoryWriteEvidence } from "../../run-evidence.js";
 
 export interface OutcomeTagMeta {
   draftId?: string;

@@ -1,12 +1,12 @@
 import {
   getCommunityConfig,
   type CommunityRuntimeConfig,
-} from "./reddit/config.js";
+} from "../reddit/config.js";
 import {
   readPromoLedger,
   type PromoLedgerEntry,
 } from "./promo-ratio.js";
-import type { PromoIntensity } from "./types.js";
+import type { PromoIntensity } from "../types.js";
 
 export interface CadenceStatus {
   enabled: boolean;

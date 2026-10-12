@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { draftReply } from "../src/drafter.js";
-import { buildDraftPrompt } from "../src/draft-llm.js";
+import { draftReply } from "../src/stages/draft/drafter.js";
+import { buildDraftPrompt } from "../src/stages/draft/draft-llm.js";
 import {
   applySoftCta,
   applyUtmLinks,
   hasDisallowedIntensity1Link,
   withUtm,
-} from "../src/soft-cta.js";
+} from "../src/stages/draft/soft-cta.js";
 import type { CommunityDraft } from "../src/types.js";
 
 function draft(overrides: Partial<CommunityDraft> = {}): CommunityDraft {

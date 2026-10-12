@@ -3,14 +3,14 @@ import path from "node:path";
 import {
   getCommunityConfig,
   type CommunityRuntimeConfig,
-} from "./reddit/config.js";
+} from "../../reddit/config.js";
 import {
   commentIdFromPermalink,
   fetchRedditComment,
-} from "./reddit/comment-fetch.js";
-import type { OutcomeTagHint } from "./outcome-tags.js";
-import { detectDmInterest } from "./outcome-tags.js";
-import type { CommunityDraft, PromoIntensity } from "./types.js";
+} from "../../reddit/comment-fetch.js";
+import type { OutcomeTagHint } from "../learn/outcome-tags.js";
+import { detectDmInterest } from "../learn/outcome-tags.js";
+import type { CommunityDraft, PromoIntensity } from "../../types.js";
 
 export type PostWatchStatus =
   | "pending"

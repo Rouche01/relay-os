@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   parseDiscoveryChoice,
   parseDiscoveryChoices,
-} from "../src/discover.js";
+} from "../src/stages/discover/discover.js";
 
 describe("parseDiscoveryChoices", () => {
   it("skips empty and none tokens", () => {

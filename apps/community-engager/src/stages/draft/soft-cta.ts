@@ -1,17 +1,17 @@
-import type { CommunityDraft, PromoIntensity } from "./types.js";
+import type { CommunityDraft, PromoIntensity } from "../../types.js";
 import {
   buildJobUtm,
   UTM_APP_ID,
   utmQueryString,
   type UtmParams,
-} from "./utm.js";
+} from "../execute/utm.js";
 
 export const PRODUCT_RE = /\bgostylens\b/i;
 export const DISCLOSURE_RE =
   /\b(disclosure|disclos(?:e|ing)|i(?:'m| am) the (?:founder|maker|builder)|i built|full disclosure)\b/i;
 
-export type { UtmParams } from "./utm.js";
-export { buildJobUtm, UTM_APP_ID, utmQueryString } from "./utm.js";
+export type { UtmParams } from "../execute/utm.js";
+export { buildJobUtm, UTM_APP_ID, utmQueryString } from "../execute/utm.js";
 
 /**
  * Soft-CTA shaping after draft generation:

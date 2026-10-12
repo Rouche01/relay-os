@@ -9,7 +9,7 @@ import {
   buildDiscoverFitRequest,
   interpretDiscoverFit,
   scoreDiscoverFit,
-} from "../src/discover-fit.js";
+} from "../src/stages/discover/discover-fit.js";
 
 describe("buildDiscoverFitRequest", () => {
   it("puts goal, bio, and optional sample titles in state", () => {

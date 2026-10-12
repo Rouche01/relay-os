@@ -1,22 +1,22 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isExecutableStatus } from "@relay/action-store";
-import type { CommunityDraft } from "./types.js";
-import { RedditClient } from "./reddit/client.js";
+import type { CommunityDraft } from "../../types.js";
+import { RedditClient } from "../../reddit/client.js";
 import {
   getCommunityConfig,
   resolveWriteTransport,
   resolveWriteTransportChain,
   type CommunityRuntimeConfig,
-} from "./reddit/config.js";
-import { hasStorageState } from "./reddit/cookies.js";
-import { postCommentBrowser } from "./reddit/browser-comment.js";
-import { executeJobId } from "./reddit/scout-live.js";
+} from "../../reddit/config.js";
+import { hasStorageState } from "../../reddit/cookies.js";
+import { postCommentBrowser } from "../../reddit/browser-comment.js";
+import { executeJobId } from "../../reddit/scout-live.js";
 import { recordAttribution } from "./attribution.js";
-import { applyUtmLinks } from "./soft-cta.js";
+import { applyUtmLinks } from "../draft/soft-cta.js";
 import { formatUtmLog, resolveExecuteUtm } from "./utm.js";
 
-export { applyUtmLinks } from "./soft-cta.js";
+export { applyUtmLinks } from "../draft/soft-cta.js";
 export { buildJobUtm, resolveExecuteUtm, UTM_APP_ID } from "./utm.js";
 
 export interface ExecuteResult {

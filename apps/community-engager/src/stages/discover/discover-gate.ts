@@ -1,4 +1,4 @@
-import type { DiscoverMode } from "./reddit/config.js";
+import type { DiscoverMode } from "../../reddit/config.js";
 
 export interface DiscoverGateInput {
   mode: DiscoverMode;

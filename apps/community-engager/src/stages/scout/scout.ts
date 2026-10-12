@@ -1,21 +1,21 @@
-import { isActionable } from "./types.js";
-import type { CommunityDraft } from "./types.js";
-import { FIXTURE_THREADS, fixtureToDraftSkeleton } from "./fixtures/threads.js";
+import { isActionable } from "../../types.js";
+import type { CommunityDraft } from "../../types.js";
+import { FIXTURE_THREADS, fixtureToDraftSkeleton } from "../../fixtures/threads.js";
 import {
   allowlistedSubNames,
   getCommunityConfig,
   isOauthScoutSource,
   type ScoutSource,
-} from "./reddit/config.js";
+} from "../../reddit/config.js";
 import type { PlaywrightEngine } from "@relay/engines-browser";
 import {
   scoutRedditBrowser,
   type BrowserScoutBlocked,
   type BrowserScoutSubOutcome,
   type ScoutChallengeHandOff,
-} from "./reddit/scout-browser.js";
-import { scoutRedditJson } from "./reddit/scout-json.js";
-import { scoutRedditLive } from "./reddit/scout-live.js";
+} from "../../reddit/scout-browser.js";
+import { scoutRedditJson } from "../../reddit/scout-json.js";
+import { scoutRedditLive } from "../../reddit/scout-live.js";
 import {
   buildScoutReport,
   type ScoutReport,

@@ -9,7 +9,7 @@ import {
   checkCommentVisibility,
   classifyVisibilityFetch,
   formatVisibilityLog,
-} from "../src/visibility.js";
+} from "../src/stages/execute/visibility.js";
 
 function baseCfg(dataDir: string): CommunityRuntimeConfig {
   return {

@@ -3,15 +3,15 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
-import { recordAttribution } from "../src/attribution.js";
+import { recordAttribution } from "../src/stages/execute/attribution.js";
 import {
   buildJobUtm,
   communityCampaign,
   sanitizeUtmToken,
   UTM_APP_ID,
   utmQueryString,
-} from "../src/utm.js";
-import { withUtm } from "../src/soft-cta.js";
+} from "../src/stages/execute/utm.js";
+import { withUtm } from "../src/stages/draft/soft-cta.js";
 
 describe("buildJobUtm", () => {
   it("puts app in medium, community+sub in campaign, jobId in content", () => {

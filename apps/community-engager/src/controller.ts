@@ -16,55 +16,55 @@ import {
 import type { AppController } from "@relay/runtime";
 import type { FeedbackAdapter } from "@relay/feedback-broker";
 import { draftToFeedbackContext } from "./feedback-map.js";
-import { applyWarmupClamp, draftReply } from "./drafter.js";
+import { applyWarmupClamp, draftReply } from "./stages/draft/drafter.js";
 import {
   formatPromoRatioLog,
   readPromoLedger,
   recordPromoLedgerPost,
   resolvePromoRatioStatus,
   type PromoRatioStatus,
-} from "./promo-ratio.js";
+} from "./policy/promo-ratio.js";
 import {
   formatWarmupLog,
   recordHelpCommentPosted,
   resolveWarmupStatus,
   type WarmupStatus,
-} from "./warmup.js";
+} from "./policy/warmup.js";
 import {
   countPlugsThisWeek,
   formatPlaybookSummary,
   shouldBlockPlugForWeek,
-} from "./playbook.js";
+} from "./policy/playbook.js";
 import {
   enrollPostWatch,
   formatPostWatchLog,
   processDuePostWatches,
-} from "./post-watch.js";
+} from "./stages/post-watch/post-watch.js";
 import {
   cadenceBlocksIntensity,
   formatCadenceLog,
   resolveCadenceStatus,
   trimOpportunitiesForCadence,
   type CadenceStatus,
-} from "./cadence.js";
+} from "./policy/cadence.js";
 import {
   checkCommentVisibility,
   formatVisibilityLog,
   type VisibilityCheckResult,
-} from "./visibility.js";
+} from "./stages/execute/visibility.js";
 import {
   OUTCOME_REMEMBER_TOKENS,
   writeOutcomeTag,
   writeOutcomeTagHints,
-} from "./outcome-tags.js";
+} from "./stages/learn/outcome-tags.js";
 import {
   DISCOVER_SKIP_OPTION,
   discoveryChoiceOptions,
   parseDiscoveryChoices,
   runDiscovery,
-} from "./discover.js";
-import { executeApproved } from "./executor.js";
-import { getAllowlistStore, resolvePlaybook } from "./allowlist-store.js";
+} from "./stages/discover/discover.js";
+import { executeApproved } from "./stages/execute/executor.js";
+import { getAllowlistStore, resolvePlaybook } from "./policy/allowlist-store.js";
 import { CommunityMemory, communityFactDomain } from "./memory.js";
 import {
   fillAndSubmitRedditLogin,
@@ -88,7 +88,7 @@ import {
   saveInterstitialCookies,
   setInterstitialSession,
 } from "./reddit/interstitial-session.js";
-import { scoutOpportunities } from "./scout.js";
+import { scoutOpportunities } from "./stages/scout/scout.js";
 import type { CommunityDraft } from "./types.js";
 import { ACTIONABLE_SCORE_MIN, isActionable, SCORE_MAX, scoreTotal } from "./types.js";
 import {

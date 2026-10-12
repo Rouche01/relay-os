@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
-import { draftReply } from "../src/drafter.js";
+import { draftReply } from "../src/stages/draft/drafter.js";
 import { parseWarmupMode } from "../src/reddit/config.js";
 import type { CommunityDraft } from "../src/types.js";
 import {
@@ -14,7 +14,7 @@ import {
   recordHelpCommentPosted,
   resolveEnvAccountSnapshot,
   writeWarmupState,
-} from "../src/warmup.js";
+} from "../src/policy/warmup.js";
 
 function draft(overrides: Partial<CommunityDraft> = {}): CommunityDraft {
   return {

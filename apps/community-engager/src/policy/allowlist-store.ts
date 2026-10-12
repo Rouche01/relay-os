@@ -10,7 +10,7 @@ import {
   getCommunityConfig,
   getSubredditPolicy,
   type SubredditPolicy,
-} from "./reddit/config.js";
+} from "../reddit/config.js";
 
 export type AllowlistSource = "seed" | "discovered";
 export type AllowlistStatus = "postable" | "proposed" | "rejected";

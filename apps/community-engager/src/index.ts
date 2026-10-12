@@ -39,7 +39,7 @@ import type {
   SessionEvidence,
 } from "./run-evidence.js";
 import { writeRunLog } from "./run-log.js";
-import type { ScoutReport } from "./scout-report.js";
+import type { ScoutReport } from "./stages/scout/scout-report.js";
 import type { CommunityDraft } from "./types.js";
 
 export interface CommunityEngagerAppOptions {
@@ -297,13 +297,13 @@ export * from "./engines.js";
 export * from "./job-queue.js";
 export * from "./run-log.js";
 export * from "./run-evidence.js";
-export * from "./scout.js";
-export * from "./scout-report.js";
-export * from "./drafter.js";
-export * from "./executor.js";
+export * from "./stages/scout/scout.js";
+export * from "./stages/scout/scout-report.js";
+export * from "./stages/draft/drafter.js";
+export * from "./stages/execute/executor.js";
 export * from "./memory.js";
-export * from "./allowlist-store.js";
-export * from "./discover.js";
+export * from "./policy/allowlist-store.js";
+export * from "./stages/discover/discover.js";
 export * from "./reddit/config.js";
 export * from "./reddit/cookies.js";
 export * from "./reddit/browser-login.js";

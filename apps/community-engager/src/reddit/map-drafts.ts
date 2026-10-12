@@ -8,7 +8,7 @@ import {
   DEFAULT_PLAYBOOK,
   shouldScoutMegathread,
   type SubredditPlaybook,
-} from "../playbook.js";
+} from "../policy/playbook.js";
 import type { RedditListingPost } from "./client.js";
 import { HELP_RE, isMegathread, scoreRedditPost } from "./score.js";
 

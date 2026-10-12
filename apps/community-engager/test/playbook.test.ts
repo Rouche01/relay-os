@@ -7,10 +7,10 @@ import {
   normalizePlaybook,
   shouldBlockPlugForWeek,
   shouldScoutMegathread,
-} from "../src/playbook.js";
+} from "../src/policy/playbook.js";
 import { listingPostsToDrafts } from "../src/reddit/map-drafts.js";
 import type { RedditListingPost } from "../src/reddit/client.js";
-import { seedPlaybookFor } from "../src/playbook.js";
+import { seedPlaybookFor } from "../src/policy/playbook.js";
 import { getSubredditPolicy } from "../src/reddit/config.js";
 
 function post(overrides: Partial<RedditListingPost> = {}): RedditListingPost {

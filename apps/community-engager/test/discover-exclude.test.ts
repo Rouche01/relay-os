@@ -4,8 +4,8 @@ import {
   discoverExcludeNames,
   isExcludedFromDiscover,
   type AllowlistEntry,
-} from "../src/allowlist-store.js";
-import { DEFAULT_PLAYBOOK } from "../src/playbook.js";
+} from "../src/policy/allowlist-store.js";
+import { DEFAULT_PLAYBOOK } from "../src/policy/playbook.js";
 
 function entry(
   partial: Partial<AllowlistEntry> & Pick<AllowlistEntry, "name" | "status">

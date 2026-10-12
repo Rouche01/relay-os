@@ -6,8 +6,8 @@ import {
   getCommunityConfig,
   type CommunityRuntimeConfig,
 } from "./config.js";
-import { getAllowlistStore } from "../allowlist-store.js";
-import { playbookLookup } from "../playbook.js";
+import { getAllowlistStore } from "../policy/allowlist-store.js";
+import { playbookLookup } from "../policy/playbook.js";
 import { listingPostsToDrafts } from "./map-drafts.js";
 
 export interface JsonScoutOptions {

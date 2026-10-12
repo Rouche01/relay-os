@@ -8,7 +8,7 @@ import {
   type CommunityAppConfig,
 } from "../app-config.js";
 
-import type { SubredditPlaybook } from "../playbook.js";
+import type { SubredditPlaybook } from "../policy/playbook.js";
 
 /** Allowlisted fashion/styling subs for read scout + soft-mention policy notes. */
 export interface SubredditPolicy {

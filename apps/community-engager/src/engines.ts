@@ -6,7 +6,7 @@ import type {
   ExecutionEngine,
 } from "@relay/protocol";
 import { bindEngines, type EngineProviders } from "@relay/runtime";
-import { draftReply, type DraftReplyOptions } from "./drafter.js";
+import { draftReply, type DraftReplyOptions } from "./stages/draft/drafter.js";
 import { communityFactDomain } from "./memory.js";
 import { CommunityEngagerManifest } from "./manifest.js";
 import {

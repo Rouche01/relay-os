@@ -4,8 +4,8 @@ import { CommunityMemory } from "../src/memory.js";
 import {
   detectDmInterest,
   outcomeTagEventId,
-} from "../src/outcome-tags.js";
-import { prefersHelpFirstMemory } from "../src/draft-llm.js";
+} from "../src/stages/learn/outcome-tags.js";
+import { prefersHelpFirstMemory } from "../src/stages/draft/draft-llm.js";
 
 describe("CommunityMemory.outcomeTag", () => {
   it("leads with tag= for VoltMem routing", () => {

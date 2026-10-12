@@ -4,8 +4,8 @@ import {
   getCommunityConfig,
   type CommunityRuntimeConfig,
   type PromoOnExceed,
-} from "./reddit/config.js";
-import type { PromoIntensity } from "./types.js";
+} from "../reddit/config.js";
+import type { PromoIntensity } from "../types.js";
 
 export interface PromoLedgerEntry {
   postedAt: string;

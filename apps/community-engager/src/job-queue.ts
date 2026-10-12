@@ -1,7 +1,7 @@
 import type { AgentState } from "@relay/protocol";
 import type { FanoutSummary } from "@relay/runtime";
-import type { ExecuteResult } from "./executor.js";
-import type { ScoutReport } from "./scout-report.js";
+import type { ExecuteResult } from "./stages/execute/executor.js";
+import type { ScoutReport } from "./stages/scout/scout-report.js";
 import type { CommunityDraft } from "./types.js";
 import {
   buildGoalChecklist,

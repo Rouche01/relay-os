@@ -1,5 +1,5 @@
 import type { PromoLedgerEntry } from "./promo-ratio.js";
-import type { PromoIntensity } from "./types.js";
+import type { PromoIntensity } from "../types.js";
 
 /** How hard a product plug may go on this sub. */
 export type PlugStyle = "none" | "mention" | "disclose_link";

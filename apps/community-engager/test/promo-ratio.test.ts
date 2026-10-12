@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
-import { draftReply } from "../src/drafter.js";
+import { draftReply } from "../src/stages/draft/drafter.js";
 import {
   evaluatePromoRatio,
   formatPromoRatioLog,
@@ -11,7 +11,7 @@ import {
   readPromoLedger,
   recordPromoLedgerPost,
   type PromoLedgerEntry,
-} from "../src/promo-ratio.js";
+} from "../src/policy/promo-ratio.js";
 import type { CommunityDraft } from "../src/types.js";
 
 function entry(

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { getAllowlistStore } from "../allowlist-store.js";
-import { playbookLookup } from "../playbook.js";
+import { getAllowlistStore } from "../policy/allowlist-store.js";
+import { playbookLookup } from "../policy/playbook.js";
 import type { CommunityDraft } from "../types.js";
 import { RedditClient } from "./client.js";
 import {

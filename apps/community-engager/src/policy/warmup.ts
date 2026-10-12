@@ -4,8 +4,8 @@ import {
   getCommunityConfig,
   type CommunityRuntimeConfig,
   type WarmupMode,
-} from "./reddit/config.js";
-import { RedditClient } from "./reddit/client.js";
+} from "../reddit/config.js";
+import { RedditClient } from "../reddit/client.js";
 
 export interface WarmupThresholds {
   minAccountDays: number;
