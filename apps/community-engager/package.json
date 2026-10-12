@@ -13,6 +13,7 @@
     "start": "node dist/host/run-dev.js",
     "watch:posts": "node dist/host/run-dev.js --entrypoint post_watch",
     "scheduler": "node dist/host/run-scheduler.js",
+    "ops": "node dist/host/run-ops.js",
     "e2e": "node dist/host/e2e-hitl.js",
     "smoke": "node dist/host/e2e-hitl.js",
     "verify:voltmem-events": "node dist/host/verify-voltmem-events.js",

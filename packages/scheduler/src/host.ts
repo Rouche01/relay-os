@@ -130,6 +130,11 @@ export class SchedulerHost {
     return this.evidenceCache.get(scheduleId);
   }
 
+  /** Whether {@link start} has been called and {@link stop} has not. */
+  isStarted(): boolean {
+    return this.started;
+  }
+
   /** Whether the schedule is currently armed (may still be paused). */
   isArmed(scheduleId: string): boolean {
     return this.armed.has(scheduleId);
