@@ -12,6 +12,7 @@
     "clean": "rm -rf dist dist-test",
     "start": "node dist/run-dev.js",
     "watch:posts": "node dist/run-dev.js --entrypoint post_watch",
+    "scheduler": "node dist/run-scheduler.js",
     "e2e": "node dist/e2e-hitl.js",
     "smoke": "node dist/e2e-hitl.js",
     "verify:voltmem-events": "node dist/verify-voltmem-events.js",
@@ -30,6 +31,7 @@
     "@relay/feedback-broker": "workspace:*",
     "@relay/protocol": "workspace:*",
     "@relay/runtime": "workspace:*",
+    "@relay/scheduler": "workspace:*",
     "dotenv": "^16.4.5",
     "playwright": "^1.43.0"
   },

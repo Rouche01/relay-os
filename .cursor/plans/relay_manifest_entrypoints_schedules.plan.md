@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: a3-scheduler-host
     content: Thin scheduler host using croner — read schedules (manifest/config) → invoke entrypoints; protect + dataDir lease; missed-tick skip; expose nextRun for admin
-    status: pending
+    status: completed
   - id: a4-admin-surface
     content: Admin-shell — list app entrypoints + schedules; last run / next due when host reports evidence
     status: pending
@@ -25,7 +25,7 @@ isProject: true
 
 # Relay — manifest entrypoints and cron-like schedules
 
-**Status:** In progress — **A0–A2 done** (`entrypoints` + `schedules[]` discovery; CommunityEngager declares `post_watch` every 6h). Next: A3 scheduler host (croner). Spawned from the post-watch architecture discussion while executing [`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md).
+**Status:** In progress — **A0–A3 done** (`@relay/scheduler` + croner; CommunityEngager `pnpm scheduler`). Next: A4 admin surface. Spawned from the post-watch architecture discussion while executing [`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md).
 
 **Related plans:**
 
