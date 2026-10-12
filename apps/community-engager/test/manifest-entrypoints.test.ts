@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   DEFAULT_ENTRYPOINT,
+  assertSchedulesValid,
+  listEnabledSchedules,
   listEntrypointNames,
+  listSchedules,
   resolveEntrypoint,
   type AgenticAppManifest,
   type ExecutionEngine,
@@ -193,5 +196,47 @@ describe("manifest entrypoints (A1)", () => {
       () => resolveEntrypoint(CommunityEngagerManifest, "nope"),
       /Unknown entrypoint "nope"/
     );
+  });
+
+  it("declares post_watch schedule metadata (discovery only)", () => {
+    const schedules = listSchedules(CommunityEngagerManifest);
+    assert.equal(schedules.length, 1);
+    assert.equal(schedules[0]!.id, "post_watch");
+    assert.equal(schedules[0]!.entrypoint, "post_watch");
+    assert.equal(schedules[0]!.every_ms, 6 * 60 * 60 * 1000);
+    assert.equal(schedules[0]!.enabled, true);
+    assert.deepEqual(listEnabledSchedules(CommunityEngagerManifest), schedules);
+    assert.doesNotThrow(() => assertSchedulesValid(CommunityEngagerManifest));
+  });
+
+  it("assertSchedulesValid rejects bad declarations", () => {
+    const badEp: AgenticAppManifest = {
+      ...tinyManifest,
+      schedules: [
+        { id: "x", entrypoint: "missing", every_ms: 1000 },
+      ],
+    };
+    assert.throws(
+      () => assertSchedulesValid(badEp),
+      /unknown entrypoint "missing"/
+    );
+
+    const noClock: AgenticAppManifest = {
+      ...tinyManifest,
+      schedules: [{ id: "x", entrypoint: DEFAULT_ENTRYPOINT }],
+    };
+    assert.throws(
+      () => assertSchedulesValid(noClock),
+      /needs cron and\/or every_ms/
+    );
+
+    const dup: AgenticAppManifest = {
+      ...tinyManifest,
+      schedules: [
+        { id: "x", entrypoint: DEFAULT_ENTRYPOINT, every_ms: 1000 },
+        { id: "x", entrypoint: "alt", every_ms: 2000 },
+      ],
+    };
+    assert.throws(() => assertSchedulesValid(dup), /duplicate schedule id "x"/);
   });
 });

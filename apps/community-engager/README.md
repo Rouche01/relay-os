@@ -122,7 +122,7 @@ flowchart TD
 | `post_watch` | **Separate entrypoint** — poll enrolled live posts (24–72h); fan out follow-up jobs |
 
 **Engage** (`pnpm start`): default `stages` — `ensure_session` → `discover` → `scout` → `jobs`.  
-**Post-watch** (`pnpm watch:posts` or `--entrypoint post_watch`): protocol `entrypoints.post_watch` — `post_watch` → `jobs` only (no scout). Engage no longer drains the watch queue — schedule or run post-watch separately.
+**Post-watch** (`pnpm watch:posts` or `--entrypoint post_watch`): protocol `entrypoints.post_watch` — `post_watch` → `jobs` only (no scout). Manifest also declares `schedules[]` (`post_watch` every 6h) for discovery; the scheduler host is not wired yet — run CLI / OS cron until then.
 
 The `jobs` stage **fans out** into `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. Budget engage with `COMMUNITY_MAX_JOBS` (default 3); post-watch fanout is capped by `min(jobs.maxJobs, postWatch.maxPerRun)`. Discover defaults to `COMMUNITY_DISCOVER=auto`; use `force` / `--force-discover` or `off`.
 
@@ -149,9 +149,9 @@ Warmup (`warmup.mode=auto`) keeps drafts help-only until local live intensity-0 
 
 Promo ratio (`promo.maxRatio` default `0.1`, `windowDays` `30`) tracks live posts in `{REDDIT_DATA_DIR}/promo/ledger.json`. When a soft mention would push the window over the max, **`block`** forces intensity 0 (default) or **`warn`** surfaces the ratio in HITL without clamping. See [authority + metrics plan](../../.cursor/plans/community_engager_authority_metrics.plan.md).
 
-Post-watch (`postWatch.enabled`, default on) enrolls each live-posted comment and, on the next parent run after `minAgeHours` (24) and before `maxAgeHours` (72), fetches the public permalink JSON. Replies become intensity-0 follow-up opportunities prepended ahead of scout results; removals are marked. Queue: `{REDDIT_DATA_DIR}/post-watch/queue.json`.
+Post-watch (`postWatch.enabled`, default on) enrolls each live-posted comment. The `post_watch` entrypoint (CLI or future scheduler) polls after `minAgeHours` (24) and before `maxAgeHours` (72) via public permalink JSON. Replies become intensity-0 follow-up opportunities; removals are marked. Queue: `{REDDIT_DATA_DIR}/post-watch/queue.json`. Manifest schedule: `every_ms` 6h (host not started yet).
 
-Daily cadence (`cadence.enabled`, default on) counts today's ledger posts and caps opportunities / execute by `maxHelpPerDay` (default 5) and `maxPromoPerDay` (default 1). Per-sub weekly soft mentions stay in playbook `maxPlugsPerWeek`. Separate cron entrypoints are deferred to the schedules plan.
+Daily cadence (`cadence.enabled`, default on) counts today's ledger posts and caps opportunities / execute by `maxHelpPerDay` (default 5) and `maxPromoPerDay` (default 1). Per-sub weekly soft mentions stay in playbook `maxPlugsPerWeek`. Cron for cadence waits on the scheduler host (A3).
 
 Visibility (`visibility.enabled`, default on) waits `delayMs` (default 3000) then fetches the posted permalink as a logged-out client. Results: `visible` / `removed` / `missing` / `error`; persisted under `{REDDIT_DATA_DIR}/visibility/`. Does not fail the execute stage — warns loudly for ops follow-up. Longer-horizon reply/removal polling stays in post-watch.
 

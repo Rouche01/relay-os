@@ -268,6 +268,20 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
       triggers: CommunityPostWatchManifest.triggers,
     },
   },
+  /**
+   * Discovery-only until the scheduler host (A3) reads these.
+   * Escape hatch remains CLI / `pnpm watch:posts`.
+   */
+  schedules: [
+    {
+      id: "post_watch",
+      entrypoint: "post_watch",
+      every_ms: 6 * 60 * 60 * 1000,
+      enabled: true,
+      description:
+        "Drain enrolled live-post watches (~every 6h). Host owns the clock.",
+    },
+  ],
   feedback_patterns: [
     "credential",
     "choice",

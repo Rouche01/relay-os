@@ -1,39 +1,39 @@
 ---
 name: Relay manifest entrypoints + schedules
-overview: "Extend AgenticAppManifest / host runtime so wall-clock backlog drains (post-watch, cadence caps) are first-class entrypoints with optional schedules—not sequential stages inside the engage pipeline. Prove on CommunityEngager post-watch, then generalize for cadence and other apps."
+overview: Extend AgenticAppManifest / host runtime so wall-clock backlog drains (post-watch, cadence caps) are first-class entrypoints with optional schedules—not sequential stages inside the engage pipeline. Prove on CommunityEngager post-watch, then generalize for cadence and other apps.
 todos:
   - id: a0-carve-post-watch
-    content: "App-local carve-out — remove post_watch from CommunityEngager parent stages; add CommunityPostWatchManifest (post_watch → jobs fanout); CLI/trigger to run it; keep enroll on execute"
+    content: App-local carve-out — remove post_watch from CommunityEngager parent stages; add CommunityPostWatchManifest (post_watch → jobs fanout); CLI/trigger to run it; keep enroll on execute
     status: completed
   - id: a1-entrypoint-protocol
-    content: "Protocol — optional entrypoints map on AgenticAppManifest (or sibling manifests + composes_with); default entrypoint = current stages[]; AgentRuntime/host selects by name"
+    content: Protocol — optional entrypoints map on AgenticAppManifest (or sibling manifests + composes_with); default entrypoint = current stages[]; AgentRuntime/host selects by name
     status: completed
   - id: a2-schedule-declaration
-    content: "Protocol — optional schedules[] (id, cron|every_ms, entrypoint, enabled); documentation + discovery only in v1 (host owns the clock)"
-    status: pending
+    content: Protocol — optional schedules[] (id, cron|every_ms, entrypoint, enabled); documentation + discovery only in v1 (host owns the clock)
+    status: completed
   - id: a3-scheduler-host
-    content: "Thin scheduler host using croner — read schedules (manifest/config) → invoke entrypoints; protect + dataDir lease; missed-tick skip; expose nextRun for admin"
+    content: Thin scheduler host using croner — read schedules (manifest/config) → invoke entrypoints; protect + dataDir lease; missed-tick skip; expose nextRun for admin
     status: pending
   - id: a4-admin-surface
-    content: "Admin-shell — list app entrypoints + schedules; last run / next due when host reports evidence"
+    content: Admin-shell — list app entrypoints + schedules; last run / next due when host reports evidence
     status: pending
   - id: a5-cadence-handoff
-    content: "Wire CommunityEngager cadence (from authority-metrics p2-cadence-scheduler) as a scheduled entrypoint once a0–a3 land — do not invent a second cron mechanism in the app"
+    content: Wire CommunityEngager cadence (from authority-metrics p2-cadence-scheduler) as a scheduled entrypoint once a0–a3 land — do not invent a second cron mechanism in the app
     status: pending
 isProject: true
 ---
 
 # Relay — manifest entrypoints and cron-like schedules
 
-**Status:** In progress — **A0–A1 done** (protocol `entrypoints` + AgentRuntime selection; CommunityEngager declares `post_watch`). Next: A2 `schedules[]`. Spawned from the post-watch architecture discussion while executing [`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md).
+**Status:** In progress — **A0–A2 done** (`entrypoints` + `schedules[]` discovery; CommunityEngager declares `post_watch` every 6h). Next: A3 scheduler host (croner). Spawned from the post-watch architecture discussion while executing [`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md).
 
 **Related plans:**
 
-- [`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md) — authority program; owns enroll + domain logic for post-watch; **relocates** pipeline placement here
-- [`relay_hitl_community_voltmem.plan.md`](./relay_hitl_community_voltmem.plan.md) — core HITL + fanout runtime
-- [`admin_shell_adapters_226b13a1.plan.md`](./admin_shell_adapters_226b13a1.plan.md) — admin discovery of schedules later
+- `[community_engager_authority_metrics.plan.md](./community_engager_authority_metrics.plan.md)` — authority program; owns enroll + domain logic for post-watch; **relocates** pipeline placement here
+- `[relay_hitl_community_voltmem.plan.md](./relay_hitl_community_voltmem.plan.md)` — core HITL + fanout runtime
+- `[admin_shell_adapters_226b13a1.plan.md](./admin_shell_adapters_226b13a1.plan.md)` — admin discovery of schedules later
 
-**Packages / app:** `@relay/protocol`, `@relay/runtime`, host (CLI / future scheduler), [`apps/community-engager`](../../apps/community-engager)
+**Packages / app:** `@relay/protocol`, `@relay/runtime`, host (CLI / future scheduler), `[apps/community-engager](../../apps/community-engager)`
 
 ---
 
@@ -79,6 +79,8 @@ flowchart LR
   Human[intent / CLI] --> engage
 ```
 
+
+
 ---
 
 ## Target shape (protocol sketch)
@@ -111,10 +113,12 @@ interface AgenticAppManifest {
 
 **CommunityEngager mapping:**
 
-| Entrypoint | Stages | Start |
-|------------|--------|--------|
-| `engage` (default `stages`) | ensure_session → discover → scout → jobs | intent / CLI |
-| `post_watch` | post_watch → jobs (from follow-up opportunities) | schedule / CLI |
+
+| Entrypoint                  | Stages                                           | Start          |
+| --------------------------- | ------------------------------------------------ | -------------- |
+| `engage` (default `stages`) | ensure_session → discover → scout → jobs         | intent / CLI   |
+| `post_watch`                | post_watch → jobs (from follow-up opportunities) | schedule / CLI |
+
 
 Enroll remains inside job `execute` on the engage path. Policy knobs stay in `config/default.json` → `postWatch.*`.
 
@@ -171,7 +175,7 @@ List entrypoints + schedules; show last/next when evidence exists. Depends on A1
 
 ### Slice A5 — cadence handoff
 
-[`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md) `p2-cadence-scheduler` should **consume** this mechanism (scheduled engage with tighter caps, or a `cadence` entrypoint) — not invent a parallel cron in the app.
+`[community_engager_authority_metrics.plan.md](./community_engager_authority_metrics.plan.md)` `p2-cadence-scheduler` should **consume** this mechanism (scheduled engage with tighter caps, or a `cadence` entrypoint) — not invent a parallel cron in the app.
 
 ---
 
@@ -179,11 +183,13 @@ List entrypoints + schedules; show last/next when evidence exists. Depends on A1
 
 **Recommendation: finish authority-metrics domain work first; start this plan when touching scheduling again (or immediately after soft-CTA if post_watch-in-pipeline bites).**
 
-| Now (authority-metrics) | Later (this plan) |
-|-------------------------|-------------------|
+
+| Now (authority-metrics)                                                                  | Later (this plan)                                         |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | Richer scout score, soft-CTA, playbooks, visibility, UTM, admin north-star, VoltMem tags | Relocate post_watch; entrypoints; schedules; cadence host |
-| Keep enroll + `post-watch.ts` domain logic | Change *how* poll/follow-up is started |
-| Leave temporary `post_watch` stage in engage parent | A0 removes it |
+| Keep enroll + `post-watch.ts` domain logic                                               | Change *how* poll/follow-up is started                    |
+| Leave temporary `post_watch` stage in engage parent                                      | A0 removes it                                             |
+
 
 **Why not pause authority-metrics for protocol work?**
 
@@ -201,13 +207,15 @@ List entrypoints + schedules; show last/next when evidence exists. Depends on A1
 
 ## Success criteria
 
-| Criterion | Signal |
-|-----------|--------|
-| Separation | Engage parent stages do not include post_watch |
-| Budget | Follow-up jobs use a dedicated budget / run |
-| Declarative | Manifest (or app docs) names `post_watch` entrypoint + optional schedule |
-| Compatible | Existing `CommunityEngager` default run behavior unchanged except removed stage |
-| Reuse | Cadence and future drains use the same entrypoint/schedule mechanism |
+
+| Criterion   | Signal                                                                          |
+| ----------- | ------------------------------------------------------------------------------- |
+| Separation  | Engage parent stages do not include post_watch                                  |
+| Budget      | Follow-up jobs use a dedicated budget / run                                     |
+| Declarative | Manifest (or app docs) names `post_watch` entrypoint + optional schedule        |
+| Compatible  | Existing `CommunityEngager` default run behavior unchanged except removed stage |
+| Reuse       | Cadence and future drains use the same entrypoint/schedule mechanism            |
+
 
 ---
 
@@ -218,3 +226,4 @@ List entrypoints + schedules; show last/next when evidence exists. Depends on A1
 - BullMQ / Agenda / Temporal as the schedule clock
 - Auto-post without HITL on follow-ups
 - Replacing intent triggers — schedules are additive
+

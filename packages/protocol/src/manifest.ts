@@ -37,15 +37,43 @@ export interface AgenticAppManifest {
   /**
    * Named alternate pipelines the host can start independently
    * (e.g. `post_watch` backlog drain). Host / AgentRuntime selects by name;
-   * schedules (A2) reference these keys — runtime does not interpret cron.
+   * {@link schedules} reference these keys — runtime does not interpret cron.
    */
   entrypoints?: Record<string, EntrypointDefinition>;
+
+  /**
+   * Declarative schedules for hosts (discovery / admin / future scheduler).
+   * AgentRuntime does **not** sleep or fire these — the host owns the clock.
+   */
+  schedules?: ScheduleDefinition[];
 
   /**
    * Names of nested manifests this app composes (documentation / discovery).
    * Runtime nesting is declared per-stage via `StageDefinition.fanout`.
    */
   composes_with?: string[];
+}
+
+/**
+ * Host-facing schedule metadata. Provide `cron` and/or `every_ms`
+ * (at least one required for a valid declaration).
+ */
+export interface ScheduleDefinition {
+  /** Stable id for locks / evidence (e.g. `post_watch`). */
+  id: string;
+  /**
+   * Entrypoint to invoke: a key in `entrypoints`, or {@link DEFAULT_ENTRYPOINT}
+   * for root `stages`.
+   */
+  entrypoint: string;
+  /** Cron expression (interpreted by the scheduler host, not AgentRuntime). */
+  cron?: string;
+  /** Fixed interval in milliseconds (alternative or companion to `cron`). */
+  every_ms?: number;
+  /** When false, hosts should skip. Default true when omitted. */
+  enabled?: boolean;
+  /** Optional human description for admin / docs. */
+  description?: string;
 }
 
 /** Conventional name for the root `stages` pipeline when listing entrypoints. */
@@ -111,6 +139,69 @@ export function projectEntrypoint(
     stages: resolved.stages,
     triggers: resolved.triggers,
   };
+}
+
+/** All schedules on the manifest (may be empty). */
+export function listSchedules(
+  manifest: AgenticAppManifest
+): ScheduleDefinition[] {
+  return manifest.schedules ?? [];
+}
+
+/** Schedules with `enabled !== false` (omitted enabled = on). */
+export function listEnabledSchedules(
+  manifest: AgenticAppManifest
+): ScheduleDefinition[] {
+  return listSchedules(manifest).filter((s) => s.enabled !== false);
+}
+
+/**
+ * Validate schedule declarations for discovery / host startup.
+ * Does not parse cron — only structural checks against entrypoints.
+ * Throws on the first invalid row.
+ */
+export function assertSchedulesValid(manifest: AgenticAppManifest): void {
+  const schedules = listSchedules(manifest);
+  if (schedules.length === 0) return;
+
+  const known = new Set(listEntrypointNames(manifest));
+  const ids = new Set<string>();
+
+  for (const s of schedules) {
+    if (!s.id || typeof s.id !== "string") {
+      throw new Error(
+        `Manifest "${manifest.name}" has a schedule with a missing id`
+      );
+    }
+    if (ids.has(s.id)) {
+      throw new Error(
+        `Manifest "${manifest.name}" has duplicate schedule id "${s.id}"`
+      );
+    }
+    ids.add(s.id);
+
+    if (!s.entrypoint) {
+      throw new Error(
+        `Schedule "${s.id}" on "${manifest.name}" is missing entrypoint`
+      );
+    }
+    if (!known.has(s.entrypoint)) {
+      throw new Error(
+        `Schedule "${s.id}" references unknown entrypoint "${s.entrypoint}" on "${manifest.name}" (known: ${[...known].join(", ")})`
+      );
+    }
+
+    const hasCron = typeof s.cron === "string" && s.cron.trim().length > 0;
+    const hasEvery =
+      typeof s.every_ms === "number" &&
+      Number.isFinite(s.every_ms) &&
+      s.every_ms > 0;
+    if (!hasCron && !hasEvery) {
+      throw new Error(
+        `Schedule "${s.id}" on "${manifest.name}" needs cron and/or every_ms > 0`
+      );
+    }
+  }
 }
 
 export interface IntentTrigger {
