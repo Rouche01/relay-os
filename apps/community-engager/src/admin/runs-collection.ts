@@ -19,7 +19,14 @@ type RunJob = {
   threadTitle?: string;
   error?: string;
   postedUrl?: string;
-  execute?: { ok?: boolean; postedUrl?: string; error?: string };
+  draft?: { intensity?: number };
+  execute?: {
+    ok?: boolean;
+    postedUrl?: string;
+    error?: string;
+    visibilityOk?: boolean;
+    visibilityStatus?: string;
+  };
 };
 
 type RunRecord = {
@@ -228,6 +235,33 @@ function buildRunDebugViz(data: RunRecord): RunDebugViz {
   };
 }
 
+function jobOutcomeMetrics(jobs: RunJob[] | undefined): {
+  promoJobs: number;
+  helpJobs: number;
+  visibilityChecked: number;
+  visibilityOk: number;
+} {
+  let promoJobs = 0;
+  let helpJobs = 0;
+  let visibilityChecked = 0;
+  let visibilityOk = 0;
+  if (!Array.isArray(jobs)) {
+    return { promoJobs, helpJobs, visibilityChecked, visibilityOk };
+  }
+  for (const j of jobs) {
+    const intensity = j.draft?.intensity;
+    if (typeof intensity === "number") {
+      if (intensity > 0) promoJobs += 1;
+      else helpJobs += 1;
+    }
+    if (j.execute?.visibilityStatus && j.execute.visibilityStatus !== "skipped") {
+      visibilityChecked += 1;
+      if (j.execute.visibilityOk) visibilityOk += 1;
+    }
+  }
+  return { promoJobs, helpJobs, visibilityChecked, visibilityOk };
+}
+
 function toSeriesPoint(fileId: string, data: RunRecord): SeriesPoint {
   const jobs = data.summary?.jobs;
   const approved = data.summary?.approved ?? 0;
@@ -236,6 +270,8 @@ function toSeriesPoint(fileId: string, data: RunRecord): SeriesPoint {
   const jobCount = Array.isArray(jobs) ? jobs.length : 0;
   const posted = countPosted(jobs);
   const scouted = data.summary?.scouted ?? 0;
+  const metrics = jobOutcomeMetrics(jobs);
+  const intensityKnown = metrics.promoJobs + metrics.helpJobs;
   const point = {
     t: data.endedAt!,
     runId: fileId,
@@ -248,6 +284,16 @@ function toSeriesPoint(fileId: string, data: RunRecord): SeriesPoint {
     aborted,
     failed,
     posted,
+    promoJobs: metrics.promoJobs,
+    helpJobs: metrics.helpJobs,
+    promoRatio:
+      intensityKnown > 0 ? metrics.promoJobs / intensityKnown : 0,
+    visibilityChecked: metrics.visibilityChecked,
+    visibilityOk: metrics.visibilityOk,
+    visibilityRate:
+      metrics.visibilityChecked > 0
+        ? metrics.visibilityOk / metrics.visibilityChecked
+        : 1,
     blockedCount: data.summary?.scout?.blockedCount ?? 0,
     timedOutCount: data.summary?.scout?.timedOutCount ?? 0,
     discoverHitlWaitMs: data.summary?.discover?.hitlWaitMs ?? 0,
@@ -409,7 +455,30 @@ export function createRunsCollection(source: SourceConfig): CollectionAdapter {
         posted: points.reduce((s, p) => s + (Number(p.posted) || 0), 0),
       };
 
-      return { points, funnel };
+      const promoJobs = points.reduce(
+        (s, p) => s + (Number(p.promoJobs) || 0),
+        0
+      );
+      const helpJobs = points.reduce((s, p) => s + (Number(p.helpJobs) || 0), 0);
+      const visOk = points.reduce(
+        (s, p) => s + (Number(p.visibilityOk) || 0),
+        0
+      );
+      const visChecked = points.reduce(
+        (s, p) => s + (Number(p.visibilityChecked) || 0),
+        0
+      );
+      const intensityKnown = promoJobs + helpJobs;
+      const authority = {
+        score: 0,
+        promoRatio: intensityKnown > 0 ? promoJobs / intensityKnown : 0,
+        replyRate: 0,
+        visibilityRate: visChecked > 0 ? visOk / visChecked : 1,
+        attributedActivations: 0,
+        attributionJobs: funnel.posted,
+      };
+
+      return { points, funnel, authority };
     },
   };
 }

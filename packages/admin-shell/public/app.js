@@ -26,12 +26,14 @@ let selectedId = null;
 let rows = [];
 /** @type {{ key: string; label: string }[]} */
 let columns = [];
-/** @type {'debug'|'scatter'|'funnel'} */
+/** @type {'debug'|'scatter'|'funnel'|'authority'} */
 let chartMode = "debug";
 /** @type {any[]} */
 let lastSeriesPoints = [];
 /** @type {any} */
 let lastFunnel = null;
+/** @type {any} */
+let lastAuthority = null;
 /** Aggregate Compare panel (series collections only); off by default. */
 let compareOpen = false;
 
@@ -225,6 +227,8 @@ async function loadCharts(params) {
     );
     lastSeriesPoints = data.points ?? [];
     lastFunnel = data.funnel ?? null;
+    lastAuthority = data.authority ?? null;
+    if (chartMode === "authority" && !lastAuthority) chartMode = "funnel";
     renderChartsPanel();
   } catch (err) {
     chartsPane.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
@@ -234,7 +238,7 @@ async function loadCharts(params) {
 function renderChartsPanel() {
   const points = lastSeriesPoints;
   const hideBtn = `<button type="button" id="compareHide" class="secondary">Hide compare</button>`;
-  if (points.length === 0) {
+  if (points.length === 0 && !lastAuthority) {
     chartsPane.innerHTML = `<div class="charts-toolbar">${hideBtn}</div><p class="chart-empty">No run points in this window.</p>`;
     document.getElementById("compareHide")?.addEventListener("click", () => {
       compareOpen = false;
@@ -248,6 +252,9 @@ function renderChartsPanel() {
     { id: "scatter", label: "Duration × outcome" },
     { id: "funnel", label: "Scout funnel" },
   ];
+  if (lastAuthority) {
+    modes.push({ id: "authority", label: "Authority" });
+  }
   const toolbar = `<div class="charts-toolbar">${hideBtn}${modes
     .map(
       (m) =>
@@ -256,7 +263,9 @@ function renderChartsPanel() {
     .join("")}</div>`;
 
   let body = "";
-  if (chartMode === "debug") {
+  if (chartMode === "authority" && lastAuthority) {
+    body = `<h3>Authority north-star</h3>${renderAuthorityCard(lastAuthority)}`;
+  } else if (chartMode === "debug") {
     body =
       `<h3>Run timeline</h3>${renderGantt(points)}` +
       legendHtml([
@@ -573,6 +582,41 @@ function renderRunDebug(viz) {
   `;
 }
 
+function renderAuthorityCard(a) {
+  if (!a || typeof a !== "object") return `<p class="muted">No authority data.</p>`;
+  const ladder = a.ladder ?? a;
+  const constraints = a.constraints ?? {};
+  const counts = a.counts ?? {};
+  const pct = (n) =>
+    `${(Number(n || 0) * 100).toFixed(Number(n) >= 0.1 || Number(n) === 0 ? 0 : 1)}%`;
+  const flags = [
+    constraints.promoOk === false ? "promo high" : null,
+    constraints.visibilityHealthy === false ? "vis low" : null,
+    constraints.replyHealthy === false ? "reply low" : null,
+  ].filter(Boolean);
+  const score =
+    a.score != null ? Number(a.score).toFixed(3) : "—";
+  return `
+    <div class="authority-card">
+      <p class="authority-score"><strong>${escapeHtml(score)}</strong>
+        <span class="muted">glance score</span></p>
+      <table class="run-table">
+        <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Promo ratio</td><td>${escapeHtml(pct(ladder.promoRatio ?? a.promoRatio))}</td></tr>
+          <tr><td>Visibility rate</td><td>${escapeHtml(pct(ladder.visibilityRate ?? a.visibilityRate))}</td></tr>
+          <tr><td>Reply rate</td><td>${escapeHtml(pct(ladder.replyRate ?? a.replyRate))}</td></tr>
+          <tr><td>Attributed activations</td><td>${escapeHtml(String(ladder.attributedActivations ?? a.attributedActivations ?? 0))}</td></tr>
+          <tr><td>Attribution jobs</td><td>${escapeHtml(String(counts.attributionJobs ?? a.attributionJobs ?? "—"))}</td></tr>
+          <tr><td>Help / promo</td><td>${escapeHtml(String(counts.help ?? "—"))} / ${escapeHtml(String(counts.promo ?? "—"))}</td></tr>
+        </tbody>
+      </table>
+      ${flags.length ? `<p class="error">${escapeHtml(flags.join(" · "))}</p>` : `<p class="muted">Constraints ok</p>`}
+      <p class="muted" style="margin-top:0.5rem">Paste GoStylens Reddit-attributed signup counts into <code>attribution/activations.json</code> to lift the north-star product.</p>
+    </div>
+  `;
+}
+
 function renderDetail(id, data) {
   const caps = currentCollection()?.capabilities ?? {};
   const record = data.record;
@@ -582,7 +626,11 @@ function renderDetail(id, data) {
   const editable = detail.editable ?? [];
   const actions = caps.actions ?? [];
   const debugHtml =
-    detail.kind === "run-debug" && detail.viz ? renderRunDebug(detail.viz) : "";
+    detail.kind === "run-debug" && detail.viz
+      ? renderRunDebug(detail.viz)
+      : detail.kind === "authority-scorecard" && detail.viz
+        ? renderAuthorityCard(detail.viz)
+        : "";
 
   const editFields =
     caps.patch && editable.length > 0

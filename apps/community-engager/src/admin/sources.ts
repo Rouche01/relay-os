@@ -50,6 +50,14 @@ export function runsSource(env: NodeJS.ProcessEnv = process.env): SourceConfig {
   };
 }
 
+/** Data root for authority metrics (promo / visibility / post-watch / attribution). */
+export function authoritySource(env: NodeJS.ProcessEnv = process.env): SourceConfig {
+  return {
+    driver: "file",
+    path: resolveDataRoot(env),
+  };
+}
+
 export function assertFileSource(source: SourceConfig, label: string): asserts source is {
   driver: "file";
   path: string;

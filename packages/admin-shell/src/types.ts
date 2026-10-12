@@ -41,6 +41,7 @@ export type DetailKind =
   | "action-draft"
   | "allowlist-entry"
   | "run-debug"
+  | "authority-scorecard"
   | string;
 
 /** Per-item investigation payload (e.g. run-debug charts). */
@@ -114,6 +115,20 @@ export interface SeriesPayload {
     aborted: number;
     failed: number;
     posted: number;
+  };
+  /** Optional authority north-star snapshot (CommunityEngager). */
+  authority?: {
+    score: number;
+    promoRatio: number;
+    replyRate: number;
+    visibilityRate: number;
+    attributedActivations: number;
+    attributionJobs?: number;
+    constraints?: {
+      promoOk: boolean;
+      visibilityHealthy: boolean;
+      replyHealthy: boolean;
+    };
   };
 }
 

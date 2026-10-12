@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * CommunityEngager operator console — registers Actions + Allowlist + Jobs + Runs
+ * CommunityEngager operator console — Actions + Allowlist + Jobs + Runs + Authority
  * on @relay/admin-shell with independent SourceConfig paths.
  */
 import path from "node:path";
@@ -11,12 +11,14 @@ import {
   createActionStoreFromEnv,
 } from "@relay/action-store";
 import { createAllowlistCollection } from "./admin/allowlist-collection.js";
+import { createAuthorityCollection } from "./admin/authority-collection.js";
 import { createJobsCollection } from "./admin/jobs-collection.js";
 import { createRunsCollection } from "./admin/runs-collection.js";
 import {
   actionsSource,
   allowlistSource,
   assertFileSource,
+  authoritySource,
   jobsSource,
   runsSource,
 } from "./admin/sources.js";
@@ -40,10 +42,12 @@ async function main(): Promise<void> {
   const allowlist = allowlistSource();
   const jobs = jobsSource();
   const runs = runsSource();
+  const authority = authoritySource();
   assertFileSource(actions, "actions");
   assertFileSource(allowlist, "allowlist");
   assertFileSource(jobs, "jobs");
   assertFileSource(runs, "runs");
+  assertFileSource(authority, "authority");
 
   const store = createActionStoreFromEnv();
   const port = Number(
@@ -59,6 +63,7 @@ async function main(): Promise<void> {
       createAllowlistCollection(allowlist),
       createJobsCollection(jobs),
       createRunsCollection(runs),
+      createAuthorityCollection(authority),
     ],
   });
 }

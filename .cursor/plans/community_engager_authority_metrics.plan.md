@@ -37,7 +37,7 @@ todos:
     status: completed
   - id: p3-admin-north-star
     content: Admin authority score card + series — promoRatio, replyRate, visibilityRate, Reddit-attributed activations
-    status: pending
+    status: completed
   - id: p3-voltmem-outcome-tags
     content: VoltMem outcome tags — got_reply, removed, dm_interest, signup_attributed so drafter learns what worked
     status: pending
@@ -218,9 +218,9 @@ Admin today surfaces the **ops funnel** (are we running). This plan adds **outco
 
 ### 1. Extend run/job evidence (smallest step)
 
-Persist per job: `intensity`, `permalink`, `visibilityOk`, `replyCount`, optional `scoreDelta`. Aggregate in `runs-collection` series: `promoRatio`, `replyRate`, `visibilityRate` beside existing funnel charts.
+Persist per job: `intensity`, `permalink`, `visibilityOk`, `replyCount`, optional `scoreDelta`. Aggregate in `runs-collection` series: `promoRatio`, `visibilityRate` beside existing funnel charts; full north-star via Authority collection (`authority-metrics.ts`).
 
-**Touch:** `run-evidence.ts`, `job-queue.ts`, `admin/runs-collection.ts`
+**Touch:** ~~`admin/runs-collection.ts`~~, ~~`admin/authority-collection.ts`~~ **done**
 
 ### 2. Allowlist dashboard strip
 
@@ -285,7 +285,7 @@ For the first 30–90 days:
 
 ### Slice D — north-star surface (P3)
 
-1. Authority score card + series in admin-shell
+1. ~~Authority score card + series in admin-shell~~ **done** — `authority-metrics.ts` + Authority collection; runs series exposes promo/visibility; paste activations via `attribution/activations.json`
 2. VoltMem outcome tags feeding draft memory
 3. ~~Sub playbooks~~ **done**
 4. ~~Cadence daily budgets~~ **done** — `cadence` config gates (`maxHelpPerDay` / `maxPromoPerDay`) from promo ledger; trim after post_watch; execute refuses when exhausted; cron entrypoints remain in schedules plan

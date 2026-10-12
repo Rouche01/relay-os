@@ -201,7 +201,8 @@ Loopback admin (`@relay/admin-shell`) with app-owned adapters:
 | Actions | `ACTION_STORE_PATH` | edit draftText, status, delete |
 | Allowlist | `ALLOWLIST_PATH` (default `{REDDIT_DATA_DIR}/allowlist/subreddits.json`) | edit, promote, reject |
 | Jobs | `JOBS_DIR` | inspect, delete |
-| Runs | `COMMUNITY_RUNS_DIR` (may be outside `.data/`) | inspect, delete, debug charts (timeline, duration×outcome, scout funnel) |
+| Runs | `COMMUNITY_RUNS_DIR` (may be outside `.data/`) | inspect, delete, debug charts (timeline, duration×outcome, scout funnel, authority slice) |
+| Authority | `{REDDIT_DATA_DIR}` | north-star score card — promoRatio, visibilityRate, replyRate, attributed activations |
 
 ```bash
 pnpm --filter @relay/admin-shell build
@@ -219,5 +220,7 @@ Action CLI:
 pnpm --filter @relay/apps-community-engager run actions list --status pending_approval
 pnpm --filter @relay/apps-community-engager run actions get <id>
 ```
+
+Authority score (`visibility × replyRate × (1 − promoRatio)`, × activations when imported) is computed from `{REDDIT_DATA_DIR}` ledgers. Paste product counts into `{REDDIT_DATA_DIR}/attribution/activations.json` as `{ "count": N, "updatedAt": "…" }` when GoStylens reports Reddit-attributed signups.
 
 Do not hand-edit JSON while the agent is writing.
