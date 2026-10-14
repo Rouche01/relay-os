@@ -1,0 +1,30 @@
+[Unit]
+Description=Relay CommunityEngager ops daemon (schedules + Telegram idle ops)
+Documentation=file:///opt/relay-community/app/deploy/STEP_BY_STEP.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=CHANGE_ME
+Group=CHANGE_ME
+WorkingDirectory=/opt/relay-community/app/apps/community-engager
+EnvironmentFile=/opt/relay-community/env/community.env
+# systemd does not inherit nvm — use `which node` absolute path:
+ExecStart=/usr/bin/node /opt/relay-community/app/apps/community-engager/dist/host/run-scheduler.js
+Restart=on-failure
+RestartSec=10
+Nice=10
+# Playwright / Chromium may need a writable cache under the service user home
+Environment=HOME=/home/CHANGE_ME
+Environment=XDG_CACHE_HOME=/opt/relay-community/data/.cache
+
+# Hardening (keep cookies + data writable)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/relay-community/data /opt/relay-community/logs /opt/relay-community/env
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

@@ -7,6 +7,7 @@ Sibling plans:
 - Host history / VoltMem layout: [`.cursor/plans/relay_thinkpad_deploy.plan.md`](../.cursor/plans/relay_thinkpad_deploy.plan.md)
 - Browser transport + cookies: [`.cursor/plans/relay_reddit_browser.plan.md`](../.cursor/plans/relay_reddit_browser.plan.md)
 - Decide co-processor (Jev / heuristic): [`.cursor/plans/jev_decide_integration_dd22a99c.plan.md`](../.cursor/plans/jev_decide_integration_dd22a99c.plan.md)
+- **Step-by-step (first deploy / admin tunnel):** [`STEP_BY_STEP.md`](./STEP_BY_STEP.md)
 - Deploy checklist (ThinkPad): [`CHECKLIST.md`](./CHECKLIST.md)
 - Smoke verification: [`SMOKE.md`](./SMOKE.md)
 
@@ -124,16 +125,25 @@ DECIDE_BACKEND=heuristic
 
 ### Operator admin GUI (loopback)
 
-Browse/edit actions + allowlist, inspect jobs/runs (with run charts):
+Browse/edit actions + allowlist, inspect jobs/runs (with run charts). Binds **`127.0.0.1` only** — from a laptop, use an SSH tunnel (full steps in [`STEP_BY_STEP.md`](./STEP_BY_STEP.md) §6):
 
 ```bash
+# On ThinkPad
 cd /opt/relay-community/app
 set -a && source /opt/relay-community/env/community.env && set +a
 pnpm --filter @relay/apps-community-engager admin:store
-# → http://127.0.0.1:8787  (SSH tunnel if remote)
+# → http://127.0.0.1:8787
+
+# On laptop
+ssh -N -L 8787:127.0.0.1:8787 thinkpad
+# browser → http://127.0.0.1:8787
 ```
 
 Each collection uses its own path env above — runs can stay under `logs/runs` while actions live under `data/action-store`.
+
+### Ops daemon (schedules + Telegram `/` commands)
+
+Long-lived alternative to the morning one-shot timer — see [`STEP_BY_STEP.md`](./STEP_BY_STEP.md) §5 and [`relay-community-scheduler.service.example`](./relay-community-scheduler.service.example).
 
 ### 5. Manual smoke (before systemd)
 
