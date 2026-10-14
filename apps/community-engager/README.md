@@ -170,6 +170,8 @@ pnpm ops -- status
 pnpm ops -- "stop cadence"
 ```
 
+Long-running intents (`engage`, `run … now`, `start schedules`) send an immediate **processing** ack on Telegram/CLI before the final reply or HITL card.
+
 Pause state is process-local on the daemon; evidence under `{REDDIT_DATA_DIR}/schedules/*.evidence.json` records last pause for admin. Canonical list: [`src/ops/command.ts`](./src/ops/command.ts) (`OPS_HELP`).
 
 ### Rules that matter

@@ -12,7 +12,7 @@ import {
   CommunityEngagerManifest,
   type CommunityEntrypoint,
 } from "../manifest.js";
-import { OpsController } from "../ops/index.js";
+import { handleOpsWithAck, OpsController } from "../ops/index.js";
 import { getCommunityConfig } from "../reddit/config.js";
 import {
   maxJobsForSchedule,
@@ -120,11 +120,21 @@ async function main(): Promise<void> {
     createApp: (entrypoint) => createApp(entrypoint),
   });
 
+  const runOpsLine = async (text: string): Promise<string> => {
+    console.log(`[ops] ${text}`);
+    return handleOpsWithAck(
+      ops,
+      text,
+      CommunityEngagerManifest,
+      async (msg) => {
+        console.log(`[ops] ${msg}`);
+        if (telegram) await telegram.notify(msg);
+      }
+    );
+  };
+
   if (telegram) {
-    telegram.setOnIdleMessage(async (text) => {
-      console.log(`[ops-telegram] ${text}`);
-      return ops.handleText(text);
-    });
+    telegram.setOnIdleMessage(async (text) => runOpsLine(text));
     telegram.start();
     console.log("Feedback adapter: telegram (idle → ops)\n");
   } else {
@@ -192,7 +202,7 @@ async function main(): Promise<void> {
             return;
           }
           try {
-            const reply = await ops.handleText(text);
+            const reply = await runOpsLine(text);
             console.log(`${reply}\n`);
           } catch (err) {
             console.error("[ops]", err);

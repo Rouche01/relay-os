@@ -10,7 +10,7 @@ import {
   CommunityEngagerManifest,
   type CommunityEntrypoint,
 } from "../manifest.js";
-import { OpsController } from "../ops/index.js";
+import { handleOpsWithAck, OpsController } from "../ops/index.js";
 import { getCommunityConfig } from "../reddit/config.js";
 import { resolveEnabledCommunitySchedules } from "../schedule-resolve.js";
 
@@ -90,7 +90,15 @@ async function main(): Promise<void> {
       await host.start();
     }
 
-    const reply = await ops.handleText(raw);
+    const reply = await handleOpsWithAck(
+      ops,
+      raw,
+      CommunityEngagerManifest,
+      async (msg) => {
+        console.log(msg);
+        if (telegram) await telegram.notify(msg);
+      }
+    );
     console.log(reply);
 
     // Leave the process after the command (daemon wiring is P1).

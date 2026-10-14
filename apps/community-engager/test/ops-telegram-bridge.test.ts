@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import { TelegramFeedbackAdapter } from "@relay/adapters-telegram";
 import { SchedulerHost } from "@relay/scheduler";
 import { CommunityEngagerManifest } from "../src/manifest.js";
+import { handleOpsWithAck } from "../src/ops/ack.js";
 import { OpsController } from "../src/ops/controller.js";
 import type { RunSummary } from "../src/metrics/job-queue.js";
 
@@ -74,12 +75,18 @@ describe("Telegram idle → OpsController bridge", () => {
       },
     });
 
-    adapter.setOnIdleMessage(async (text) => ops.handleText(text));
+    adapter.setOnIdleMessage(async (text) =>
+      handleOpsWithAck(ops, text, CommunityEngagerManifest, async (msg) => {
+        sent.push(`ack:${msg}`);
+      })
+    );
 
     const waitSent = async (n: number) => {
       const deadline = Date.now() + 2000;
       while (sent.length < n) {
-        if (Date.now() > deadline) throw new Error(`expected ${n} sent`);
+        if (Date.now() > deadline) {
+          throw new Error(`expected ${n} sent, got ${sent.length}: ${sent.join(" | ")}`);
+        }
         await new Promise((r) => setTimeout(r, 10));
       }
     };
@@ -94,10 +101,15 @@ describe("Telegram idle → OpsController bridge", () => {
     assert.match(sent.at(-1)!, /paused/i);
     assert.equal(host.isPaused("cadence"), true);
 
-    await adapter.ingestAllowlistedText("dance monkey");
+    await adapter.ingestAllowlistedText("engage");
     await waitSent(3);
+    assert.match(sent[2]!, /^ack:.*Starting one-off engage/);
+
+    await adapter.ingestAllowlistedText("dance monkey");
+    await waitSent(5);
     assert.match(sent.at(-1)!, /Unknown ops intent|Ops intents/i);
 
     host.stop();
   });
 });
+

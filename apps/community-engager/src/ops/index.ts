@@ -4,6 +4,7 @@ export {
   normalizeOpsText,
   parseOpsIntent,
 } from "./parse.js";
+export { handleOpsWithAck, opsProcessingAck } from "./ack.js";
 export {
   OpsController,
   type OpsAppHandle,
