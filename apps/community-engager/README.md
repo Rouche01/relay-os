@@ -172,6 +172,8 @@ pnpm ops -- "stop cadence"
 
 Long-running intents (`engage`, `run … now`, `start schedules`) send an immediate **processing** ack on Telegram/CLI before the final reply or HITL card.
 
+**One active app run:** one-offs and schedule ticks share a mutex (same Telegram adapter). While a run is in progress, `engage` / `run … now` / `start|stop schedules` are rejected with a busy reply; `status` and per-schedule pause/resume still work. Cron ticks that collide are skipped and logged (not queued).
+
 Pause state is process-local on the daemon; evidence under `{REDDIT_DATA_DIR}/schedules/*.evidence.json` records last pause for admin. Canonical list: [`src/ops/command.ts`](./src/ops/command.ts) (`OPS_HELP`).
 
 ### Rules that matter

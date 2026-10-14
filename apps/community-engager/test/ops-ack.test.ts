@@ -90,7 +90,19 @@ describe("handleOpsWithAck", () => {
     assert.match(busy, /Busy/i);
     assert.equal(acks.length, 1, "no second ack while busy");
 
+    const triggerBusy = await handleOpsWithAck(
+      ops,
+      "run cadence now",
+      CommunityEngagerManifest,
+      async (msg) => {
+        acks.push(msg);
+      }
+    );
+    assert.match(triggerBusy, /Busy/i);
+    assert.equal(acks.length, 1, "no Starting ack for busy-reject trigger");
+
     release();
     await first;
   });
 });
+

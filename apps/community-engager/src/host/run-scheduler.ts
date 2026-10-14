@@ -7,7 +7,6 @@ import {
 } from "@relay/adapters-telegram";
 import { SchedulerHost } from "@relay/scheduler";
 import { CommunityEngagerApp } from "../index.js";
-import { formatRunSummary } from "../metrics/job-queue.js";
 import {
   CommunityEngagerManifest,
   type CommunityEntrypoint,
@@ -52,6 +51,7 @@ function toCommunityEntrypoint(name: string): CommunityEntrypoint {
  * Long-lived ops daemon: SchedulerHost + OpsController.
  * - CLI: type ops intents on stdin (paused while an app run owns HITL).
  * - Telegram: idle allowlisted messages → OpsController (HITL pending wins).
+ * - One run mutex shared by one-offs and schedule ticks.
  * Escape hatch: `--once` / `--schedule` still work via the same controller.
  */
 async function main(): Promise<void> {
@@ -86,17 +86,23 @@ async function main(): Promise<void> {
     }
   };
 
-  const createApp = (entrypoint: CommunityEntrypoint, maxJobs?: number) => ({
+  const createApp = (
+    entrypoint: CommunityEntrypoint,
+    options?: { maxJobs?: number }
+  ) => ({
     run: () =>
       withStdinReleased(async () => {
         const app = new CommunityEngagerApp({
           adapter,
           entrypoint,
-          ...(maxJobs != null ? { maxJobs } : {}),
+          ...(options?.maxJobs != null ? { maxJobs: options.maxJobs } : {}),
         });
         return app.run();
       }),
   });
+
+  // Host is created after ops so invoke can close over the controller.
+  let ops!: OpsController;
 
   const host = new SchedulerHost({
     dataDir,
@@ -109,15 +115,23 @@ async function main(): Promise<void> {
         `[scheduler-invoke] schedule=${ctx.schedule.id} entrypoint=${appEntrypoint}` +
           (maxJobs != null ? ` maxJobs=${maxJobs}` : "")
       );
-      const summary = await createApp(appEntrypoint, maxJobs).run();
-      console.log(`\n=== Run summary ===\n${formatRunSummary(summary)}`);
+      const result = await ops.runScheduled({
+        scheduleId: ctx.schedule.id,
+        entrypoint: appEntrypoint,
+        ...(maxJobs != null ? { maxJobs } : {}),
+      });
+      if (result.skipped) {
+        console.warn(`[scheduler-invoke] ${result.message}`);
+        return;
+      }
+      console.log(`\n=== Run summary ===\n${result.message}`);
     },
   });
 
-  const ops = new OpsController({
+  ops = new OpsController({
     host,
     manifest: CommunityEngagerManifest,
-    createApp: (entrypoint) => createApp(entrypoint),
+    createApp,
   });
 
   const runOpsLine = async (text: string): Promise<string> => {

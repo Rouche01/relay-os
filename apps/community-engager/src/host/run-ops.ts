@@ -59,6 +59,8 @@ async function main(): Promise<void> {
     telegram.start();
   }
 
+  let ops!: OpsController;
+
   const host = new SchedulerHost({
     dataDir,
     schedules,
@@ -68,19 +70,27 @@ async function main(): Promise<void> {
       console.log(
         `[ops-invoke] schedule=${ctx.schedule.id} entrypoint=${appEntrypoint}`
       );
-      const app = new CommunityEngagerApp({
-        adapter,
+      const result = await ops.runScheduled({
+        scheduleId: ctx.schedule.id,
         entrypoint: appEntrypoint,
       });
-      await app.run();
+      if (result.skipped) {
+        console.warn(`[ops-invoke] ${result.message}`);
+        return;
+      }
+      console.log(result.message);
     },
   });
 
-  const ops = new OpsController({
+  ops = new OpsController({
     host,
     manifest: CommunityEngagerManifest,
-    createApp: (entrypoint) =>
-      new CommunityEngagerApp({ adapter, entrypoint }),
+    createApp: (entrypoint, options) =>
+      new CommunityEngagerApp({
+        adapter,
+        entrypoint,
+        ...(options?.maxJobs != null ? { maxJobs: options.maxJobs } : {}),
+      }),
   });
 
   try {
@@ -101,7 +111,6 @@ async function main(): Promise<void> {
     );
     console.log(reply);
 
-    // Leave the process after the command (daemon wiring is P1).
     if (host.isStarted()) host.stop();
   } finally {
     if (telegram) await telegram.stop();

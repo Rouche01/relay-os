@@ -1,6 +1,9 @@
 import type { AgenticAppManifest } from "@relay/protocol";
 import type { OpsCommand } from "./command.js";
-import type { OpsController } from "./controller.js";
+import {
+  opsCommandConflictsWithRun,
+  type OpsController,
+} from "./controller.js";
 import { parseOpsIntent } from "./parse.js";
 
 /**
@@ -22,7 +25,7 @@ export function opsProcessingAck(cmd: OpsCommand): string | null {
 
 /**
  * Parse → optional processing ack → {@link OpsController.handle}.
- * Skips ack when a one-off is already busy (final reply is the busy message).
+ * Skips ack when the command would busy-reject against an active run.
  */
 export async function handleOpsWithAck(
   ops: OpsController,
@@ -31,7 +34,7 @@ export async function handleOpsWithAck(
   notify: (message: string) => void | Promise<void>
 ): Promise<string> {
   const cmd = parseOpsIntent(text, manifest);
-  if (cmd.kind === "one_off" && ops.isOneOffBusy()) {
+  if (ops.isRunBusy() && opsCommandConflictsWithRun(cmd)) {
     return ops.handle(cmd);
   }
   const ack = opsProcessingAck(cmd);

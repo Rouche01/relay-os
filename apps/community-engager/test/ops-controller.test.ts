@@ -20,6 +20,10 @@ function emptySummary(): RunSummary {
   };
 }
 
+function silentLogger() {
+  return { info() {}, warn() {}, error() {} };
+}
+
 describe("OpsController", () => {
   it("rejects second one-off while busy", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "relay-ops-"));
@@ -27,7 +31,7 @@ describe("OpsController", () => {
       dataDir: dir,
       schedules: [],
       invoke: async () => {},
-      logger: { info() {}, warn() {}, error() {} },
+      logger: silentLogger(),
     });
 
     let release!: () => void;
@@ -49,23 +53,23 @@ describe("OpsController", () => {
     });
 
     const first = ops.handleText("engage");
-    // Let first claim the mutex
     await new Promise((r) => setTimeout(r, 10));
-    assert.equal(ops.isOneOffBusy(), true);
+    assert.equal(ops.isRunBusy(), true);
+    assert.equal(ops.getActiveRun()?.label, "one-off engage");
 
     const busy = await ops.handleText("engage");
     assert.match(busy, /Busy/i);
+    assert.match(busy, /one-off engage/);
 
     release();
     const done = await first;
     assert.match(done, /One-off engage finished/);
     assert.equal(runs, 1);
-    assert.equal(ops.isOneOffBusy(), false);
+    assert.equal(ops.isRunBusy(), false);
   });
 
-  it("pause cadence leaves post_watch armed; trigger while paused fails clearly", async () => {
+  it("runScheduled mutex: engage/trigger busy; status and pause still work", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "relay-ops-"));
-    const calls: string[] = [];
     const host = new SchedulerHost({
       dataDir: dir,
       schedules: [
@@ -82,15 +86,142 @@ describe("OpsController", () => {
           enabled: true,
         },
       ],
-      invoke: async (ep) => {
-        calls.push(ep);
-      },
-      logger: { info() {}, warn() {}, error() {} },
+      invoke: async () => {},
+      logger: silentLogger(),
       runOnStart: false,
     });
     await host.start();
 
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+
     const ops = new OpsController({
+      host,
+      manifest: CommunityEngagerManifest,
+      createApp: () => ({
+        async run() {
+          await gate;
+          return emptySummary();
+        },
+      }),
+      triggerSettleMs: 50,
+    });
+
+    const scheduled = ops.runScheduled({
+      scheduleId: "cadence",
+      entrypoint: "engage",
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(ops.isRunBusy(), true);
+    assert.equal(ops.getActiveRun()?.kind, "schedule");
+
+    const engageBusy = await ops.handleText("engage");
+    assert.match(engageBusy, /Busy/i);
+    assert.match(engageBusy, /schedule cadence/);
+
+    const triggerBusy = await ops.handleText("run post watch now");
+    assert.match(triggerBusy, /Busy/i);
+
+    const startAllBusy = await ops.handleText("start schedules");
+    assert.match(startAllBusy, /Busy/i);
+
+    const status = await ops.handleText("status");
+    assert.match(status, /Active run: schedule cadence/);
+    assert.match(status, /Armed schedules/);
+
+    const paused = await ops.handleText("stop cadence");
+    assert.match(paused, /paused/i);
+    assert.equal(host.isPaused("cadence"), true);
+
+    release();
+    const result = await scheduled;
+    assert.equal(result.skipped, false);
+    assert.equal(result.ran, true);
+    assert.equal(ops.isRunBusy(), false);
+
+    host.stop();
+  });
+
+  it("skips schedule invoke while one-off holds the mutex", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "relay-ops-"));
+    const host = new SchedulerHost({
+      dataDir: dir,
+      schedules: [],
+      invoke: async () => {},
+      logger: silentLogger(),
+    });
+
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    let appRuns = 0;
+
+    const ops = new OpsController({
+      host,
+      manifest: CommunityEngagerManifest,
+      createApp: () => ({
+        async run() {
+          appRuns += 1;
+          await gate;
+          return emptySummary();
+        },
+      }),
+    });
+
+    const oneOff = ops.handleText("engage");
+    await new Promise((r) => setTimeout(r, 10));
+
+    const skipped = await ops.runScheduled({
+      scheduleId: "post_watch",
+      entrypoint: "post_watch",
+    });
+    assert.equal(skipped.skipped, true);
+    assert.match(skipped.message, /skipped schedule post_watch/);
+    assert.equal(appRuns, 1);
+
+    release();
+    await oneOff;
+    assert.equal(ops.isRunBusy(), false);
+  });
+
+  it("pause cadence leaves post_watch armed; trigger while paused fails clearly", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "relay-ops-"));
+    const calls: string[] = [];
+    let ops!: OpsController;
+    const host = new SchedulerHost({
+      dataDir: dir,
+      schedules: [
+        {
+          id: "cadence",
+          entrypoint: "default",
+          every_ms: 60_000,
+          enabled: true,
+        },
+        {
+          id: "post_watch",
+          entrypoint: "post_watch",
+          every_ms: 60_000,
+          enabled: true,
+        },
+      ],
+      invoke: async (ep, ctx) => {
+        const entrypoint =
+          ep === "post_watch" ? "post_watch" : ("engage" as const);
+        calls.push(ep);
+        await ops.runScheduled({
+          scheduleId: ctx.schedule.id,
+          entrypoint,
+        });
+      },
+      logger: silentLogger(),
+      runOnStart: false,
+    });
+    await host.start();
+
+    ops = new OpsController({
       host,
       manifest: CommunityEngagerManifest,
       createApp: () => ({
@@ -104,7 +235,6 @@ describe("OpsController", () => {
     const paused = await ops.handleText("stop cadence");
     assert.match(paused, /paused/i);
 
-    // Pause isolation: cadence paused, post_watch still armed + active
     assert.equal(host.isArmed("cadence"), true);
     assert.equal(host.isPaused("cadence"), true);
     assert.equal(host.isArmed("post_watch"), true);

@@ -7,6 +7,11 @@ export {
 export { handleOpsWithAck, opsProcessingAck } from "./ack.js";
 export {
   OpsController,
+  opsCommandConflictsWithRun,
+  type OpsActiveRun,
   type OpsAppHandle,
   type OpsControllerOptions,
+  type OpsCreateAppOptions,
+  type OpsRunKind,
+  type RunScheduledResult,
 } from "./controller.js";

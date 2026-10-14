@@ -9,26 +9,60 @@ export interface OpsAppHandle {
   run(): Promise<RunSummary>;
 }
 
+export type OpsRunKind = "one_off" | "schedule";
+
+export interface OpsActiveRun {
+  kind: OpsRunKind;
+  /** Human label for busy replies (e.g. `one-off engage`, `schedule cadence`). */
+  label: string;
+}
+
+export interface OpsCreateAppOptions {
+  maxJobs?: number;
+}
+
 export interface OpsControllerOptions {
   host: SchedulerHost;
   /** Factory for one-off / schedule-invoked app runs (shared adapter). */
-  createApp: (entrypoint: CommunityEntrypoint) => OpsAppHandle;
+  createApp: (
+    entrypoint: CommunityEntrypoint,
+    options?: OpsCreateAppOptions
+  ) => OpsAppHandle;
   /** Manifest used when parsing freeform text. */
   manifest: AgenticAppManifest;
   /** Settle delay after schedule trigger (croner + lease IO). Default 250ms. */
   triggerSettleMs?: number;
 }
 
+export interface RunScheduledResult {
+  /** True when the app run completed (ok or error). */
+  ran: boolean;
+  /** True when skipped because another run holds the mutex. */
+  skipped: boolean;
+  summary?: RunSummary;
+  message: string;
+}
+
+/** Ops that must not start / stop the host or fire apps while a run is active. */
+export function opsCommandConflictsWithRun(cmd: OpsCommand): boolean {
+  return (
+    cmd.kind === "one_off" ||
+    cmd.kind === "trigger" ||
+    cmd.kind === "start_all" ||
+    cmd.kind === "stop_all"
+  );
+}
+
 /**
- * App-local ops plane: parse intents and drive SchedulerHost + one-off runs.
- * Rejects overlapping one-offs (v1: no queue).
+ * App-local ops plane: parse intents and drive SchedulerHost + app runs.
+ * One mutex for one-offs and schedule invokes (v1: no queue).
  */
 export class OpsController {
   private readonly host: SchedulerHost;
   private readonly createApp: OpsControllerOptions["createApp"];
   private readonly manifest: AgenticAppManifest;
   private readonly triggerSettleMs: number;
-  private oneOffBusy = false;
+  private activeRun: OpsActiveRun | null = null;
 
   constructor(options: OpsControllerOptions) {
     this.host = options.host;
@@ -67,8 +101,65 @@ export class OpsController {
     }
   }
 
+  isRunBusy(): boolean {
+    return this.activeRun != null;
+  }
+
+  getActiveRun(): OpsActiveRun | null {
+    return this.activeRun;
+  }
+
+  /** @deprecated Prefer {@link isRunBusy} — true when any app run holds the mutex. */
   isOneOffBusy(): boolean {
-    return this.oneOffBusy;
+    return this.isRunBusy();
+  }
+
+  busyMessage(action?: string): string {
+    const label = this.activeRun?.label ?? "a run";
+    const prefix = action ? `Busy (${action})` : "Busy";
+    return `${prefix}: ${label} is already in progress. Try again when it finishes.`;
+  }
+
+  /**
+   * Schedule / cron path: same mutex as one-offs.
+   * When busy, skip + return (do not throw — safe inside croner invoke).
+   */
+  async runScheduled(args: {
+    scheduleId: string;
+    entrypoint: CommunityEntrypoint;
+    maxJobs?: number;
+  }): Promise<RunScheduledResult> {
+    const label = `schedule ${args.scheduleId}`;
+    if (!this.tryBeginRun({ kind: "schedule", label })) {
+      const message = `Busy: ${this.activeRun!.label} in progress — skipped ${label}`;
+      console.warn(`[ops] ${message}`);
+      return { ran: false, skipped: true, message };
+    }
+    try {
+      const app = this.createApp(args.entrypoint, {
+        ...(args.maxJobs != null ? { maxJobs: args.maxJobs } : {}),
+      });
+      const summary = await app.run();
+      const message = `Schedule ${args.scheduleId} finished.\n${formatRunSummary(summary)}`;
+      return { ran: true, skipped: false, summary, message };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const message = `Schedule ${args.scheduleId} failed: ${errMsg}`;
+      console.error(`[ops] ${message}`);
+      return { ran: false, skipped: false, message };
+    } finally {
+      this.endRun();
+    }
+  }
+
+  private tryBeginRun(run: OpsActiveRun): boolean {
+    if (this.activeRun) return false;
+    this.activeRun = run;
+    return true;
+  }
+
+  private endRun(): void {
+    this.activeRun = null;
   }
 
   private async ensureStarted(): Promise<void> {
@@ -78,10 +169,10 @@ export class OpsController {
   }
 
   private async runOneOff(entrypoint: CommunityEntrypoint): Promise<string> {
-    if (this.oneOffBusy) {
-      return "Busy: a one-off run is already in progress. Try again when it finishes.";
+    const label = `one-off ${entrypoint}`;
+    if (!this.tryBeginRun({ kind: "one_off", label })) {
+      return this.busyMessage(`one-off ${entrypoint}`);
     }
-    this.oneOffBusy = true;
     try {
       const app = this.createApp(entrypoint);
       const summary = await app.run();
@@ -90,7 +181,7 @@ export class OpsController {
       const message = err instanceof Error ? err.message : String(err);
       return `One-off ${entrypoint} failed: ${message}`;
     } finally {
-      this.oneOffBusy = false;
+      this.endRun();
     }
   }
 
@@ -113,6 +204,9 @@ export class OpsController {
   }
 
   private async startAll(): Promise<string> {
+    if (this.isRunBusy()) {
+      return this.busyMessage("start schedules");
+    }
     if (this.host.isStarted()) {
       for (const row of this.host.listStatus()) {
         if (row.paused) this.host.resume(row.schedule.id);
@@ -124,6 +218,9 @@ export class OpsController {
   }
 
   private stopAll(): string {
+    if (this.isRunBusy()) {
+      return this.busyMessage("stop schedules");
+    }
     if (!this.host.isStarted()) {
       return "Scheduler already stopped.";
     }
@@ -132,6 +229,9 @@ export class OpsController {
   }
 
   private async triggerSchedule(scheduleId: string): Promise<string> {
+    if (this.isRunBusy()) {
+      return this.busyMessage(`trigger ${scheduleId}`);
+    }
     await this.ensureStarted();
     if (!this.host.isArmed(scheduleId)) {
       const known = this.host.listStatus().map((s) => s.schedule.id);
@@ -151,12 +251,15 @@ export class OpsController {
   }
 
   private formatStatus(): string {
+    const runLine = this.activeRun
+      ? `Active run: ${this.activeRun.label}\n`
+      : "";
     if (!this.host.isStarted()) {
-      return "Scheduler stopped (no armed schedules).";
+      return `${runLine}Scheduler stopped (no armed schedules).`;
     }
     const rows = this.host.listStatus();
     if (rows.length === 0) {
-      return "Scheduler started but no schedules armed.";
+      return `${runLine}Scheduler started but no schedules armed.`;
     }
     const lines = rows.map((row) => {
       const timing = row.schedule.cron
@@ -186,6 +289,6 @@ export class OpsController {
       pausedN > 0
         ? `Armed schedules (${pausedN} paused):`
         : "Armed schedules:";
-    return `${header}\n${lines.join("\n")}`;
+    return `${runLine}${header}\n${lines.join("\n")}`;
   }
 }
