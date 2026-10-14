@@ -124,21 +124,20 @@ DECIDE_BACKEND=heuristic
 # JEV_BASE_URL=https://api.typesafe.ai/v1/systemone
 ```
 
-### Operator admin GUI (loopback)
+### Operator admin GUI
 
-Browse/edit actions + allowlist, inspect jobs/runs (with run charts). Binds **`127.0.0.1` only** — from a laptop, use an SSH tunnel (full steps in [`STEP_BY_STEP.md`](./STEP_BY_STEP.md) §6):
+Browse/edit actions + allowlist, inspect jobs/runs (with run charts). Prefer the systemd unit ([`relay-community-admin.service.example`](./relay-community-admin.service.example)). Default bind is `127.0.0.1`; for Tailscale MagicDNS (same idea as VoltMem `:8080`):
 
 ```bash
-# On ThinkPad
-cd /opt/relay-community/app
-set -a && source /opt/relay-community/env/community.env && set +a
-pnpm --filter @relay/apps-community-engager admin:store
-# → http://127.0.0.1:8787
+# community.env
+ADMIN_HOST=0.0.0.0
 
-# On laptop
-ssh -N -L 8787:127.0.0.1:8787 thinkpad
-# browser → http://127.0.0.1:8787
+# On ThinkPad
+sudo systemctl enable --now relay-community-admin.service
+# laptop → http://hsv:8787
 ```
+
+No auth on the UI — Tailscale-only; do not expose `8787` on the public LAN. Loopback + SSH tunnel remains available if you omit `ADMIN_HOST`. Full steps: [`STEP_BY_STEP.md`](./STEP_BY_STEP.md) §6.
 
 Each collection uses its own path env above — runs can stay under `logs/runs` while actions live under `data/action-store`.
 

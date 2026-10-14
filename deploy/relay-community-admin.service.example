@@ -1,0 +1,29 @@
+[Unit]
+Description=Relay CommunityEngager admin UI (loopback :8787)
+Documentation=file:///opt/relay-community/app/deploy/STEP_BY_STEP.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=CHANGE_ME
+Group=CHANGE_ME
+WorkingDirectory=/opt/relay-community/app/apps/community-engager
+EnvironmentFile=/opt/relay-community/env/community.env
+# systemd does not inherit nvm — use `which node` absolute path:
+ExecStart=/usr/bin/node /opt/relay-community/app/apps/community-engager/dist/host/admin.js
+Restart=on-failure
+RestartSec=5
+Nice=10
+Environment=HOME=/home/CHANGE_ME
+
+# Admin binds 127.0.0.1 only — reach via SSH tunnel from the laptop.
+# Hardening (data + env readable for path config)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/relay-community/data /opt/relay-community/logs /opt/relay-community/env
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

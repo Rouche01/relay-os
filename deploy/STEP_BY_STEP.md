@@ -17,7 +17,7 @@ Keep `REDDIT_DRY_RUN=true` until you deliberately go live.
 | Process | Role |
 |---------|------|
 | **Ops daemon** (`pnpm scheduler` / `run-scheduler.js`) | Long-lived: cadence + post_watch schedules, Telegram idle ops (`/status`, `/engage`, …), HITL via Telegram |
-| **Admin UI** (`pnpm admin:store`) | Loopback-only operator GUI on `127.0.0.1:8787` — tunnel from the laptop |
+| **Admin UI** (`relay-community-admin.service`) | Operator GUI on `:8787` — always-on unit; `ADMIN_HOST=0.0.0.0` for Tailscale (`http://hsv:8787`) |
 | **VoltMem sidecar** (Docker) | Memory HTTP API on `127.0.0.1:8080` |
 | **Optional timer** (`relay-community.timer`) | Legacy one-shot morning `run-dev.js` — skip if the ops daemon owns cadence |
 
@@ -192,50 +192,71 @@ sudo systemctl disable --now relay-community.timer
 
 ---
 
-## 6. Admin UI on your laptop (SSH tunnel)
+## 6. Admin UI on your laptop (systemd + Tailscale)
 
-The admin server binds **`127.0.0.1` only** on the ThinkPad (not LAN). Use an SSH local forward from the laptop.
+Run admin as a system unit (same pattern as the ops daemon). Default bind is loopback; for MagicDNS access like VoltMem (`http://hsv:8080/ui/`), bind all interfaces on the ThinkPad and reach it only over Tailscale.
 
-### 6a. On the ThinkPad — start admin (separate from the daemon)
-
-SSH session A (or a second systemd/user unit later):
+### 6a. On the ThinkPad — install admin unit
 
 ```bash
+which node
+whoami
+
+cd /opt/relay-community/app/deploy
+cp relay-community-admin.service.example relay-community-admin.service
+# Edit User=, Group=, HOME=, ExecStart= absolute node path (same values as the scheduler unit)
+sudo cp relay-community-admin.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now relay-community-admin.service
+systemctl status relay-community-admin.service --no-pager
+```
+
+### 6b. Bind for Tailscale (recommended dogfood)
+
+In `/opt/relay-community/env/community.env` (or `/opt/relay-os/env/community.env`):
+
+```bash
+ADMIN_HOST=0.0.0.0
+# ACTION_STORE_ADMIN_PORT=8787   # optional; default 8787
+```
+
+```bash
+sudo systemctl restart relay-community-admin.service
+journalctl -u relay-community-admin.service -n 20 --no-pager
+# expect: listening on http://0.0.0.0:8787
+```
+
+From the laptop (same Tailscale net as VoltMem):
+
+**http://hsv:8787**  
+(use your MagicDNS name if not `hsv`)
+
+The UI has **no login** — same caution as VoltMem `/ui`: Tailscale-only, do not port-forward `8787` on the public router/LAN.
+
+Verify listen:
+
+```bash
+ss -ltnp | grep 8787
+# 0.0.0.0:8787  → reachable via hsv
+# 127.0.0.1:8787 → Tailscale URL will fail; use SSH tunnel instead
+```
+
+### 6c. Loopback-only + SSH tunnel (stricter)
+
+Omit `ADMIN_HOST` (or set `127.0.0.1`), then:
+
+```bash
+ssh -N -L 8787:127.0.0.1:8787 hsv
+# browser → http://127.0.0.1:8787
+```
+
+Foreground escape hatch (debug only — stop the unit first):
+
+```bash
+sudo systemctl stop relay-community-admin.service
 cd /opt/relay-community/app
 set -a && source /opt/relay-community/env/community.env && set +a
 pnpm --filter @relay/apps-community-engager admin:store
-# → listening on http://127.0.0.1:8787
-```
-
-Leave this running.
-
-### 6b. On the laptop — tunnel + browser
-
-```bash
-# Forwards laptop:8787 → thinkpad:127.0.0.1:8787
-ssh -N -L 8787:127.0.0.1:8787 thinkpad
-```
-
-Open in the laptop browser:
-
-**http://127.0.0.1:8787**
-
-You should see Actions, Allowlist, Jobs, Runs, Authority, Schedules against ThinkPad data paths.
-
-Tips:
-
-| Tip | Detail |
-|-----|--------|
-| Port busy locally | `ssh -N -L 8788:127.0.0.1:8787 thinkpad` → open `http://127.0.0.1:8788` |
-| Background tunnel | `ssh -fN -L 8787:127.0.0.1:8787 thinkpad` |
-| SSH config | `LocalForward 8787 127.0.0.1:8787` under `Host thinkpad` |
-| Do not | Bind admin to `0.0.0.0` or open 8787 on the router — keep loopback + tunnel |
-
-Optional: same pattern for VoltMem UI if compose exposes loopback `8080`:
-
-```bash
-ssh -N -L 8080:127.0.0.1:8080 thinkpad
-# http://127.0.0.1:8080/ui  (+ API key / tenant)
 ```
 
 ---
@@ -247,7 +268,7 @@ ssh -N -L 8080:127.0.0.1:8080 thinkpad
 | Daemon up | `systemctl status relay-community-scheduler` / journal |
 | Telegram ops | `/status`, `/help` (no HITL card pending) |
 | HITL | Trigger `/engage` or wait for cadence; Approve stays dry-run |
-| Admin | Tunnel open; Schedules / Runs reflect ThinkPad files |
+| Admin | `systemctl is-active relay-community-admin`; `http://hsv:8787` (or tunnel); Schedules / Runs reflect ThinkPad files |
 | Cookie jar | No unexpected login wall on headless scout |
 
 Full smoke table: [`SMOKE.md`](./SMOKE.md).
@@ -258,7 +279,7 @@ Full smoke table: [`SMOKE.md`](./SMOKE.md).
 
 | Situation | Action |
 |-----------|--------|
-| New release | [`CHECKLIST.md`](./CHECKLIST.md) §§ B–E, then `systemctl restart relay-community-scheduler` |
+| New release | [`CHECKLIST.md`](./CHECKLIST.md) §§ B–E, then `systemctl restart relay-community-scheduler relay-community-admin` |
 | CAPTCHA / expired jar | One-shot with `REDDIT_INTERSTITIAL_HITL=true` + remote desktop; see [`README.md`](./README.md) |
 | Pause cadence overnight | Telegram `/stop_cadence` (or Admin → Schedules) |
 | Live post | Flip `REDDIT_DRY_RUN=false` for a deliberate one-shot only |
@@ -268,25 +289,18 @@ Full smoke table: [`SMOKE.md`](./SMOKE.md).
 
 ## Quick reference — copy/paste
 
-**ThinkPad — update + daemon restart**
+**ThinkPad — update + restart services**
 
 ```bash
 cd /opt/relay-community/app && git pull && pnpm install \
   && pnpm --filter @relay/apps-community-engager... build
-sudo systemctl restart relay-community-scheduler.service
+sudo systemctl restart relay-community-scheduler.service relay-community-admin.service
 ```
 
-**ThinkPad — admin**
+**Laptop — admin**
 
 ```bash
-cd /opt/relay-community/app
-set -a && source /opt/relay-community/env/community.env && set +a
-pnpm --filter @relay/apps-community-engager admin:store
-```
-
-**Laptop — tunnel**
-
-```bash
-ssh -N -L 8787:127.0.0.1:8787 thinkpad
-# browser → http://127.0.0.1:8787
+# With ADMIN_HOST=0.0.0.0 on the ThinkPad:
+open http://hsv:8787
+# Or loopback-only: ssh -N -L 8787:127.0.0.1:8787 hsv
 ```

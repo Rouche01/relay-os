@@ -110,7 +110,11 @@ function assertFileSource(adapter: CollectionAdapter): void {
 export async function createAdminServer(
   options: AdminServerOptions
 ): Promise<AdminServerHandle> {
-  const host = options.host ?? "127.0.0.1";
+  const host =
+    options.host ??
+    process.env.ADMIN_HOST ??
+    process.env.ACTION_STORE_ADMIN_HOST ??
+    "127.0.0.1";
   const port = options.port ?? Number(process.env.ADMIN_PORT ?? process.env.ACTION_STORE_ADMIN_PORT ?? "8787");
   const title = options.title ?? "Relay data";
   const publicDir = options.publicDir ?? defaultPublicDir();

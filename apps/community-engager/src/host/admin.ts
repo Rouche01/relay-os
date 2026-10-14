@@ -54,12 +54,17 @@ async function main(): Promise<void> {
   assertFileSource(schedules, "schedules");
 
   const store = createActionStoreFromEnv();
+  const host =
+    process.env.ADMIN_HOST ??
+    process.env.ACTION_STORE_ADMIN_HOST ??
+    "127.0.0.1";
   const port = Number(
     process.env.ADMIN_PORT ?? process.env.ACTION_STORE_ADMIN_PORT ?? "8787"
   );
 
   await createAdminServer({
     title: "Community engager",
+    host,
     port,
     publicDir: adminShellPublicDir(),
     collections: [
