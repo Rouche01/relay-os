@@ -21,13 +21,27 @@ function mockClient() {
           date: 0,
         };
       },
+      // Yield so pollLoop cannot busy-spin the event loop
       async getUpdates() {
+        await new Promise((r) => setTimeout(r, 20));
         return [];
       },
       async answerCallbackQuery() {},
       async editMessageReplyMarkup() {},
     },
   };
+}
+
+async function waitFor(
+  pred: () => boolean,
+  ms = 1000,
+  step = 10
+): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (!pred()) {
+    if (Date.now() > deadline) throw new Error("waitFor timeout");
+    await new Promise((r) => setTimeout(r, step));
+  }
 }
 
 function approvalRequest(id = "req-1"): FeedbackRequest {
@@ -56,6 +70,7 @@ describe("TelegramFeedbackAdapter idle ops", () => {
     });
 
     await adapter.ingestAllowlistedText("status");
+    await waitFor(() => idleCalls.length === 1);
     assert.deepEqual(idleCalls, ["status"]);
     assert.equal(sent.at(-1), "ok:status");
   });
@@ -104,7 +119,38 @@ describe("TelegramFeedbackAdapter idle ops", () => {
 
     adapter.setOnIdleMessage(async (t) => `got ${t}`);
     await adapter.ingestAllowlistedText("help");
+    await waitFor(() => sent.at(-1) === "got help");
     assert.equal(sent.at(-1), "got help");
+  });
+
+  it("does not deadlock: idle ops that await present still accept Approve", async () => {
+    const { client, sent } = mockClient();
+    const adapter = new TelegramFeedbackAdapter({
+      botToken: "test",
+      allowlistUserId: 42,
+      client,
+    });
+
+    adapter.setOnIdleMessage(async () => {
+      // Simulate ops engage: long run that waits for HITL on this same adapter
+      const response = await adapter.present(approvalRequest("from-idle"));
+      return `done:${response.action}`;
+    });
+
+    // Must return immediately even though idle handler is still running
+    await Promise.race([
+      adapter.ingestAllowlistedText("engage"),
+      new Promise((_, rej) =>
+        setTimeout(() => rej(new Error("ingest blocked on idle ops")), 50)
+      ),
+    ]);
+
+    await waitFor(() => adapter.hasPendingHitl());
+    // Poll loop can take the next update because idle did not block ingest
+    await adapter.ingestAllowlistedText("approve");
+    await waitFor(() => sent.some((t) => t === "done:proceed"));
+    assert.ok(sent.some((t) => t === "done:proceed"));
+    await adapter.stop();
   });
 
   it("after HITL settles, idle ops works again", async () => {
@@ -130,6 +176,7 @@ describe("TelegramFeedbackAdapter idle ops", () => {
     assert.equal(adapter.hasPendingHitl(), false);
 
     await adapter.ingestAllowlistedText("status");
+    await waitFor(() => idleCalls.length === 1);
     assert.deepEqual(idleCalls, ["status"]);
     assert.equal(sent.at(-1), "ops:status");
     await adapter.stop();

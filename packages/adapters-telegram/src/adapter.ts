@@ -272,7 +272,9 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
     }
 
     if (!pending) {
-      await this.dispatchIdle(text);
+      // Fire-and-forget: idle ops (e.g. engage) can await HITL present().
+      // Awaiting here deadlocks the poll loop — Approve callbacks never run.
+      this.dispatchIdle(text);
       return;
     }
 
@@ -342,7 +344,16 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
     }
   }
 
-  private async dispatchIdle(text: string): Promise<void> {
+  /**
+   * Kick off idle ops without blocking the caller (poll loop).
+   * Long handlers that call {@link present} must not hold getUpdates.
+   */
+  private dispatchIdle(text: string): void {
+    if (!this.onIdleMessage) return;
+    void this.runIdleMessage(text);
+  }
+
+  private async runIdleMessage(text: string): Promise<void> {
     if (!this.onIdleMessage) return;
     try {
       const reply = await this.onIdleMessage(text);

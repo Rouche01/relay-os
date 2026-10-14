@@ -116,7 +116,8 @@ flowchart TD
 | `src/policy/` | Cross-stage gates (cadence, promo, warmup, playbook, allowlist) |
 | `src/reddit/` | `config` + `client`; procedures under `session/`, `interstitial/`, `scout/`, `write/` |
 | `src/admin/` | Admin-shell collections |
-| `src/host/` | Process entrypoints (`run-dev`, `run-scheduler`, `admin`, …) |
+| `src/host/` | Process entrypoints (`run-dev`, `run-scheduler`, `run-ops`, `admin`, …) |
+| `src/ops/` | Ops intents: parse + controller (CLI stdin / Telegram idle → schedules + one-offs) |
 | `src/decide/` | Decide engines + HITL feedback mapping (`login`, `composer`, `interstitial`, `feedback-map`) |
 | `src/metrics/` | Run recording (`job-queue`, `run-evidence`, `run-log`, `authority-metrics`) |
 | Root (`controller`, `manifest`, `index`, …) | App wiring |
@@ -136,9 +137,40 @@ flowchart TD
 
 **Engage** (`pnpm start`): default `stages` — `ensure_session` → `discover` → `scout` → `jobs`.  
 **Post-watch** (`pnpm watch:posts` or `--entrypoint post_watch`): protocol `entrypoints.post_watch` — `post_watch` → `jobs` only (no scout).  
-**Scheduler** (`pnpm scheduler`): `@relay/scheduler` + croner reads `schedules[]` (post_watch every 6h), file lease under `{REDDIT_DATA_DIR}/schedules/`, missed-tick skip. Flags: `--once`, `--schedule post_watch`, `--run-on-start`. OS cron calling `watch:posts` remains valid.
+**Ops daemon** (`pnpm scheduler`): long-lived `@relay/scheduler` host for `cadence` + `post_watch`, plus ops intents on CLI stdin (or Telegram when idle). Flags: `--once`, `--schedule <id>`, `--run-on-start`. Escape hatches: `pnpm start` / `pnpm watch:posts`.  
+**One-shot ops** (`pnpm ops -- "<intent>"`): same vocabulary, short-lived process (does not share in-memory pause state with a running daemon).
 
 The `jobs` stage **fans out** into `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. Budget engage with `COMMUNITY_MAX_JOBS` (default 3); post-watch fanout is capped by `min(jobs.maxJobs, postWatch.maxPerRun)`. Discover defaults to `COMMUNITY_DISCOVER=auto`; use `force` / `--force-discover` or `off`.
+
+### Ops intents
+
+Exact phrases (also from `help` / unknown input). HITL cards always win over ops when a present is in flight.
+
+| Intent | Effect |
+|--------|--------|
+| `engage` · `engage community` · `scout reddit` | One-off engage run |
+| `watch posts` · `post watch` | One-off post_watch run |
+| `start cadence` · `stop cadence` | Resume / pause schedule `cadence` |
+| `start post watch` · `stop post watch` | Resume / pause schedule `post_watch` |
+| `start schedules` · `stop schedules` | Arm all enabled / stop host |
+| `run cadence now` · `run post watch now` | `trigger` that schedule (rejects if paused) |
+| `status` · `schedules` | Armed list, paused/active, next run |
+| `help` | Print this vocabulary |
+
+```bash
+# Interactive daemon (CLI)
+FEEDBACK_ADAPTER=cli pnpm scheduler
+# then type: status · stop cadence · help · quit
+
+# Telegram: same daemon; send phrases when no HITL card is pending
+FEEDBACK_ADAPTER=telegram pnpm scheduler
+
+# One-shot
+pnpm ops -- status
+pnpm ops -- "stop cadence"
+```
+
+Pause state is process-local on the daemon; evidence under `{REDDIT_DATA_DIR}/schedules/*.evidence.json` records last pause for admin. Canonical list: [`src/ops/command.ts`](./src/ops/command.ts) (`OPS_HELP`).
 
 ### Rules that matter
 
@@ -163,7 +195,7 @@ Warmup (`warmup.mode=auto`) keeps drafts help-only until local live intensity-0 
 
 Promo ratio (`promo.maxRatio` default `0.1`, `windowDays` `30`) tracks live posts in `{REDDIT_DATA_DIR}/promo/ledger.json`. When a soft mention would push the window over the max, **`block`** forces intensity 0 (default) or **`warn`** surfaces the ratio in HITL without clamping. See [authority + metrics plan](../../.cursor/plans/community_engager_authority_metrics.plan.md).
 
-Post-watch (`postWatch.enabled`, default on) enrolls each live-posted comment. The `post_watch` entrypoint (CLI or future scheduler) polls after `minAgeHours` (24) and before `maxAgeHours` (72) via public permalink JSON. Replies become intensity-0 follow-up opportunities; removals are marked. Queue: `{REDDIT_DATA_DIR}/post-watch/queue.json`. Manifest schedule: `every_ms` 6h (host not started yet).
+Post-watch (`postWatch.enabled`, default on) enrolls each live-posted comment. The `post_watch` entrypoint (CLI or `pnpm scheduler` / ops) polls after `minAgeHours` (24) and before `maxAgeHours` (72) via public permalink JSON. Replies become intensity-0 follow-up opportunities; removals are marked. Queue: `{REDDIT_DATA_DIR}/post-watch/queue.json`. Manifest schedule: `every_ms` 6h via the ops daemon.
 
 Daily cadence (`cadence.enabled`, default on) counts today's ledger posts and caps opportunities / execute by `maxHelpPerDay` (default 5) and `maxPromoPerDay` (default 1). Per-sub weekly soft mentions stay in playbook `maxPlugsPerWeek`. Scheduled engage: manifest schedule `cadence` → default entrypoint, cron `cadence.scheduleCron` (default `0 9,13,18 * * *`), `maxJobsPerRun` (default 2) per fire — same `@relay/scheduler` host as post_watch (`pnpm scheduler`).
 

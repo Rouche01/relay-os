@@ -76,16 +76,26 @@ describe("Telegram idle → OpsController bridge", () => {
 
     adapter.setOnIdleMessage(async (text) => ops.handleText(text));
 
+    const waitSent = async (n: number) => {
+      const deadline = Date.now() + 2000;
+      while (sent.length < n) {
+        if (Date.now() > deadline) throw new Error(`expected ${n} sent`);
+        await new Promise((r) => setTimeout(r, 10));
+      }
+    };
+
     await adapter.ingestAllowlistedText("status");
-    assert.equal(sent.length, 1);
+    await waitSent(1);
     assert.match(sent[0]!, /Armed schedules/);
     assert.match(sent[0]!, /cadence.*\[armed,active\]/);
 
     await adapter.ingestAllowlistedText("stop cadence");
+    await waitSent(2);
     assert.match(sent.at(-1)!, /paused/i);
     assert.equal(host.isPaused("cadence"), true);
 
     await adapter.ingestAllowlistedText("dance monkey");
+    await waitSent(3);
     assert.match(sent.at(-1)!, /Unknown ops intent|Ops intents/i);
 
     host.stop();
