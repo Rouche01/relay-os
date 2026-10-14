@@ -86,6 +86,7 @@ cd /opt/relay-community/app
 pnpm --filter @relay/engines-browser exec playwright install chromium
 pnpm --filter @relay/engines-browser exec playwright install-deps chromium
 # or: sudo npx playwright install-deps chromium
+# Ubuntu 26.04 needs Playwright ≥ 1.61 (repo pins ^1.61.0) — see STEP_BY_STEP.md
 ```
 
 Headless timer runs use `REDDIT_BROWSER_HEADLESS=true` (default). First cookie jar / CAPTCHA pass needs a human (see re-auth below).

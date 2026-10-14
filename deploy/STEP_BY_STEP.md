@@ -69,12 +69,14 @@ pnpm install
 pnpm --filter @relay/apps-community-engager... build
 ```
 
-Chromium (first time, or after Playwright bumps):
+Chromium (first time, or after Playwright bumps). Needs **Playwright ≥ 1.61** for Ubuntu 26.04 (this repo pins `^1.61.0`):
 
 ```bash
 pnpm --filter @relay/engines-browser exec playwright install chromium
 pnpm --filter @relay/engines-browser exec playwright install-deps chromium
 ```
+
+If you somehow still see `does not support chromium on ubuntu26.04-x64`, confirm `pnpm why playwright` shows ≥ 1.61, then reinstall — do **not** need `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE` on current main.
 
 - [ ] Build finishes without errors
 - [ ] `apps/community-engager/dist/host/run-scheduler.js` exists
