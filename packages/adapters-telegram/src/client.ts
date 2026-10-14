@@ -46,11 +46,22 @@ export interface SendMessageParams {
   disable_web_page_preview?: boolean;
 }
 
+/** Bot API BotCommand — command must match `[a-z0-9_]{1,32}`. */
+export interface TelegramBotCommand {
+  command: string;
+  description: string;
+}
+
 export class TelegramClient {
   constructor(private readonly botToken: string) {}
 
   async sendMessage(params: SendMessageParams): Promise<TelegramMessage> {
     return this.call<TelegramMessage>("sendMessage", params as unknown as Record<string, unknown>);
+  }
+
+  /** Register the chat `/` command menu (replaces the previous list). */
+  async setMyCommands(commands: TelegramBotCommand[]): Promise<void> {
+    await this.call("setMyCommands", { commands });
   }
 
   async answerCallbackQuery(callbackQueryId: string, text?: string): Promise<void> {

@@ -144,37 +144,37 @@ The `jobs` stage **fans out** into `CommunityJobManifest` — one isolated `Agen
 
 ### Ops intents
 
-Exact phrases (also from `help` / unknown input). HITL cards always win over ops when a present is in flight.
+Exact phrases (also from `help` / unknown input). On Telegram, the same intents accept `/slash` forms (`/status`, `/start_cadence`, …); the daemon registers the `/` menu via `setMyCommands` at startup. HITL cards always win over ops when a present is in flight.
 
-| Intent | Effect |
-|--------|--------|
-| `engage` · `engage community` · `scout reddit` | One-off engage run |
-| `watch posts` · `post watch` | One-off post_watch run |
-| `start cadence` · `stop cadence` | Resume / pause schedule `cadence` |
-| `start post watch` · `stop post watch` | Resume / pause schedule `post_watch` |
-| `start schedules` · `stop schedules` | Arm all enabled / stop host |
-| `run cadence now` · `run post watch now` | `trigger` that schedule (rejects if paused) |
-| `status` · `schedules` | Armed list, paused/active, next run |
-| `help` | Print this vocabulary |
+| Intent | Telegram slash | Effect |
+|--------|----------------|--------|
+| `engage` · `engage community` · `scout reddit` | `/engage` | One-off engage run |
+| `watch posts` · `post watch` | `/watch_posts` | One-off post_watch run |
+| `start cadence` · `stop cadence` | `/start_cadence` · `/stop_cadence` | Resume / pause schedule `cadence` |
+| `start post watch` · `stop post watch` | `/start_post_watch` · `/stop_post_watch` | Resume / pause schedule `post_watch` |
+| `start schedules` · `stop schedules` | `/start_schedules` · `/stop_schedules` | Arm all enabled / stop host |
+| `run cadence now` · `run post watch now` | `/run_cadence_now` · `/run_post_watch_now` | `trigger` that schedule (rejects if paused) |
+| `status` · `schedules` | `/status` | Armed list, paused/active, next run |
+| `help` | `/help` | Print this vocabulary |
 
 ```bash
 # Interactive daemon (CLI)
 FEEDBACK_ADAPTER=cli pnpm scheduler
 # then type: status · stop cadence · help · quit
 
-# Telegram: same daemon; send phrases when no HITL card is pending
+# Telegram: same daemon; send phrases or /commands when no HITL card is pending
 FEEDBACK_ADAPTER=telegram pnpm scheduler
 
-# One-shot
+# One-shot (plain or slash)
 pnpm ops -- status
-pnpm ops -- "stop cadence"
+pnpm ops -- /stop_cadence
 ```
 
 Long-running intents (`engage`, `run … now`, `start schedules`) send an immediate **processing** ack on Telegram/CLI before the final reply or HITL card.
 
 **One active app run:** one-offs and schedule ticks share a mutex (same Telegram adapter). While a run is in progress, `engage` / `run … now` / `start|stop schedules` are rejected with a busy reply; `status` and per-schedule pause/resume still work. Cron ticks that collide are skipped and logged (not queued).
 
-Pause state is process-local on the daemon; evidence under `{REDDIT_DATA_DIR}/schedules/*.evidence.json` records last pause for admin. Canonical list: [`src/ops/command.ts`](./src/ops/command.ts) (`OPS_HELP`).
+Pause state is process-local on the daemon; evidence under `{REDDIT_DATA_DIR}/schedules/*.evidence.json` records last pause for admin. Canonical list: [`src/ops/command.ts`](./src/ops/command.ts) (`OPS_HELP` · `OPS_TELEGRAM_COMMANDS`).
 
 ### Rules that matter
 

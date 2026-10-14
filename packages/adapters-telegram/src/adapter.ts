@@ -75,6 +75,19 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
     this.onIdleMessage = handler;
   }
 
+  /**
+   * Register the bot `/` command menu via Bot API setMyCommands.
+   * No-op when the injected client lacks setMyCommands (tests).
+   */
+  async setMyCommands(
+    commands: { command: string; description: string }[]
+  ): Promise<void> {
+    if (!this.client.setMyCommands) {
+      return;
+    }
+    await this.client.setMyCommands(commands);
+  }
+
   /** Begin long-polling getUpdates. Safe to call once. */
   start(): void {
     if (this.running) return;

@@ -11,7 +11,11 @@ import {
   CommunityEngagerManifest,
   type CommunityEntrypoint,
 } from "../manifest.js";
-import { handleOpsWithAck, OpsController } from "../ops/index.js";
+import {
+  handleOpsWithAck,
+  OpsController,
+  OPS_TELEGRAM_COMMANDS,
+} from "../ops/index.js";
 import { getCommunityConfig } from "../reddit/config.js";
 import {
   maxJobsForSchedule,
@@ -149,8 +153,17 @@ async function main(): Promise<void> {
 
   if (telegram) {
     telegram.setOnIdleMessage(async (text) => runOpsLine(text));
+    try {
+      await telegram.setMyCommands([...OPS_TELEGRAM_COMMANDS]);
+    } catch (err) {
+      console.warn(
+        `[telegram] setMyCommands failed (menu UX only): ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    }
     telegram.start();
-    console.log("Feedback adapter: telegram (idle → ops)\n");
+    console.log("Feedback adapter: telegram (idle → ops; / commands registered)\n");
   } else {
     console.log("Feedback adapter: cli\n");
   }

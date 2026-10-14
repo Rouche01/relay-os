@@ -1,4 +1,8 @@
-export { OPS_HELP, type OpsCommand } from "./command.js";
+export {
+  OPS_HELP,
+  OPS_TELEGRAM_COMMANDS,
+  type OpsCommand,
+} from "./command.js";
 export {
   formatOpsHelp,
   normalizeOpsText,

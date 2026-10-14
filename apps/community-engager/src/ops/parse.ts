@@ -10,9 +10,22 @@ import { OPS_HELP, type OpsCommand } from "./command.js";
 
 const POST_WATCH_SCHEDULE_ID = "post_watch";
 
-/** Collapse whitespace and lowercase for exact phrase matching. */
+/**
+ * Collapse whitespace and lowercase for exact phrase matching.
+ * Telegram slash forms: `/status@Bot` → `status`, `/start_cadence` → `start cadence`.
+ */
 export function normalizeOpsText(text: string): string {
-  return text.trim().toLowerCase().replace(/\s+/g, " ");
+  let t = text.trim();
+  if (t.startsWith("/")) {
+    t = t.slice(1);
+    const spaceIdx = t.search(/\s/);
+    const first = spaceIdx === -1 ? t : t.slice(0, spaceIdx);
+    const rest = spaceIdx === -1 ? "" : t.slice(spaceIdx);
+    const at = first.indexOf("@");
+    const cmd = at === -1 ? first : first.slice(0, at);
+    t = `${cmd.replace(/_/g, " ")}${rest}`.trim();
+  }
+  return t.toLowerCase().replace(/\s+/g, " ");
 }
 
 /**

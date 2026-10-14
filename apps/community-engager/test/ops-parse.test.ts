@@ -125,4 +125,40 @@ describe("parseOpsIntent", () => {
       assert.match(formatOpsHelp(cmd.reason), /engage community/);
     }
   });
+
+  it("parses Telegram slash forms (@bot + underscores)", () => {
+    assert.deepEqual(parseOpsIntent("/status", m), { kind: "status" });
+    assert.deepEqual(parseOpsIntent("/status@SomeBot", m), { kind: "status" });
+    assert.deepEqual(parseOpsIntent("/help", m), { kind: "help" });
+    assert.deepEqual(parseOpsIntent("/engage", m), {
+      kind: "one_off",
+      entrypoint: "engage",
+    });
+    assert.deepEqual(parseOpsIntent("/watch_posts", m), {
+      kind: "one_off",
+      entrypoint: "post_watch",
+    });
+    assert.deepEqual(parseOpsIntent("/start_cadence", m), {
+      kind: "start_schedule",
+      scheduleId: "cadence",
+    });
+    assert.deepEqual(parseOpsIntent("/stop_cadence@RelayBot", m), {
+      kind: "stop_schedule",
+      scheduleId: "cadence",
+    });
+    assert.deepEqual(parseOpsIntent("/run_post_watch_now", m), {
+      kind: "trigger",
+      scheduleId: "post_watch",
+    });
+    assert.deepEqual(parseOpsIntent("/run_cadence_now", m), {
+      kind: "trigger",
+      scheduleId: "cadence",
+    });
+    assert.deepEqual(parseOpsIntent("/start_schedules", m), {
+      kind: "start_all",
+    });
+    assert.deepEqual(parseOpsIntent("/stop_schedules", m), {
+      kind: "stop_all",
+    });
+  });
 });

@@ -14,12 +14,32 @@ export type OpsCommand =
   | { kind: "status" }
   | { kind: "help"; reason?: string };
 
-export const OPS_HELP = `Ops intents (exact phrases):
-  engage | engage community | scout reddit   — one-off engage
-  watch posts | post watch                   — one-off post_watch
-  start cadence | stop cadence               — pause/resume cadence schedule
-  start post watch | stop post watch         — pause/resume post_watch schedule
-  start schedules | stop schedules           — arm all / stop host
-  run cadence now | run post watch now       — trigger schedule now
-  status | schedules                         — armed list + next run
+export const OPS_HELP = `Ops intents (exact phrases; Telegram also accepts /slash forms):
+  engage | engage community | scout reddit   — one-off engage (/engage)
+  watch posts | post watch                   — one-off post_watch (/watch_posts)
+  start cadence | stop cadence               — pause/resume cadence (/start_cadence · /stop_cadence)
+  start post watch | stop post watch         — pause/resume post_watch (/start_post_watch · /stop_post_watch)
+  start schedules | stop schedules           — arm all / stop host (/start_schedules · /stop_schedules)
+  run cadence now | run post watch now       — trigger schedule now (/run_cadence_now · /run_post_watch_now)
+  status | schedules                         — armed list + next run (/status)
+  help                                       — this vocabulary (/help)
 `.trim();
+
+/** Bot API BotCommand entries for Telegram `/` menu (daemon registers via setMyCommands). */
+export const OPS_TELEGRAM_COMMANDS: ReadonlyArray<{
+  command: string;
+  description: string;
+}> = [
+  { command: "help", description: "Ops vocabulary" },
+  { command: "status", description: "Armed schedules + next run" },
+  { command: "engage", description: "One-off engage run" },
+  { command: "watch_posts", description: "One-off post_watch run" },
+  { command: "start_cadence", description: "Resume cadence schedule" },
+  { command: "stop_cadence", description: "Pause cadence schedule" },
+  { command: "start_post_watch", description: "Resume post_watch schedule" },
+  { command: "stop_post_watch", description: "Pause post_watch schedule" },
+  { command: "start_schedules", description: "Arm all enabled schedules" },
+  { command: "stop_schedules", description: "Stop scheduler host" },
+  { command: "run_cadence_now", description: "Trigger cadence now" },
+  { command: "run_post_watch_now", description: "Trigger post_watch now" },
+];

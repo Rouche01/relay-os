@@ -3,7 +3,7 @@ export type {
   TelegramAdapterEnv,
   TelegramIdleMessageHandler,
 } from "./types.js";
-export { TelegramClient } from "./client.js";
+export { TelegramClient, type TelegramBotCommand } from "./client.js";
 export {
   resolveFeedbackKind,
   formatFeedbackMessage,

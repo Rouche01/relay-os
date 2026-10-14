@@ -42,6 +42,9 @@ export interface TelegramAdapterConfig {
       messageId: number,
       replyMarkup?: unknown
     ): Promise<void>;
+    setMyCommands?(
+      commands: { command: string; description: string }[]
+    ): Promise<void>;
   };
 }
 
