@@ -184,6 +184,8 @@ export function buildDraftPrompt(
     "- Ban AI/coach tells: numbered frameworks (1) 2) 3)), \"Hey —\", \"Happy to help/unpack\",",
     "  \"simple approach\", \"game changer\", \"I'd love to\", \"feel free to\", \"as an AI\",",
     "  \"great question\", bullet templates, and generic capsule/wardrobe sermons that fit any post.",
+    "- Em dashes (—): almost never. Prefer commas, periods, or parentheses. Use an em dash only if a",
+    "  short aside truly needs it; never as a stylistic habit between every clause.",
     "- No markdown headings, no hashtags, no emoji stacks.",
     "",
     ...warmupSection,

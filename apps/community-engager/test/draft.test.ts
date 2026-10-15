@@ -112,6 +112,7 @@ describe("buildDraftPrompt", () => {
     assert.match(prompt, /Soft-CTA pattern/);
     assert.match(prompt, /Voice \(required\)/);
     assert.match(prompt, /Ban AI\/coach tells/);
+    assert.match(prompt, /Em dashes/);
     assert.match(prompt, /Do not mention GoStylens/);
     assert.match(prompt, /mention by name only/);
     assert.match(prompt, /founder disclosure/);
