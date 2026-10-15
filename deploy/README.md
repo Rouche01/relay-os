@@ -8,6 +8,7 @@ Sibling plans:
 - Browser transport + cookies: [`.cursor/plans/relay_reddit_browser.plan.md`](../.cursor/plans/relay_reddit_browser.plan.md)
 - Decide co-processor (Jev / heuristic): [`.cursor/plans/jev_decide_integration_dd22a99c.plan.md`](../.cursor/plans/jev_decide_integration_dd22a99c.plan.md)
 - **Step-by-step (first deploy / admin tunnel):** [`STEP_BY_STEP.md`](./STEP_BY_STEP.md)
+- **Caddy host aliases** (`admin.hsv`, `mem.hsv`, …): [`CADDY.md`](./CADDY.md)
 - Deploy checklist (ThinkPad): [`CHECKLIST.md`](./CHECKLIST.md)
 - Smoke verification: [`SMOKE.md`](./SMOKE.md)
 

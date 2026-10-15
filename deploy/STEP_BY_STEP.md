@@ -17,8 +17,8 @@ Keep `REDDIT_DRY_RUN=true` until you deliberately go live.
 | Process | Role |
 |---------|------|
 | **Ops daemon** (`pnpm scheduler` / `run-scheduler.js`) | Long-lived: cadence + post_watch schedules, Telegram idle ops (`/status`, `/engage`, …), HITL via Telegram |
-| **Admin UI** (`relay-community-admin.service`) | Operator GUI on `:8787` — always-on unit; `ADMIN_HOST=0.0.0.0` for Tailscale (`http://hsv:8787`) |
-| **VoltMem sidecar** (Docker) | Memory HTTP API on `127.0.0.1:8080` |
+| **Admin UI** (`relay-community-admin.service`) | Operator GUI on `:8787` — prefer Caddy alias `http://admin.hsv` ([`CADDY.md`](./CADDY.md)) |
+| **VoltMem sidecar** (Docker) | Memory HTTP API on `127.0.0.1:8080` — alias `http://mem.hsv/ui/` via Caddy |
 | **Optional timer** (`relay-community.timer`) | Legacy one-shot morning `run-dev.js` — skip if the ops daemon owns cadence |
 
 ---
@@ -297,10 +297,10 @@ cd /opt/relay-community/app && git pull && pnpm install \
 sudo systemctl restart relay-community-scheduler.service relay-community-admin.service
 ```
 
-**Laptop — admin**
+**Laptop — admin / VoltMem (after [`CADDY.md`](./CADDY.md))**
 
 ```bash
-# With ADMIN_HOST=0.0.0.0 on the ThinkPad:
-open http://hsv:8787
-# Or loopback-only: ssh -N -L 8787:127.0.0.1:8787 hsv
+open http://admin.hsv
+open http://mem.hsv/ui/
+# Fallback without Caddy: http://hsv:8787 / http://hsv:8080/ui/
 ```

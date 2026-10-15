@@ -1,0 +1,43 @@
+# Copy to /etc/caddy/Caddyfile and edit hostnames to match laptop /etc/hosts.
+# Backends stay on loopback. See deploy/CADDY.md.
+#
+# --- HTTP (default dogfood) ---
+# Use http://… site addresses and auto_https off.
+#
+# --- HTTPS (tls internal) ---
+# Comment out the HTTP block; use the HTTPS block instead (no Let's Encrypt;
+# trust Caddy's local CA on the laptop — see CADDY.md § HTTPS).
+
+{
+	auto_https off
+}
+
+http://reddit-relay.hsv {
+	reverse_proxy 127.0.0.1:8787
+}
+
+http://voltmem.hsv {
+	# VoltMem UI: https://voltmem.hsv/ui/  (or http://… if using this block)
+	reverse_proxy 127.0.0.1:8080
+}
+
+http://beszel.hsv {
+	reverse_proxy 127.0.0.1:8090
+}
+
+# --- HTTPS variant (replace the http:// sites above with these) ---
+#
+# reddit-relay.hsv {
+# 	tls internal
+# 	reverse_proxy 127.0.0.1:8787
+# }
+#
+# voltmem.hsv {
+# 	tls internal
+# 	reverse_proxy 127.0.0.1:8080
+# }
+#
+# beszel.hsv {
+# 	tls internal
+# 	reverse_proxy 127.0.0.1:8090
+# }
