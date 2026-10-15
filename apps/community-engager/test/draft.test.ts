@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { draftReply } from "../src/stages/draft/drafter.js";
+import type { LlmClient } from "@relay/llm";
 import {
   buildDraftPrompt,
   clampModelIntensity,
+  generateDraftViaLlm,
   parseDraftModelJson,
+  resolveDraftLlmProvider,
 } from "../src/stages/draft/draft-llm.js";
 import {
   FIXTURE_THREADS,
@@ -207,9 +210,49 @@ describe("parseDraftModelJson", () => {
   });
 });
 
+describe("resolveDraftLlmProvider", () => {
+  it("defaults to gemini and accepts anthropic", () => {
+    assert.equal(resolveDraftLlmProvider({}), "gemini");
+    assert.equal(
+      resolveDraftLlmProvider({ COMMUNITY_DRAFT_LLM: "anthropic" }),
+      "anthropic"
+    );
+  });
+});
+
+describe("generateDraftViaLlm", () => {
+  it("passes the prompt through a fake LlmClient", async () => {
+    const fake: LlmClient = {
+      provider: "anthropic",
+      async completeJson(req) {
+        assert.match(req.messages.map((m) => String(m.content)).join(""), /warehouse shift/);
+        assert.equal(req.schema.type, "object");
+        return {
+          text: JSON.stringify({
+            draftText: "Start with the shirts you already named.",
+            intensity: 0,
+          }),
+          provider: "anthropic",
+          model: "claude-sonnet-4-5",
+        };
+      },
+    };
+    const parsed = await generateDraftViaLlm({
+      draft: draft(),
+      client: fake,
+    });
+    assert.equal(parsed.provider, "anthropic");
+    assert.equal(parsed.model, "claude-sonnet-4-5");
+    assert.match(parsed.draftText, /shirts you already named/);
+    assert.equal(parsed.intensity, 0);
+  });
+});
+
 describe("draftReply stub fallback", () => {
-  it("uses the stub when GEMINI_API_KEY is unset", async () => {
+  it("uses the stub when the selected provider has no API key", async () => {
     delete process.env.GEMINI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.COMMUNITY_DRAFT_LLM;
     const outcome = await draftReply(draft());
     assert.equal(outcome.provider, "stub");
     assert.equal(outcome.draft.status, "pending_approval");

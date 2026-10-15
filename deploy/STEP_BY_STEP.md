@@ -285,6 +285,7 @@ Full smoke table: [`SMOKE.md`](./SMOKE.md).
 | Live post | Flip `REDDIT_DRY_RUN=false` for a deliberate one-shot only |
 | Force discover once | Telegram `/engage_discover` (or `engage discover`) — does not use empty-scout day budget |
 | Empty-scout fallback | After deploy: verify `/engage_discover`, then set `COMMUNITY_DISCOVER_ON_EMPTY_SCOUT=force` in community env and restart scheduler |
+| Claude drafts | Set `ANTHROPIC_API_KEY` + `COMMUNITY_DRAFT_LLM=anthropic` (optional `COMMUNITY_DRAFT_MODEL=claude-sonnet-4-5`); restart scheduler |
 | Host sleep | Disable lid/suspend if timers / Telegram poll must stay alive |
 
 ---

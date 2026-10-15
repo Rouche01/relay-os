@@ -29,7 +29,7 @@ export interface DiscoverEvidence {
   memory?: MemoryWriteEvidence;
 }
 
-export type DraftProvider = "gemini" | "stub";
+export type DraftProvider = "gemini" | "anthropic" | "stub";
 
 export interface DraftEvidence {
   id: string;

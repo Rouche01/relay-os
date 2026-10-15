@@ -129,7 +129,7 @@ flowchart TD
 | `ensure_session` | Cookie jar / HITL login before live browser work (skipped when dry-run unless `REDDIT_ENSURE_SESSION=true`) |
 | `discover` | Read-only subreddit research → `choice` HITL to promote onto allowlist (or skip) |
 | `scout` | Find actionable threads on **postable** allowlist (browser → json → oauth → fixtures); anti-bot wall → headed browser + Telegram/CLI Approve (never auto-solved) |
-| `draft` | Write a reply with Gemini when `GEMINI_API_KEY` is set; otherwise a stub. May pull VoltMem context |
+| `draft` | Write a reply via `@relay/llm` (`COMMUNITY_DRAFT_LLM=gemini\|anthropic`) when that provider’s API key is set; otherwise a stub. May pull VoltMem context |
 | `await_approval` | You Approve / Edit / Abort (Telegram or CLI) |
 | `execute` | Dry-run log, or live browser/oauth post (also enrolls post-watch) |
 | `learn` | Persist HITL outcome to VoltMem (`community_outcome`) + allowlist ranking |

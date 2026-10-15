@@ -1,8 +1,10 @@
 import {
-  geminiDraftKey,
-  generateGeminiDraft,
+  createDraftLlmClient,
+  draftLlmConfigured,
+  generateDraftViaLlm,
   prefersHelpFirstMemory,
   PRODUCT_RE,
+  resolveDraftLlmProvider,
 } from "./draft-llm.js";
 import {
   clampIntensityToPlaybook,
@@ -45,8 +47,9 @@ export interface DraftReplyOptions {
 }
 
 /**
- * Draft a reply. Uses Gemini when GEMINI_API_KEY is set and no text override
- * was supplied; otherwise the stub. API or validation failure falls back to the stub.
+ * Draft a reply. Uses COMMUNITY_DRAFT_LLM (gemini|anthropic) when that
+ * provider’s API key is set and no text override was supplied; otherwise the stub.
+ * API or validation failure falls back to the stub.
  * Soft-CTA shaping runs on every path (help first; 1=mention; 2=disclose+LP).
  */
 export async function draftReply(
@@ -72,17 +75,22 @@ export async function draftReply(
     intensity = 0;
   }
 
-  if (!overrides?.text && geminiDraftKey()) {
+  if (!overrides?.text && draftLlmConfigured()) {
+    const providerId = resolveDraftLlmProvider();
     try {
-      const llm = await generateGeminiDraft({
+      const client = createDraftLlmClient();
+      const llm = await generateDraftViaLlm({
         draft,
         memoryBlock,
+        client,
         warmupActive: forceIntensity0,
         lpBaseUrl,
         playbook,
       });
+      const provider: DraftProvider =
+        llm.provider === "anthropic" ? "anthropic" : "gemini";
       return {
-        provider: "gemini",
+        provider,
         draft: finalizeDraft(
           {
             ...draft,
@@ -95,7 +103,9 @@ export async function draftReply(
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[draft] Gemini failed; using stub (${message})`);
+      console.error(
+        `[draft] ${providerId} failed; using stub (${message})`
+      );
     }
   }
 

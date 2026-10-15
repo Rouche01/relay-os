@@ -22,7 +22,6 @@
     "actions": "node ../../packages/action-store/dist/cli.js"
   },
   "dependencies": {
-    "@google/genai": "2.27.0",
     "@relay/action-store": "workspace:*",
     "@relay/adapters-telegram": "workspace:*",
     "@relay/admin-shell": "workspace:*",
@@ -30,6 +29,7 @@
     "@relay/engines-browser": "workspace:*",
     "@relay/engines-decide": "workspace:*",
     "@relay/feedback-broker": "workspace:*",
+    "@relay/llm": "workspace:*",
     "@relay/protocol": "workspace:*",
     "@relay/runtime": "workspace:*",
     "@relay/scheduler": "workspace:*",

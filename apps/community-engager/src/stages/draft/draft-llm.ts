@@ -1,3 +1,11 @@
+import {
+  createLlmClient,
+  parseLlmProviderId,
+  resolveAnthropicApiKey,
+  resolveGeminiApiKey,
+  type LlmClient,
+  type LlmProviderId,
+} from "@relay/llm";
 import type { SubredditPlaybook } from "../../policy/playbook.js";
 import type { CommunityDraft, PromoIntensity } from "../../types.js";
 import { inferOpMedia } from "./op-media.js";
@@ -9,22 +17,96 @@ import {
 
 export { PRODUCT_RE } from "./soft-cta.js";
 
-/** Same model as GeminiProvider in @relay/llm-controller. */
+/** @deprecated Prefer DEFAULT_GEMINI_MODEL from @relay/llm — kept for callers. */
 export const DRAFT_MODEL = "gemini-2.5-flash";
 
 const OP_TEXT_MAX_CHARS = 4000;
 const MEMORY_MAX_CHARS = 2000;
 const DRAFT_TEXT_MAX_CHARS = 4000;
 
+/** JSON Schema for draft structured output (Gemini + Anthropic tool). */
+export const DRAFT_JSON_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  properties: {
+    draftText: {
+      type: "string",
+      description: "The Reddit comment to propose for human approval.",
+    },
+    intensity: {
+      type: "integer",
+      description:
+        "0 help only, 1 soft name mention (no URL), 2 disclosure + one LP link.",
+    },
+    rationale: {
+      type: "string",
+      description: "One sentence on why this reply and intensity.",
+    },
+  },
+  required: ["draftText", "intensity"],
+};
+
 export interface ParsedDraftJson {
   draftText: string;
   intensity: PromoIntensity;
   rationale?: string;
+  provider?: LlmProviderId;
+  model?: string;
 }
 
+/** COMMUNITY_DRAFT_LLM=gemini|anthropic (default gemini). */
+export function resolveDraftLlmProvider(
+  env: NodeJS.ProcessEnv = process.env
+): LlmProviderId {
+  return parseLlmProviderId(env.COMMUNITY_DRAFT_LLM, "gemini");
+}
+
+/** Optional COMMUNITY_DRAFT_MODEL override. */
+export function resolveDraftLlmModel(
+  env: NodeJS.ProcessEnv = process.env
+): string | undefined {
+  const m = (env.COMMUNITY_DRAFT_MODEL ?? "").trim();
+  return m || undefined;
+}
+
+export function draftLlmApiKey(
+  provider: LlmProviderId,
+  env: NodeJS.ProcessEnv = process.env
+): string | undefined {
+  if (provider === "anthropic") {
+    return resolveAnthropicApiKey(env.ANTHROPIC_API_KEY);
+  }
+  return resolveGeminiApiKey(env.GEMINI_API_KEY);
+}
+
+/** True when the selected provider has an API key configured. */
+export function draftLlmConfigured(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  return Boolean(draftLlmApiKey(resolveDraftLlmProvider(env), env));
+}
+
+/** @deprecated Use draftLlmConfigured / draftLlmApiKey. */
 export function geminiDraftKey(explicit?: string): string | undefined {
-  const key = (explicit ?? process.env.GEMINI_API_KEY ?? "").trim();
-  return key || undefined;
+  return resolveGeminiApiKey(explicit);
+}
+
+export function createDraftLlmClient(
+  env: NodeJS.ProcessEnv = process.env
+): LlmClient {
+  const provider = resolveDraftLlmProvider(env);
+  const apiKey = draftLlmApiKey(provider, env);
+  if (!apiKey) {
+    throw new Error(
+      provider === "anthropic"
+        ? "ANTHROPIC_API_KEY unset"
+        : "GEMINI_API_KEY unset"
+    );
+  }
+  return createLlmClient({
+    provider,
+    apiKey,
+    model: resolveDraftLlmModel(env),
+  });
 }
 
 /** Past abort / spam / removal feedback should keep the reply help-only. */
@@ -186,6 +268,42 @@ export function clampModelIntensity(
   return 0;
 }
 
+export async function generateDraftViaLlm(input: {
+  draft: CommunityDraft;
+  memoryBlock?: string;
+  client: LlmClient;
+  warmupActive?: boolean;
+  lpBaseUrl?: string;
+  playbook?: SubredditPlaybook;
+  model?: string;
+}): Promise<ParsedDraftJson> {
+  const prompt = buildDraftPrompt(input.draft, input.memoryBlock, {
+    warmupActive: input.warmupActive,
+    lpBaseUrl: input.lpBaseUrl,
+    playbook: input.playbook,
+  });
+  const result = await input.client.completeJson({
+    messages: [{ role: "user", content: prompt }],
+    schema: DRAFT_JSON_SCHEMA,
+    temperature: 0.4,
+    ...(input.model ? { model: input.model } : {}),
+  });
+  const parsed = parseDraftModelJson(result.text, input.memoryBlock, {
+    warmupActive: input.warmupActive,
+  });
+  if (!parsed) {
+    throw new Error(
+      `${result.provider} draft JSON was empty or failed validation`
+    );
+  }
+  return {
+    ...parsed,
+    provider: result.provider,
+    model: result.model,
+  };
+}
+
+/** @deprecated Use generateDraftViaLlm + createDraftLlmClient. */
 export async function generateGeminiDraft(input: {
   draft: CommunityDraft;
   memoryBlock?: string;
@@ -194,69 +312,16 @@ export async function generateGeminiDraft(input: {
   lpBaseUrl?: string;
   playbook?: SubredditPlaybook;
 }): Promise<ParsedDraftJson> {
-  const apiKey = geminiDraftKey(input.apiKey);
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY unset");
-  }
-
-  const genai = await import("@google/genai");
-  const { Type, HarmCategory, HarmBlockThreshold } = genai;
-  const ai = new genai.GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: DRAFT_MODEL,
-    contents: buildDraftPrompt(input.draft, input.memoryBlock, {
-      warmupActive: input.warmupActive,
-      lpBaseUrl: input.lpBaseUrl,
-      playbook: input.playbook,
-    }),
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          draftText: {
-            type: Type.STRING,
-            description: "The Reddit comment to propose for human approval.",
-          },
-          intensity: {
-            type: Type.INTEGER,
-            description:
-              "0 help only, 1 soft name mention (no URL), 2 disclosure + one LP link.",
-          },
-          rationale: {
-            type: Type.STRING,
-            description: "One sentence on why this reply and intensity.",
-          },
-        },
-        required: ["draftText", "intensity"],
-      },
-      temperature: 0.4,
-      safetySettings: [
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-      ],
-    },
+  const client = createLlmClient({
+    provider: "gemini",
+    apiKey: input.apiKey,
   });
-
-  const parsed = parseDraftModelJson(response.text ?? "", input.memoryBlock, {
+  return generateDraftViaLlm({
+    draft: input.draft,
+    memoryBlock: input.memoryBlock,
+    client,
     warmupActive: input.warmupActive,
+    lpBaseUrl: input.lpBaseUrl,
+    playbook: input.playbook,
   });
-  if (!parsed) {
-    throw new Error("Gemini draft JSON was empty or failed validation");
-  }
-  return parsed;
 }
