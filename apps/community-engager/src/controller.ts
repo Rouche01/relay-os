@@ -592,6 +592,12 @@ export class CommunityEngagerController implements AppController {
     });
     ctx.discoveryCandidates = result.candidates;
     ctx.discoverRan = result.ran;
+    // For empty-scout fallback predicate (auto:healthy vs other skips).
+    if (!result.ran && result.skippedReason) {
+      ctx.discoverSkipReason = result.skippedReason;
+    } else {
+      delete ctx.discoverSkipReason;
+    }
 
     if (result.challenge) {
       setInterstitialSession({
@@ -716,6 +722,11 @@ export class CommunityEngagerController implements AppController {
       });
       ctx.discoveryCandidates = result.candidates;
       ctx.discoverRan = result.ran;
+      if (!result.ran && result.skippedReason) {
+        ctx.discoverSkipReason = result.skippedReason;
+      } else {
+        delete ctx.discoverSkipReason;
+      }
 
       if (!result.challenge) {
         await clearInterstitialSession(true);

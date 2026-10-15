@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: fallback-predicate
     content: Helper shouldTriggerEmptyScoutFallback — healthy skip, not already-seen-only, not hard-fail/challenge
-    status: pending
+    status: completed
   - id: scout-fallback
     content: Controller fallback via runEmptyScoutDiscoverFallback; HITL-safe; prefer promoted; attempt+daily counters
     status: pending
