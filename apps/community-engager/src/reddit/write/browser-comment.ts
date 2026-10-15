@@ -263,10 +263,9 @@ async function submitComment(page: Page, decide: DecisionPort): Promise<void> {
     if (decided.selectedId) {
       const refOk = await actComposerControl(page, decided, "click");
       if (refOk) {
-        await sleep(400);
-        // If decide clicked a stale/disabled control, fall through to semantics.
-        const stillOpen = await findEnabledSubmitButton(page);
-        if (!stillOpen) return;
+        await sleep(600);
+        // Button gone is a weak signal only — caller must verify permalink.
+        if (!(await findEnabledSubmitButton(page))) return;
         console.warn(
           "[comment] submit decide click left Comment enabled — trying semantic submit"
         );
@@ -279,6 +278,7 @@ async function submitComment(page: Page, decide: DecisionPort): Promise<void> {
   const semantic = await findEnabledSubmitButton(page);
   if (semantic) {
     await semantic.click({ timeout: 8_000 });
+    await sleep(600);
     return;
   }
 
@@ -290,12 +290,13 @@ async function submitComment(page: Page, decide: DecisionPort): Promise<void> {
     process.platform === "darwin" ? "Meta+Enter" : "Control+Enter"
   );
   await sleep(800);
-  const afterShortcut = await findEnabledSubmitButton(page);
-  if (!afterShortcut) return;
+}
 
-  throw new Error(
-    "Could not find visible Comment/Reply submit button (composer may still be collapsed or text did not register)"
-  );
+/** True only for a real comment URL — not the bare thread permalink. */
+export function isCommentPermalink(url: string): boolean {
+  const u = url.trim();
+  if (!u) return false;
+  return /\/comment\//i.test(u) || /\/t1_[a-z0-9]+/i.test(u);
 }
 
 async function capturePermalink(
@@ -303,36 +304,40 @@ async function capturePermalink(
   snippet: string
 ): Promise<string | undefined> {
   const needle = snippet.trim().slice(0, 48);
-  await sleep(1500);
+  // Reddit often needs a beat before the new comment appears in the tree.
+  for (const wait of [1200, 2000, 2500]) {
+    await sleep(wait);
 
-  // URL may jump to the new comment
-  const url = page.url();
-  if (/\/comment\//i.test(url)) return url.split("?")[0];
+    const url = page.url();
+    if (isCommentPermalink(url)) return url.split("?")[0];
 
-  if (needle.length >= 12) {
+    if (needle.length < 12) continue;
     try {
       const comment = page
         .locator("shreddit-comment, [id^='t1_'], .Comment")
         .filter({ hasText: needle })
         .first();
-      if ((await comment.count()) > 0) {
-        const link = comment.locator('a[href*="/comment/"]').first();
-        if ((await link.count()) > 0) {
-          const href = await link.getAttribute("href");
-          if (href) {
-            return href.startsWith("http")
-              ? href.split("?")[0]
-              : `https://www.reddit.com${href}`.split("?")[0];
-          }
-        }
-        const id = await comment.getAttribute("id");
-        if (id?.startsWith("t1_")) {
-          const base = url.split("?")[0].replace(/\/$/, "");
-          return `${base}/${id}/`;
+      if ((await comment.count()) === 0) continue;
+
+      const link = comment.locator('a[href*="/comment/"]').first();
+      if ((await link.count()) > 0) {
+        const href = await link.getAttribute("href");
+        if (href) {
+          const full = href.startsWith("http")
+            ? href.split("?")[0]
+            : `https://www.reddit.com${href}`.split("?")[0];
+          if (isCommentPermalink(full)) return full;
         }
       }
+      const thingId =
+        (await comment.getAttribute("thingid")) ??
+        (await comment.getAttribute("id"));
+      if (thingId?.startsWith("t1_")) {
+        const base = url.split("?")[0].replace(/\/$/, "");
+        return `${base}/${thingId}/`;
+      }
     } catch {
-      /* fall through */
+      /* retry */
     }
   }
 
@@ -470,15 +475,19 @@ export async function postCommentBrowser(
     const permalink = await capturePermalink(page, text);
     await saveSession(page, cfg.reddit);
 
-    if (!permalink) {
-      console.warn(
-        "[comment] submitted but permalink not captured — treating as ok"
-      );
+    if (!permalink || !isCommentPermalink(permalink)) {
+      return {
+        ok: false,
+        error:
+          "Submit clicked (or shortcut sent) but no comment permalink found — " +
+          "likely did not post. Check jar / try headed mode.",
+        loggedIn: true,
+      };
     }
 
     return {
       ok: true,
-      permalink: permalink ?? opts.threadUrl,
+      permalink,
       loggedIn: true,
     };
   } catch (err) {
