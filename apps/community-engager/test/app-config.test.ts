@@ -42,6 +42,9 @@ describe("app-config", () => {
     assert.equal(cfg.visibility.enabled, true);
     assert.equal(cfg.visibility.delayMs, 3000);
     assert.match(cfg.discover.goal, /GoStylens/);
+    assert.equal(cfg.discover.onEmptyScout, "off");
+    assert.equal(cfg.discover.onEmptyScoutMax, 1);
+    assert.equal(cfg.discover.onEmptyScoutMaxPerDay, 3);
   });
 
   it("merges local.json over default.json", async () => {
@@ -84,6 +87,9 @@ describe("getCommunityConfig policy + env override", () => {
     delete process.env.COMMUNITY_WARMUP;
     delete process.env.COMMUNITY_MAX_JOBS;
     delete process.env.SCOUT_SOURCE;
+    delete process.env.COMMUNITY_DISCOVER_ON_EMPTY_SCOUT;
+    delete process.env.COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX;
+    delete process.env.COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX_PER_DAY;
   });
 
   it("uses file policy when env is unset", () => {
@@ -91,6 +97,7 @@ describe("getCommunityConfig policy + env override", () => {
       warmup: { mode: "force", minKarma: 50 },
       jobs: { maxJobs: 7, delayMs: 900 },
       scout: { source: "browser" },
+      discover: { onEmptyScout: "force", onEmptyScoutMax: 2 },
     });
     const cfg = getCommunityConfig({}, { appConfig });
     assert.equal(cfg.warmup.mode, "force");
@@ -98,6 +105,9 @@ describe("getCommunityConfig policy + env override", () => {
     assert.equal(cfg.jobs.maxJobs, 7);
     assert.equal(cfg.jobs.delayMs, 900);
     assert.equal(cfg.scout.source, "browser");
+    assert.equal(cfg.discover.onEmptyScout, "force");
+    assert.equal(cfg.discover.onEmptyScoutMax, 2);
+    assert.equal(cfg.discover.onEmptyScoutMaxPerDay, 3);
   });
 
   it("lets env win over file policy", () => {
@@ -105,17 +115,24 @@ describe("getCommunityConfig policy + env override", () => {
       warmup: { mode: "force" },
       jobs: { maxJobs: 7 },
       scout: { source: "browser" },
+      discover: { onEmptyScout: "off", onEmptyScoutMax: 1 },
     });
     const cfg = getCommunityConfig(
       {
         COMMUNITY_WARMUP: "off",
         COMMUNITY_MAX_JOBS: "2",
         SCOUT_SOURCE: "fixtures",
+        COMMUNITY_DISCOVER_ON_EMPTY_SCOUT: "force",
+        COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX: "2",
+        COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX_PER_DAY: "5",
       },
       { appConfig }
     );
     assert.equal(cfg.warmup.mode, "off");
     assert.equal(cfg.jobs.maxJobs, 2);
     assert.equal(cfg.scout.source, "fixtures");
+    assert.equal(cfg.discover.onEmptyScout, "force");
+    assert.equal(cfg.discover.onEmptyScoutMax, 2);
+    assert.equal(cfg.discover.onEmptyScoutMaxPerDay, 5);
   });
 });

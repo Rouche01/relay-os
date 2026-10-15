@@ -98,6 +98,9 @@ export type RedditTransport =
 /** COMMUNITY_DISCOVER=auto|force|off (true→force, false→off). */
 export type DiscoverMode = "auto" | "force" | "off";
 
+/** COMMUNITY_DISCOVER_ON_EMPTY_SCOUT=off|force. */
+export type OnEmptyScoutMode = "off" | "force";
+
 /** COMMUNITY_WARMUP=auto|force|off (true→force, false→off). */
 export type WarmupMode = "auto" | "force" | "off";
 
@@ -151,6 +154,12 @@ export interface DiscoverRuntimeConfig {
   exploreSlot: boolean;
   goal: string;
   requeueDays: number;
+  /** Empty scout after healthy discover skip → forced discover. */
+  onEmptyScout: OnEmptyScoutMode;
+  /** Max forced empty-scout fallbacks per engage run. */
+  onEmptyScoutMax: number;
+  /** Max forced empty-scout fallbacks per UTC calendar day. */
+  onEmptyScoutMaxPerDay: number;
 }
 
 export interface ScoutRuntimeConfig {
@@ -239,6 +248,17 @@ export function parseDiscoverMode(raw: string | undefined): DiscoverMode {
   if (v === "auto") return "auto";
   // Unknown values: treat as auto (safe default — skip when healthy).
   return "auto";
+}
+
+/** Empty-scout fallback: only off|force (unknown → off). */
+export function parseOnEmptyScoutMode(
+  raw: string | undefined
+): OnEmptyScoutMode {
+  const v = (raw ?? "off").trim().toLowerCase();
+  if (v === "force" || v === "true" || v === "1" || v === "yes" || v === "on") {
+    return "force";
+  }
+  return "off";
 }
 
 export function parseWarmupMode(raw: string | undefined): WarmupMode {
@@ -578,6 +598,24 @@ export function getCommunityConfig(
         env,
         "COMMUNITY_DISCOVER_REQUEUE_DAYS",
         policy.discover.requeueDays
+      ),
+      onEmptyScout: parseOnEmptyScoutMode(
+        env.COMMUNITY_DISCOVER_ON_EMPTY_SCOUT !== undefined &&
+          env.COMMUNITY_DISCOVER_ON_EMPTY_SCOUT !== ""
+          ? env.COMMUNITY_DISCOVER_ON_EMPTY_SCOUT
+          : policy.discover.onEmptyScout
+      ),
+      onEmptyScoutMax: envNumber(
+        env,
+        "COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX",
+        policy.discover.onEmptyScoutMax,
+        { allowZero: false }
+      ),
+      onEmptyScoutMaxPerDay: envNumber(
+        env,
+        "COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX_PER_DAY",
+        policy.discover.onEmptyScoutMaxPerDay,
+        { allowZero: false }
       ),
     },
     scout: {

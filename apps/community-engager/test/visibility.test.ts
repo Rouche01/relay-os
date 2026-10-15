@@ -66,6 +66,9 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
       exploreSlot: false,
       goal: "",
       requeueDays: 14,
+      onEmptyScout: "off",
+      onEmptyScoutMax: 1,
+      onEmptyScoutMaxPerDay: 3,
     },
     scout: {
       source: "fixtures",

@@ -14,6 +14,9 @@ export interface WarmupFileConfig {
   minHelpComments?: number;
 }
 
+/** Empty-scout → forced discover fallback (see discover_empty_scout_fallback plan). */
+export type OnEmptyScoutMode = "off" | "force";
+
 export interface DiscoverFileConfig {
   mode?: DiscoverMode | string;
   query?: string;
@@ -23,6 +26,12 @@ export interface DiscoverFileConfig {
   exploreSlot?: boolean;
   goal?: string;
   requeueDays?: number;
+  /** When scout finds 0 actionable after healthy discover skip. Default off. */
+  onEmptyScout?: OnEmptyScoutMode | string;
+  /** Max forced discovers per engage run. Default 1. */
+  onEmptyScoutMax?: number;
+  /** Max forced empty-scout fallbacks per calendar day (UTC). Default 3. */
+  onEmptyScoutMaxPerDay?: number;
 }
 
 export interface ScoutFileConfig {
@@ -127,6 +136,9 @@ export interface CommunityAppConfig {
     exploreSlot: boolean;
     goal: string;
     requeueDays: number;
+    onEmptyScout: string;
+    onEmptyScoutMax: number;
+    onEmptyScoutMaxPerDay: number;
   };
   scout: {
     source: string;
@@ -210,6 +222,9 @@ const BUILTIN_DEFAULTS: CommunityAppConfig = {
     exploreSlot: true,
     goal: "Help-first fashion and styling communities for GoStylens. Soft product mention OK when useful; never hard-sell or spam.",
     requeueDays: 14,
+    onEmptyScout: "off",
+    onEmptyScoutMax: 1,
+    onEmptyScoutMaxPerDay: 3,
   },
   scout: {
     source: "auto",
@@ -383,6 +398,11 @@ function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
       exploreSlot: Boolean(raw.discover.exploreSlot),
       goal: String(raw.discover.goal ?? BUILTIN_DEFAULTS.discover.goal),
       requeueDays: nonNegInt(raw.discover.requeueDays, 14),
+      onEmptyScout: normalizeOnEmptyScout(
+        raw.discover.onEmptyScout ?? BUILTIN_DEFAULTS.discover.onEmptyScout
+      ),
+      onEmptyScoutMax: positiveInt(raw.discover.onEmptyScoutMax, 1),
+      onEmptyScoutMaxPerDay: positiveInt(raw.discover.onEmptyScoutMaxPerDay, 3),
     },
     scout: {
       source: String(raw.scout.source ?? "auto"),
@@ -436,6 +456,14 @@ function nonNegInt(raw: unknown, fallback: number): number {
 function positiveInt(raw: unknown, fallback: number): number {
   const n = typeof raw === "number" ? raw : Number(raw);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+function normalizeOnEmptyScout(raw: unknown): OnEmptyScoutMode {
+  const v = String(raw ?? "off").trim().toLowerCase();
+  if (v === "force" || v === "true" || v === "1" || v === "yes" || v === "on") {
+    return "force";
+  }
+  return "off";
 }
 
 function clampRatio(raw: unknown, fallback: number): number {
