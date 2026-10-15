@@ -109,6 +109,7 @@ export async function draftReply(
       memoryHint: Boolean(memoryBlock),
       lpBaseUrl,
       campaign: draft.utmCampaign,
+      mediaLed: Boolean(draft.opMediaHint),
     });
 
   return {
@@ -207,26 +208,30 @@ function buildStubDraft(input: {
   memoryHint?: boolean;
   lpBaseUrl?: string;
   campaign?: string;
+  mediaLed?: boolean;
 }): string {
-  const helpFirst =
-    `Hey — for “${input.title}”, a simple approach that works without buying anything new:\n` +
-    `1) Pick 3–5 roles your clothes need to cover (work / weekend / layer).\n` +
-    `2) Audit what you already own against those roles.\n` +
-    `3) Only then fill gaps — one piece at a time.\n`;
+  const helpFirst = input.mediaLed
+    ? `For “${input.title}” I can't see the photos, so I won't guess the pieces. ` +
+      `What's the dressiest item in the set, and are you aiming polished or more relaxed? ` +
+      `Those two answers usually decide the outfit path.`
+    : input.opText.trim().length > 40
+      ? `On “${input.title}” — I'd start from what you already called out in the post and pick one constraint to optimize for (comfort, polish, or repeat wear). ` +
+        `Once that priority is clear, the next piece choice gets a lot easier.`
+      : `On “${input.title}” I'd get specific before buying or rebuilding anything: what's the main constraint (work hours, heat, budget, body change)? ` +
+        `Name that and people can actually suggest pieces that fit.`;
 
   const memoryNote = input.memoryHint
-    ? `\n(Keeping this help-first based on past feedback.)`
+    ? ` Keeping this help-first based on past feedback.`
     : "";
 
   if (input.intensity === 0) {
-    return helpFirst + `\n(Happy to unpack any of those steps if useful.)` + memoryNote;
+    return helpFirst + memoryNote;
   }
 
   if (input.intensity === 1) {
     return (
       helpFirst +
-      `\nI've been dogfooding a small styling helper (GoStylens) for the “system” part — ` +
-      `no link, just mentioning in case the structure resonates.` +
+      ` I've been trying a small styling helper called GoStylens for the “keep it coherent” part — just the name, no link.` +
       memoryNote
     );
   }
@@ -235,7 +240,7 @@ function buildStubDraft(input: {
   const lp = input.lpBaseUrl ?? "https://gostylens.app";
   return (
     helpFirst +
-    `\nFull disclosure: I'm the founder of GoStylens. If a lightweight system helper sounds useful: ${lp}` +
+    ` Full disclosure: I'm the founder of GoStylens. If a lightweight system helper sounds useful: ${lp}` +
     memoryNote
   );
 }

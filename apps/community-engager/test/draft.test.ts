@@ -107,9 +107,42 @@ describe("buildDraftPrompt", () => {
     assert.match(prompt, /Human aborted a hard sell last week/);
     assert.match(prompt, /Intensity rules:/);
     assert.match(prompt, /Soft-CTA pattern/);
+    assert.match(prompt, /Voice \(required\)/);
+    assert.match(prompt, /Ban AI\/coach tells/);
     assert.match(prompt, /Do not mention GoStylens/);
     assert.match(prompt, /mention by name only/);
     assert.match(prompt, /founder disclosure/);
+  });
+
+  it("adds photo constraints for image / deictic posts", () => {
+    const prompt = buildDraftPrompt(
+      draft({
+        threadTitle: "Help styling these for a live taping",
+        opText: "",
+        postUrl: "https://i.redd.it/abc123.jpg",
+      })
+    );
+    assert.match(prompt, /PHOTO \/ MEDIA CONSTRAINT/);
+    assert.match(prompt, /cannot see/i);
+    assert.match(prompt, /Do not invent colors/);
+    assert.match(prompt, /live taping/);
+  });
+});
+
+describe("listingPostsToDrafts opMediaHint", () => {
+  it("sets opMediaHint when the listing url is an image", () => {
+    const [mapped] = listingPostsToDrafts(
+      [
+        listingPost({
+          title: "Help styling these for a live taping",
+          selftext: "",
+          url: "https://i.redd.it/abc123.jpg",
+        }),
+      ],
+      3
+    );
+    assert.ok(mapped?.opMediaHint);
+    assert.match(mapped!.opMediaHint!, /photo/i);
   });
 });
 
@@ -180,8 +213,10 @@ describe("draftReply stub fallback", () => {
     const outcome = await draftReply(draft());
     assert.equal(outcome.provider, "stub");
     assert.equal(outcome.draft.status, "pending_approval");
-    assert.match(outcome.draft.draftText, /3–5 roles your clothes need to cover/);
+    assert.match(outcome.draft.draftText, /I'd start from what you already called out/);
     assert.doesNotMatch(outcome.draft.draftText, /GoStylens/);
+    assert.doesNotMatch(outcome.draft.draftText, /Hey —/);
+    assert.doesNotMatch(outcome.draft.draftText, /1\)/);
   });
 
   it("keeps an explicit text override on the stub even if a key is set", async () => {

@@ -10,6 +10,7 @@ import {
   type SubredditPlaybook,
 } from "../../policy/playbook.js";
 import type { RedditListingPost } from "../client.js";
+import { inferOpMedia } from "../../stages/draft/op-media.js";
 import { HELP_RE, isMegathread, scoreRedditPost } from "./score.js";
 
 /** Keep OP body small enough for later draft prompts. */
@@ -80,13 +81,23 @@ export function listingPostsToDrafts(
   for (const { post, score, rationale } of ranked) {
     const id = `reddit-${post.id}`;
     if (exclude?.has(id)) continue;
+    const opText = capOpText(post.selftext);
+    const media = inferOpMedia({
+      title: post.title,
+      opText,
+      postUrl: post.url,
+    });
     drafts.push({
       id,
       platform: "reddit",
       subreddit: post.subreddit,
       threadUrl: post.permalink,
       threadTitle: post.title,
-      opText: capOpText(post.selftext),
+      opText,
+      ...(media.hint ? { opMediaHint: media.hint } : {}),
+      ...(post.url && post.url !== post.permalink
+        ? { postUrl: post.url }
+        : {}),
       draftText: "",
       // Start help-only; draft stage clamps further via playbook / plugs-week.
       intensity: 0,

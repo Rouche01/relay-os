@@ -53,6 +53,13 @@ export interface CommunityDraft {
   threadTitle: string;
   /** OP body (selftext), trimmed and capped. Empty when the listing had none. */
   opText?: string;
+  /**
+   * When set, OP post is photo/gallery-led (or deictic “these” with thin body).
+   * Draft model must not invent garment details it cannot see.
+   */
+  opMediaHint?: string;
+  /** Listing post.url (image CDN / gallery) when different from permalink. */
+  postUrl?: string;
   draftText: string;
   intensity: PromoIntensity;
   score: OpportunityScore;

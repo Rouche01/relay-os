@@ -1,5 +1,6 @@
 import type { SubredditPlaybook } from "../../policy/playbook.js";
 import type { CommunityDraft, PromoIntensity } from "../../types.js";
+import { inferOpMedia } from "./op-media.js";
 import {
   DISCLOSURE_RE,
   normalizeLpBase,
@@ -71,12 +72,41 @@ export function buildDraftPrompt(
       ]
     : [];
 
+  const media =
+    draft.opMediaHint ??
+    inferOpMedia({
+      title: draft.threadTitle,
+      opText,
+      postUrl: draft.postUrl,
+    }).hint;
+  const mediaSection = media
+    ? [
+        "PHOTO / MEDIA CONSTRAINT (required):",
+        media,
+        "- Tie the reply to the occasion/goal in the title.",
+        "- Either ask 1–2 specific questions about the pieces, or give one narrow take that still works without seeing them.",
+        "- Never claim you can see the outfit or name garments that are not in the text.",
+        "",
+      ]
+    : [];
+
   return [
-    "You write one Reddit comment reply for a fashion and styling community.",
-    "The product is GoStylens, a small styling helper. Voice is help-first.",
+    "You write one Reddit comment — as a regular person in a fashion/styling sub, not a coach or chatbot.",
+    "Product context (only for intensity rules below): GoStylens is a small styling helper. Stay help-first.",
+    "",
+    "Voice (required):",
+    "- Sound like a thoughtful commenter: casual, specific, a little opinionated.",
+    "- Open by engaging the actual ask (quote or paraphrase one concrete detail from title/body).",
+    "- One main suggestion OR one clear take, then optionally one short follow-up question.",
+    "- 2–5 short sentences. Contractions are fine (I'd / you're / that's).",
+    "- Ban AI/coach tells: numbered frameworks (1) 2) 3)), \"Hey —\", \"Happy to help/unpack\",",
+    "  \"simple approach\", \"game changer\", \"I'd love to\", \"feel free to\", \"as an AI\",",
+    "  \"great question\", bullet templates, and generic capsule/wardrobe sermons that fit any post.",
+    "- No markdown headings, no hashtags, no emoji stacks.",
     "",
     ...warmupSection,
     ...playbookSection,
+    ...mediaSection,
     "Soft-CTA pattern (always):",
     "- Lead with concrete help for this thread. Product comes after help, never before.",
     "- Never hard-sell. The reader must get value if they ignore the product entirely.",
@@ -88,16 +118,16 @@ export function buildDraftPrompt(
     "- Prefer 0. Use 1 only when a system/tool framing clearly fits. Use 2 only when disclosure feels natural.",
     "- If past feedback mentions abort, spam, hard sell, or too much promo, intensity must be 0 and GoStylens must not appear.",
     "",
-    "Reply rules:",
-    "- Answer this thread, using the title and the original post body.",
-    "- Plain sentences. No markdown headings, no hashtags, no bullet templates.",
+    "Content rules:",
+    "- Answer *this* thread only; ground every tip in what OP wrote.",
+    "- If the body is empty/thin and the title refers to specific items/photos, do not invent those items.",
     "- Do not invent prices, shops, or a personal story you were not given.",
     "- Keep draftText under 900 characters.",
     "",
     `Subreddit: r/${draft.subreddit}`,
     `Title: ${draft.threadTitle}`,
     "Original post:",
-    opText || "(no body; use the title)",
+    opText || "(no body; use the title — and respect PHOTO / MEDIA CONSTRAINT if present)",
     "",
     memorySection,
   ].join("\n");
