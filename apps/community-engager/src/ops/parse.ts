@@ -98,7 +98,14 @@ export function parseOpsIntent(
     return { kind: "trigger", scheduleId: POST_WATCH_SCHEDULE_ID };
   }
 
-  // Fixed one-off vocabulary (plan table)
+  // Fixed one-off vocabulary (plan table) — longer engage phrases before bare engage
+  if (
+    n === "engage discover" ||
+    n === "engage with discover" ||
+    n === "force discover engage"
+  ) {
+    return { kind: "one_off", entrypoint: "engage", forceDiscover: true };
+  }
   if (
     n === "engage" ||
     n === "engage community" ||

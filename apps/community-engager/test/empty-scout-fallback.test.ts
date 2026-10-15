@@ -161,3 +161,39 @@ describe("emptyScoutFallbackUtcDayKey", () => {
     );
   });
 });
+
+describe("empty-scout-fallback ledger", () => {
+  it("reads 0 then increments per UTC day", async () => {
+    const { mkdtemp, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const path = await import("node:path");
+    const {
+      readEmptyScoutFallbackDailyCount,
+      incrementEmptyScoutFallbackDailyCount,
+    } = await import("../src/stages/discover/empty-scout-fallback-ledger.js");
+
+    const dir = await mkdtemp(path.join(tmpdir(), "empty-scout-ledger-"));
+    try {
+      const day = new Date("2026-10-15T12:00:00.000Z");
+      assert.equal(await readEmptyScoutFallbackDailyCount(dir, day), 0);
+      assert.equal(
+        await incrementEmptyScoutFallbackDailyCount(dir, day),
+        1
+      );
+      assert.equal(
+        await incrementEmptyScoutFallbackDailyCount(dir, day),
+        2
+      );
+      assert.equal(await readEmptyScoutFallbackDailyCount(dir, day), 2);
+      const nextDay = new Date("2026-10-16T01:00:00.000Z");
+      assert.equal(await readEmptyScoutFallbackDailyCount(dir, nextDay), 0);
+      assert.equal(
+        await incrementEmptyScoutFallbackDailyCount(dir, nextDay),
+        1
+      );
+      assert.equal(await readEmptyScoutFallbackDailyCount(dir, day), 2);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});

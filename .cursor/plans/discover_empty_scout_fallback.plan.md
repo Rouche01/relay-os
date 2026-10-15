@@ -10,13 +10,13 @@ todos:
     status: completed
   - id: scout-fallback
     content: Controller fallback via runEmptyScoutDiscoverFallback; HITL-safe; prefer promoted; attempt+daily counters
-    status: pending
+    status: completed
   - id: engage-discover-intent
     content: Ops one_off + forceDiscover via parse/command/createApp; /engage_discover + help/menu
-    status: pending
+    status: completed
   - id: tests-docs
     content: Predicate/controller/ops-parse tests for loopholes; README + rollout note to flip env
-    status: pending
+    status: completed
 isProject: true
 ---
 

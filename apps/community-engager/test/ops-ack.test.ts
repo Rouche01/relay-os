@@ -19,6 +19,10 @@ describe("opsProcessingAck", () => {
       /Starting one-off engage/
     );
     assert.match(
+      opsProcessingAck(parseOpsIntent("engage discover", m)) ?? "",
+      /force discover/
+    );
+    assert.match(
       opsProcessingAck(parseOpsIntent("run cadence now", m)) ?? "",
       /Triggering schedule "cadence"/
     );

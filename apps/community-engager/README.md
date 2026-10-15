@@ -140,7 +140,7 @@ flowchart TD
 **Ops daemon** (`pnpm scheduler`): long-lived `@relay/scheduler` host for `cadence` + `post_watch`, plus ops intents on CLI stdin (or Telegram when idle). Flags: `--once`, `--schedule <id>`, `--run-on-start`. Escape hatches: `pnpm start` / `pnpm watch:posts`.  
 **One-shot ops** (`pnpm ops -- "<intent>"`): same vocabulary, short-lived process (does not share in-memory pause state with a running daemon).
 
-The `jobs` stage **fans out** into `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. Budget engage with `COMMUNITY_MAX_JOBS` (default 3); post-watch fanout is capped by `min(jobs.maxJobs, postWatch.maxPerRun)`. Discover defaults to `COMMUNITY_DISCOVER=auto`; use `force` / `--force-discover` or `off`.
+The `jobs` stage **fans out** into `CommunityJobManifest` — one isolated `AgentRuntime` per opportunity. Budget engage with `COMMUNITY_MAX_JOBS` (default 3); post-watch fanout is capped by `min(jobs.maxJobs, postWatch.maxPerRun)`. Discover defaults to `COMMUNITY_DISCOVER=auto`; use `force` / `--force-discover` or `off`. Optional empty-scout fallback (`COMMUNITY_DISCOVER_ON_EMPTY_SCOUT=force`, default `off`) forces one discover + re-scout when auto skipped healthy and scout found zero actionable (capped per run / UTC day); mutex holds through fallback HITL.
 
 ### Ops intents
 
@@ -149,6 +149,7 @@ Exact phrases (also from `help` / unknown input). On Telegram, the same intents 
 | Intent | Telegram slash | Effect |
 |--------|----------------|--------|
 | `engage` · `engage community` · `scout reddit` | `/engage` | One-off engage run |
+| `engage discover` · `engage with discover` | `/engage_discover` | One-off engage with **forced discover** (does not consume empty-scout day budget) |
 | `watch posts` · `post watch` | `/watch_posts` | One-off post_watch run |
 | `start cadence` · `stop cadence` | `/start_cadence` · `/stop_cadence` | Resume / pause schedule `cadence` |
 | `start post watch` · `stop post watch` | `/start_post_watch` · `/stop_post_watch` | Resume / pause schedule `post_watch` |

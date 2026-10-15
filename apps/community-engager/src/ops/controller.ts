@@ -19,6 +19,8 @@ export interface OpsActiveRun {
 
 export interface OpsCreateAppOptions {
   maxJobs?: number;
+  /** Engage: set context.forceDiscover before stages (manual; uncapped by empty-scout day ledger). */
+  forceDiscover?: boolean;
 }
 
 export interface OpsControllerOptions {
@@ -83,7 +85,9 @@ export class OpsController {
       case "status":
         return this.formatStatus();
       case "one_off":
-        return this.runOneOff(cmd.entrypoint);
+        return this.runOneOff(cmd.entrypoint, {
+          ...(cmd.forceDiscover ? { forceDiscover: true } : {}),
+        });
       case "start_schedule":
         return this.startSchedule(cmd.scheduleId);
       case "stop_schedule":
@@ -168,15 +172,20 @@ export class OpsController {
     }
   }
 
-  private async runOneOff(entrypoint: CommunityEntrypoint): Promise<string> {
-    const label = `one-off ${entrypoint}`;
+  private async runOneOff(
+    entrypoint: CommunityEntrypoint,
+    options?: OpsCreateAppOptions
+  ): Promise<string> {
+    const label = options?.forceDiscover
+      ? `one-off ${entrypoint} (force discover)`
+      : `one-off ${entrypoint}`;
     if (!this.tryBeginRun({ kind: "one_off", label })) {
-      return this.busyMessage(`one-off ${entrypoint}`);
+      return this.busyMessage(label);
     }
     try {
-      const app = this.createApp(entrypoint);
+      const app = this.createApp(entrypoint, options);
       const summary = await app.run();
-      return `One-off ${entrypoint} finished.\n${formatRunSummary(summary)}`;
+      return `One-off ${entrypoint}${options?.forceDiscover ? " (force discover)" : ""} finished.\n${formatRunSummary(summary)}`;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return `One-off ${entrypoint} failed: ${message}`;

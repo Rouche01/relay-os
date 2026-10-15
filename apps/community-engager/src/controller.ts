@@ -63,6 +63,11 @@ import {
   parseDiscoveryChoices,
   runDiscovery,
 } from "./stages/discover/discover.js";
+import { shouldTriggerEmptyScoutFallback } from "./stages/discover/empty-scout-fallback.js";
+import {
+  incrementEmptyScoutFallbackDailyCount,
+  readEmptyScoutFallbackDailyCount,
+} from "./stages/discover/empty-scout-fallback-ledger.js";
 import { executeApproved } from "./stages/execute/executor.js";
 import { getAllowlistStore, resolvePlaybook } from "./policy/allowlist-store.js";
 import { CommunityMemory, communityFactDomain } from "./memory.js";
@@ -195,7 +200,11 @@ export class CommunityEngagerController implements AppController {
     }
 
     if (stage.name === "scout") {
-      const challenge = this.options.getContext().interstitialChallenge as
+      const ctx = this.options.getContext();
+      if (ctx.emptyScoutFallbackActive) {
+        return this.applyEmptyScoutFallbackHitl(feedback);
+      }
+      const challenge = ctx.interstitialChallenge as
         | { reason?: string }
         | undefined;
       if (
@@ -464,12 +473,25 @@ export class CommunityEngagerController implements AppController {
       }
     }
     if (stage.name === "scout" && fp.type === "credential") {
+      if (context.emptyScoutFallbackActive) {
+        const discoverChallenge = context.discoverChallenge as
+          | { reason?: string }
+          | undefined;
+        return discoverChallenge?.reason !== "login_wall";
+      }
       const challenge = context.interstitialChallenge as
         | { reason?: string }
         | undefined;
       return challenge?.reason !== "login_wall";
     }
     if (stage.name === "scout" && fp.type === "confirmation") {
+      if (context.emptyScoutFallbackActive) {
+        const discoverChallenge = context.discoverChallenge as
+          | { reason?: string }
+          | undefined;
+        if (!discoverChallenge) return true;
+        return discoverChallenge.reason === "login_wall";
+      }
       const challenge = context.interstitialChallenge as
         | { reason?: string }
         | undefined;
@@ -477,6 +499,12 @@ export class CommunityEngagerController implements AppController {
       // Credential owns login_wall; confirmation covers CAPTCHA + post-login 2FA.
       if (challenge.reason === "login_wall") return true;
       return false;
+    }
+    if (stage.name === "scout" && fp.type === "choice") {
+      if (!context.emptyScoutFallbackActive) return true;
+      const candidates = (context.discoveryCandidates ??
+        []) as DiscoveryCandidate[];
+      return candidates.length === 0;
     }
     if (stage.name !== "await_approval" || fp.type !== "confirmation") {
       return false;
@@ -530,6 +558,13 @@ export class CommunityEngagerController implements AppController {
       );
     }
     if (stage.name === "scout" && fp.type === "credential") {
+      if (context.emptyScoutFallbackActive) {
+        return (
+          `Empty-scout fallback discover needs a Reddit login (login wall). ` +
+          `The headed browser has the login form open — reply with username on line 1 and password on line 2. ` +
+          `Abort skips fallback discovery.`
+        );
+      }
       const challenge = context.interstitialChallenge as
         | { subreddit?: string }
         | undefined;
@@ -540,6 +575,16 @@ export class CommunityEngagerController implements AppController {
       );
     }
     if (stage.name === "scout" && fp.type === "confirmation") {
+      if (context.emptyScoutFallbackActive) {
+        const challenge = context.discoverChallenge as
+          | { reason?: string }
+          | undefined;
+        return (
+          `Empty-scout fallback discover hit a Reddit anti-bot wall (${challenge?.reason ?? "captcha"}). ` +
+          `Use the headed browser — we auto-continue when the wall clears (or Approve). ` +
+          `Abort skips fallback discovery.`
+        );
+      }
       const challenge = context.interstitialChallenge as
         | { subreddit?: string; url?: string; reason?: string }
         | undefined;
@@ -553,6 +598,18 @@ export class CommunityEngagerController implements AppController {
         `Reddit challenged the browser (r/${challenge?.subreddit ?? "?"}). ` +
         `Solve the CAPTCHA in the headed window — we auto-detect when it clears and continue ` +
         `(or tap Approve). Abort skips. We never auto-solve CAPTCHAs.`
+      );
+    }
+    if (
+      stage.name === "scout" &&
+      fp.type === "choice" &&
+      context.emptyScoutFallbackActive
+    ) {
+      const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
+      return (
+        `Scout found nothing actionable; forced discover found ${candidates.length} candidate(s). ` +
+        `Promote one or more onto the allowlist (reply e.g. r/a, r/b), ` +
+        `or choose "${DISCOVER_SKIP_OPTION}". Then we re-scout once.`
       );
     }
     if (stage.name !== "await_approval") return undefined;
@@ -577,7 +634,11 @@ export class CommunityEngagerController implements AppController {
     fp: FeedbackPoint,
     context: AgentContext
   ): Promise<string[] | undefined> {
-    if (stage.name === "discover" && fp.type === "choice") {
+    if (
+      (stage.name === "discover" ||
+        (stage.name === "scout" && context.emptyScoutFallbackActive)) &&
+      fp.type === "choice"
+    ) {
       const candidates = (context.discoveryCandidates ?? []) as DiscoveryCandidate[];
       return discoveryChoiceOptions(candidates);
     }
@@ -1050,7 +1111,10 @@ export class CommunityEngagerController implements AppController {
     };
   }
 
-  private async runScout(ctx: AgentContext): Promise<void> {
+  private async runScout(
+    ctx: AgentContext,
+    opts?: { isFallbackRescout?: boolean }
+  ): Promise<void> {
     const cfg = getCommunityConfig();
     const store = getAllowlistStore();
     const prefer =
@@ -1066,7 +1130,7 @@ export class CommunityEngagerController implements AppController {
     console.log(
       `[scout] allowlist (${subreddits.length}): ${subreddits
         .map((s) => `r/${s}`)
-        .join(", ")}`
+        .join(", ")}` + (opts?.isFallbackRescout ? " · empty-scout fallback re-scout" : "")
     );
 
     const prior = await this.options.store.list({
@@ -1081,9 +1145,164 @@ export class CommunityEngagerController implements AppController {
       excludeIds,
     });
     await this.applyScoutResult(ctx, result, excludeIds.length);
+
+    if (!opts?.isFallbackRescout) {
+      const pendingHitl = await this.maybeBeginEmptyScoutDiscoverFallback(
+        ctx,
+        result,
+        excludeIds.length
+      );
+      if (pendingHitl) {
+        // Discover choice / challenge HITL runs via scout feedback_points next.
+        return;
+      }
+      // Fallback already re-scouted + applied cadence inside finishEmptyScoutFallbackRescout.
+      if (ctx.discoverEmptyScoutFallbackDone) return;
+    }
+
     // Cadence used to run only after post_watch (same parent). Engage no longer
     // includes that stage — trim scout opportunities here before jobs fanout.
     await this.applyCadenceGate(ctx);
+  }
+
+  /**
+   * After an empty first scout, optionally force discover once.
+   * @returns true when HITL must run before re-scout (leave scout FPs active).
+   */
+  private async maybeBeginEmptyScoutDiscoverFallback(
+    ctx: AgentContext,
+    scoutResult: Awaited<ReturnType<typeof scoutOpportunities>>,
+    excludedSeen: number
+  ): Promise<boolean> {
+    const cfg = getCommunityConfig();
+    const dailyCount = await readEmptyScoutFallbackDailyCount(
+      cfg.reddit.dataDir
+    );
+    const decision = shouldTriggerEmptyScoutFallback({
+      onEmptyScout: cfg.discover.onEmptyScout,
+      discoverMode: cfg.discover.mode,
+      onEmptyScoutMax: cfg.discover.onEmptyScoutMax,
+      onEmptyScoutMaxPerDay: cfg.discover.onEmptyScoutMaxPerDay,
+      dailyCount,
+      opportunityCount: scoutResult.drafts.length,
+      discoverRan: Boolean(ctx.discoverRan),
+      discoverSkipReason:
+        typeof ctx.discoverSkipReason === "string"
+          ? ctx.discoverSkipReason
+          : undefined,
+      discoverEmptyScoutAttempts: Number(ctx.discoverEmptyScoutAttempts ?? 0),
+      discoverEmptyScoutFallbackDone: Boolean(
+        ctx.discoverEmptyScoutFallbackDone
+      ),
+      excludedSeen,
+      hasChallenge: Boolean(scoutResult.challenge || ctx.interstitialChallenge),
+      report: scoutResult.report,
+    });
+
+    if (!decision.ok) {
+      if (cfg.discover.onEmptyScout === "force") {
+        console.log(`[discover] empty-scout fallback skipped — ${decision.reason}`);
+      }
+      return false;
+    }
+
+    const attempts = Number(ctx.discoverEmptyScoutAttempts ?? 0) + 1;
+    ctx.discoverEmptyScoutAttempts = attempts;
+    const dayAfter = await incrementEmptyScoutFallbackDailyCount(
+      cfg.reddit.dataDir
+    );
+    console.log(
+      `[discover] empty-scout fallback attempt ${attempts}/${cfg.discover.onEmptyScoutMax}` +
+        ` (day ${dayAfter}/${cfg.discover.onEmptyScoutMaxPerDay}) — ${decision.reason}`
+    );
+
+    ctx.forceDiscover = true;
+    ctx.emptyScoutFallbackActive = true;
+    try {
+      await this.runDiscover(ctx);
+    } finally {
+      delete ctx.forceDiscover;
+    }
+
+    const candidates = (ctx.discoveryCandidates ?? []) as DiscoveryCandidate[];
+    const discoverChallenge = ctx.discoverChallenge as
+      | { reason?: string }
+      | undefined;
+
+    if (discoverChallenge) {
+      console.log(
+        "[discover] empty-scout fallback paused for discover HITL (challenge)"
+      );
+      return true;
+    }
+
+    if (candidates.length > 0) {
+      console.log(
+        `[discover] empty-scout fallback paused for promote HITL (${candidates.length} candidate(s))`
+      );
+      return true;
+    }
+
+    console.log(
+      "[discover] empty-scout fallback: no new postable — re-scouting once"
+    );
+    await this.finishEmptyScoutFallbackRescout(ctx);
+    return false;
+  }
+
+  /** After promote/skip/challenge resolve — one re-scout, then mark done. */
+  private async finishEmptyScoutFallbackRescout(
+    ctx: AgentContext
+  ): Promise<void> {
+    ctx.discoverEmptyScoutFallbackDone = true;
+    delete ctx.emptyScoutFallbackActive;
+    delete ctx.discoveryCandidates;
+    delete ctx.discoverChallenge;
+    await this.runScout(ctx, { isFallbackRescout: true });
+  }
+
+  /**
+   * Scout-stage HITL while empty-scout fallback discover is in flight.
+   * Soft-abort (false) keeps the engage run going into re-scout.
+   */
+  private async applyEmptyScoutFallbackHitl(
+    feedback: FeedbackResponse
+  ): Promise<boolean> {
+    const ctx = this.options.getContext();
+    const hadChallenge = Boolean(ctx.discoverChallenge);
+    let result: void | boolean;
+    if (
+      (ctx.discoverChallenge as { reason?: string } | undefined)?.reason ===
+      "login_wall"
+    ) {
+      result = await this.applyDiscoverLoginFeedback(feedback);
+    } else if (ctx.discoverChallenge) {
+      result = await this.applyDiscoverCaptchaFeedback(feedback);
+    } else {
+      result = await this.applyDiscoverFeedback(feedback);
+    }
+    this.finishDiscoverHitlWait(feedback);
+    this.finishScoutHitlWait();
+
+    // Still need another discover HITL round (e.g. captcha then choice).
+    if (ctx.discoverChallenge) {
+      return typeof result === "boolean" ? result : true;
+    }
+    const candidates = (ctx.discoveryCandidates ?? []) as DiscoveryCandidate[];
+    // Login/captcha clear may have produced candidates — choice FP still pending.
+    if (candidates.length > 0 && hadChallenge) {
+      return typeof result === "boolean" ? result : true;
+    }
+
+    if (candidates.length === 0 && !ctx.lastPromotedSubreddit) {
+      console.log(
+        "[discover] empty-scout fallback: no new postable after HITL — re-scouting once"
+      );
+    }
+
+    await this.finishEmptyScoutFallbackRescout(ctx);
+    // Soft-continue after abort so jobs still run (possibly empty).
+    return false;
   }
 
   /**

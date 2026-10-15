@@ -283,6 +283,8 @@ Full smoke table: [`SMOKE.md`](./SMOKE.md).
 | CAPTCHA / expired jar | One-shot with `REDDIT_INTERSTITIAL_HITL=true` + remote desktop; see [`README.md`](./README.md) |
 | Pause cadence overnight | Telegram `/stop_cadence` (or Admin → Schedules) |
 | Live post | Flip `REDDIT_DRY_RUN=false` for a deliberate one-shot only |
+| Force discover once | Telegram `/engage_discover` (or `engage discover`) — does not use empty-scout day budget |
+| Empty-scout fallback | After deploy: verify `/engage_discover`, then set `COMMUNITY_DISCOVER_ON_EMPTY_SCOUT=force` in community env and restart scheduler |
 | Host sleep | Disable lid/suspend if timers / Telegram poll must stay alive |
 
 ---

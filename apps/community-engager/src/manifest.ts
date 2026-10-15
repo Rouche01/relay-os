@@ -257,6 +257,13 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
           required: true,
           timeout_ms: 600_000,
         },
+        {
+          type: "choice",
+          description:
+            "Empty-scout fallback: promote a discovered subreddit onto the allowlist, or skip",
+          required: true,
+          timeout_ms: 600_000,
+        },
       ],
     },
     jobsFanoutStage,

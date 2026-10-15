@@ -19,6 +19,21 @@ describe("parseOpsIntent", () => {
       kind: "one_off",
       entrypoint: "engage",
     });
+    assert.deepEqual(parseOpsIntent("engage discover", m), {
+      kind: "one_off",
+      entrypoint: "engage",
+      forceDiscover: true,
+    });
+    assert.deepEqual(parseOpsIntent("engage with discover", m), {
+      kind: "one_off",
+      entrypoint: "engage",
+      forceDiscover: true,
+    });
+    assert.deepEqual(parseOpsIntent("force discover engage", m), {
+      kind: "one_off",
+      entrypoint: "engage",
+      forceDiscover: true,
+    });
     assert.deepEqual(parseOpsIntent("watch posts", m), {
       kind: "one_off",
       entrypoint: "post_watch",
@@ -133,6 +148,16 @@ describe("parseOpsIntent", () => {
     assert.deepEqual(parseOpsIntent("/engage", m), {
       kind: "one_off",
       entrypoint: "engage",
+    });
+    assert.deepEqual(parseOpsIntent("/engage_discover", m), {
+      kind: "one_off",
+      entrypoint: "engage",
+      forceDiscover: true,
+    });
+    assert.deepEqual(parseOpsIntent("/engage_discover@RelayBot", m), {
+      kind: "one_off",
+      entrypoint: "engage",
+      forceDiscover: true,
     });
     assert.deepEqual(parseOpsIntent("/watch_posts", m), {
       kind: "one_off",

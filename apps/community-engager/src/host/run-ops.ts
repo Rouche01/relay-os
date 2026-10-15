@@ -90,6 +90,7 @@ async function main(): Promise<void> {
         adapter,
         entrypoint,
         ...(options?.maxJobs != null ? { maxJobs: options.maxJobs } : {}),
+        ...(options?.forceDiscover ? { forceDiscover: true } : {}),
       }),
   });
 

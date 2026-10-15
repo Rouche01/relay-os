@@ -63,6 +63,12 @@ export interface CommunityEngagerAppOptions {
    * - `post_watch`: post_watch → jobs (follow-ups only; no scout)
    */
   entrypoint?: CommunityEntrypoint;
+  /**
+   * When true (engage), set `context.forceDiscover` before stages so the
+   * discover gate researches even if the allowlist is healthy.
+   * Ops `/engage_discover` — does not consume the empty-scout daily ledger.
+   */
+  forceDiscover?: boolean;
 }
 
 /**
@@ -158,12 +164,21 @@ export class CommunityEngagerApp implements FanoutHost {
   /** Run the selected parent manifest end-to-end (fanout included). */
   async run(): Promise<RunSummary> {
     const startedAt = new Date().toISOString();
-    console.log(`[run] entrypoint=${this.entrypoint}`);
+    const forceDiscover =
+      this.entrypoint === "engage" && Boolean(this.options.forceDiscover);
+    console.log(
+      `[run] entrypoint=${this.entrypoint}` +
+        (forceDiscover ? " forceDiscover=1" : "")
+    );
     let memoryHealthy: boolean | undefined;
     try {
       memoryHealthy = await this.memory.health();
     } catch {
       memoryHealthy = false;
+    }
+
+    if (forceDiscover) {
+      this.runtime.getContext().forceDiscover = true;
     }
 
     this.attachBroker(this.runtime);

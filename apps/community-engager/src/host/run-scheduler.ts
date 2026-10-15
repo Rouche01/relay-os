@@ -92,7 +92,7 @@ async function main(): Promise<void> {
 
   const createApp = (
     entrypoint: CommunityEntrypoint,
-    options?: { maxJobs?: number }
+    options?: { maxJobs?: number; forceDiscover?: boolean }
   ) => ({
     run: () =>
       withStdinReleased(async () => {
@@ -100,6 +100,7 @@ async function main(): Promise<void> {
           adapter,
           entrypoint,
           ...(options?.maxJobs != null ? { maxJobs: options.maxJobs } : {}),
+          ...(options?.forceDiscover ? { forceDiscover: true } : {}),
         });
         return app.run();
       }),

@@ -13,7 +13,9 @@ import { parseOpsIntent } from "./parse.js";
 export function opsProcessingAck(cmd: OpsCommand): string | null {
   switch (cmd.kind) {
     case "one_off":
-      return `⏳ Starting one-off ${cmd.entrypoint}… (HITL may follow)`;
+      return cmd.forceDiscover
+        ? `⏳ Starting one-off ${cmd.entrypoint} (force discover)… (HITL may follow)`
+        : `⏳ Starting one-off ${cmd.entrypoint}… (HITL may follow)`;
     case "trigger":
       return `⏳ Triggering schedule "${cmd.scheduleId}"…`;
     case "start_all":
