@@ -90,17 +90,23 @@ async function openComposer(
     console.warn("[comment] open_composer decide failed:", err);
   }
 
-  // Semantic expand fallback
+  // Semantic expand fallback (new Reddit copy: "Join the conversation")
   const addTriggers = [
-    page.getByRole("button", { name: /Add a comment|Leave a comment/i }),
-    page.getByText(/^Add a comment$/i),
+    page.getByRole("button", {
+      name: /Add a comment|Leave a comment|Join the conversation/i,
+    }),
+    page.getByRole("textbox", {
+      name: /Add a comment|Join the conversation|comment/i,
+    }),
+    page.getByText(/^(Add a comment|Join the conversation)$/i),
     page.locator("shreddit-composer").getByRole("textbox"),
+    page.locator("shreddit-composer"),
   ];
   for (const trigger of addTriggers) {
     try {
       if ((await trigger.count()) > 0 && (await trigger.first().isVisible())) {
         await trigger.first().click({ timeout: 3000 });
-        await sleep(400);
+        await sleep(500);
         break;
       }
     } catch {
@@ -134,8 +140,11 @@ async function openComposer(
 
   const candidates = [
     page.locator("shreddit-composer [contenteditable='true']"),
+    page.locator("shreddit-composer div[contenteditable='true']"),
     page.locator("[contenteditable='true']"),
-    page.getByRole("textbox", { name: /add a comment|comment/i }),
+    page.getByRole("textbox", {
+      name: /add a comment|join the conversation|comment/i,
+    }),
     page.locator("faceplate-textarea textarea, textarea"),
   ];
 

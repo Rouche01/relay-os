@@ -29,6 +29,17 @@ const composerCandidates: ObserveCandidate[] = [
     locator: { kind: "role", role: "textbox", name: "Add a comment" },
   },
   {
+    id: "role:textbox:join-the-conversation",
+    label: "Join the conversation",
+    hint: "textbox · contenteditable",
+    role: "textbox",
+    locator: {
+      kind: "role",
+      role: "textbox",
+      name: "Join the conversation",
+    },
+  },
+  {
     id: "role:button:comment",
     label: "Comment",
     hint: "button",
@@ -42,23 +53,49 @@ const composerCandidates: ObserveCandidate[] = [
     role: "button",
     locator: { kind: "role", role: "button", name: "Share" },
   },
+  {
+    id: "role:button:open-chat",
+    label: "Open chat",
+    hint: "button",
+    role: "button",
+    locator: { kind: "role", role: "button", name: "Open chat" },
+  },
+  {
+    id: "role:textbox:search",
+    label: "Search Comments",
+    hint: "textbox",
+    role: "textbox",
+    locator: { kind: "role", role: "textbox", name: "Search Comments" },
+  },
 ];
 
 describe("filterComposerCandidates / suggestComposerCandidateId", () => {
-  it("narrows and suggests the right control per step", () => {
-    assert.equal(
-      suggestComposerCandidateId(
-        "open_composer",
-        filterComposerCandidates("open_composer", composerCandidates)
-      ),
-      "role:button:add-a-comment"
+  it("offers textboxes broadly and suggests the right control per step", () => {
+    const openPool = filterComposerCandidates(
+      "open_composer",
+      composerCandidates
     );
-    assert.equal(
-      suggestComposerCandidateId(
-        "editor",
-        filterComposerCandidates("editor", composerCandidates)
-      ),
-      "role:textbox:add-a-comment"
+    assert.ok(
+      openPool.some((c) => c.id === "role:textbox:join-the-conversation")
+    );
+    assert.ok(!openPool.some((c) => c.id === "role:button:share"));
+    assert.ok(!openPool.some((c) => c.id === "role:button:open-chat"));
+    assert.ok(!openPool.some((c) => c.id === "role:textbox:search"));
+
+    const openSuggest = suggestComposerCandidateId("open_composer", openPool);
+    assert.ok(
+      openSuggest === "role:textbox:join-the-conversation" ||
+        openSuggest === "role:textbox:add-a-comment",
+      `unexpected open suggest ${openSuggest}`
+    );
+    const editorSuggest = suggestComposerCandidateId(
+      "editor",
+      filterComposerCandidates("editor", composerCandidates)
+    );
+    assert.ok(
+      editorSuggest === "role:textbox:join-the-conversation" ||
+        editorSuggest === "role:textbox:add-a-comment",
+      `unexpected editor suggest ${editorSuggest}`
     );
     assert.equal(
       suggestComposerCandidateId(
@@ -75,6 +112,7 @@ describe("filterComposerCandidates / suggestComposerCandidateId", () => {
       composerCandidates
     ).map((c) => c.id);
     assert.ok(!submitIds.includes("role:button:add-a-comment"));
+    assert.ok(!submitIds.includes("role:textbox:join-the-conversation"));
     assert.ok(submitIds.includes("role:button:comment"));
   });
 });

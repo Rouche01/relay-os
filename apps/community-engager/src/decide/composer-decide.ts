@@ -33,10 +33,20 @@ export interface ComposerControlDecision {
 }
 
 const STEP_PROMPTS: Record<ComposerControlStep, string> = {
-  open_composer: "Which control opens the Reddit comment composer?",
-  editor: "Which control is the comment text editor?",
-  submit: "Which control submits the comment (Comment / Reply button)?",
+  open_composer:
+    "Which control opens or focuses the Reddit post comment composer? " +
+    "It may say “Add a comment”, “Join the conversation”, or similar — not Chat, Search, or Share.",
+  editor:
+    "Which control is the comment text editor (textbox / contenteditable) for writing a reply on this post?",
+  submit:
+    "Which control submits the comment (usually a Comment or Reply button — not “Add a comment” / “Join the conversation”)?",
 };
+
+/** Never offer these to decide (noise / dangerous mistaken clicks). */
+const HARD_EXCLUDE_RE =
+  /password|username|e-?mail|log\s*in|sign\s*up|upvote|downvote|award|give award|share|open.?chat|^chat$|search comments|search posts|notification|karma|profile menu/i;
+
+const MAX_DECIDE_CANDIDATES = 16;
 
 /**
  * Choose a composer control via DecisionPort Choice over observe candidates.
@@ -172,6 +182,16 @@ export function interpretComposerControlAnswer(
     selectedRaw && knownIds.has(selectedRaw) ? selectedRaw : null;
 
   let selectedId: string | null = validPick;
+  // If decide picks a hard-noise control (e.g. chat), prefer heuristic suggest.
+  if (selectedId) {
+    const picked = candidates.find((c) => c.id === selectedId);
+    if (picked && scoreCandidate(step, picked) < 0 && suggestedId) {
+      console.warn(
+        `[comment] decide pick id=${selectedId} scored low — using suggest=${suggestedId}`
+      );
+      selectedId = suggestedId;
+    }
+  }
   if (!pickedEscalate && !selectedId && suggestedId && knownIds.has(suggestedId)) {
     selectedId = suggestedId;
   }
@@ -189,12 +209,19 @@ export function interpretComposerControlAnswer(
   };
 }
 
+/**
+ * Broad pool for DecisionPort: every plausible textbox / composer control,
+ * minus hard excludes. Phrase matching only ranks (suggest), it does not gate.
+ */
 export function filterComposerCandidates(
   step: ComposerControlStep,
   candidates: ObserveCandidate[]
 ): ObserveCandidate[] {
-  const matched = candidates.filter((c) => matchesStep(step, c));
-  return matched.length ? matched : candidates.slice(0, 12);
+  const plausible = candidates.filter((c) => isPlausibleComposerCandidate(step, c));
+  const pool = plausible.length ? plausible : candidates.slice(0, MAX_DECIDE_CANDIDATES);
+  return [...pool]
+    .sort((a, b) => scoreCandidate(step, b) - scoreCandidate(step, a))
+    .slice(0, MAX_DECIDE_CANDIDATES);
 }
 
 export function suggestComposerCandidateId(
@@ -251,51 +278,86 @@ export function resolveComposerLocator(
   return resolveObserveLocator(page, ref).first();
 }
 
-function matchesStep(step: ComposerControlStep, c: ObserveCandidate): boolean {
-  const label = `${c.label} ${c.hint ?? ""} ${c.role ?? ""}`.toLowerCase();
+function candidateBlob(c: ObserveCandidate): string {
+  return `${c.id} ${c.label} ${c.hint ?? ""} ${c.role ?? ""}`.toLowerCase();
+}
+
+/** Structural gate only — copy/phrases belong in {@link scoreCandidate}. */
+export function isPlausibleComposerCandidate(
+  step: ComposerControlStep,
+  c: ObserveCandidate
+): boolean {
+  const blob = candidateBlob(c);
+  if (HARD_EXCLUDE_RE.test(blob)) return false;
+
+  const isTextish =
+    c.role === "textbox" ||
+    blob.includes("textbox") ||
+    blob.includes("contenteditable") ||
+    blob.includes("textarea") ||
+    /join the conversation|add a comment|leave a comment|write a comment/i.test(
+      blob
+    );
+  const isButton = c.role === "button" || blob.includes("button");
+
   switch (step) {
     case "open_composer":
-      return (
-        (c.role === "button" ||
-          c.role === "textbox" ||
-          label.includes("button") ||
-          label.includes("textbox")) &&
-        /add a comment|leave a comment|write a comment|comment here/i.test(
-          label
-        ) &&
-        !/open.?chat|chat|message|share|award|upvote|downvote/i.test(label) &&
-        !/^comment$/i.test(c.label.trim()) &&
-        !/^reply$/i.test(c.label.trim())
-      );
+      // Any text entry or button that might expand the composer — decide ranks.
+      return isTextish || isButton;
     case "editor":
-      return (
-        (c.role === "textbox" ||
-          label.includes("textbox") ||
-          label.includes("contenteditable") ||
-          /textarea/i.test(label)) &&
-        !/password|search|username|email/i.test(label)
-      );
-    case "submit": {
-      const isButton = c.role === "button" || label.includes("button");
+      return isTextish;
+    case "submit":
+      // Submit is a button; exclude the collapsed composer prompt itself.
       if (!isButton) return false;
-      if (/^(comment|reply)$/i.test(c.label.trim())) return true;
-      return (
-        /\b(comment|reply)\b/i.test(label) &&
-        !/add a comment|leave a comment/i.test(label)
-      );
-    }
+      if (
+        /add a comment|leave a comment|join the conversation|write a comment/i.test(
+          blob
+        )
+      ) {
+        return false;
+      }
+      return true;
   }
 }
 
-function scoreCandidate(step: ComposerControlStep, c: ObserveCandidate): number {
-  if (!matchesStep(step, c)) return 0;
+/**
+ * Heuristic ranking for suggestedId. Positive = good hint for decide;
+ * zero/negative = still may be in the pool but never auto-suggested.
+ */
+export function scoreCandidate(
+  step: ComposerControlStep,
+  c: ObserveCandidate
+): number {
+  if (!isPlausibleComposerCandidate(step, c)) return 0;
   const label = `${c.label} ${c.hint ?? ""}`.toLowerCase();
+  const id = c.id.toLowerCase();
   let score = 1;
-  if (step === "open_composer" && /add a comment/i.test(label)) score += 3;
-  if (step === "open_composer" && /open.?chat|chat/i.test(label)) score -= 5;
-  if (step === "editor" && /add a comment|comment/i.test(label)) score += 2;
-  if (step === "editor" && /contenteditable/i.test(c.hint ?? "")) score += 2;
-  if (step === "submit" && /^comment$/i.test(c.label.trim())) score += 3;
-  if (step === "submit" && /^reply$/i.test(c.label.trim())) score += 2;
+
+  if (step === "open_composer") {
+    if (/join the conversation|add a comment|leave a comment/i.test(label))
+      score += 5;
+    if (/write a comment|comment here/i.test(label)) score += 3;
+    if (c.role === "textbox" || /textbox|contenteditable/i.test(label))
+      score += 2;
+    if (/open.?chat|\bchat\b|share|award/i.test(`${label} ${id}`)) score -= 8;
+    if (/^comment$/i.test(c.label.trim()) || /^reply$/i.test(c.label.trim()))
+      score -= 3;
+  }
+
+  if (step === "editor") {
+    if (/join the conversation|add a comment|leave a comment/i.test(label))
+      score += 5;
+    if (/contenteditable/i.test(c.hint ?? "")) score += 3;
+    if (c.role === "textbox") score += 2;
+    if (/search/i.test(label)) score -= 8;
+  }
+
+  if (step === "submit") {
+    if (/^comment$/i.test(c.label.trim())) score += 6;
+    if (/^reply$/i.test(c.label.trim())) score += 5;
+    if (/\b(comment|reply)\b/i.test(label)) score += 2;
+    if (/cancel|discard|delete|save draft/i.test(label)) score -= 6;
+  }
+
   return score;
 }
