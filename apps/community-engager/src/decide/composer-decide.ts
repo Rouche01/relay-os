@@ -260,7 +260,10 @@ function matchesStep(step: ComposerControlStep, c: ObserveCandidate): boolean {
           c.role === "textbox" ||
           label.includes("button") ||
           label.includes("textbox")) &&
-        /add a comment|leave a comment|comment/i.test(label) &&
+        /add a comment|leave a comment|write a comment|comment here/i.test(
+          label
+        ) &&
+        !/open.?chat|chat|message|share|award|upvote|downvote/i.test(label) &&
         !/^comment$/i.test(c.label.trim()) &&
         !/^reply$/i.test(c.label.trim())
       );
@@ -289,6 +292,7 @@ function scoreCandidate(step: ComposerControlStep, c: ObserveCandidate): number 
   const label = `${c.label} ${c.hint ?? ""}`.toLowerCase();
   let score = 1;
   if (step === "open_composer" && /add a comment/i.test(label)) score += 3;
+  if (step === "open_composer" && /open.?chat|chat/i.test(label)) score -= 5;
   if (step === "editor" && /add a comment|comment/i.test(label)) score += 2;
   if (step === "editor" && /contenteditable/i.test(c.hint ?? "")) score += 2;
   if (step === "submit" && /^comment$/i.test(c.label.trim())) score += 3;

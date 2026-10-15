@@ -131,9 +131,18 @@ export async function executeApproved(
   console.log(formatUtmLog(utm));
 
   const prior = await readJob(jobPath);
-  if (prior?.ok) {
-    console.log(`[execute] idempotent hit jobId=${jobId}`);
+  // A prior *dry-run* success must not block a later live post of the same draft.
+  if (prior?.ok && !(prior.dryRun && !dryRun)) {
+    console.log(
+      `[execute] idempotent hit jobId=${jobId}` +
+        (prior.dryRun ? " (dry-run)" : "")
+    );
     return { ...prior, jobId, idempotentHit: true };
+  }
+  if (prior?.ok && prior.dryRun && !dryRun) {
+    console.log(
+      `[execute] prior dry-run job ${jobId} — proceeding with live post`
+    );
   }
 
   if (dryRun) {
@@ -228,12 +237,18 @@ export async function executeApproved(
     }
   }
 
-  return {
+  const failed: ExecuteResult = {
     ok: false,
     dryRun: false,
     jobId,
     error: errors.join(" | ") || "all write transports failed",
   };
+  try {
+    await writeJob(jobPath, failed);
+  } catch (err) {
+    console.warn("[execute] failed to persist job error file:", err);
+  }
+  return failed;
 }
 
 async function tryBrowserPost(

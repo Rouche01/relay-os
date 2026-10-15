@@ -77,7 +77,12 @@ async function openComposer(
         `conf=${openDecided.confidence.toFixed(2)} escalate=${openDecided.escalateHitl} ` +
         `backend=${openDecided.backend}`
     );
-    if (openDecided.selectedId) {
+    const openId = openDecided.selectedId ?? "";
+    if (openId && /chat|message|share|award/i.test(openId)) {
+      console.warn(
+        `[comment] open_composer decide ignored suspicious id=${openId}`
+      );
+    } else if (openDecided.selectedId) {
       await actComposerControl(page, openDecided, "click");
       await sleep(400);
     }
@@ -147,24 +152,80 @@ async function openComposer(
   return null;
 }
 
+async function readEditorText(
+  editor: ReturnType<Page["locator"]>
+): Promise<string> {
+  const inner = (await editor.innerText().catch(() => "")).trim();
+  if (inner) return inner;
+  return (await editor.inputValue().catch(() => "")).trim();
+}
+
 async function fillComposer(
   page: Page,
   editor: ReturnType<Page["locator"]>,
   text: string
 ): Promise<void> {
   await editor.click({ timeout: 5_000 });
-  // contenteditable often ignores fill(); type is more reliable on Reddit.
+  // Clear any placeholder / leftover, then type — Reddit contenteditable
+  // often ignores fill() and leaves the Comment button disabled.
+  await page.keyboard.press(
+    process.platform === "darwin" ? "Meta+A" : "Control+A"
+  );
+  await page.keyboard.press("Backspace");
   try {
     await editor.fill(text);
   } catch {
-    await page.keyboard.type(text, { delay: 5 });
+    /* type path below */
   }
-  // Verify something landed
-  const value = await editor.innerText().catch(() => "");
-  const inputValue = await editor.inputValue().catch(() => "");
-  if (!value.trim() && !inputValue.trim()) {
-    await page.keyboard.type(text, { delay: 5 });
+  if (!(await readEditorText(editor))) {
+    await page.keyboard.type(text, { delay: 8 });
   }
+  // Trigger input listeners so Reddit enables Comment.
+  await editor.dispatchEvent("input").catch(() => undefined);
+  await sleep(300);
+
+  const landed = await readEditorText(editor);
+  if (!landed) {
+    throw new Error(
+      "Comment text did not land in the composer (Comment button would stay disabled)"
+    );
+  }
+  if (landed.length < Math.min(12, text.trim().length)) {
+    console.warn(
+      `[comment] composer text looks short (${landed.length} chars) — retrying type`
+    );
+    await editor.click({ timeout: 3_000 });
+    await page.keyboard.press(
+      process.platform === "darwin" ? "Meta+A" : "Control+A"
+    );
+    await page.keyboard.type(text, { delay: 8 });
+    await sleep(200);
+  }
+}
+
+async function findEnabledSubmitButton(
+  page: Page
+): Promise<ReturnType<Page["locator"]> | null> {
+  const buttons = [
+    page.locator("shreddit-composer").getByRole("button", { name: /^Comment$/i }),
+    page.locator("shreddit-composer").getByRole("button", { name: /Comment|Reply/i }),
+    page.locator('shreddit-composer button[type="submit"]'),
+    page.locator("shreddit-composer faceplate-button").filter({ hasText: /^Comment$/i }),
+    page.getByRole("button", { name: /^Comment$/i }),
+    page.getByRole("button", { name: /^Reply$/i }),
+  ];
+  for (const btn of buttons) {
+    try {
+      if ((await btn.count()) === 0) continue;
+      const first = btn.first();
+      await first.waitFor({ state: "visible", timeout: 2_000 }).catch(() => undefined);
+      if (!(await first.isEnabled().catch(() => false))) continue;
+      return first;
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
 }
 
 /**
@@ -172,6 +233,13 @@ async function fillComposer(
  * identifies the button; it never grants write permission.
  */
 async function submitComment(page: Page, decide: DecisionPort): Promise<void> {
+  // Wait for Reddit to enable Comment after text lands (often 0.5–2s).
+  for (let i = 0; i < 10; i++) {
+    const ready = await findEnabledSubmitButton(page);
+    if (ready) break;
+    await sleep(250);
+  }
+
   try {
     const decided = await decideComposerControl(page, "submit", { decide });
     console.log(
@@ -180,30 +248,39 @@ async function submitComment(page: Page, decide: DecisionPort): Promise<void> {
         `(post-Approve actuation only)`
     );
     if (decided.selectedId) {
-      const ok = await actComposerControl(page, decided, "click");
-      if (ok) return;
+      const refOk = await actComposerControl(page, decided, "click");
+      if (refOk) {
+        await sleep(400);
+        // If decide clicked a stale/disabled control, fall through to semantics.
+        const stillOpen = await findEnabledSubmitButton(page);
+        if (!stillOpen) return;
+        console.warn(
+          "[comment] submit decide click left Comment enabled — trying semantic submit"
+        );
+      }
     }
   } catch (err) {
     console.warn("[comment] submit decide failed:", err);
   }
 
-  const buttons = [
-    page.getByRole("button", { name: /^Comment$/i }),
-    page.locator("shreddit-composer").getByRole("button", { name: /Comment|Reply/i }),
-    page.getByRole("button", { name: /^Reply$/i }),
-  ];
-  for (const btn of buttons) {
-    try {
-      if ((await btn.count()) === 0) continue;
-      const first = btn.first();
-      if (!(await first.isEnabled().catch(() => false))) continue;
-      await first.click({ timeout: 5_000 });
-      return;
-    } catch {
-      /* try next */
-    }
+  const semantic = await findEnabledSubmitButton(page);
+  if (semantic) {
+    await semantic.click({ timeout: 5_000 });
+    return;
   }
-  throw new Error("Could not find enabled Comment/Reply submit button");
+
+  // Last resort: Reddit accepts Ctrl/Cmd+Enter in the composer.
+  console.warn("[comment] no enabled Comment button — trying Ctrl/Cmd+Enter");
+  await page.keyboard.press(
+    process.platform === "darwin" ? "Meta+Enter" : "Control+Enter"
+  );
+  await sleep(800);
+  const afterShortcut = await findEnabledSubmitButton(page);
+  if (!afterShortcut) return;
+
+  throw new Error(
+    "Could not find enabled Comment/Reply submit button (composer text may not have registered)"
+  );
 }
 
 async function capturePermalink(

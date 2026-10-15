@@ -2340,10 +2340,17 @@ export class CommunityEngagerController implements AppController {
         }
       }
     } else {
+      const executeError = result.error ?? "execute failed";
+      console.error(`[execute] failed jobId=${result.jobId}: ${executeError}`);
       await this.options.store.updateStatus(draft.id, "failed", {
-        payload: { status: "failed" },
+        payload: {
+          status: "failed",
+          executeError,
+          executeJobId: result.jobId,
+          executeDryRun: result.dryRun,
+        },
       });
-      throw new Error(result.error ?? "execute failed");
+      throw new Error(executeError);
     }
   }
 
