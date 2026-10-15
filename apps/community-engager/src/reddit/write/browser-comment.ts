@@ -215,21 +215,25 @@ async function fillComposer(
 async function findEnabledSubmitButton(
   page: Page
 ): Promise<ReturnType<Page["locator"]> | null> {
+  // Prefer accessible names first. `button[type=submit]` often exists in the DOM
+  // while still hidden (collapsed composer) — never return a non-visible control.
   const buttons = [
     page.locator("shreddit-composer").getByRole("button", { name: /^Comment$/i }),
-    page.locator("shreddit-composer").getByRole("button", { name: /Comment|Reply/i }),
-    page.locator('shreddit-composer button[type="submit"]'),
-    page.locator("shreddit-composer faceplate-button").filter({ hasText: /^Comment$/i }),
+    page.locator("shreddit-composer").getByRole("button", { name: /^(Comment|Reply)$/i }),
     page.getByRole("button", { name: /^Comment$/i }),
     page.getByRole("button", { name: /^Reply$/i }),
+    page.locator("#comment-composer-submit-button"),
+    page.locator('shreddit-composer button[type="submit"]'),
   ];
   for (const btn of buttons) {
     try {
-      if ((await btn.count()) === 0) continue;
-      const first = btn.first();
-      await first.waitFor({ state: "visible", timeout: 2_000 }).catch(() => undefined);
-      if (!(await first.isEnabled().catch(() => false))) continue;
-      return first;
+      const n = await btn.count();
+      for (let i = 0; i < n; i++) {
+        const el = btn.nth(i);
+        const visible = await el.isVisible().catch(() => false);
+        const enabled = await el.isEnabled().catch(() => false);
+        if (visible && enabled) return el;
+      }
     } catch {
       /* try next */
     }
@@ -274,12 +278,14 @@ async function submitComment(page: Page, decide: DecisionPort): Promise<void> {
 
   const semantic = await findEnabledSubmitButton(page);
   if (semantic) {
-    await semantic.click({ timeout: 5_000 });
+    await semantic.click({ timeout: 8_000 });
     return;
   }
 
-  // Last resort: Reddit accepts Ctrl/Cmd+Enter in the composer.
-  console.warn("[comment] no enabled Comment button — trying Ctrl/Cmd+Enter");
+  // Last resort: Reddit accepts Ctrl/Cmd+Enter when the composer has focus.
+  console.warn(
+    "[comment] no visible+enabled Comment button — trying Ctrl/Cmd+Enter"
+  );
   await page.keyboard.press(
     process.platform === "darwin" ? "Meta+Enter" : "Control+Enter"
   );
@@ -288,7 +294,7 @@ async function submitComment(page: Page, decide: DecisionPort): Promise<void> {
   if (!afterShortcut) return;
 
   throw new Error(
-    "Could not find enabled Comment/Reply submit button (composer text may not have registered)"
+    "Could not find visible Comment/Reply submit button (composer may still be collapsed or text did not register)"
   );
 }
 
