@@ -72,6 +72,7 @@ import {
   executeApproved,
   type ExecuteResult,
 } from "./stages/execute/executor.js";
+import { formatManualPostNotify } from "./stages/execute/manual-notify.js";
 import { executeJobId } from "./reddit/scout/scout-live.js";
 import { getAllowlistStore, resolvePlaybook } from "./policy/allowlist-store.js";
 import { CommunityMemory, communityFactDomain } from "./memory.js";
@@ -276,6 +277,7 @@ export class CommunityEngagerController implements AppController {
         warmup,
         promo,
         cadence,
+        postMode: getCommunityConfig().postMode,
       });
       ctx.hitlOutcome = "edited";
       this.recordJobHitl(ctx, "edited");
@@ -442,7 +444,8 @@ export class CommunityEngagerController implements AppController {
     const warmup = context.warmupStatus as WarmupStatus | undefined;
     const promo = context.promoRatioStatus as PromoRatioStatus | undefined;
     const cadence = context.cadenceStatus as CadenceStatus | undefined;
-    return draftToFeedbackContext(draft, { warmup, promo, cadence });
+    const postMode = getCommunityConfig().postMode;
+    return draftToFeedbackContext(draft, { warmup, promo, cadence, postMode });
   }
 
   async shouldSkipFeedbackPoint(
@@ -619,10 +622,28 @@ export class CommunityEngagerController implements AppController {
     if (stage.name !== "await_approval") return undefined;
     const draft = context.currentDraft as CommunityDraft | undefined;
     if (!draft) return undefined;
+    const postMode = getCommunityConfig().postMode;
     if (fp.type === "confirmation") {
+      if (postMode === "manual") {
+        return (
+          `Intensity ${draft.intensity}: confirm GoStylens disclosure + UTM in the suggested text. ` +
+          `Approve = you will post manually (no auto-comment). Abort cancels.`
+        );
+      }
       return (
         `Intensity ${draft.intensity}: confirm GoStylens disclosure + UTM link are intentional before post. ` +
         `Approve to confirm, or abort.`
+      );
+    }
+    if (fp.type === "approval" && postMode === "manual") {
+      const intensityNote =
+        draft.intensity === 2
+          ? "\n\n⚠️ Intensity 2 — a second confirmation step will follow."
+          : "";
+      return (
+        `Manual post mode: Approve accepts this draft and sends a copy-paste notify. ` +
+        `You post on Reddit yourself — nothing is auto-commented.` +
+        intensityNote
       );
     }
     if (fp.type === "approval" && draft.intensity === 2) {
@@ -2158,6 +2179,7 @@ export class CommunityEngagerController implements AppController {
       playbook,
       plugsThisWeek,
       plugsWeekBlocked,
+      postMode: getCommunityConfig().postMode,
     });
     const preview = draftPreview(drafted.draftText);
     const draftEvidence: DraftEvidence = {
@@ -2367,29 +2389,41 @@ export class CommunityEngagerController implements AppController {
   /**
    * COMMUNITY_POST_MODE=manual: skip browser/oauth write; notify human to post.
    * Does not advance warmup / promo / cadence ledgers (no live post).
+   * Idempotent: skips Telegram re-notify if this draft was already notified.
    */
   private async runManualPostNotify(
     ctx: AgentContext,
     draft: CommunityDraft
   ): Promise<void> {
     const jobId = executeJobId(draft);
-    const score = scoreTotal(draft.score);
     const preview = draftPreview(draft.draftText);
-    const text =
-      `Manual post (COMMUNITY_POST_MODE=manual)\n` +
-      `r/${draft.subreddit} · score ${score}/${SCORE_MAX} · intensity ${draft.intensity}\n` +
-      `${draft.threadTitle}\n` +
-      `${draft.threadUrl}\n\n` +
-      `Suggested reply:\n${draft.draftText}\n\n` +
-      `Post this yourself on Reddit. Warmup/promo/cadence counters are unchanged until a live auto post.`;
+    const text = formatManualPostNotify(draft);
+
+    let alreadyNotified = false;
+    try {
+      const prior = await this.options.store.get<{
+        manualNotifiedAt?: string;
+        executeTransport?: string;
+      }>(draft.id);
+      const payload = prior?.payload;
+      alreadyNotified = Boolean(
+        payload?.manualNotifiedAt || payload?.executeTransport === "manual"
+      );
+    } catch {
+      /* ignore — still notify */
+    }
 
     console.log(
-      `[execute] manual mode — skip write jobId=${jobId} r/${draft.subreddit}`
+      `[execute] manual mode — skip write jobId=${jobId} r/${draft.subreddit}` +
+        (alreadyNotified ? " (notify idempotent skip)" : "")
     );
-    try {
-      await this.options.adapter?.notify?.(text);
-    } catch (err) {
-      console.warn("[execute] manual notify failed:", err);
+
+    if (!alreadyNotified) {
+      try {
+        await this.options.adapter?.notify?.(text);
+      } catch (err) {
+        console.warn("[execute] manual notify failed:", err);
+      }
     }
 
     const result: ExecuteResult = {
@@ -2419,6 +2453,9 @@ export class CommunityEngagerController implements AppController {
           postMode: "manual",
           executeJobId: jobId,
           executeTransport: "manual",
+          ...(alreadyNotified
+            ? {}
+            : { manualNotifiedAt: new Date().toISOString() }),
           ...(preview ? { preview } : {}),
         },
       });

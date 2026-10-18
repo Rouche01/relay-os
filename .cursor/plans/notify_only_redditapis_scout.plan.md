@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: notify-cards
     content: Opportunity notify payload (permalink, score, suggested draft); Telegram/ops copy-friendly; mark done/skip without execute
-    status: pending
+    status: completed
   - id: tests-docs-rollout
     content: Unit tests for mapper + post-mode guard; README/.env.example/deploy notes; ThinkPad rollout checklist
     status: pending

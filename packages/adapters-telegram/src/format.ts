@@ -116,10 +116,19 @@ export function parseEditCommand(text: string): string | null {
   return body.length > 0 ? body : null;
 }
 
+function isManualPostMode(request: FeedbackRequest): boolean {
+  return request.context?.meta?.postMode === "manual";
+}
+
 function headerLine(kind: FeedbackCardKind, request: FeedbackRequest): string {
   const sub = detailValue(request, "Subreddit");
   switch (kind) {
     case "draft":
+      if (isManualPostMode(request)) {
+        return sub
+          ? `<b>Manual post</b> · ${escapeHtml(sub)}`
+          : `<b>Manual post</b> · <code>approval</code>`;
+      }
       return sub
         ? `<b>Draft</b> · ${escapeHtml(sub)}`
         : `<b>Draft</b> · <code>approval</code>`;
@@ -140,6 +149,12 @@ function headerLine(kind: FeedbackCardKind, request: FeedbackRequest): string {
 function footerLine(kind: FeedbackCardKind, request: FeedbackRequest): string {
   switch (kind) {
     case "draft":
+      if (isManualPostMode(request)) {
+        return (
+          "<i>Approve</i> accepts draft → copy-paste notify (you post on Reddit) · " +
+          "<i>Abort</i> · or reply <code>edit: …</code>"
+        );
+      }
       return (
         "<i>Approve</i> to continue (dry-run or live post) · " +
         "<i>Abort</i> · or reply <code>edit: …</code>"

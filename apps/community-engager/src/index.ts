@@ -316,6 +316,7 @@ export * from "./stages/scout/scout.js";
 export * from "./stages/scout/scout-report.js";
 export * from "./stages/draft/drafter.js";
 export * from "./stages/execute/executor.js";
+export * from "./stages/execute/manual-notify.js";
 export * from "./memory.js";
 export * from "./policy/allowlist-store.js";
 export * from "./stages/discover/discover.js";

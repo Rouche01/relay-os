@@ -4,6 +4,7 @@ import { SCORE_MAX, scoreTotal } from "../types.js";
 import type { CadenceStatus } from "../policy/cadence.js";
 import type { PromoRatioStatus } from "../policy/promo-ratio.js";
 import type { WarmupStatus } from "../policy/warmup.js";
+import type { PostMode } from "../reddit/config.js";
 import {
   formatPlaybookSummary,
   type SubredditPlaybook,
@@ -22,14 +23,28 @@ export function draftToFeedbackContext(
     playbook?: SubredditPlaybook;
     plugsThisWeek?: number;
     plugsWeekBlocked?: boolean;
+    /** When manual, Approve = accept for human post (no auto-execute). */
+    postMode?: PostMode;
   }
 ): FeedbackContext {
+  const manual = opts?.postMode === "manual";
   const details: FeedbackDetail[] = [
     { label: "Subreddit", value: `r/${draft.subreddit}` },
     { label: "Score", value: `${scoreTotal(draft.score)}/${SCORE_MAX}` },
     { label: "Intensity", value: String(draft.intensity) },
     { label: "Status", value: draft.status },
   ];
+  if (manual) {
+    details.push({
+      label: "Post mode",
+      value: "manual — you post on Reddit after Approve",
+    });
+    details.push({
+      label: "Hint",
+      value:
+        "Approve accepts this draft and sends a copy-paste notify. Nothing is posted automatically. Abort drops it; reply edit: … to revise first.",
+    });
+  }
   if (opts?.playbook) {
     details.push({
       label: "Playbook",
@@ -91,6 +106,7 @@ export function draftToFeedbackContext(
       score: draft.score,
       status: draft.status,
       utmCampaign: draft.utmCampaign,
+      postMode: opts?.postMode ?? "auto",
       warmupActive: Boolean(opts?.warmup?.active),
       promoBlocked: Boolean(opts?.promo?.blockPromo),
       promoWarned: Boolean(opts?.promo?.warnPromo),
