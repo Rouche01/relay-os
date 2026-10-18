@@ -5,6 +5,7 @@ import {
   allowlistedSubNames,
   getCommunityConfig,
   isOauthScoutSource,
+  isRedditApisScoutSource,
   type ScoutSource,
 } from "../../reddit/config.js";
 import type { PlaywrightEngine } from "@relay/engines-browser";
@@ -16,6 +17,7 @@ import {
 } from "../../reddit/scout/scout-browser.js";
 import { scoutRedditJson } from "../../reddit/scout/scout-json.js";
 import { scoutRedditLive } from "../../reddit/scout/scout-live.js";
+import { scoutRedditApis } from "../../reddit/scout/scout-redditapis.js";
 import {
   buildScoutReport,
   type ScoutReport,
@@ -98,11 +100,13 @@ function finish(
 
 /**
  * Opportunity finder.
+ * - redditapis: third-party read-only listings (REDDITAPIS_API_KEY, no Reddit login)
  * - browser: Playwright + structured extract (no OAuth app)
  * - json: public *.json listings (no browser / no API app) — escape hatch
  * - reddit | oauth: OAuth allowlisted live read (requires REDDIT_CLIENT_*)
  * - fixtures: offline HITL dogfood
- * - auto: browser → json → oauth (if configured) → fixtures
+ * - auto: if redditapis key → redditapis → json → oauth → fixtures;
+ *         else browser → json → oauth → fixtures
  */
 export async function scoutOpportunities(
   opts: ScoutOptions = {}
@@ -131,7 +135,51 @@ export async function scoutOpportunities(
     }
   }
 
-  const tryBrowser = source === "browser" || source === "auto";
+  const preferRedditApis =
+    isRedditApisScoutSource(source) ||
+    (source === "auto" && cfg.redditApis.configured);
+
+  // --- redditapis (explicit or auto-when-keyed) ---
+  if (preferRedditApis) {
+    if (isRedditApisScoutSource(source) && !cfg.redditApis.configured) {
+      throw new Error(
+        "SCOUT_SOURCE=redditapis but REDDITAPIS_API_KEY is missing"
+      );
+    }
+    console.log(
+      "[scout] source=redditapis (Bearer key listings, score ≥ 5/8)"
+    );
+    try {
+      const live = await scoutRedditApis({
+        limit,
+        cfg,
+        subreddits,
+        excludeIds,
+      });
+      if (live.length > 0) {
+        return finish(
+          "redditapis",
+          plannedSubs,
+          live,
+          blocked,
+          timedOut
+        );
+      }
+      console.warn("[scout] redditapis returned 0 actionable");
+      if (isRedditApisScoutSource(source)) {
+        console.warn(
+          "[scout] SCOUT_SOURCE=redditapis — falling back toward fixtures"
+        );
+      }
+    } catch (err) {
+      console.warn("[scout] redditapis scout failed:", err);
+      if (isRedditApisScoutSource(source)) throw err;
+    }
+  }
+
+  // Skip browser when auto prefers redditapis (avoid login walls / account flags).
+  const tryBrowser =
+    source === "browser" || (source === "auto" && !cfg.redditApis.configured);
   if (tryBrowser) {
     console.log(
       "[scout] source=browser (Playwright / www.reddit extract, score ≥ 5/8)"
@@ -190,7 +238,9 @@ export async function scoutOpportunities(
 
   const planned = browserPlanned ?? plannedSubs;
 
-  const tryJson = source === "json" || source === "auto" || source === "browser";
+  // Explicit redditapis: do not cascade into json/oauth (fixtures only below).
+  const tryJson =
+    source === "json" || source === "auto" || source === "browser";
   if (tryJson) {
     console.log("[scout] source=json (public *.json listings, score ≥ 5/8)");
     try {
@@ -215,7 +265,8 @@ export async function scoutOpportunities(
   const tryOauth =
     isOauthScoutSource(source) ||
     (source === "auto" && cfg.reddit.oauthConfigured) ||
-    ((source === "json" || source === "browser") && cfg.reddit.oauthConfigured);
+    ((source === "json" || source === "browser") &&
+      cfg.reddit.oauthConfigured);
 
   if (tryOauth) {
     if (isOauthScoutSource(source) && !cfg.reddit.oauthConfigured) {

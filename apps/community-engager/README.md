@@ -58,10 +58,12 @@ flowchart TD
     Human[[Human solves challenge · save jar]]
     Blocked[Mark sub blocked · notify · next sub]
     Score[Score ≥ 5 / 8]
+    Src -->|redditapis| SA[Bearer listings · no Reddit login]
     Src -->|browser| SB[Playwright DOM extract]
     Src -->|json| SJ[Public *.json if allowed]
     Src -->|oauth| SO[Reddit API if CLIENT_*]
     Src -->|fail| SF[Fixtures]
+    SA --> Score
     SB --> Wall
     Wall -->|no| Score
     Wall -->|HITL on| Human
@@ -185,6 +187,7 @@ Pause state is process-local on the daemon; evidence under `{REDDIT_DATA_DIR}/sc
 | Nothing posts without Approve | Abort skips execute |
 | `REDDIT_DRY_RUN=true` | Safe default — logs only |
 | `COMMUNITY_POST_MODE=manual` | Deploy default in `community.env.example` — skip execute, notify for human post |
+| `SCOUT_SOURCE=redditapis` | Read-only listings via `REDDITAPIS_API_KEY` (no Reddit login). With key + `auto`, prefers redditapis over browser |
 | Browser first | Playwright + cookies; OAuth optional backup |
 | Allowlist + score ≥5/8 | problemFit, help, rules, freshness, value, competition, icpFit, plugNaturalness |
 | CAPTCHAs are never auto-solved | Detect, then escalate to a human or degrade quietly |

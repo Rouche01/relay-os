@@ -78,11 +78,15 @@ export function allowlistedSubNames(): string[] {
   return ALLOWLISTED_SUBREDDITS.filter((s) => s.rulesOk).map((s) => s.name);
 }
 
-/** Scout input source. `oauth` is an alias of `reddit`. `json` reserved (Phase 4). */
+/**
+ * Scout input source.
+ * `oauth` is an alias of `reddit`. `redditapis` = third-party read-only listings.
+ */
 export type ScoutSource =
   | "fixtures"
   | "reddit"
   | "oauth"
+  | "redditapis"
   | "browser"
   | "json"
   | "auto";
@@ -312,6 +316,7 @@ function parseScoutSource(raw: string): ScoutSource {
     v === "fixtures" ||
     v === "reddit" ||
     v === "oauth" ||
+    v === "redditapis" ||
     v === "browser" ||
     v === "json"
   ) {
@@ -336,6 +341,10 @@ function parseTransport(raw: string): RedditTransport {
 /** Normalize scout source aliases (`oauth` → treat like reddit OAuth path). */
 export function isOauthScoutSource(source: ScoutSource): boolean {
   return source === "reddit" || source === "oauth";
+}
+
+export function isRedditApisScoutSource(source: ScoutSource): boolean {
+  return source === "redditapis";
 }
 
 /**

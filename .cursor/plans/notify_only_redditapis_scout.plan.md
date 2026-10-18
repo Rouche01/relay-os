@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: scout-source
     content: Add SCOUT_SOURCE=redditapis; wire scoutOpportunities + auto chain preference; reuse listingPostsToDrafts / score
-    status: pending
+    status: completed
   - id: notify-cards
     content: Opportunity notify payload (permalink, score, suggested draft); Telegram/ops copy-friendly; mark done/skip without execute
     status: pending
