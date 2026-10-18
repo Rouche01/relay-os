@@ -4,7 +4,7 @@ overview: Shift community-engager to a human-posts workflow—scout/score/draft/
 todos:
   - id: post-mode-config
     content: Add COMMUNITY_POST_MODE=manual|auto (default manual for deploy); skip execute stage; keep dry-run as belt-and-suspenders
-    status: pending
+    status: completed
   - id: redditapis-client
     content: Thin read-only client (Bearer key only) + map posts → RedditListingPost; env REDDITAPIS_API_KEY / base URL
     status: pending

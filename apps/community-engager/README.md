@@ -3,6 +3,7 @@
 First Relay dogfood app: discover fashion/styling subreddits (HITL promote onto allowlist), scout postable subs, draft a reply, **pause for human Approve / Edit / Abort**, then optionally post, then write outcomes to VoltMem.
 
 **Hard rule:** nothing posts without human Approve (`REDDIT_DRY_RUN=true` by default).  
+**Notify-only:** set `COMMUNITY_POST_MODE=manual` so Approve notifies you (permalink + draft) and never runs browser/oauth write — you post on Reddit yourself.  
 **Allowlist rule:** discovery only proposes; a sub is not postable until a human promotes it.
 
 Related plans:
@@ -183,6 +184,7 @@ Pause state is process-local on the daemon; evidence under `{REDDIT_DATA_DIR}/sc
 |------|--------|
 | Nothing posts without Approve | Abort skips execute |
 | `REDDIT_DRY_RUN=true` | Safe default — logs only |
+| `COMMUNITY_POST_MODE=manual` | Deploy default in `community.env.example` — skip execute, notify for human post |
 | Browser first | Playwright + cookies; OAuth optional backup |
 | Allowlist + score ≥5/8 | problemFit, help, rules, freshness, value, competition, icpFit, plugNaturalness |
 | CAPTCHAs are never auto-solved | Detect, then escalate to a human or degrade quietly |

@@ -68,7 +68,11 @@ import {
   incrementEmptyScoutFallbackDailyCount,
   readEmptyScoutFallbackDailyCount,
 } from "./stages/discover/empty-scout-fallback-ledger.js";
-import { executeApproved } from "./stages/execute/executor.js";
+import {
+  executeApproved,
+  type ExecuteResult,
+} from "./stages/execute/executor.js";
+import { executeJobId } from "./reddit/scout/scout-live.js";
 import { getAllowlistStore, resolvePlaybook } from "./policy/allowlist-store.js";
 import { CommunityMemory, communityFactDomain } from "./memory.js";
 import {
@@ -2204,6 +2208,12 @@ export class CommunityEngagerController implements AppController {
     }
 
     const runtimeCfg = getCommunityConfig();
+
+    if (runtimeCfg.postMode === "manual") {
+      await this.runManualPostNotify(ctx, draft);
+      return;
+    }
+
     const warmup =
       (ctx.warmupStatus as WarmupStatus | undefined) ??
       (await resolveWarmupStatus(runtimeCfg));
@@ -2351,6 +2361,69 @@ export class CommunityEngagerController implements AppController {
         },
       });
       throw new Error(executeError);
+    }
+  }
+
+  /**
+   * COMMUNITY_POST_MODE=manual: skip browser/oauth write; notify human to post.
+   * Does not advance warmup / promo / cadence ledgers (no live post).
+   */
+  private async runManualPostNotify(
+    ctx: AgentContext,
+    draft: CommunityDraft
+  ): Promise<void> {
+    const jobId = executeJobId(draft);
+    const score = scoreTotal(draft.score);
+    const preview = draftPreview(draft.draftText);
+    const text =
+      `Manual post (COMMUNITY_POST_MODE=manual)\n` +
+      `r/${draft.subreddit} · score ${score}/${SCORE_MAX} · intensity ${draft.intensity}\n` +
+      `${draft.threadTitle}\n` +
+      `${draft.threadUrl}\n\n` +
+      `Suggested reply:\n${draft.draftText}\n\n` +
+      `Post this yourself on Reddit. Warmup/promo/cadence counters are unchanged until a live auto post.`;
+
+    console.log(
+      `[execute] manual mode — skip write jobId=${jobId} r/${draft.subreddit}`
+    );
+    try {
+      await this.options.adapter?.notify?.(text);
+    } catch (err) {
+      console.warn("[execute] manual notify failed:", err);
+    }
+
+    const result: ExecuteResult = {
+      ok: true,
+      dryRun: true,
+      jobId,
+      transport: "manual",
+      log: text,
+    };
+    ctx.executeResult = result;
+    const executeEvidence: ExecuteEvidence = {
+      ok: true,
+      dryRun: true,
+      jobId,
+      transport: "manual",
+    };
+    ctx.stageResults = {
+      ...(ctx.stageResults ?? {}),
+      execute: executeEvidence,
+    };
+
+    // Keep approved/edited — do not mark posted (human has not posted yet).
+    try {
+      await this.options.store.updateStatus(draft.id, draft.status, {
+        payload: {
+          status: draft.status,
+          postMode: "manual",
+          executeJobId: jobId,
+          executeTransport: "manual",
+          ...(preview ? { preview } : {}),
+        },
+      });
+    } catch (err) {
+      console.warn("[execute] manual store update:", err);
     }
   }
 

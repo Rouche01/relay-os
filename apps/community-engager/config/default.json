@@ -58,5 +58,8 @@
   "product": {
     "lpBaseUrl": "https://gostylens.app"
   },
+  "post": {
+    "mode": "auto"
+  },
   "draft": {}
 }

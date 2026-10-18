@@ -23,7 +23,7 @@ export interface ExecuteResult {
   ok: boolean;
   dryRun: boolean;
   jobId: string;
-  /** browser | oauth | dry-run | none */
+  /** browser | oauth | dry-run | none | manual */
   transport?: string;
   postedUrl?: string;
   idempotentHit?: boolean;
@@ -72,6 +72,18 @@ export async function executeApproved(
   const jobPath = path.join(dataDir, "jobs", `${jobId.replace(/:/g, "_")}.json`);
   const writeTransport = resolveWriteTransport(cfg);
   const chain = resolveWriteTransportChain(cfg);
+
+  // Belt-and-suspenders: controller should skip execute in manual mode.
+  if (cfg.postMode === "manual") {
+    return {
+      ok: false,
+      dryRun,
+      jobId,
+      transport: "manual",
+      error:
+        "COMMUNITY_POST_MODE=manual — refusing automated post (human posts on Reddit)",
+    };
+  }
 
   if (!isExecutableStatus(draft.status)) {
     return {

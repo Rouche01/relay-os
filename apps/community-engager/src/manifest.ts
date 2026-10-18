@@ -13,7 +13,7 @@ export const CommunityJobManifest: AgenticAppManifest = {
   name: "CommunityEngagerJob",
   version: "0.1.0",
   description:
-    "Draft a reply for one scouted opportunity, pause for human Approve/Edit/Abort, then execute and learn.",
+    "Draft a reply for one scouted opportunity, pause for human Approve/Edit/Abort, then execute (or manual-notify) and learn.",
   author: "Relay OS Built-in",
 
   triggers: [
@@ -61,7 +61,7 @@ export const CommunityJobManifest: AgenticAppManifest = {
     {
       name: "execute",
       description:
-        "Post approved/edited draft (REDDIT_DRY_RUN=true by default)",
+        "Post approved/edited draft (skipped when COMMUNITY_POST_MODE=manual; else REDDIT_DRY_RUN)",
       engine: "browser",
     },
     {

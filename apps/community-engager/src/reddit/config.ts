@@ -104,6 +104,13 @@ export type OnEmptyScoutMode = "off" | "force";
 /** COMMUNITY_WARMUP=auto|force|off (true→force, false→off). */
 export type WarmupMode = "auto" | "force" | "off";
 
+/**
+ * COMMUNITY_POST_MODE=manual|auto
+ * - auto: Approve → execute (browser/oauth), subject to REDDIT_DRY_RUN
+ * - manual: Approve → notify only; human posts on Reddit (no automated write)
+ */
+export type PostMode = "manual" | "auto";
+
 /** Secrets, paths, and Reddit host toggles (from .env). */
 export interface RedditSessionConfig {
   clientId?: string;
@@ -228,6 +235,8 @@ export interface VisibilityRuntimeConfig {
  */
 export interface CommunityRuntimeConfig {
   reddit: RedditSessionConfig;
+  /** How approved drafts leave the pipeline (manual notify vs auto execute). */
+  postMode: PostMode;
   warmup: WarmupRuntimeConfig;
   promo: PromoRuntimeConfig;
   postWatch: PostWatchRuntimeConfig;
@@ -268,6 +277,13 @@ export function parseWarmupMode(raw: string | undefined): WarmupMode {
     return "force";
   }
   if (v === "auto") return "auto";
+  return "auto";
+}
+
+/** Unknown values → auto (local HITL dogfood default). */
+export function parsePostMode(raw: string | undefined): PostMode {
+  const v = (raw ?? "auto").trim().toLowerCase();
+  if (v === "manual" || v === "notify" || v === "notify-only") return "manual";
   return "auto";
 }
 
@@ -427,6 +443,12 @@ export function getCommunityConfig(
       : policy.warmup.mode
   );
 
+  const postMode = parsePostMode(
+    env.COMMUNITY_POST_MODE !== undefined && env.COMMUNITY_POST_MODE !== ""
+      ? env.COMMUNITY_POST_MODE
+      : policy.post?.mode
+  );
+
   return {
     reddit: {
       clientId,
@@ -445,6 +467,7 @@ export function getCommunityConfig(
       dataDir,
       cookieDir,
     },
+    postMode,
     warmup: {
       mode: warmupMode,
       minAccountDays: envNumber(

@@ -26,6 +26,7 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
       dataDir,
       cookieDir: path.join(dataDir, "cookies"),
     },
+    postMode: "auto",
     warmup: {
       mode: "off",
       minAccountDays: 30,

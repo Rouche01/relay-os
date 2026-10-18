@@ -9,7 +9,10 @@ import {
   resetAppConfigCache,
   resolveConfigDir,
 } from "../src/app-config.js";
-import { getCommunityConfig } from "../src/reddit/config.js";
+import {
+  getCommunityConfig,
+  parsePostMode,
+} from "../src/reddit/config.js";
 
 describe("app-config", () => {
   let dir: string | undefined;
@@ -45,6 +48,7 @@ describe("app-config", () => {
     assert.equal(cfg.discover.onEmptyScout, "off");
     assert.equal(cfg.discover.onEmptyScoutMax, 1);
     assert.equal(cfg.discover.onEmptyScoutMaxPerDay, 3);
+    assert.equal(cfg.post.mode, "auto");
   });
 
   it("merges local.json over default.json", async () => {
@@ -90,6 +94,7 @@ describe("getCommunityConfig policy + env override", () => {
     delete process.env.COMMUNITY_DISCOVER_ON_EMPTY_SCOUT;
     delete process.env.COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX;
     delete process.env.COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX_PER_DAY;
+    delete process.env.COMMUNITY_POST_MODE;
   });
 
   it("uses file policy when env is unset", () => {
@@ -98,6 +103,7 @@ describe("getCommunityConfig policy + env override", () => {
       jobs: { maxJobs: 7, delayMs: 900 },
       scout: { source: "browser" },
       discover: { onEmptyScout: "force", onEmptyScoutMax: 2 },
+      post: { mode: "manual" },
     });
     const cfg = getCommunityConfig({}, { appConfig });
     assert.equal(cfg.warmup.mode, "force");
@@ -108,6 +114,7 @@ describe("getCommunityConfig policy + env override", () => {
     assert.equal(cfg.discover.onEmptyScout, "force");
     assert.equal(cfg.discover.onEmptyScoutMax, 2);
     assert.equal(cfg.discover.onEmptyScoutMaxPerDay, 3);
+    assert.equal(cfg.postMode, "manual");
   });
 
   it("lets env win over file policy", () => {
@@ -116,6 +123,7 @@ describe("getCommunityConfig policy + env override", () => {
       jobs: { maxJobs: 7 },
       scout: { source: "browser" },
       discover: { onEmptyScout: "off", onEmptyScoutMax: 1 },
+      post: { mode: "auto" },
     });
     const cfg = getCommunityConfig(
       {
@@ -125,6 +133,7 @@ describe("getCommunityConfig policy + env override", () => {
         COMMUNITY_DISCOVER_ON_EMPTY_SCOUT: "force",
         COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX: "2",
         COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX_PER_DAY: "5",
+        COMMUNITY_POST_MODE: "manual",
       },
       { appConfig }
     );
@@ -134,5 +143,14 @@ describe("getCommunityConfig policy + env override", () => {
     assert.equal(cfg.discover.onEmptyScout, "force");
     assert.equal(cfg.discover.onEmptyScoutMax, 2);
     assert.equal(cfg.discover.onEmptyScoutMaxPerDay, 5);
+    assert.equal(cfg.postMode, "manual");
+  });
+
+  it("parsePostMode accepts aliases", () => {
+    assert.equal(parsePostMode("manual"), "manual");
+    assert.equal(parsePostMode("notify"), "manual");
+    assert.equal(parsePostMode("notify-only"), "manual");
+    assert.equal(parsePostMode("auto"), "auto");
+    assert.equal(parsePostMode(undefined), "auto");
   });
 });

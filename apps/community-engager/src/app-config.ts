@@ -1,6 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import type { DiscoverMode, ScoutSource, WarmupMode } from "./reddit/config.js";
+import type {
+  DiscoverMode,
+  PostMode,
+  ScoutSource,
+  WarmupMode,
+} from "./reddit/config.js";
 
 /**
  * Policy config for CommunityEngager (not secrets).
@@ -51,6 +56,11 @@ export interface JobsFileConfig {
 
 export interface ProductFileConfig {
   lpBaseUrl?: string;
+}
+
+/** Approve → execute vs notify-only (human posts). */
+export interface PostFileConfig {
+  mode?: PostMode | string;
 }
 
 export interface DraftFileConfig {
@@ -156,6 +166,10 @@ export interface CommunityAppConfig {
   product: {
     lpBaseUrl: string;
   };
+  /** How approved drafts leave the pipeline. */
+  post: {
+    mode: string;
+  };
   draft: DraftFileConfig;
 }
 
@@ -179,6 +193,7 @@ export interface CommunityAppConfigFile {
   scout?: ScoutFileConfig;
   jobs?: JobsFileConfig;
   product?: ProductFileConfig;
+  post?: PostFileConfig;
   draft?: DraftFileConfig;
 }
 
@@ -241,6 +256,10 @@ const BUILTIN_DEFAULTS: CommunityAppConfig = {
   },
   product: {
     lpBaseUrl: "https://gostylens.app",
+  },
+  post: {
+    /** Local default auto; deploy sets COMMUNITY_POST_MODE=manual. */
+    mode: "auto",
   },
   draft: {},
 };
@@ -342,6 +361,7 @@ export function mergeConfig(
       scout: { ...out.scout, ...pickDefined(layer.scout) },
       jobs: { ...out.jobs, ...pickDefined(layer.jobs) },
       product: { ...out.product, ...pickDefined(layer.product) },
+      post: { ...out.post, ...pickDefined(layer.post) },
       draft: { ...out.draft, ...pickDefined(layer.draft) },
     };
   }
@@ -422,8 +442,17 @@ function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
         raw.product.lpBaseUrl ?? BUILTIN_DEFAULTS.product.lpBaseUrl
       ),
     },
+    post: {
+      mode: normalizePostMode(raw.post?.mode ?? BUILTIN_DEFAULTS.post.mode),
+    },
     draft: raw.draft ?? {},
   };
+}
+
+function normalizePostMode(raw: unknown): string {
+  const v = String(raw ?? "auto").trim().toLowerCase();
+  if (v === "manual" || v === "notify" || v === "notify-only") return "manual";
+  return "auto";
 }
 
 function pickDefined<T extends object>(obj: T | undefined): Partial<T> {
