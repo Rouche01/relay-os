@@ -144,6 +144,19 @@ export interface RedditSessionConfig {
   cookieDir: string;
 }
 
+/**
+ * Read-only redditapis.com scout key (no Reddit session / writes).
+ * @see https://docs.redditapis.com/docs/faq
+ */
+export interface RedditApisConfig {
+  /** Bearer token from redditapis.com dashboard. */
+  apiKey?: string;
+  /** API origin (default https://api.redditapis.com). */
+  baseUrl: string;
+  /** True when apiKey is non-empty. */
+  configured: boolean;
+}
+
 export interface WarmupRuntimeConfig {
   mode: WarmupMode;
   minAccountDays: number;
@@ -235,6 +248,8 @@ export interface VisibilityRuntimeConfig {
  */
 export interface CommunityRuntimeConfig {
   reddit: RedditSessionConfig;
+  /** Optional third-party read-only listing API (scout). */
+  redditApis: RedditApisConfig;
   /** How approved drafts leave the pipeline (manual notify vs auto execute). */
   postMode: PostMode;
   warmup: WarmupRuntimeConfig;
@@ -449,6 +464,10 @@ export function getCommunityConfig(
       : policy.post?.mode
   );
 
+  const redditApisKey = env.REDDITAPIS_API_KEY?.trim() || undefined;
+  const redditApisBase =
+    env.REDDITAPIS_BASE_URL?.trim() || "https://api.redditapis.com";
+
   return {
     reddit: {
       clientId,
@@ -466,6 +485,11 @@ export function getCommunityConfig(
       interstitialHitl,
       dataDir,
       cookieDir,
+    },
+    redditApis: {
+      apiKey: redditApisKey,
+      baseUrl: redditApisBase.replace(/\/+$/, ""),
+      configured: Boolean(redditApisKey),
     },
     postMode,
     warmup: {

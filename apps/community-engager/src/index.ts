@@ -328,3 +328,4 @@ export * from "./reddit/session/credentials.js";
 export * from "./reddit/interstitial/interstitial.js";
 export * from "./reddit/scout/discover-subs.js";
 export * from "./reddit/scout/scout-json.js";
+export * from "./reddit/redditapis/index.js";

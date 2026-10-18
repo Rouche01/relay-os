@@ -26,6 +26,10 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
       dataDir,
       cookieDir: path.join(dataDir, "cookies"),
     },
+    redditApis: {
+      baseUrl: "https://api.redditapis.com",
+      configured: false,
+    },
     postMode: "auto",
     warmup: {
       mode: "off",

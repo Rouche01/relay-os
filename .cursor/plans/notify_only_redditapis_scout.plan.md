@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: redditapis-client
     content: Thin read-only client (Bearer key only) + map posts → RedditListingPost; env REDDITAPIS_API_KEY / base URL
-    status: pending
+    status: completed
   - id: scout-source
     content: Add SCOUT_SOURCE=redditapis; wire scoutOpportunities + auto chain preference; reuse listingPostsToDrafts / score
     status: pending
