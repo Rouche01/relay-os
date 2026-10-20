@@ -136,6 +136,10 @@ async function switchCollection(id) {
   statusFilter.value = "";
   const caps = currentCollection()?.capabilities ?? {};
   statusFilterLabel.hidden = false;
+  statusFilter.placeholder =
+    id === "post-watch"
+      ? "pending | sweeps | …"
+      : "filter";
   renderNav();
   updateSourceLine();
   detailPane.innerHTML = `<p class="muted">Select a row to inspect.</p>`;
@@ -712,6 +716,54 @@ function renderAuthorityCard(a) {
   `;
 }
 
+function renderPostWatchWatch(v) {
+  if (!v || typeof v !== "object") return `<p class="muted">No post-watch data.</p>`;
+  const posted =
+    typeof v.postedUrl === "string" && v.postedUrl.startsWith("http")
+      ? `<a href="${escapeAttr(v.postedUrl)}" target="_blank" rel="noopener">${escapeHtml(v.postedUrl)}</a>`
+      : escapeHtml(String(v.postedUrl ?? "—"));
+  const history = Array.isArray(v.history) ? v.history : [];
+  const histRows = history.length
+    ? history
+        .map(
+          (h) => `
+        <tr>
+          <td>${escapeHtml(String(h.t ?? "—"))}</td>
+          <td>${escapeHtml(String(h.phase ?? "—"))}</td>
+          <td><span class="badge ${escapeAttr(h.outcome || "")}">${escapeHtml(String(h.outcome ?? "—"))}</span></td>
+          <td>${escapeHtml(h.score != null ? String(h.score) : "—")}</td>
+          <td>${escapeHtml(h.replyCount != null ? String(h.replyCount) : "—")}</td>
+          <td>${escapeHtml(String(h.fetchSource ?? "—"))}</td>
+        </tr>`
+        )
+        .join("")
+    : `<tr><td colspan="6" class="muted">No sweep history yet — run <code>pnpm watch:posts</code>.</td></tr>`;
+
+  return `
+    <div class="post-watch-card">
+      <p><strong>r/${escapeHtml(String(v.subreddit ?? "—"))}</strong>
+        <span class="badge ${escapeAttr(v.status || "")}">${escapeHtml(String(v.status ?? "—"))}</span></p>
+      <p class="muted" style="margin:0.25rem 0 0.75rem">${escapeHtml(String(v.threadTitle ?? ""))}</p>
+      <p style="word-break:break-all;margin-bottom:0.75rem">${posted}</p>
+      <table class="run-table">
+        <thead><tr><th>Field</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Last score</td><td>${escapeHtml(v.lastScore != null ? String(v.lastScore) : "—")}</td></tr>
+          <tr><td>Replies</td><td>${escapeHtml(v.replyCount != null ? String(v.replyCount) : "—")}</td></tr>
+          <tr><td>Fetch source</td><td>${escapeHtml(String(v.lastFetchSource ?? "—"))}</td></tr>
+          <tr><td>Last checked</td><td>${escapeHtml(String(v.lastCheckedAt ?? "—"))}</td></tr>
+          <tr><td>Expires</td><td>${escapeHtml(String(v.expiresAt ?? "—"))}</td></tr>
+        </tbody>
+      </table>
+      <h3 style="margin-top:1rem">Check timeline</h3>
+      <table class="run-table">
+        <thead><tr><th>Time</th><th>Phase</th><th>Outcome</th><th>Score</th><th>Replies</th><th>Source</th></tr></thead>
+        <tbody>${histRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderDetail(id, data) {
   const caps = currentCollection()?.capabilities ?? {};
   const record = data.record;
@@ -727,7 +779,9 @@ function renderDetail(id, data) {
         ? renderAuthorityCard(detail.viz)
         : detail.kind === "schedules-overview" && detail.viz
           ? renderSchedulesOverview(detail.viz)
-          : "";
+          : detail.kind === "post-watch-watch" && detail.viz
+            ? renderPostWatchWatch(detail.viz)
+            : "";
 
   const editFields =
     caps.patch && editable.length > 0

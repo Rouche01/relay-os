@@ -15,6 +15,11 @@ export interface FetchedComment {
   permalink: string;
   removed: boolean;
   deleted: boolean;
+  /**
+   * Reddit comment karma at fetch time (`score`, else `ups`).
+   * Omitted when the upstream node has neither as a finite number.
+   */
+  score?: number;
   /** Direct reply bodies (author + text), newest-first capped. */
   replies: Array<{ author: string; body: string; id: string }>;
 }
@@ -249,7 +254,8 @@ function extractCommentFromListing(
   return undefined;
 }
 
-function mapCommentData(d: Record<string, unknown>): FetchedComment {
+/** Map a Reddit-native comment `data` object into {@link FetchedComment}. */
+export function mapCommentData(d: Record<string, unknown>): FetchedComment {
   const body = String(d.body ?? "");
   const author = String(d.author ?? "");
   const removedByCategory = d.removed_by_category != null;
@@ -264,6 +270,7 @@ function mapCommentData(d: Record<string, unknown>): FetchedComment {
     : `https://www.reddit.com${permalink}`;
 
   const replies = collectReplies(d.replies, 8);
+  const score = commentScoreFromRedditData(d);
 
   return {
     id: String(d.id ?? ""),
@@ -273,8 +280,20 @@ function mapCommentData(d: Record<string, unknown>): FetchedComment {
     permalink: href,
     removed,
     deleted,
+    ...(score !== undefined ? { score } : {}),
     replies,
   };
+}
+
+/** Prefer `score`, then `ups`; omit when neither is a finite number. */
+export function commentScoreFromRedditData(
+  d: Record<string, unknown>
+): number | undefined {
+  for (const key of ["score", "ups"] as const) {
+    const n = Number(d[key]);
+    if (Number.isFinite(n)) return n;
+  }
+  return undefined;
 }
 
 function collectReplies(

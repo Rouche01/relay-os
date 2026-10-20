@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * CommunityEngager operator console — Actions + Allowlist + Jobs + Runs +
- * Authority + Schedules on @relay/admin-shell with independent SourceConfig paths.
+ * Authority + Post-watch + Schedules on @relay/admin-shell with independent
+ * SourceConfig paths.
  */
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -11,6 +12,7 @@ import { createCommunityActionsCollection } from "../admin/actions-collection.js
 import { createAllowlistCollection } from "../admin/allowlist-collection.js";
 import { createAuthorityCollection } from "../admin/authority-collection.js";
 import { createJobsCollection } from "../admin/jobs-collection.js";
+import { createPostWatchCollection } from "../admin/post-watch-collection.js";
 import { createRunsCollection } from "../admin/runs-collection.js";
 import { createSchedulesCollection } from "../admin/schedules-collection.js";
 import {
@@ -19,6 +21,7 @@ import {
   assertFileSource,
   authoritySource,
   jobsSource,
+  postWatchSource,
   runsSource,
   schedulesSource,
 } from "../admin/sources.js";
@@ -43,12 +46,14 @@ async function main(): Promise<void> {
   const jobs = jobsSource();
   const runs = runsSource();
   const authority = authoritySource();
+  const postWatch = postWatchSource();
   const schedules = schedulesSource();
   assertFileSource(actions, "actions");
   assertFileSource(allowlist, "allowlist");
   assertFileSource(jobs, "jobs");
   assertFileSource(runs, "runs");
   assertFileSource(authority, "authority");
+  assertFileSource(postWatch, "post-watch");
   assertFileSource(schedules, "schedules");
 
   const store = createActionStoreFromEnv();
@@ -71,6 +76,7 @@ async function main(): Promise<void> {
       createJobsCollection(jobs),
       createRunsCollection(runs),
       createAuthorityCollection(authority),
+      createPostWatchCollection(postWatch),
       createSchedulesCollection(schedules),
     ],
   });

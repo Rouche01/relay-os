@@ -7,6 +7,7 @@ import {
 import {
   commentIdFromPermalink,
   fetchRedditComment,
+  type FetchCommentResult,
 } from "../../reddit/write/comment-fetch.js";
 import type { OutcomeTagHint } from "../learn/outcome-tags.js";
 import { detectDmInterest } from "../learn/outcome-tags.js";
@@ -21,6 +22,8 @@ export type PostWatchStatus =
 
 /** first_look = never checked before; sustained = later polls until maxAge. */
 export type PostWatchPhase = "first_look" | "sustained";
+
+export type PostWatchFetchSource = "redditapis" | "public_json";
 
 export interface PostWatchEntry {
   id: string;
@@ -40,6 +43,10 @@ export interface PostWatchEntry {
   status: PostWatchStatus;
   lastCheckedAt?: string;
   replyCount?: number;
+  /** Last finite Reddit comment score seen on a successful fetch. */
+  lastScore?: number;
+  /** Transport used on the most recent check that reported a source. */
+  lastFetchSource?: PostWatchFetchSource;
   /** Follow-up opportunity id when queued. */
   followUpDraftId?: string;
   lastError?: string;
@@ -69,11 +76,51 @@ export interface PostWatchSweepCandidate {
   phase: PostWatchPhase;
   /** Fetch / classification outcome for this candidate. */
   outcome: PostWatchSweepOutcome;
-  /** True when the public JSON fetch returned ok + a comment body. */
+  /** True when fetch returned ok + a comment body. */
   fetchOk: boolean;
   httpStatus?: number;
   replyCount?: number;
+  /** Reddit comment score/ups at check time (when known). */
+  score?: number;
+  removed?: boolean;
+  deleted?: boolean;
+  fetchSource?: PostWatchFetchSource;
   error?: string;
+}
+
+/** Thin engagement snapshot from a comment fetch (sweep + queue denorm). */
+export function candidateSnapshot(
+  fetched: FetchCommentResult
+): Pick<
+  PostWatchSweepCandidate,
+  "score" | "removed" | "deleted" | "fetchSource" | "replyCount"
+> {
+  const snap: Pick<
+    PostWatchSweepCandidate,
+    "score" | "removed" | "deleted" | "fetchSource" | "replyCount"
+  > = {};
+  if (fetched.source) snap.fetchSource = fetched.source;
+  const comment = fetched.comment;
+  if (!comment) return snap;
+  if (typeof comment.score === "number" && Number.isFinite(comment.score)) {
+    snap.score = comment.score;
+  }
+  snap.removed = comment.removed;
+  snap.deleted = comment.deleted;
+  snap.replyCount = comment.replies.length;
+  return snap;
+}
+
+/** Denormalize latest score / transport onto the queue row. */
+export function applyWatchFetchDenorm(
+  watch: PostWatchEntry,
+  fetched: FetchCommentResult
+): void {
+  if (fetched.source) watch.lastFetchSource = fetched.source;
+  const score = fetched.comment?.score;
+  if (typeof score === "number" && Number.isFinite(score)) {
+    watch.lastScore = score;
+  }
 }
 
 /** One post-watch (or future posted-window) sweep — durable under post-watch/sweeps/. */
@@ -310,6 +357,10 @@ export async function processDuePostWatches(
     const fetched = await fetchFn(watch.postedUrl, {
       userAgent: cfg.reddit.userAgent,
     });
+    const snap = candidateSnapshot(fetched);
+    if (fetched.source || fetched.comment) {
+      applyWatchFetchDenorm(watch, fetched);
+    }
 
     if (!fetched.ok || !fetched.comment) {
       if (fetched.status === 404 || /not found/i.test(fetched.error ?? "")) {
@@ -319,6 +370,7 @@ export async function processDuePostWatches(
         result.outcomeHints.push(removedHint(watch, fetched.error));
         candidates.push({
           ...baseCand,
+          ...snap,
           outcome: "removed",
           fetchOk: false,
           httpStatus: fetched.status,
@@ -332,6 +384,7 @@ export async function processDuePostWatches(
         result.expired += 1;
         candidates.push({
           ...baseCand,
+          ...snap,
           outcome: "expired",
           fetchOk: false,
           httpStatus: fetched.status,
@@ -341,6 +394,7 @@ export async function processDuePostWatches(
         result.errors += 1;
         candidates.push({
           ...baseCand,
+          ...snap,
           outcome: "error",
           fetchOk: false,
           httpStatus: fetched.status,
@@ -359,6 +413,7 @@ export async function processDuePostWatches(
       );
       candidates.push({
         ...baseCand,
+        ...snap,
         outcome: "removed",
         fetchOk: true,
         httpStatus: fetched.status,
@@ -404,6 +459,7 @@ export async function processDuePostWatches(
       }
       candidates.push({
         ...baseCand,
+        ...snap,
         outcome: "replied",
         fetchOk: true,
         httpStatus: fetched.status,
@@ -417,6 +473,7 @@ export async function processDuePostWatches(
       result.expired += 1;
       candidates.push({
         ...baseCand,
+        ...snap,
         outcome: "expired",
         fetchOk: true,
         httpStatus: fetched.status,
@@ -426,6 +483,7 @@ export async function processDuePostWatches(
       pendingLeft += 1;
       candidates.push({
         ...baseCand,
+        ...snap,
         outcome: "pending",
         fetchOk: true,
         httpStatus: fetched.status,

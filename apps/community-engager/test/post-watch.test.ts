@@ -5,12 +5,16 @@ import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 import {
   commentIdFromPermalink,
+  commentScoreFromRedditData,
   fetchRedditComment,
+  mapCommentData,
   permalinkToJsonUrl,
   type FetchCommentResult,
 } from "../src/reddit/write/comment-fetch.js";
 import {
+  applyWatchFetchDenorm,
   buildFollowUpDraft,
+  candidateSnapshot,
   enrollPostWatch,
   prioritizeDueWatches,
   processDuePostWatches,
@@ -116,6 +120,28 @@ describe("comment-fetch helpers", () => {
       "t1_def456"
     );
   });
+
+  it("prefers score over ups; omits when neither is finite", () => {
+    assert.equal(commentScoreFromRedditData({ score: 5, ups: 1 }), 5);
+    assert.equal(commentScoreFromRedditData({ ups: 3 }), 3);
+    assert.equal(commentScoreFromRedditData({ score: "2" }), 2);
+    assert.equal(commentScoreFromRedditData({}), undefined);
+    assert.equal(commentScoreFromRedditData({ ups: "nope" }), undefined);
+  });
+
+  it("mapCommentData includes score from ups", () => {
+    const mapped = mapCommentData({
+      id: "abc",
+      name: "t1_abc",
+      author: "u1",
+      body: "hello",
+      permalink: "/r/test/comments/p/title/abc/",
+      ups: 4,
+      replies: "",
+    });
+    assert.equal(mapped.score, 4);
+    assert.equal(mapped.removed, false);
+  });
 });
 
 describe("fetchRedditComment via redditapis", () => {
@@ -142,6 +168,7 @@ describe("fetchRedditComment via redditapis", () => {
               name: "t1_phxxrt8",
               body: "still up",
               author: "me",
+              score: 7,
               permalink: "/r/test/comments/abc/title/phxxrt8/",
               replies: {
                 data: {
@@ -182,6 +209,7 @@ describe("fetchRedditComment via redditapis", () => {
     assert.equal(result.ok, true);
     assert.equal(result.source, "redditapis");
     assert.equal(result.comment?.body, "still up");
+    assert.equal(result.comment?.score, 7);
     assert.equal(result.comment?.replies.length, 1);
     assert.equal(result.comment?.replies[0]?.body, "nice tip");
   });
@@ -223,6 +251,61 @@ describe("post-watch enroll + process", () => {
     assert.equal(queue.watches[0]!.id, entry.id);
   });
 
+  it("candidateSnapshot maps score, flags, and fetchSource", () => {
+    const snap = candidateSnapshot({
+      ok: true,
+      status: 200,
+      source: "redditapis",
+      comment: {
+        id: "xyz",
+        name: "t1_xyz",
+        author: "us",
+        body: "hi",
+        permalink: "https://www.reddit.com/r/x/comments/a/t/xyz/",
+        removed: false,
+        deleted: false,
+        score: 4,
+        replies: [{ author: "op", body: "thanks", id: "r1" }],
+      },
+    });
+    assert.equal(snap.score, 4);
+    assert.equal(snap.fetchSource, "redditapis");
+    assert.equal(snap.removed, false);
+    assert.equal(snap.deleted, false);
+    assert.equal(snap.replyCount, 1);
+  });
+
+  it("applyWatchFetchDenorm sets lastScore and lastFetchSource", () => {
+    const watch: PostWatchEntry = {
+      id: "w1",
+      enrolledAt: "2026-10-10T12:00:00.000Z",
+      checkAfter: "2026-10-10T13:00:00.000Z",
+      expiresAt: "2026-10-13T12:00:00.000Z",
+      subreddit: "fashion",
+      threadUrl: "https://reddit.com/r/a",
+      threadTitle: "a",
+      postedUrl: "https://reddit.com/r/a/c/",
+      status: "pending",
+    };
+    applyWatchFetchDenorm(watch, {
+      ok: true,
+      source: "redditapis",
+      comment: {
+        id: "c",
+        name: "t1_c",
+        author: "u",
+        body: "x",
+        permalink: "https://reddit.com/r/a/c/",
+        removed: false,
+        deleted: false,
+        score: 9,
+        replies: [],
+      },
+    });
+    assert.equal(watch.lastScore, 9);
+    assert.equal(watch.lastFetchSource, "redditapis");
+  });
+
   it("queues a follow-up when replies appear after checkAfter", async () => {
     dir = await mkdtemp(path.join(tmpdir(), "ce-postwatch-"));
     const enrollMs = Date.parse("2026-10-10T12:00:00Z");
@@ -241,6 +324,7 @@ describe("post-watch enroll + process", () => {
     const fetchComment = async (): Promise<FetchCommentResult> => ({
       ok: true,
       status: 200,
+      source: "redditapis",
       comment: {
         id: "xyz",
         name: "t1_xyz",
@@ -250,6 +334,7 @@ describe("post-watch enroll + process", () => {
           "https://www.reddit.com/r/fashion/comments/abc/title/xyz/",
         removed: false,
         deleted: false,
+        score: 3,
         replies: [
           {
             author: "op_user",
@@ -276,6 +361,8 @@ describe("post-watch enroll + process", () => {
     const queue = await readPostWatchQueue(dir);
     assert.equal(queue.watches[0]!.status, "replied");
     assert.equal(queue.watches[0]!.replyCount, 1);
+    assert.equal(queue.watches[0]!.lastScore, 3);
+    assert.equal(queue.watches[0]!.lastFetchSource, "redditapis");
 
     assert.ok(result.sweep);
     assert.equal(result.sweep!.success, true);
@@ -283,6 +370,9 @@ describe("post-watch enroll + process", () => {
     assert.equal(result.sweep!.candidates[0]!.outcome, "replied");
     assert.equal(result.sweep!.candidates[0]!.phase, "first_look");
     assert.equal(result.sweep!.candidates[0]!.fetchOk, true);
+    assert.equal(result.sweep!.candidates[0]!.score, 3);
+    assert.equal(result.sweep!.candidates[0]!.fetchSource, "redditapis");
+    assert.equal(result.sweep!.candidates[0]!.replyCount, 1);
     assert.ok(result.sweepPath);
     const { readFile } = await import("node:fs/promises");
     const onDisk = JSON.parse(await readFile(result.sweepPath!, "utf8")) as {
@@ -421,6 +511,7 @@ describe("post-watch enroll + process", () => {
     const quietFetch = async (): Promise<FetchCommentResult> => ({
       ok: true,
       status: 200,
+      source: "redditapis",
       comment: {
         id: "xyz",
         name: "t1_xyz",
@@ -430,6 +521,7 @@ describe("post-watch enroll + process", () => {
           "https://www.reddit.com/r/fashion/comments/abc/title/xyz/",
         removed: false,
         deleted: false,
+        score: 2,
         replies: [],
       },
     });
@@ -440,6 +532,15 @@ describe("post-watch enroll + process", () => {
     });
     assert.equal(first.sweep!.candidates[0]!.phase, "first_look");
     assert.equal(first.sweep!.candidates[0]!.outcome, "pending");
+    assert.equal(first.sweep!.candidates[0]!.score, 2);
+    assert.equal(first.sweep!.candidates[0]!.fetchSource, "redditapis");
+    assert.equal(first.sweep!.candidates[0]!.removed, false);
+    assert.equal(first.sweep!.candidates[0]!.deleted, false);
+    assert.equal(first.sweep!.candidates[0]!.replyCount, 0);
+
+    const queueAfterFirst = await readPostWatchQueue(dir);
+    assert.equal(queueAfterFirst.watches[0]!.lastScore, 2);
+    assert.equal(queueAfterFirst.watches[0]!.lastFetchSource, "redditapis");
 
     const second = await processDuePostWatches(baseCfg(dir), {
       nowMs: Date.parse("2026-10-10T14:30:00Z"),
@@ -447,6 +548,51 @@ describe("post-watch enroll + process", () => {
     });
     assert.equal(second.sweep!.candidates[0]!.phase, "sustained");
     assert.equal(second.sweep!.candidates[0]!.outcome, "pending");
+    assert.equal(second.sweep!.candidates[0]!.score, 2);
+  });
+
+  it("keeps last known score on removed when fetch still returns comment", async () => {
+    dir = await mkdtemp(path.join(tmpdir(), "ce-postwatch-"));
+    const enrollMs = Date.parse("2026-10-10T12:00:00Z");
+    await enrollPostWatch(dir, {
+      postedUrl:
+        "https://www.reddit.com/r/fashion/comments/abc/title/xyz/",
+      subreddit: "fashion",
+      threadUrl: "https://www.reddit.com/r/fashion/comments/abc/title/",
+      threadTitle: "Need outfit help",
+      firstCheckAfterHours: 1,
+      maxAgeHours: 72,
+      nowMs: enrollMs,
+    });
+
+    const result = await processDuePostWatches(baseCfg(dir), {
+      nowMs: Date.parse("2026-10-10T13:30:00Z"),
+      fetchComment: async () => ({
+        ok: true,
+        status: 200,
+        source: "redditapis",
+        comment: {
+          id: "xyz",
+          name: "t1_xyz",
+          author: "[deleted]",
+          body: "[removed]",
+          permalink:
+            "https://www.reddit.com/r/fashion/comments/abc/title/xyz/",
+          removed: true,
+          deleted: true,
+          score: 5,
+          replies: [],
+        },
+      }),
+    });
+
+    assert.equal(result.removed, 1);
+    assert.equal(result.sweep!.candidates[0]!.score, 5);
+    assert.equal(result.sweep!.candidates[0]!.removed, true);
+    assert.equal(result.sweep!.candidates[0]!.deleted, true);
+    assert.equal(result.sweep!.candidates[0]!.fetchSource, "redditapis");
+    const queue = await readPostWatchQueue(dir);
+    assert.equal(queue.watches[0]!.lastScore, 5);
   });
 
   it("buildFollowUpDraft embeds reply context", () => {

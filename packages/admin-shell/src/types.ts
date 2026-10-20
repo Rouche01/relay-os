@@ -43,6 +43,7 @@ export type DetailKind =
   | "run-debug"
   | "authority-scorecard"
   | "schedules-overview"
+  | "post-watch-watch"
   | string;
 
 /** Per-item investigation payload (e.g. run-debug charts). */
@@ -139,6 +140,32 @@ export interface SchedulesOverviewViz {
   }>;
 }
 
+/** Post-watch queue entry + sweep timeline (kind: "post-watch-watch"). */
+export interface PostWatchWatchViz {
+  watchId: string;
+  subreddit: string;
+  status: string;
+  postedUrl: string;
+  threadTitle: string;
+  lastScore?: number;
+  replyCount?: number;
+  lastFetchSource?: string;
+  lastCheckedAt?: string;
+  expiresAt: string;
+  history: Array<{
+    t: string;
+    sweepId: string;
+    phase: string;
+    outcome: string;
+    score?: number;
+    replyCount?: number;
+    fetchOk: boolean;
+    fetchSource?: string;
+    httpStatus?: number;
+    error?: string;
+  }>;
+}
+
 export interface GetResult {
   record: unknown;
   detail?: {
@@ -147,8 +174,12 @@ export interface GetResult {
     subtitle?: string;
     /** Editable field keys when patch is supported */
     editable?: string[];
-    /** Present for kind "run-debug", "authority-scorecard", or "schedules-overview" */
-    viz?: RunDebugViz | AuthorityScorecardViz | SchedulesOverviewViz;
+    /** Present for kind "run-debug", "authority-scorecard", "schedules-overview", or "post-watch-watch" */
+    viz?:
+      | RunDebugViz
+      | AuthorityScorecardViz
+      | SchedulesOverviewViz
+      | PostWatchWatchViz;
   };
 }
 

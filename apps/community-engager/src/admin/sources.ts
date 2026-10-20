@@ -58,6 +58,14 @@ export function authoritySource(env: NodeJS.ProcessEnv = process.env): SourceCon
   };
 }
 
+/** Data root for post-watch queue + sweeps (same as authority). */
+export function postWatchSource(env: NodeJS.ProcessEnv = process.env): SourceConfig {
+  return {
+    driver: "file",
+    path: resolveDataRoot(env),
+  };
+}
+
 /** Data root for schedule evidence (`schedules/*.evidence.json`). */
 export function schedulesSource(env: NodeJS.ProcessEnv = process.env): SourceConfig {
   return {
