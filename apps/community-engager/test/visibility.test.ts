@@ -45,7 +45,8 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
     },
     postWatch: {
       enabled: false,
-      minAgeHours: 24,
+      firstCheckAfterHours: 1,
+      minAgeHours: 1,
       maxAgeHours: 72,
       maxPerRun: 10,
       followUpIntensity: 0,

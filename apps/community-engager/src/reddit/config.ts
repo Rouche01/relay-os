@@ -219,6 +219,9 @@ export interface PromoRuntimeConfig {
 /** Poll live-posted comments for replies/removal; queue follow-up drafts. */
 export interface PostWatchRuntimeConfig {
   enabled: boolean;
+  /** Hours after enroll before first look (early follow-up). */
+  firstCheckAfterHours: number;
+  /** @deprecated Same as firstCheckAfterHours after config merge. */
   minAgeHours: number;
   maxAgeHours: number;
   maxPerRun: number;
@@ -539,47 +542,49 @@ export function getCommunityConfig(
         return policy.promo.onExceed === "warn" ? "warn" : "block";
       })(),
     },
-    postWatch: {
-      enabled: envBool(
+    postWatch: (() => {
+      const firstCheck = envNumber(
         env,
-        "COMMUNITY_POST_WATCH_ENABLED",
-        policy.postWatch.enabled
-      ),
-      minAgeHours: envNumber(
-        env,
-        "COMMUNITY_POST_WATCH_MIN_AGE_HOURS",
-        policy.postWatch.minAgeHours
-      ),
-      maxAgeHours: (() => {
-        const minH = envNumber(
+        "COMMUNITY_POST_WATCH_FIRST_CHECK_AFTER_HOURS",
+        envNumber(
           env,
           "COMMUNITY_POST_WATCH_MIN_AGE_HOURS",
-          policy.postWatch.minAgeHours
-        );
-        const maxH = envNumber(
-          env,
-          "COMMUNITY_POST_WATCH_MAX_AGE_HOURS",
-          policy.postWatch.maxAgeHours
-        );
-        return Math.max(minH, maxH);
-      })(),
-      maxPerRun: envNumber(
+          policy.postWatch.firstCheckAfterHours ??
+            policy.postWatch.minAgeHours
+        )
+      );
+      const maxH = envNumber(
         env,
-        "COMMUNITY_POST_WATCH_MAX_PER_RUN",
-        policy.postWatch.maxPerRun,
-        { allowZero: false }
-      ),
-      followUpIntensity: (() => {
-        const raw = env.COMMUNITY_POST_WATCH_FOLLOW_UP_INTENSITY;
-        if (raw === undefined || raw.trim() === "") {
-          return policy.postWatch.followUpIntensity;
-        }
-        const n = Number(raw);
-        if (n === 2) return 2;
-        if (n === 1) return 1;
-        return 0;
-      })(),
-    },
+        "COMMUNITY_POST_WATCH_MAX_AGE_HOURS",
+        policy.postWatch.maxAgeHours
+      );
+      return {
+        enabled: envBool(
+          env,
+          "COMMUNITY_POST_WATCH_ENABLED",
+          policy.postWatch.enabled
+        ),
+        firstCheckAfterHours: firstCheck,
+        minAgeHours: firstCheck,
+        maxAgeHours: Math.max(firstCheck, maxH),
+        maxPerRun: envNumber(
+          env,
+          "COMMUNITY_POST_WATCH_MAX_PER_RUN",
+          policy.postWatch.maxPerRun,
+          { allowZero: false }
+        ),
+        followUpIntensity: (() => {
+          const raw = env.COMMUNITY_POST_WATCH_FOLLOW_UP_INTENSITY;
+          if (raw === undefined || raw.trim() === "") {
+            return policy.postWatch.followUpIntensity;
+          }
+          const n = Number(raw);
+          if (n === 2) return 2;
+          if (n === 1) return 1;
+          return 0;
+        })(),
+      };
+    })(),
     cadence: {
       enabled: envBool(
         env,

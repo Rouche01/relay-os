@@ -1387,6 +1387,15 @@ export class CommunityEngagerController implements AppController {
             followUpIds: result.followUps.map((d) => d.id),
             outcomeHints: result.outcomeHints.map((h) => h.tag),
             outcomeTagsWritten,
+            sweepId: result.sweep?.sweepId,
+            sweepSuccess: result.sweep?.success,
+            sweepPath: result.sweepPath,
+            sweepCandidates: result.sweep?.candidates.map((c) => ({
+              watchId: c.watchId,
+              phase: c.phase,
+              outcome: c.outcome,
+              fetchOk: c.fetchOk,
+            })),
           },
         };
       }
@@ -2346,7 +2355,7 @@ export class CommunityEngagerController implements AppController {
         } catch (err) {
           console.warn("[visibility] check failed:", err);
         }
-        // Enroll for 24–72h reply/removal watch (next parent run).
+        // Enroll: first look ~1h, sustained until maxAge (post_watch schedule).
         if (runtimeCfg.postWatch.enabled) {
           try {
             const watch = await enrollPostWatch(dataDir, {
@@ -2356,11 +2365,11 @@ export class CommunityEngagerController implements AppController {
               threadTitle: draft.threadTitle,
               draftId: draft.id,
               jobId: result.jobId,
-              minAgeHours: runtimeCfg.postWatch.minAgeHours,
+              firstCheckAfterHours: runtimeCfg.postWatch.firstCheckAfterHours,
               maxAgeHours: runtimeCfg.postWatch.maxAgeHours,
             });
             console.log(
-              `[post-watch] enrolled ${watch.id} checkAfter=${watch.checkAfter}`
+              `[post-watch] enrolled ${watch.id} firstLook=${watch.checkAfter} expires=${watch.expiresAt}`
             );
           } catch (err) {
             console.warn("[post-watch] failed to enroll:", err);

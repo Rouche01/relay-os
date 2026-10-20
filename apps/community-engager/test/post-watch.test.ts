@@ -11,6 +11,7 @@ import {
 import {
   buildFollowUpDraft,
   enrollPostWatch,
+  prioritizeDueWatches,
   processDuePostWatches,
   readPostWatchQueue,
 } from "../src/stages/post-watch/post-watch.js";
@@ -50,7 +51,8 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
     },
     postWatch: {
       enabled: true,
-      minAgeHours: 24,
+      firstCheckAfterHours: 1,
+      minAgeHours: 1,
       maxAgeHours: 72,
       maxPerRun: 10,
       followUpIntensity: 0,
@@ -125,7 +127,7 @@ describe("post-watch enroll + process", () => {
     }
   });
 
-  it("enrolls a watch with checkAfter/expiresAt from min/max age", async () => {
+  it("enrolls a watch with first look at 1h and expires at maxAge", async () => {
     dir = await mkdtemp(path.join(tmpdir(), "ce-postwatch-"));
     const nowMs = Date.parse("2026-10-11T12:00:00Z");
     const entry = await enrollPostWatch(dir, {
@@ -136,14 +138,14 @@ describe("post-watch enroll + process", () => {
       threadTitle: "Need outfit help",
       draftId: "draft-1",
       jobId: "job-1",
-      minAgeHours: 24,
+      firstCheckAfterHours: 1,
       maxAgeHours: 72,
       nowMs,
     });
 
     assert.equal(entry.status, "pending");
     assert.equal(entry.commentId, "t1_xyz");
-    assert.equal(entry.checkAfter, "2026-10-12T12:00:00.000Z");
+    assert.equal(entry.checkAfter, "2026-10-11T13:00:00.000Z");
     assert.equal(entry.expiresAt, "2026-10-14T12:00:00.000Z");
 
     const queue = await readPostWatchQueue(dir);
@@ -160,12 +162,12 @@ describe("post-watch enroll + process", () => {
       subreddit: "fashion",
       threadUrl: "https://www.reddit.com/r/fashion/comments/abc/title/",
       threadTitle: "Need outfit help",
-      minAgeHours: 24,
+      firstCheckAfterHours: 1,
       maxAgeHours: 72,
       nowMs: enrollMs,
     });
 
-    const nowMs = Date.parse("2026-10-11T14:00:00Z"); // past checkAfter
+    const nowMs = Date.parse("2026-10-10T13:30:00Z"); // past first look (+1h)
     const fetchComment = async (): Promise<FetchCommentResult> => ({
       ok: true,
       status: 200,
@@ -204,6 +206,21 @@ describe("post-watch enroll + process", () => {
     const queue = await readPostWatchQueue(dir);
     assert.equal(queue.watches[0]!.status, "replied");
     assert.equal(queue.watches[0]!.replyCount, 1);
+
+    assert.ok(result.sweep);
+    assert.equal(result.sweep!.success, true);
+    assert.equal(result.sweep!.candidateCount, 1);
+    assert.equal(result.sweep!.candidates[0]!.outcome, "replied");
+    assert.equal(result.sweep!.candidates[0]!.phase, "first_look");
+    assert.equal(result.sweep!.candidates[0]!.fetchOk, true);
+    assert.ok(result.sweepPath);
+    const { readFile } = await import("node:fs/promises");
+    const onDisk = JSON.parse(await readFile(result.sweepPath!, "utf8")) as {
+      sweepId: string;
+      candidates: unknown[];
+    };
+    assert.equal(onDisk.sweepId, result.sweep!.sweepId);
+    assert.equal(onDisk.candidates.length, 1);
   });
 
   it("marks removed when comment is gone", async () => {
@@ -215,13 +232,13 @@ describe("post-watch enroll + process", () => {
       subreddit: "fashion",
       threadUrl: "https://www.reddit.com/r/fashion/comments/abc/title/",
       threadTitle: "Need outfit help",
-      minAgeHours: 24,
+      firstCheckAfterHours: 1,
       maxAgeHours: 72,
       nowMs: enrollMs,
     });
 
     const result = await processDuePostWatches(baseCfg(dir), {
-      nowMs: Date.parse("2026-10-11T14:00:00Z"),
+      nowMs: Date.parse("2026-10-10T13:30:00Z"),
       fetchComment: async () => ({
         ok: true,
         status: 200,
@@ -260,7 +277,7 @@ describe("post-watch enroll + process", () => {
     assert.equal(result.checked, 0);
   });
 
-  it("does not check before checkAfter", async () => {
+  it("does not check before first look (checkAfter)", async () => {
     dir = await mkdtemp(path.join(tmpdir(), "ce-postwatch-"));
     const enrollMs = Date.parse("2026-10-11T12:00:00Z");
     await enrollPostWatch(dir, {
@@ -269,7 +286,7 @@ describe("post-watch enroll + process", () => {
       subreddit: "fashion",
       threadUrl: "https://www.reddit.com/r/fashion/comments/abc/title/",
       threadTitle: "Need outfit help",
-      minAgeHours: 24,
+      firstCheckAfterHours: 1,
       maxAgeHours: 72,
       nowMs: enrollMs,
     });
@@ -284,6 +301,82 @@ describe("post-watch enroll + process", () => {
     });
     assert.equal(result.checked, 0);
     assert.equal(fetched, false);
+  });
+
+  it("prioritizes first_look over sustained when capped", () => {
+    const due: PostWatchEntry[] = [
+      {
+        id: "sustained",
+        enrolledAt: "2026-10-10T10:00:00.000Z",
+        checkAfter: "2026-10-10T11:00:00.000Z",
+        expiresAt: "2026-10-13T10:00:00.000Z",
+        subreddit: "fashion",
+        threadUrl: "https://reddit.com/r/a",
+        threadTitle: "a",
+        postedUrl: "https://reddit.com/r/a/c1/",
+        status: "pending",
+        lastCheckedAt: "2026-10-10T12:00:00.000Z",
+      },
+      {
+        id: "first",
+        enrolledAt: "2026-10-10T12:00:00.000Z",
+        checkAfter: "2026-10-10T13:00:00.000Z",
+        expiresAt: "2026-10-13T12:00:00.000Z",
+        subreddit: "fashion",
+        threadUrl: "https://reddit.com/r/b",
+        threadTitle: "b",
+        postedUrl: "https://reddit.com/r/b/c2/",
+        status: "pending",
+      },
+    ];
+    const picked = prioritizeDueWatches(due, 1);
+    assert.equal(picked.length, 1);
+    assert.equal(picked[0]!.id, "first");
+  });
+
+  it("tags sustained on the second poll", async () => {
+    dir = await mkdtemp(path.join(tmpdir(), "ce-postwatch-"));
+    const enrollMs = Date.parse("2026-10-10T12:00:00Z");
+    await enrollPostWatch(dir, {
+      postedUrl:
+        "https://www.reddit.com/r/fashion/comments/abc/title/xyz/",
+      subreddit: "fashion",
+      threadUrl: "https://www.reddit.com/r/fashion/comments/abc/title/",
+      threadTitle: "Need outfit help",
+      firstCheckAfterHours: 1,
+      maxAgeHours: 72,
+      nowMs: enrollMs,
+    });
+
+    const quietFetch = async (): Promise<FetchCommentResult> => ({
+      ok: true,
+      status: 200,
+      comment: {
+        id: "xyz",
+        name: "t1_xyz",
+        author: "us",
+        body: "Help text",
+        permalink:
+          "https://www.reddit.com/r/fashion/comments/abc/title/xyz/",
+        removed: false,
+        deleted: false,
+        replies: [],
+      },
+    });
+
+    const first = await processDuePostWatches(baseCfg(dir), {
+      nowMs: Date.parse("2026-10-10T13:30:00Z"),
+      fetchComment: quietFetch,
+    });
+    assert.equal(first.sweep!.candidates[0]!.phase, "first_look");
+    assert.equal(first.sweep!.candidates[0]!.outcome, "pending");
+
+    const second = await processDuePostWatches(baseCfg(dir), {
+      nowMs: Date.parse("2026-10-10T14:30:00Z"),
+      fetchComment: quietFetch,
+    });
+    assert.equal(second.sweep!.candidates[0]!.phase, "sustained");
+    assert.equal(second.sweep!.candidates[0]!.outcome, "pending");
   });
 
   it("buildFollowUpDraft embeds reply context", () => {

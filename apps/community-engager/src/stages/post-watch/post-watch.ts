@@ -19,10 +19,13 @@ export type PostWatchStatus =
   | "expired"
   | "error";
 
+/** first_look = never checked before; sustained = later polls until maxAge. */
+export type PostWatchPhase = "first_look" | "sustained";
+
 export interface PostWatchEntry {
   id: string;
   enrolledAt: string;
-  /** First eligible check time (enrolledAt + minAgeHours). */
+  /** First eligible check time (enrolledAt + firstCheckAfterHours). */
   checkAfter: string;
   /** Stop polling after this (enrolledAt + maxAgeHours). */
   expiresAt: string;
@@ -47,6 +50,52 @@ export interface PostWatchQueue {
   updatedAt: string;
 }
 
+/** Per-candidate row inside a sweep log (what we polled + outcome). */
+export type PostWatchSweepOutcome =
+  | "replied"
+  | "removed"
+  | "expired"
+  | "pending"
+  | "error"
+  | "skipped";
+
+export interface PostWatchSweepCandidate {
+  watchId: string;
+  draftId?: string;
+  jobId?: string;
+  subreddit: string;
+  postedUrl: string;
+  /** first_look vs later sustained polls. */
+  phase: PostWatchPhase;
+  /** Fetch / classification outcome for this candidate. */
+  outcome: PostWatchSweepOutcome;
+  /** True when the public JSON fetch returned ok + a comment body. */
+  fetchOk: boolean;
+  httpStatus?: number;
+  replyCount?: number;
+  error?: string;
+}
+
+/** One post-watch (or future posted-window) sweep — durable under post-watch/sweeps/. */
+export interface PostWatchSweepLog {
+  schemaVersion: 1;
+  sweepId: string;
+  startedAt: string;
+  endedAt: string;
+  source: "queue" | "posted_window";
+  /** Due candidates considered this run (before per-item results). */
+  candidateCount: number;
+  checked: number;
+  replied: number;
+  removed: number;
+  expired: number;
+  errors: number;
+  pending: number;
+  /** True when every fetched candidate had fetchOk (or none checked). */
+  success: boolean;
+  candidates: PostWatchSweepCandidate[];
+}
+
 export interface PostWatchProcessResult {
   checked: number;
   replied: number;
@@ -56,12 +105,20 @@ export interface PostWatchProcessResult {
   followUps: CommunityDraft[];
   /** VoltMem outcome tags to write after the poll (got_reply / removed / dm_interest). */
   outcomeHints: OutcomeTagHint[];
+  /** Durable sweep log (when persist enabled). */
+  sweep?: PostWatchSweepLog;
+  /** Absolute path of the written sweep JSON, if persisted. */
+  sweepPath?: string;
 }
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 
 export function postWatchQueuePath(dataDir: string): string {
   return path.join(dataDir, "post-watch", "queue.json");
+}
+
+export function postWatchSweepsDir(dataDir: string): string {
+  return path.join(dataDir, "post-watch", "sweeps");
 }
 
 export async function readPostWatchQueue(
@@ -107,7 +164,8 @@ export async function writePostWatchQueue(
 }
 
 /**
- * Enroll a live-posted comment for later reply/removal polling.
+ * Enroll a live-posted comment for two-phase polling:
+ * first look after {@link firstCheckAfterHours}, then sustained until maxAge.
  */
 export async function enrollPostWatch(
   dataDir: string,
@@ -118,19 +176,25 @@ export async function enrollPostWatch(
     threadTitle: string;
     draftId?: string;
     jobId?: string;
-    minAgeHours: number;
+    /** Hours until first look (preferred). */
+    firstCheckAfterHours?: number;
+    /** @deprecated Alias for firstCheckAfterHours. */
+    minAgeHours?: number;
     maxAgeHours: number;
     nowMs?: number;
   }
 ): Promise<PostWatchEntry> {
   const nowMs = input.nowMs ?? Date.now();
-  const minH = Math.max(0, input.minAgeHours);
-  const maxH = Math.max(minH, input.maxAgeHours);
+  const firstH = Math.max(
+    0,
+    input.firstCheckAfterHours ?? input.minAgeHours ?? 1
+  );
+  const maxH = Math.max(firstH, input.maxAgeHours);
   const id = `watch-${hashId(input.postedUrl)}-${nowMs.toString(36)}`;
   const entry: PostWatchEntry = {
     id,
     enrolledAt: new Date(nowMs).toISOString(),
-    checkAfter: new Date(nowMs + minH * MS_PER_HOUR).toISOString(),
+    checkAfter: new Date(nowMs + firstH * MS_PER_HOUR).toISOString(),
     expiresAt: new Date(nowMs + maxH * MS_PER_HOUR).toISOString(),
     subreddit: input.subreddit,
     threadUrl: input.threadUrl,
@@ -152,8 +216,23 @@ export async function enrollPostWatch(
   return entry;
 }
 
+/** Prefer never-checked (first_look) so early follow-ups aren't starved. */
+export function prioritizeDueWatches(
+  due: PostWatchEntry[],
+  maxPerRun: number
+): PostWatchEntry[] {
+  const sorted = [...due].sort((a, b) => {
+    const aFirst = a.lastCheckedAt ? 1 : 0;
+    const bFirst = b.lastCheckedAt ? 1 : 0;
+    if (aFirst !== bFirst) return aFirst - bFirst;
+    return Date.parse(a.checkAfter) - Date.parse(b.checkAfter);
+  });
+  return sorted.slice(0, Math.max(0, maxPerRun));
+}
+
 /**
  * Process due watches: visibility + replies → follow-up draft skeletons.
+ * Writes a durable sweep log under `{dataDir}/post-watch/sweeps/` (candidates + outcomes).
  */
 export async function processDuePostWatches(
   cfg: CommunityRuntimeConfig = getCommunityConfig(),
@@ -161,12 +240,19 @@ export async function processDuePostWatches(
     nowMs?: number;
     fetchComment?: typeof fetchRedditComment;
     maxPerRun?: number;
+    /** Persist sweep JSON (default true). */
+    persistSweep?: boolean;
+    /** Sweep source label (default queue). */
+    sweepSource?: PostWatchSweepLog["source"];
   }
 ): Promise<PostWatchProcessResult> {
   const nowMs = opts?.nowMs ?? Date.now();
+  const startedAt = new Date(nowMs).toISOString();
   const maxPerRun = opts?.maxPerRun ?? cfg.postWatch.maxPerRun;
   const fetchFn = opts?.fetchComment ?? fetchRedditComment;
   const dataDir = cfg.reddit.dataDir;
+  const persistSweep = opts?.persistSweep !== false;
+  const sweepSource = opts?.sweepSource ?? "queue";
 
   if (!cfg.postWatch.enabled) {
     return {
@@ -181,9 +267,10 @@ export async function processDuePostWatches(
   }
 
   const queue = await readPostWatchQueue(dataDir);
-  const due = queue.watches
-    .filter((w) => w.status === "pending" && Date.parse(w.checkAfter) <= nowMs)
-    .slice(0, Math.max(0, maxPerRun));
+  const dueAll = queue.watches.filter(
+    (w) => w.status === "pending" && Date.parse(w.checkAfter) <= nowMs
+  );
+  const due = prioritizeDueWatches(dueAll, maxPerRun);
 
   const result: PostWatchProcessResult = {
     checked: 0,
@@ -194,11 +281,24 @@ export async function processDuePostWatches(
     followUps: [],
     outcomeHints: [],
   };
+  const candidates: PostWatchSweepCandidate[] = [];
+  let pendingLeft = 0;
 
   for (const watch of due) {
     result.checked += 1;
+    const phase: PostWatchPhase = watch.lastCheckedAt
+      ? "sustained"
+      : "first_look";
     watch.lastCheckedAt = new Date(nowMs).toISOString();
     const expired = Date.parse(watch.expiresAt) <= nowMs;
+    const baseCand = {
+      watchId: watch.id,
+      draftId: watch.draftId,
+      jobId: watch.jobId,
+      subreddit: watch.subreddit,
+      postedUrl: watch.postedUrl,
+      phase,
+    };
 
     const fetched = await fetchFn(watch.postedUrl, {
       userAgent: cfg.reddit.userAgent,
@@ -210,14 +310,35 @@ export async function processDuePostWatches(
         watch.lastError = fetched.error;
         result.removed += 1;
         result.outcomeHints.push(removedHint(watch, fetched.error));
+        candidates.push({
+          ...baseCand,
+          outcome: "removed",
+          fetchOk: false,
+          httpStatus: fetched.status,
+          error: fetched.error,
+        });
         continue;
       }
       watch.lastError = fetched.error ?? "fetch failed";
       if (expired) {
         watch.status = "expired";
         result.expired += 1;
+        candidates.push({
+          ...baseCand,
+          outcome: "expired",
+          fetchOk: false,
+          httpStatus: fetched.status,
+          error: watch.lastError,
+        });
       } else {
         result.errors += 1;
+        candidates.push({
+          ...baseCand,
+          outcome: "error",
+          fetchOk: false,
+          httpStatus: fetched.status,
+          error: watch.lastError,
+        });
       }
       continue;
     }
@@ -229,6 +350,13 @@ export async function processDuePostWatches(
       result.outcomeHints.push(
         removedHint(watch, comment.deleted ? "deleted" : "removed")
       );
+      candidates.push({
+        ...baseCand,
+        outcome: "removed",
+        fetchOk: true,
+        httpStatus: fetched.status,
+        error: comment.deleted ? "deleted" : "removed",
+      });
       continue;
     }
 
@@ -251,7 +379,7 @@ export async function processDuePostWatches(
           subreddit: watch.subreddit,
           threadUrl: watch.threadUrl,
           threadTitle: watch.threadTitle,
-          note: `replies=${replies.length}`,
+          note: `replies=${replies.length}; phase=${phase}`,
         },
       });
       if (detectDmInterest(replies)) {
@@ -267,18 +395,85 @@ export async function processDuePostWatches(
           },
         });
       }
+      candidates.push({
+        ...baseCand,
+        outcome: "replied",
+        fetchOk: true,
+        httpStatus: fetched.status,
+        replyCount: replies.length,
+      });
       continue;
     }
 
     if (expired) {
       watch.status = "expired";
       result.expired += 1;
+      candidates.push({
+        ...baseCand,
+        outcome: "expired",
+        fetchOk: true,
+        httpStatus: fetched.status,
+        replyCount: 0,
+      });
+    } else {
+      pendingLeft += 1;
+      candidates.push({
+        ...baseCand,
+        outcome: "pending",
+        fetchOk: true,
+        httpStatus: fetched.status,
+        replyCount: 0,
+      });
     }
-    // else stay pending for a later run
   }
 
   await writePostWatchQueue(dataDir, queue);
+
+  const endedAt = new Date(opts?.nowMs ?? Date.now()).toISOString();
+  const sweepId = `sweep-${nowMs.toString(36)}-${hashId(startedAt + due.length)}`;
+  const sweep: PostWatchSweepLog = {
+    schemaVersion: 1,
+    sweepId,
+    startedAt,
+    endedAt,
+    source: sweepSource,
+    candidateCount: due.length,
+    checked: result.checked,
+    replied: result.replied,
+    removed: result.removed,
+    expired: result.expired,
+    errors: result.errors,
+    pending: pendingLeft,
+    success: result.errors === 0,
+    candidates,
+  };
+  result.sweep = sweep;
+
+  if (persistSweep) {
+    try {
+      result.sweepPath = await persistPostWatchSweep(dataDir, sweep);
+    } catch (err) {
+      console.warn(
+        "[post-watch] sweep log persist failed:",
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
   return result;
+}
+
+/** Write one sweep JSON; returns absolute path. */
+export async function persistPostWatchSweep(
+  dataDir: string,
+  sweep: PostWatchSweepLog
+): Promise<string> {
+  const dir = postWatchSweepsDir(dataDir);
+  await mkdir(dir, { recursive: true });
+  const stamp = sweep.startedAt.replace(/[:.]/g, "-");
+  const file = path.join(dir, `${stamp}-${sweep.sweepId}.json`);
+  await writeFile(file, JSON.stringify(sweep, null, 2), "utf8");
+  return file;
 }
 
 export function buildFollowUpDraft(
@@ -327,10 +522,16 @@ export function buildFollowUpDraft(
 }
 
 export function formatPostWatchLog(result: PostWatchProcessResult): string {
+  const sweepBit = result.sweep
+    ? ` sweep=${result.sweep.sweepId}` +
+      (result.sweep.success ? " ok" : " FAIL") +
+      (result.sweepPath ? ` log=${result.sweepPath}` : "")
+    : "";
   return (
     `[post-watch] checked=${result.checked} replied=${result.replied} ` +
     `removed=${result.removed} expired=${result.expired} errors=${result.errors} ` +
-    `followUps=${result.followUps.length}`
+    `followUps=${result.followUps.length}` +
+    sweepBit
   );
 }
 

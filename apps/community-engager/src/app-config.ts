@@ -79,7 +79,15 @@ export interface PromoFileConfig {
 
 export interface PostWatchFileConfig {
   enabled?: boolean;
-  /** Hours after post before first check. Default 24. */
+  /**
+   * Hours after post before the first look (early follow-up). Default 1.
+   * Prefer this over minAgeHours.
+   */
+  firstCheckAfterHours?: number;
+  /**
+   * Legacy alias for firstCheckAfterHours (kept for older local.json / env).
+   * When firstCheckAfterHours is unset, this value is used.
+   */
   minAgeHours?: number;
   /** Stop polling after this many hours. Default 72. */
   maxAgeHours?: number;
@@ -121,6 +129,9 @@ export interface CommunityAppConfig {
   };
   postWatch: {
     enabled: boolean;
+    /** First eligible poll (hours after enroll / post). */
+    firstCheckAfterHours: number;
+    /** @deprecated Alias of firstCheckAfterHours (same value after normalize). */
     minAgeHours: number;
     maxAgeHours: number;
     maxPerRun: number;
@@ -212,7 +223,8 @@ const BUILTIN_DEFAULTS: CommunityAppConfig = {
   },
   postWatch: {
     enabled: true,
-    minAgeHours: 24,
+    firstCheckAfterHours: 1,
+    minAgeHours: 1,
     maxAgeHours: 72,
     maxPerRun: 10,
     followUpIntensity: 0,
@@ -369,7 +381,7 @@ export function mergeConfig(
 }
 
 function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
-  const minAge = nonNegInt(raw.postWatch?.minAgeHours, 24);
+  const firstCheck = resolveFirstCheckHours(raw.postWatch);
   const maxAge = nonNegInt(raw.postWatch?.maxAgeHours, 72);
   return {
     warmup: {
@@ -386,8 +398,9 @@ function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
     },
     postWatch: {
       enabled: Boolean(raw.postWatch?.enabled ?? true),
-      minAgeHours: minAge,
-      maxAgeHours: Math.max(minAge, maxAge),
+      firstCheckAfterHours: firstCheck,
+      minAgeHours: firstCheck,
+      maxAgeHours: Math.max(firstCheck, maxAge),
       maxPerRun: positiveInt(raw.postWatch?.maxPerRun, 10),
       followUpIntensity: parseFollowUpIntensity(
         raw.postWatch?.followUpIntensity
@@ -512,6 +525,22 @@ function parseFollowUpIntensity(raw: unknown): 0 | 1 | 2 {
   if (n === 2) return 2;
   if (n === 1) return 1;
   return 0;
+}
+
+/**
+ * Prefer firstCheckAfterHours; fall back to legacy minAgeHours; default 1h.
+ */
+function resolveFirstCheckHours(
+  postWatch: CommunityAppConfig["postWatch"] | PostWatchFileConfig | undefined
+): number {
+  if (!postWatch) return 1;
+  if (postWatch.firstCheckAfterHours != null) {
+    return nonNegInt(postWatch.firstCheckAfterHours, 1);
+  }
+  if (postWatch.minAgeHours != null) {
+    return nonNegInt(postWatch.minAgeHours, 1);
+  }
+  return 1;
 }
 
 /** Env wins when the variable is set (non-empty). */

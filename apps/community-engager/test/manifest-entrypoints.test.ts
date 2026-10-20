@@ -206,7 +206,7 @@ describe("manifest entrypoints (A1)", () => {
     assert.equal(schedules[0]!.cron, "0 9,13,18 * * *");
     assert.equal(schedules[1]!.id, "post_watch");
     assert.equal(schedules[1]!.entrypoint, "post_watch");
-    assert.equal(schedules[1]!.every_ms, 6 * 60 * 60 * 1000);
+    assert.equal(schedules[1]!.every_ms, 60 * 60 * 1000);
     assert.deepEqual(listEnabledSchedules(CommunityEngagerManifest), schedules);
     assert.doesNotThrow(() => assertSchedulesValid(CommunityEngagerManifest));
   });

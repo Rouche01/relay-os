@@ -7,7 +7,7 @@
     "onExceed": "warn"
   },
   "postWatch": {
-    "minAgeHours": 24,
+    "firstCheckAfterHours": 1,
     "maxAgeHours": 72
   },
   "cadence": {

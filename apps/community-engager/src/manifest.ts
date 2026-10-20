@@ -292,10 +292,10 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
     {
       id: "post_watch",
       entrypoint: "post_watch",
-      every_ms: 6 * 60 * 60 * 1000,
+      every_ms: 60 * 60 * 1000,
       enabled: true,
       description:
-        "Drain enrolled live-post watches (~every 6h). Host owns the clock.",
+        "Drain enrolled watches (~hourly): first look ~1h after post, then until maxAge. Host owns the clock.",
     },
   ],
   feedback_patterns: [
