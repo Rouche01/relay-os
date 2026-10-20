@@ -49,6 +49,7 @@ type RunRecord = {
       hitlWaitMs?: number;
       decision?: string;
       skippedReason?: string;
+      emptyReason?: string;
       candidateCount?: number;
     };
     scout?: {
@@ -166,6 +167,7 @@ function buildRunDebugViz(data: RunRecord): RunDebugViz {
             discover.enabled === false ? "disabled" : discover.ran ? "ran" : "skipped",
             discover.decision,
             discover.skippedReason,
+            discover.emptyReason ? `empty:${discover.emptyReason}` : null,
             discover.candidateCount != null
               ? `candidates=${discover.candidateCount}`
               : null,

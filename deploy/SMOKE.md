@@ -10,7 +10,8 @@ Run after deploy slice changes (browser + Chromium + cookies). Keep `REDDIT_DRY_
 | L2 | `pnpm --filter @relay/apps-community-engager e2e` | All scenarios PASS (fixtures + job isolation) |
 | L3 | Chromium installed | `pnpm --filter @relay/engines-browser exec playwright install chromium` |
 | L4 | `SCOUT_SOURCE=browser` + `REDDIT_DRY_RUN=true` + CLI/Telegram | ≥1 actionable draft **or** clean interstitial detect (seconds, not minutes) + fail-open |
-| L5 | Approve a draft | Execute log shows dry-run / would-post (browser intent) |
+| L4b | `COMMUNITY_POST_MODE=manual` + `REDDITAPIS_API_KEY` + `SCOUT_SOURCE=auto`\|`redditapis` | Scout log `source=redditapis`; Approve → notify with permalink + draft; **no** browser/oauth write |
+| L5 | Approve a draft (`POST_MODE=auto`) | Execute log shows dry-run / would-post (browser intent) |
 | L6 | (Optional) `REDDIT_INTERSTITIAL_HITL=true` when walled | Headed window + Approve saves jar under `REDDIT_COOKIE_DIR` |
 
 ```bash
@@ -34,9 +35,10 @@ pnpm start
 | T3 | Manual one-shot | `node dist/run-dev.js` with sourced `community.env` → Telegram HITL |
 | T4 | Cookie jar writable | After `REDDIT_ENSURE_SESSION` or interstitial Approve, `*.storage.json` appears |
 | T5 | Timer dry-run | `systemctl start relay-community.service` → journal shows scout + draft; `REDDIT_DRY_RUN=true` |
+| T5b | Notify-only timer | `COMMUNITY_POST_MODE=manual` + redditapis key → journal `source=redditapis` / `manual mode — skip write`; Telegram copy-paste card |
 | T6 | Unattended interstitial | Headless timer does **not** hang; blocked subs logged; run continues |
 | T6b | Decide overnight-safe | `DECIDE_BACKEND=heuristic` (or unset); no `JEV_API_KEY` required; journal shows `decide=heuristic` / no Jev hard-fail |
-| T7 | Gated live (manual) | Flip `REDDIT_DRY_RUN=false` once, Approve one comment; job file idempotent on retry |
+| T7 | Gated live (`POST_MODE=auto` only) | Flip `REDDIT_DRY_RUN=false` once, Approve one comment; job file idempotent on retry |
 
 ```bash
 # On host

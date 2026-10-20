@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: tests-docs-rollout
     content: Unit tests for mapper + post-mode guard; README/.env.example/deploy notes; ThinkPad rollout checklist
-    status: pending
+    status: completed
 isProject: true
 ---
 

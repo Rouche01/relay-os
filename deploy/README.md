@@ -111,7 +111,9 @@ COMMUNITY_RUNS_DIR=/opt/relay-community/logs/runs
 # ALLOWLIST_PATH defaults to $REDDIT_DATA_DIR/allowlist/subreddits.json
 FEEDBACK_ADAPTER=telegram
 REDDIT_DRY_RUN=true
+COMMUNITY_POST_MODE=manual
 SCOUT_SOURCE=auto
+# REDDITAPIS_API_KEY=   # read-only scout; with key, auto skips browser first
 REDDIT_TRANSPORT=auto
 REDDIT_BROWSER_HEADLESS=true
 # Unattended timers: leave interstitial HITL off (default when headless)

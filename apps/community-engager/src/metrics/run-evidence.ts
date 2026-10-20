@@ -14,6 +14,11 @@ export interface DiscoverEvidence {
   enabled: boolean;
   ran: boolean;
   skippedReason?: string;
+  /**
+   * Why ran=true but candidateCount=0 (search empty, all excluded, fit drops…).
+   * Not used for gate skips or CAPTCHA blocks (see skippedReason / captcha).
+   */
+  emptyReason?: string;
   candidateCount: number;
   candidateNames: string[];
   /** promote | skip | abort | none */

@@ -43,6 +43,55 @@ export interface DiscoverSubsResult {
   candidates: DiscoveryCandidate[];
   /** When set, headed browser is still open — caller owns teardown via interstitial session. */
   challenge?: DiscoverChallengeHandOff;
+  /**
+   * Why `candidates` is empty after a completed search (not set when challenge
+   * hand-off or when at least one candidate was proposed).
+   */
+  emptyReason?: string;
+}
+
+/** Summarize an empty discover listing for logs / run evidence. */
+export function formatDiscoverEmptyReason(stats: {
+  searchEmpty?: boolean;
+  childCount: number;
+  excluded: number;
+  hardVeto: number;
+  fitDropped: number;
+}): string | undefined {
+  if (stats.searchEmpty) {
+    return "search_empty — Reddit subreddit search.json returned nothing (blocked/403 or empty body)";
+  }
+  if (stats.childCount === 0) {
+    return "search_no_children — search JSON had no subreddit rows";
+  }
+  const considered =
+    stats.childCount - stats.excluded - stats.hardVeto - stats.fitDropped;
+  if (considered > 0) {
+    // Should not happen if ranked is empty; keep a fallback.
+    return `no_proposals — scanned=${stats.childCount} excluded=${stats.excluded} veto=${stats.hardVeto} fit_drop=${stats.fitDropped}`;
+  }
+  if (stats.fitDropped > 0 && stats.excluded + stats.hardVeto < stats.childCount) {
+    return (
+      `all_dropped_by_fit — scanned=${stats.childCount} excluded=${stats.excluded} ` +
+      `veto=${stats.hardVeto} fit_drop=${stats.fitDropped}`
+    );
+  }
+  if (stats.excluded > 0 && stats.excluded + stats.hardVeto >= stats.childCount) {
+    return (
+      `all_excluded — scanned=${stats.childCount} already on allowlist/rejected/` +
+      `proposed TTL (excluded=${stats.excluded} veto=${stats.hardVeto})`
+    );
+  }
+  if (stats.hardVeto > 0) {
+    return (
+      `all_hard_vetoed — scanned=${stats.childCount} NSFW/non-public ` +
+      `(veto=${stats.hardVeto} excluded=${stats.excluded})`
+    );
+  }
+  return (
+    `no_proposals — scanned=${stats.childCount} excluded=${stats.excluded} ` +
+    `veto=${stats.hardVeto} fit_drop=${stats.fitDropped}`
+  );
 }
 
 export interface DiscoverSubsOptions {
@@ -419,7 +468,14 @@ export async function discoverSubredditCandidates(
     }
     if (!searchJson) {
       console.warn("[discover] subreddit search returned nothing");
-      return { candidates: [] };
+      const emptyReason = formatDiscoverEmptyReason({
+        searchEmpty: true,
+        childCount: 0,
+        excluded: 0,
+        hardVeto: 0,
+        fitDropped: 0,
+      });
+      return { candidates: [], emptyReason };
     }
 
     const children =
@@ -428,17 +484,27 @@ export async function discoverSubredditCandidates(
 
     const ranked: DiscoveryCandidate[] = [];
     let sampled = 0;
+    let excluded = 0;
+    let hardVeto = 0;
+    let fitDropped = 0;
+    let childCount = 0;
 
     for (const child of children) {
       if (session.getChallenge()) break;
       if (ranked.length >= limit) break;
       const d = child.data;
       if (!d?.display_name) continue;
+      childCount += 1;
       const name = String(d.display_name);
-      if (exclude.has(name.toLowerCase())) continue;
+      if (exclude.has(name.toLowerCase())) {
+        excluded += 1;
+        continue;
+      }
       // Hard vetoes — never ask decide about junk.
-      if (d.over18) continue;
-      if (d.subreddit_type && d.subreddit_type !== "public") continue;
+      if (d.over18 || (d.subreddit_type && d.subreddit_type !== "public")) {
+        hardVeto += 1;
+        continue;
+      }
 
       const title = String(d.title ?? name);
       const publicDescription = String(d.public_description ?? "");
@@ -480,6 +546,7 @@ export async function discoverSubredditCandidates(
       }
 
       if (!fit.propose) {
+        fitDropped += 1;
         console.log(
           `[discover] drop r/${name} confidence=${fit.confidence.toFixed(2)} fit=${fit.fitYes}`
         );
@@ -512,7 +579,17 @@ export async function discoverSubredditCandidates(
     ranked.sort(
       (a, b) => b.fitScore - a.fitScore || b.subscribers - a.subscribers
     );
-    return { candidates: ranked.slice(0, limit) };
+    const sliced = ranked.slice(0, limit);
+    const emptyReason =
+      sliced.length === 0
+        ? formatDiscoverEmptyReason({
+            childCount,
+            excluded,
+            hardVeto,
+            fitDropped,
+          })
+        : undefined;
+    return { candidates: sliced, emptyReason };
   } finally {
     await session.close();
   }

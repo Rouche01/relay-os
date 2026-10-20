@@ -8,14 +8,40 @@ First Relay dogfood app: discover fashion/styling subreddits (HITL promote onto 
 
 Related plans:
 
+- [Notify-only + redditapis scout](../../.cursor/plans/notify_only_redditapis_scout.plan.md) — manual post mode + read-only third-party listings
 - [HITL + CommunityEngager + VoltMem](../../.cursor/plans/relay_hitl_community_voltmem.plan.md) — Phase 6 discovery + nested fanout
 - [Reddit browser / scrape transport](../../.cursor/plans/relay_reddit_browser.plan.md) — browser scout, ensure_session, interstitial HITL
 - [Authority + metrics](../../.cursor/plans/community_engager_authority_metrics.plan.md) — warmup, promo-ratio, post-watch, north-star metrics
 - [ThinkPad deploy](../../.cursor/plans/relay_thinkpad_deploy.plan.md) · runbook [`deploy/README.md`](../../deploy/README.md) · [`deploy/SMOKE.md`](../../deploy/SMOKE.md)
 
+## Notify-only mode (recommended deploy)
+
+When Reddit Data API approval is stuck and browser login risks account flags, run **scout → draft → Approve → notify**; you paste the comment on Reddit yourself.
+
+```mermaid
+flowchart LR
+  Scout[Scout redditapis / json]
+  Draft[LLM draft]
+  Hitl[Approve / Edit / Abort]
+  Notify[Telegram copy-paste notify]
+  Human[You post on Reddit]
+  Scout --> Draft --> Hitl --> Notify --> Human
+  ExecX[execute / browser comment]
+  Hitl -.->|skipped when COMMUNITY_POST_MODE=manual| ExecX
+```
+
+| Env | Value |
+|-----|--------|
+| `COMMUNITY_POST_MODE` | `manual` |
+| `REDDIT_DRY_RUN` | `true` (belt-and-suspenders) |
+| `REDDITAPIS_API_KEY` | set for read-only listings |
+| `SCOUT_SOURCE` | `redditapis` or `auto` (key present → skip browser first) |
+
+**Do not** wire redditapis write/login/DM endpoints — that path needs your Reddit password/session and is out of scope. Reads use only the Bearer API key.
+
 ## Workflow
 
-Ensure session → **discover** (optional / env) → scout allowlist → queue one job per opportunity → draft → you decide → execute only if approved → memory learns.
+Ensure session → **discover** (optional / env) → scout allowlist → queue one job per opportunity → draft → you decide → execute only if approved (or **manual notify**) → memory learns.
 
 ```mermaid
 flowchart TD
@@ -188,7 +214,7 @@ Pause state is process-local on the daemon; evidence under `{REDDIT_DATA_DIR}/sc
 | `REDDIT_DRY_RUN=true` | Safe default — logs only |
 | `COMMUNITY_POST_MODE=manual` | Deploy default in `community.env.example` — skip execute, notify for human post |
 | `SCOUT_SOURCE=redditapis` | Read-only listings via `REDDITAPIS_API_KEY` (no Reddit login). With key + `auto`, prefers redditapis over browser |
-| Browser first | Playwright + cookies; OAuth optional backup |
+| Scout order | Keyed `auto`: redditapis → json → oauth → fixtures. No key: browser → json → oauth → fixtures |
 | Allowlist + score ≥5/8 | problemFit, help, rules, freshness, value, competition, icpFit, plugNaturalness |
 | CAPTCHAs are never auto-solved | Detect, then escalate to a human or degrade quietly |
 | Discovery proposes, humans promote | A newly researched sub is not postable until approved |

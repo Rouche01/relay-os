@@ -8,6 +8,8 @@ Verification table: `[SMOKE.md](./SMOKE.md)`.
 
 Keep `REDDIT_DRY_RUN=true` on the timer until you deliberately go live.
 
+**Notify-only default (recommended):** `COMMUNITY_POST_MODE=manual` so Approve never browser/oauth-comments — you post from a personal Reddit account. Pair with `REDDITAPIS_API_KEY` + `SCOUT_SOURCE=auto` (or `redditapis`) so scout does not log into Reddit.
+
 **VoltMem split (important):**
 
 
@@ -74,6 +76,7 @@ Timer should still look like:
 | Knob                       | Keep                                 |
 | -------------------------- | ------------------------------------ |
 | `REDDIT_DRY_RUN`           | `true`                               |
+| `COMMUNITY_POST_MODE`      | `manual` (notify-only; human posts)  |
 | `REDDIT_BROWSER_HEADLESS`  | `true`                               |
 | `REDDIT_INTERSTITIAL_HITL` | unset / false                        |
 | `DECIDE_BACKEND`           | `heuristic` (overnight)              |
@@ -84,6 +87,18 @@ New knobs worth adding when present in example (optional):
 
 - Discover TTL: `COMMUNITY_DISCOVER_REQUEUE_DAYS=14`
 - Leave Jev off on the timer unless dogfooding
+- Notify-only scout: `REDDITAPIS_API_KEY=…` and keep `SCOUT_SOURCE=auto` (or set `redditapis`). **Never** enable redditapis write/login APIs.
+- After env flip: one-shot engage → Approve → Telegram copy-paste notify; journal must **not** show browser comment / oauth write
+
+### C2. Notify-only + redditapis rollout
+
+- [ ] `COMMUNITY_POST_MODE=manual` in live `community.env`
+- [ ] `REDDIT_DRY_RUN=true` still set
+- [ ] `REDDITAPIS_API_KEY` set (dashboard key only — no Reddit password)
+- [ ] `SCOUT_SOURCE=auto` or `redditapis` — confirm journal: `source=redditapis` (no headed login for scout)
+- [ ] Telegram: Approve draft → “Manual post” / copy-paste notify with permalink
+- [ ] Post the comment yourself on a **personal** Reddit account (handle any “verify human” inbox separately)
+- [ ] Confirm no `execute` browser/oauth write in journal for that job
 
 - [ ] Diff reviewed; only intended keys edited
 - [ ] `chmod 600` still on `community.env`

@@ -23,6 +23,11 @@ export interface DiscoverResult {
   ran: boolean;
   candidates: DiscoveryCandidate[];
   skippedReason?: string;
+  /**
+   * When ran with zero candidates (search empty / all excluded / fit drops).
+   * Distinct from gate skip / CAPTCHA block reasons.
+   */
+  emptyReason?: string;
   /** Headed browser still open — controller must park it for HITL. */
   challenge?: DiscoverChallengeHandOff;
 }
@@ -86,6 +91,7 @@ export async function runDiscovery(opts?: {
 
   let candidates: DiscoveryCandidate[] = [];
   let challenge: DiscoverChallengeHandOff | undefined;
+  let emptyReasonFromSearch: string | undefined;
   try {
     const raw = await discoverSubredditCandidates({
       cfg,
@@ -99,6 +105,7 @@ export async function runDiscovery(opts?: {
     });
     candidates = raw.candidates;
     challenge = raw.challenge;
+    emptyReasonFromSearch = raw.emptyReason;
   } catch (err) {
     console.warn("[discover] failed:", err);
     return {
@@ -132,14 +139,19 @@ export async function runDiscovery(opts?: {
     });
   }
 
+  const emptyReason =
+    candidates.length === 0 ? emptyReasonFromSearch : undefined;
+
   console.log(
     `[discover] ${candidates.length} candidate(s)` +
       (candidates.length
         ? `: ${candidates.map((c) => `r/${c.name}(${c.fitScore})`).join(", ")}`
-        : "")
+        : emptyReason
+          ? ` — empty: ${emptyReason}`
+          : " — empty (no reason recorded)")
   );
 
-  return { enabled: true, ran: true, candidates };
+  return { enabled: true, ran: true, candidates, emptyReason };
 }
 
 export const DISCOVER_SKIP_OPTION = "none (skip)";

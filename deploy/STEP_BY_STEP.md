@@ -110,6 +110,10 @@ JOBS_DIR=/opt/relay-community/data/jobs
 COMMUNITY_RUNS_DIR=/opt/relay-community/logs/runs
 
 REDDIT_DRY_RUN=true
+COMMUNITY_POST_MODE=manual
+# Read-only scout (optional): set REDDITAPIS_API_KEY — auto SCOUT_SOURCE skips browser first
+# REDDITAPIS_API_KEY=
+# SCOUT_SOURCE=auto
 REDDIT_BROWSER_HEADLESS=true
 # leave REDDIT_INTERSTITIAL_HITL unset for unattended
 
@@ -282,7 +286,8 @@ Full smoke table: [`SMOKE.md`](./SMOKE.md).
 | New release | [`CHECKLIST.md`](./CHECKLIST.md) §§ B–E, then `systemctl restart relay-community-scheduler relay-community-admin` |
 | CAPTCHA / expired jar | One-shot with `REDDIT_INTERSTITIAL_HITL=true` + remote desktop; see [`README.md`](./README.md) |
 | Pause cadence overnight | Telegram `/stop_cadence` (or Admin → Schedules) |
-| Live post | Flip `REDDIT_DRY_RUN=false` for a deliberate one-shot only |
+| Live post | Only with `COMMUNITY_POST_MODE=auto`: flip `REDDIT_DRY_RUN=false` for a deliberate one-shot |
+| Notify-only | Keep `COMMUNITY_POST_MODE=manual`; Approve → Telegram copy-paste; you post on Reddit |
 | Force discover once | Telegram `/engage_discover` (or `engage discover`) — does not use empty-scout day budget |
 | Empty-scout fallback | After deploy: verify `/engage_discover`, then set `COMMUNITY_DISCOVER_ON_EMPTY_SCOUT=force` in community env and restart scheduler |
 | Claude drafts | Set `ANTHROPIC_API_KEY` + `COMMUNITY_DRAFT_LLM=anthropic` (optional `COMMUNITY_DRAFT_MODEL=claude-sonnet-4-5`); restart scheduler |
