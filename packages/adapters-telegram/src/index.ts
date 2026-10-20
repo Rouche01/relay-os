@@ -9,6 +9,8 @@ export {
   formatFeedbackMessage,
   type FeedbackCardKind,
   approveAbortKeyboard,
+  replyMarkupForFeedback,
+  isNotifyOnlyDraft,
   parseCallbackData,
   parseEditCommand,
   escapeHtml,

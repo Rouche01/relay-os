@@ -34,18 +34,19 @@ function sampleDraft(over: Partial<CommunityDraft> = {}): CommunityDraft {
 }
 
 describe("formatManualPostNotify", () => {
-  it("includes permalink, score, and copy block", () => {
+  it("includes permalink and copy block without Approve jargon", () => {
     const text = formatManualPostNotify(sampleDraft());
-    assert.match(text, /Manual post · r\/femalefashionadvice/);
-    assert.match(text, /Score 7\/8/);
+    assert.match(text, /Post on Reddit · r\/femalefashionadvice/);
+    assert.match(text, /score 7\/8/);
     assert.match(text, /help-only/);
     assert.match(
       text,
       /https:\/\/www\.reddit\.com\/r\/femalefashionadvice\/comments\/abc\/title\//
     );
-    assert.match(text, /Suggested reply \(copy\/paste\):/);
+    assert.match(text, /Copy this reply:/);
     assert.match(text, /Start with neutrals/);
-    assert.match(text, /no automated comment will be sent/i);
+    assert.match(text, /nothing is posted automatically/i);
+    assert.doesNotMatch(text, /Approve already accepted/i);
   });
 
   it("truncates long titles", () => {
@@ -56,13 +57,31 @@ describe("formatManualPostNotify", () => {
 });
 
 describe("draftToFeedbackContext postMode=manual", () => {
-  it("marks meta and post-mode detail", () => {
-    const ctx = draftToFeedbackContext(sampleDraft(), { postMode: "manual" });
+  it("marks meta and keeps details short", () => {
+    const ctx = draftToFeedbackContext(sampleDraft(), {
+      postMode: "manual",
+      warmup: {
+        active: true,
+        mode: "auto",
+        reasons: ["help comments 3 < 10"],
+        thresholds: {
+          minAccountDays: 30,
+          minKarma: 100,
+          minHelpComments: 10,
+        },
+        helpCommentsPosted: 3,
+        accountDays: 40,
+        totalKarma: 200,
+        accountStatsUnknown: false,
+      },
+    });
     assert.equal(ctx.meta?.postMode, "manual");
-    assert.ok(
-      ctx.details?.some(
-        (d) => d.label === "Post mode" && /manual/.test(d.value)
-      )
-    );
+    assert.ok(ctx.details?.some((d) => d.label === "Subreddit"));
+    assert.ok(ctx.details?.some((d) => d.label === "Score"));
+    assert.ok(ctx.details?.some((d) => d.label === "Warmup"));
+    assert.ok(!ctx.details?.some((d) => d.label === "Status"));
+    assert.ok(!ctx.details?.some((d) => d.label === "Rationale"));
+    assert.ok(!ctx.details?.some((d) => d.label === "Post mode"));
+    assert.ok(!ctx.details?.some((d) => d.label === "Cadence"));
   });
 });

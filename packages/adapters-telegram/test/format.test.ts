@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import type { FeedbackRequest } from "@relay/protocol";
 import {
   formatFeedbackMessage,
+  isNotifyOnlyDraft,
+  replyMarkupForFeedback,
   resolveFeedbackKind,
 } from "../src/format.js";
 
@@ -76,34 +78,52 @@ describe("formatFeedbackMessage", () => {
       })
     );
     assert.match(text, /<b>Draft<\/b> · r\/AusFemaleFashion/);
-    assert.match(text, /<b>Thread:<\/b> Help with sizing/);
+    assert.match(text, /Help with sizing/);
     assert.match(text, /<b>Reply draft<\/b>/);
     assert.match(text, /Try going true to size/);
     assert.match(text, /edit:/);
     assert.match(text, /dry-run or live post/);
+    assert.match(text, /score 4\/5/);
     assert.doesNotMatch(text, /hidden in footer/);
     assert.doesNotMatch(text, /<b>Subreddit:<\/b>/);
+    assert.doesNotMatch(text, /<b>Status:<\/b>/);
+    assert.doesNotMatch(text, /<b>Id:<\/b>/);
   });
 
-  it("formats manual postMode draft with copy-paste footer", () => {
-    const text = formatFeedbackMessage(
-      base({
-        type: "approval",
-        prompt: "Approve?",
-        context: {
-          title: "Capsule help",
-          body: "Try neutrals.",
-          url: "https://www.reddit.com/r/test/comments/1/",
-          subjectId: "reddit-1",
-          details: [{ label: "Subreddit", value: "r/test" }],
-          meta: { kind: "draft", postMode: "manual" },
-        },
-      })
-    );
-    assert.match(text, /<b>Manual post<\/b> · r\/test/);
-    assert.match(text, /copy-paste notify/);
-    assert.match(text, /you post on Reddit/);
+  it("formats notify-only draft: copy-first, no Approve chrome", () => {
+    const req = base({
+      type: "approval",
+      prompt: "Copy the reply and paste it on Reddit yourself — nothing is posted automatically.",
+      context: {
+        title: "Capsule help",
+        body: "Try neutrals.",
+        url: "https://www.reddit.com/r/test/comments/1/",
+        subjectId: "reddit-1",
+        details: [
+          { label: "Subreddit", value: "r/test" },
+          { label: "Score", value: "8/8" },
+          { label: "Warmup", value: "help comments 3 < 10" },
+        ],
+        meta: { kind: "draft", postMode: "manual" },
+      },
+    });
+    assert.equal(isNotifyOnlyDraft(req), true);
+    const text = formatFeedbackMessage(req);
+    assert.match(text, /<b>Post on Reddit<\/b> · r\/test/);
+    assert.match(text, /<b>Copy this reply<\/b>/);
+    assert.match(text, /Try neutrals/);
+    assert.match(text, /nothing is posted automatically/);
+    assert.match(text, /href="https:\/\/www\.reddit\.com\/r\/test\/comments\/1\/"/);
+    assert.doesNotMatch(text, /Approve/);
+    assert.doesNotMatch(text, /Abort/);
     assert.doesNotMatch(text, /dry-run or live post/);
+    assert.doesNotMatch(text, /<b>Score:<\/b>/);
+    assert.doesNotMatch(text, /<b>Status:<\/b>/);
+    assert.doesNotMatch(text, /Rationale/);
+    const markup = replyMarkupForFeedback(req) as {
+      inline_keyboard: unknown[];
+    };
+    assert.deepEqual(markup.inline_keyboard, []);
   });
 
   it("formats discover with pick-one header and options", () => {

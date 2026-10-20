@@ -46,12 +46,28 @@ export function resolveFeedbackKind(request: FeedbackRequest): FeedbackCardKind 
   return "generic";
 }
 
+/** Notify-only draft: human posts on Reddit; no Approve→execute. */
+export function isNotifyOnlyDraft(request: FeedbackRequest): boolean {
+  return (
+    resolveFeedbackKind(request) === "draft" &&
+    request.type === "approval" &&
+    request.context?.meta?.postMode === "manual"
+  );
+}
+
 /**
  * Build a Telegram card from a generic FeedbackRequest.
  * Kind-aware headers / footers; still uses only FeedbackContext fields.
  */
 export function formatFeedbackMessage(request: FeedbackRequest): string {
   const kind = resolveFeedbackKind(request);
+  if (kind === "draft" && isNotifyOnlyDraft(request)) {
+    return truncate(formatNotifyOnlyDraft(request), MAX_TG);
+  }
+  if (kind === "draft") {
+    return truncate(formatAutoDraft(request), MAX_TG);
+  }
+
   const lines: string[] = [];
   lines.push(headerLine(kind, request));
   if (!request.required) lines.push("<i>optional</i>");
@@ -80,6 +96,17 @@ export function formatFeedbackMessage(request: FeedbackRequest): string {
   lines.push(footerLine(kind, request));
 
   return truncate(lines.join("\n"), MAX_TG);
+}
+
+/**
+ * Inline keyboard for a feedback present.
+ * Notify-only drafts: no Approve/Abort (card is the copy-paste notify).
+ */
+export function replyMarkupForFeedback(request: FeedbackRequest): unknown {
+  if (isNotifyOnlyDraft(request)) {
+    return { inline_keyboard: [] };
+  }
+  return approveAbortKeyboard(request.id, request.type);
 }
 
 export function approveAbortKeyboard(requestId: string, type?: string): unknown {
@@ -120,14 +147,126 @@ function isManualPostMode(request: FeedbackRequest): boolean {
   return request.context?.meta?.postMode === "manual";
 }
 
+/** Copy-paste first; minimal chrome. */
+function formatNotifyOnlyDraft(request: FeedbackRequest): string {
+  const ctx = request.context;
+  const sub = detailValue(request, "Subreddit") ?? "Reddit";
+  const lines: string[] = [];
+  lines.push(`<b>Post on Reddit</b> · ${escapeHtml(sub)}`);
+  lines.push("");
+
+  if (ctx?.title) {
+    if (ctx.url) {
+      lines.push(
+        `<a href="${escapeHtml(ctx.url)}">${escapeHtml(ctx.title)}</a>`
+      );
+    } else {
+      lines.push(escapeHtml(ctx.title));
+    }
+    lines.push("");
+  } else if (ctx?.url) {
+    lines.push(escapeHtml(ctx.url));
+    lines.push("");
+  }
+
+  const draft = ctx?.body?.trim();
+  if (draft) {
+    lines.push("<b>Copy this reply</b>");
+    lines.push(`<pre>${escapeHtml(truncate(draft, 2800))}</pre>`);
+    lines.push("");
+  }
+
+  const note = compactGuardNote(request);
+  if (note) {
+    lines.push(`<i>${escapeHtml(note)}</i>`);
+    lines.push("");
+  }
+
+  lines.push(
+    "<i>Paste on Reddit yourself — nothing is posted automatically.</i>"
+  );
+  return lines.join("\n");
+}
+
+/** Auto / dry-run draft: draft first, short meta, Approve footer. */
+function formatAutoDraft(request: FeedbackRequest): string {
+  const ctx = request.context;
+  const sub = detailValue(request, "Subreddit");
+  const lines: string[] = [];
+  lines.push(
+    sub
+      ? `<b>Draft</b> · ${escapeHtml(sub)}`
+      : `<b>Draft</b> · <code>approval</code>`
+  );
+  lines.push("");
+
+  if (ctx?.title) {
+    if (ctx.url) {
+      lines.push(
+        `<a href="${escapeHtml(ctx.url)}">${escapeHtml(ctx.title)}</a>`
+      );
+    } else {
+      lines.push(`<b>Thread:</b> ${escapeHtml(ctx.title)}`);
+    }
+    lines.push("");
+  }
+
+  const score = detailValue(request, "Score");
+  const intensity = detailValue(request, "Intensity");
+  const metaBits = [score ? `score ${score}` : "", intensity ? `intensity ${intensity}` : ""]
+    .filter(Boolean)
+    .join(" · ");
+  if (metaBits) {
+    lines.push(`<i>${escapeHtml(metaBits)}</i>`);
+    lines.push("");
+  }
+
+  const draft = ctx?.body?.trim();
+  if (draft) {
+    lines.push("<b>Reply draft</b>");
+    lines.push(`<pre>${escapeHtml(truncate(draft, 2800))}</pre>`);
+    lines.push("");
+  }
+
+  const note = compactGuardNote(request);
+  if (note) {
+    lines.push(`<i>${escapeHtml(note)}</i>`);
+    lines.push("");
+  }
+
+  lines.push(footerLine("draft", request));
+  return lines.join("\n");
+}
+
+/** One short line from warmup / promo / cadence details (if present). */
+function compactGuardNote(request: FeedbackRequest): string | undefined {
+  const details = request.context?.details ?? [];
+  const warmup = details.find((d) => d.label.toLowerCase() === "warmup");
+  const promo = details.find((d) => d.label.toLowerCase() === "promo ratio");
+  const bits: string[] = [];
+  if (warmup?.value) {
+    bits.push(`Warmup: ${shorten(warmup.value, 80)}`);
+  }
+  if (promo?.value && /block|exceed|projected/i.test(promo.value)) {
+    bits.push(`Promo capped`);
+  }
+  return bits.length ? bits.join(" · ") : undefined;
+}
+
+function shorten(s: string, max: number): string {
+  const t = s.trim().replace(/\s+/g, " ");
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
 function headerLine(kind: FeedbackCardKind, request: FeedbackRequest): string {
   const sub = detailValue(request, "Subreddit");
   switch (kind) {
     case "draft":
       if (isManualPostMode(request)) {
         return sub
-          ? `<b>Manual post</b> · ${escapeHtml(sub)}`
-          : `<b>Manual post</b> · <code>approval</code>`;
+          ? `<b>Post on Reddit</b> · ${escapeHtml(sub)}`
+          : `<b>Post on Reddit</b>`;
       }
       return sub
         ? `<b>Draft</b> · ${escapeHtml(sub)}`
@@ -150,10 +289,7 @@ function footerLine(kind: FeedbackCardKind, request: FeedbackRequest): string {
   switch (kind) {
     case "draft":
       if (isManualPostMode(request)) {
-        return (
-          "<i>Approve</i> accepts draft → copy-paste notify (you post on Reddit) · " +
-          "<i>Abort</i> · or reply <code>edit: …</code>"
-        );
+        return "<i>Paste on Reddit yourself — nothing is posted automatically.</i>";
       }
       return (
         "<i>Approve</i> to continue (dry-run or live post) · " +
@@ -213,19 +349,14 @@ function appendContextBlock(
   if (ctx.url) {
     lines.push(`<b>URL:</b> ${escapeHtml(ctx.url)}`);
   }
-  if (ctx.subjectId && kind === "draft") {
-    lines.push(`<b>Id:</b> <code>${escapeHtml(ctx.subjectId)}</code>`);
-  } else if (ctx.subjectId && kind === "generic") {
+  if (ctx.subjectId && kind === "generic") {
     lines.push(`<b>Id:</b> <code>${escapeHtml(ctx.subjectId)}</code>`);
   }
 
   if (ctx.details?.length) {
     for (const d of ctx.details) {
       // Hint is restated in the footer for known kinds.
-      if (
-        d.label.toLowerCase() === "hint" &&
-        kind !== "generic"
-      ) {
+      if (d.label.toLowerCase() === "hint" && kind !== "generic") {
         continue;
       }
       // Subreddit already in draft header.
@@ -277,6 +408,10 @@ function isRedundantPrompt(
     prompt.length < 80 &&
     /approve|credential|captcha|discover/i.test(prompt)
   ) {
+    return true;
+  }
+  // Manual notify cards: prompt restates the copy-paste instructions.
+  if (isManualPostMode(request) && /manual post|copy-paste|yourself/i.test(prompt)) {
     return true;
   }
   return false;

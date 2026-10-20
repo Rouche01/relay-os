@@ -11,14 +11,14 @@ export function truncateTitle(title: string, max = TITLE_MAX): string {
 }
 
 /**
- * Copy-friendly notify body after Approve in COMMUNITY_POST_MODE=manual.
- * Plain text (works for Telegram notify + console).
+ * Copy-friendly notify body after draft accept in COMMUNITY_POST_MODE=manual.
+ * Plain text (CLI / non-Telegram notify). Telegram uses the HITL card instead.
  */
 export function formatManualPostNotify(draft: CommunityDraft): string {
   const score = scoreTotal(draft.score);
   const title = truncateTitle(draft.threadTitle);
   const permalink = draft.threadUrl.trim();
-  const intensityHint =
+  const tone =
     draft.intensity === 0
       ? "help-only"
       : draft.intensity === 1
@@ -26,16 +26,14 @@ export function formatManualPostNotify(draft: CommunityDraft): string {
         : "disclosure + UTM";
 
   return (
-    `📋 Manual post · r/${draft.subreddit}\n` +
-    `Score ${score}/${SCORE_MAX} · intensity ${draft.intensity} (${intensityHint})\n` +
+    `Post on Reddit · r/${draft.subreddit}\n` +
     `${title}\n` +
     `${permalink}\n\n` +
-    `Suggested reply (copy/paste):\n` +
+    `Copy this reply:\n` +
     `────────\n` +
     `${draft.draftText.trim()}\n` +
     `────────\n\n` +
-    `Post this yourself on Reddit.\n` +
-    `Approve already accepted this draft — no automated comment will be sent.\n` +
-    `(Warmup / promo / cadence counters stay unchanged until a live auto post.)`
+    `Paste it yourself — nothing is posted automatically.\n` +
+    `(score ${score}/${SCORE_MAX} · ${tone})`
   );
 }

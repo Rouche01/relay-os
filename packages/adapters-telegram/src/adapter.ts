@@ -2,10 +2,11 @@ import type { FeedbackAdapter } from "@relay/feedback-broker";
 import type { FeedbackRequest, FeedbackResponse } from "@relay/protocol";
 import { TelegramClient, type TelegramUpdate } from "./client.js";
 import {
-  approveAbortKeyboard,
   formatFeedbackMessage,
+  isNotifyOnlyDraft,
   parseCallbackData,
   parseEditCommand,
+  replyMarkupForFeedback,
 } from "./format.js";
 import type {
   TelegramAdapterConfig,
@@ -28,6 +29,7 @@ type TelegramClientLike = NonNullable<TelegramAdapterConfig["client"]>;
 
 /**
  * Telegram FeedbackAdapter — Approve / Abort inline buttons; reply `edit: …`.
+ * Notify-only drafts (`postMode=manual`): no buttons; auto-proceed after send.
  * Only TELEGRAM_ALLOWLIST_USER_ID may decide.
  *
  * Optional `onIdleMessage` / {@link TelegramFeedbackAdapter.setOnIdleMessage}:
@@ -120,8 +122,18 @@ export class TelegramFeedbackAdapter implements FeedbackAdapter {
       text,
       parse_mode: "HTML",
       disable_web_page_preview: true,
-      reply_markup: approveAbortKeyboard(request.id, request.type),
+      reply_markup: replyMarkupForFeedback(request),
     });
+
+    // Notify-only: card is the copy-paste notify — no Approve wait.
+    if (isNotifyOnlyDraft(request)) {
+      return {
+        requestId: request.id,
+        agentId: request.agentId,
+        action: "proceed",
+        value: true,
+      };
+    }
 
     return new Promise<FeedbackResponse>((resolve, reject) => {
       const pending: Pending = {

@@ -5,14 +5,14 @@ import type { CadenceStatus } from "../policy/cadence.js";
 import type { PromoRatioStatus } from "../policy/promo-ratio.js";
 import type { WarmupStatus } from "../policy/warmup.js";
 import type { PostMode } from "../reddit/config.js";
-import {
-  formatPlaybookSummary,
-  type SubredditPlaybook,
-} from "../policy/playbook.js";
+import type { SubredditPlaybook } from "../policy/playbook.js";
 
 /**
  * Map a community draft into the generic HITL FeedbackContext.
  * Adapters only need subjectId / title / body / url / details.
+ *
+ * Keep details short — Telegram cards lead with the draft; long rationale /
+ * status walls raise cognitive load.
  */
 export function draftToFeedbackContext(
   draft: CommunityDraft,
@@ -23,7 +23,7 @@ export function draftToFeedbackContext(
     playbook?: SubredditPlaybook;
     plugsThisWeek?: number;
     plugsWeekBlocked?: boolean;
-    /** When manual, Approve = accept for human post (no auto-execute). */
+    /** When manual, card is copy-paste notify (no Approve→execute). */
     postMode?: PostMode;
   }
 ): FeedbackContext {
@@ -31,66 +31,41 @@ export function draftToFeedbackContext(
   const details: FeedbackDetail[] = [
     { label: "Subreddit", value: `r/${draft.subreddit}` },
     { label: "Score", value: `${scoreTotal(draft.score)}/${SCORE_MAX}` },
-    { label: "Intensity", value: String(draft.intensity) },
-    { label: "Status", value: draft.status },
   ];
-  if (manual) {
-    details.push({
-      label: "Post mode",
-      value: "manual — you post on Reddit after Approve",
-    });
-    details.push({
-      label: "Hint",
-      value:
-        "Approve accepts this draft and sends a copy-paste notify. Nothing is posted automatically. Abort drops it; reply edit: … to revise first.",
-    });
+
+  if (!manual) {
+    details.push({ label: "Intensity", value: String(draft.intensity) });
   }
-  if (opts?.playbook) {
-    details.push({
-      label: "Playbook",
-      value:
-        formatPlaybookSummary(opts.playbook) +
-        (opts.plugsThisWeek != null
-          ? ` · plugsThisWeek=${opts.plugsThisWeek}`
-          : "") +
-        (opts.plugsWeekBlocked ? " · plugs capped" : ""),
-    });
-  }
+
+  // Guards only when they change what you should post (not full ledgers).
   if (opts?.warmup?.active) {
     details.push({
       label: "Warmup",
-      value: opts.warmup.reasons.join("; ") || "active — intensity forced to 0",
+      value: opts.warmup.reasons[0] ?? "help-only until warmup clears",
     });
   }
-  if (opts?.promo?.exceeds) {
-    const action =
-      opts.promo.onExceed === "block"
-        ? "blocked — intensity forced to 0"
-        : "warning — soft mention still allowed";
+  if (opts?.promo?.exceeds || opts?.promo?.blockPromo) {
     details.push({
       label: "Promo ratio",
       value:
-        opts.promo.reasons.join("; ") ||
-        `${(opts.promo.currentRatio * 100).toFixed(0)}% promo (${action})`,
-    });
-  } else if (opts?.promo?.enabled) {
-    details.push({
-      label: "Promo ratio",
-      value: `${(opts.promo.currentRatio * 100).toFixed(1)}% (${opts.promo.promoCount} promo / ${opts.promo.helpCount} help, max ${(opts.promo.maxRatio * 100).toFixed(0)}%)`,
+        opts.promo.onExceed === "block"
+          ? "promo blocked — keep help-only"
+          : "promo soft-cap — prefer help-only",
     });
   }
-  if (opts?.cadence?.enabled) {
-    const c = opts.cadence;
+  if (opts?.plugsWeekBlocked) {
     details.push({
-      label: "Cadence",
-      value:
-        `day ${c.dayKey} · help ${c.helpPostedToday}/${c.maxHelpPerDay}` +
-        ` · promo ${c.promoPostedToday}/${c.maxPromoPerDay}` +
-        (c.reasons.length ? ` · ${c.reasons.join("; ")}` : ""),
+      label: "Playbook",
+      value: "plugs capped this week — help-only",
     });
   }
-  if (draft.rationale) {
-    details.push({ label: "Rationale", value: draft.rationale });
+
+  // Auto mode: short intensity-2 hint only (confirmation step follows).
+  if (!manual && draft.intensity >= 2) {
+    details.push({
+      label: "Hint",
+      value: "Intensity 2 — confirm disclosure + UTM before post.",
+    });
   }
 
   return {

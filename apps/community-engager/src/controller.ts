@@ -626,8 +626,8 @@ export class CommunityEngagerController implements AppController {
     if (fp.type === "confirmation") {
       if (postMode === "manual") {
         return (
-          `Intensity ${draft.intensity}: confirm GoStylens disclosure + UTM in the suggested text. ` +
-          `Approve = you will post manually (no auto-comment). Abort cancels.`
+          `Intensity ${draft.intensity}: confirm disclosure + UTM in the suggested text before you paste on Reddit. ` +
+          `Approve = keep this text · Abort = drop it.`
         );
       }
       return (
@@ -636,14 +636,8 @@ export class CommunityEngagerController implements AppController {
       );
     }
     if (fp.type === "approval" && postMode === "manual") {
-      const intensityNote =
-        draft.intensity === 2
-          ? "\n\n⚠️ Intensity 2 — a second confirmation step will follow."
-          : "";
       return (
-        `Manual post mode: Approve accepts this draft and sends a copy-paste notify. ` +
-        `You post on Reddit yourself — nothing is auto-commented.` +
-        intensityNote
+        `Copy the reply and paste it on Reddit yourself — nothing is posted automatically.`
       );
     }
     if (fp.type === "approval" && draft.intensity === 2) {
@@ -2420,7 +2414,10 @@ export class CommunityEngagerController implements AppController {
         (alreadyNotified ? " (notify idempotent skip)" : "")
     );
 
-    if (!alreadyNotified) {
+    // Telegram already sent the copy-paste card at await_approval (no buttons).
+    // CLI / other adapters still get an explicit notify.
+    const skipAdapterNotify = this.options.adapter?.name === "telegram";
+    if (!alreadyNotified && !skipAdapterNotify) {
       try {
         await this.options.adapter?.notify?.(text);
       } catch (err) {
