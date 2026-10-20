@@ -39,7 +39,7 @@
     "exploreSlot": true,
     "goal": "Help-first fashion and styling communities for GoStylens. Soft product mention OK when useful; never hard-sell or spam.",
     "requeueDays": 14,
-    "onEmptyScout": "off",
+    "onEmptyScout": "force",
     "onEmptyScoutMax": 1,
     "onEmptyScoutMaxPerDay": 3
   },
