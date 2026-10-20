@@ -161,6 +161,7 @@ export async function checkCommentVisibility(
   const fetchFn = opts?.fetchComment ?? fetchRedditComment;
   const fetched = await fetchFn(permalinkNorm, {
     userAgent: cfg.reddit.userAgent,
+    redditApis: cfg.redditApis,
   });
 
   const classified = classifyVisibilityFetch(fetched, {

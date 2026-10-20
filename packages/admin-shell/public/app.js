@@ -47,6 +47,19 @@ async function api(path, options) {
   return data;
 }
 
+/** Editable field value: top-level or nested payload (action drafts). */
+function fieldValue(record, key) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) {
+    return undefined;
+  }
+  if (record[key] !== undefined && record[key] !== null) return record[key];
+  const payload = record.payload;
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    return payload[key];
+  }
+  return undefined;
+}
+
 function escapeHtml(s) {
   return String(s ?? "")
     .replaceAll("&", "&amp;")
@@ -720,10 +733,7 @@ function renderDetail(id, data) {
     caps.patch && editable.length > 0
       ? editable
           .map((key) => {
-            const val =
-              record && typeof record === "object" && !Array.isArray(record)
-                ? record[key]
-                : undefined;
+            const val = fieldValue(record, key);
             const isLong =
               typeof val === "string" && (val.length > 80 || String(val).includes("\n"));
             if (typeof val === "boolean") {
@@ -792,6 +802,20 @@ function renderDetail(id, data) {
         const status = window.prompt("New status (e.g. approved, aborted, edited):");
         if (!status) return;
         body = { status: status.trim() };
+      }
+      if (name === "mark_posted") {
+        const existing =
+          record && typeof record === "object" ? fieldValue(record, "postedUrl") : "";
+        const url = window.prompt(
+          "Reddit comment permalink (the URL of your comment):",
+          typeof existing === "string" ? existing : ""
+        );
+        if (url === null) return;
+        if (!url.trim()) {
+          setMsg(msg, "postedUrl required", "error");
+          return;
+        }
+        body = { postedUrl: url.trim() };
       }
       setMsg(msg, `${name}…`);
       try {

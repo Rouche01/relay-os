@@ -6,10 +6,8 @@
 import path from "node:path";
 import { createRequire } from "node:module";
 import { createAdminServer, loadAdminEnv } from "@relay/admin-shell";
-import {
-  createActionStoreCollection,
-  createActionStoreFromEnv,
-} from "@relay/action-store";
+import { createActionStoreFromEnv } from "@relay/action-store";
+import { createCommunityActionsCollection } from "../admin/actions-collection.js";
 import { createAllowlistCollection } from "../admin/allowlist-collection.js";
 import { createAuthorityCollection } from "../admin/authority-collection.js";
 import { createJobsCollection } from "../admin/jobs-collection.js";
@@ -68,7 +66,7 @@ async function main(): Promise<void> {
     port,
     publicDir: adminShellPublicDir(),
     collections: [
-      createActionStoreCollection(store, actions),
+      createCommunityActionsCollection(store, actions),
       createAllowlistCollection(allowlist),
       createJobsCollection(jobs),
       createRunsCollection(runs),

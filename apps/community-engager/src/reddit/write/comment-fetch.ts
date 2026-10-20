@@ -1,7 +1,11 @@
 /**
- * Public Reddit comment/thread JSON fetch (no OAuth required).
- * Used by post-watch to check visibility and replies.
+ * Comment/thread fetch for post-watch + visibility.
+ * Prefers redditapis Bearer reads when configured (avoids www.reddit.com 403s);
+ * falls back to public .json only when no API key or no comment id in the URL.
  */
+
+import type { RedditApisConfig } from "../config.js";
+import { RedditApisClient } from "../redditapis/client.js";
 
 export interface FetchedComment {
   id: string;
@@ -21,6 +25,17 @@ export interface FetchCommentResult {
   error?: string;
   /** HTTP status when the request completed. */
   status?: number;
+  /** Which transport produced the result. */
+  source?: "redditapis" | "public_json";
+}
+
+export interface FetchRedditCommentOpts {
+  userAgent?: string;
+  timeoutMs?: number;
+  /** When configured, use GET /api/reddit/comment/{id} instead of public JSON. */
+  redditApis?: RedditApisConfig;
+  /** Force public .json even if redditApis is configured (tests / debug). */
+  forcePublicJson?: boolean;
 }
 
 /**
@@ -45,10 +60,86 @@ export function commentIdFromPermalink(permalink: string): string | undefined {
   return undefined;
 }
 
+/** Bare comment id (no t1_) from a permalink, if present. */
+export function bareCommentIdFromPermalink(
+  permalink: string
+): string | undefined {
+  return commentIdFromPermalink(permalink)?.replace(/^t1_/i, "");
+}
+
+/**
+ * Fetch a comment for watch/visibility.
+ * Uses redditapis when `opts.redditApis.configured` and the URL has a comment id.
+ */
+export async function fetchRedditComment(
+  permalink: string,
+  opts?: FetchRedditCommentOpts
+): Promise<FetchCommentResult> {
+  const timeoutMs = opts?.timeoutMs ?? 15_000;
+  const useApis =
+    !opts?.forcePublicJson &&
+    Boolean(opts?.redditApis?.configured) &&
+    Boolean(opts?.redditApis);
+
+  if (useApis) {
+    const bareId = bareCommentIdFromPermalink(permalink);
+    if (bareId) {
+      return fetchCommentViaRedditApis(opts!.redditApis!, bareId, timeoutMs);
+    }
+  }
+
+  return fetchCommentViaPublicJson(permalink, {
+    userAgent: opts?.userAgent,
+    timeoutMs,
+  });
+}
+
+async function fetchCommentViaRedditApis(
+  redditApis: RedditApisConfig,
+  bareId: string,
+  timeoutMs: number
+): Promise<FetchCommentResult> {
+  const client = new RedditApisClient(redditApis);
+  const raw = await client.getComment(bareId, { timeoutMs });
+  if (raw.status === 404) {
+    return {
+      ok: false,
+      status: 404,
+      error: raw.error ?? "not found (404)",
+      source: "redditapis",
+    };
+  }
+  if (!raw.comment) {
+    return {
+      ok: false,
+      status: raw.status || undefined,
+      error: raw.error ?? "redditapis comment fetch failed",
+      source: "redditapis",
+    };
+  }
+  const data =
+    raw.comment.data ??
+    (raw.comment as unknown as Record<string, unknown>);
+  if (!data || typeof data !== "object" || typeof (data as { body?: unknown }).body !== "string") {
+    return {
+      ok: false,
+      status: raw.status,
+      error: "comment missing body in redditapis response",
+      source: "redditapis",
+    };
+  }
+  return {
+    ok: true,
+    status: raw.status,
+    comment: mapCommentData(data as Record<string, unknown>),
+    source: "redditapis",
+  };
+}
+
 /**
  * Fetch a comment (or the first comment in a thread listing) via public JSON.
  */
-export async function fetchRedditComment(
+async function fetchCommentViaPublicJson(
   permalink: string,
   opts?: { userAgent?: string; timeoutMs?: number }
 ): Promise<FetchCommentResult> {
@@ -68,17 +159,24 @@ export async function fetchRedditComment(
     return {
       ok: false,
       error: err instanceof Error ? err.message : String(err),
+      source: "public_json",
     };
   }
 
   if (res.status === 404) {
-    return { ok: false, status: 404, error: "not found (404)" };
+    return {
+      ok: false,
+      status: 404,
+      error: "not found (404)",
+      source: "public_json",
+    };
   }
   if (!res.ok) {
     return {
       ok: false,
       status: res.status,
       error: `HTTP ${res.status}`,
+      source: "public_json",
     };
   }
 
@@ -90,6 +188,7 @@ export async function fetchRedditComment(
       ok: false,
       status: res.status,
       error: err instanceof Error ? err.message : "invalid JSON",
+      source: "public_json",
     };
   }
 
@@ -99,9 +198,10 @@ export async function fetchRedditComment(
       ok: false,
       status: res.status,
       error: "comment not found in listing",
+      source: "public_json",
     };
   }
-  return { ok: true, status: res.status, comment };
+  return { ok: true, status: res.status, comment, source: "public_json" };
 }
 
 function extractCommentFromListing(

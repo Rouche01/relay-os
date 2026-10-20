@@ -231,11 +231,11 @@ Warmup (`warmup.mode=auto`) keeps drafts help-only until local live intensity-0 
 
 Promo ratio (`promo.maxRatio` default `0.1`, `windowDays` `30`) tracks live posts in `{REDDIT_DATA_DIR}/promo/ledger.json`. When a soft mention would push the window over the max, **`block`** forces intensity 0 (default) or **`warn`** surfaces the ratio in HITL without clamping. See [authority + metrics plan](../../.cursor/plans/community_engager_authority_metrics.plan.md).
 
-Post-watch (`postWatch.enabled`, default on) enrolls each live-posted comment. Two phases: **first look** after `firstCheckAfterHours` (default 1) for early follow-ups, then **sustained** polls until `maxAgeHours` (72) via public permalink JSON. Replies become intensity-0 follow-up opportunities; removals are marked. Sweep logs: `{REDDIT_DATA_DIR}/post-watch/sweeps/`. Queue: `{REDDIT_DATA_DIR}/post-watch/queue.json`. Manifest schedule: `every_ms` 1h via the ops daemon.
+Post-watch (`postWatch.enabled`, default on) enrolls each live-posted comment. Two phases: **first look** after `firstCheckAfterHours` (default 1) for early follow-ups, then **sustained** polls until `maxAgeHours` (72). With `REDDITAPIS_API_KEY`, comment checks use Bearer `GET /api/reddit/comment/{id}` (avoids www.reddit.com 403s); otherwise public permalink JSON. Replies become intensity-0 follow-up opportunities; removals are marked. Sweep logs: `{REDDIT_DATA_DIR}/post-watch/sweeps/`. Queue: `{REDDIT_DATA_DIR}/post-watch/queue.json`. Manifest schedule: `every_ms` 1h via the ops daemon.
 
 Daily cadence (`cadence.enabled`, default on) counts today's ledger posts and caps opportunities / execute by `maxHelpPerDay` (default 5) and `maxPromoPerDay` (default 1). Per-sub weekly soft mentions stay in playbook `maxPlugsPerWeek`. Scheduled engage: manifest schedule `cadence` → default entrypoint, cron `cadence.scheduleCron` (default `0 9,13,18 * * *`), `maxJobsPerRun` (default 2) per fire — same `@relay/scheduler` host as post_watch (`pnpm scheduler`).
 
-Visibility (`visibility.enabled`, default on) waits `delayMs` (default 3000) then fetches the posted permalink as a logged-out client. Results: `visible` / `removed` / `missing` / `error`; persisted under `{REDDIT_DATA_DIR}/visibility/`. Does not fail the execute stage — warns loudly for ops follow-up. Longer-horizon reply/removal polling stays in post-watch.
+Visibility (`visibility.enabled`, default on) waits `delayMs` (default 3000) then fetches the posted comment via redditapis when keyed (same as post-watch), else public JSON. Results: `visible` / `removed` / `missing` / `error`; persisted under `{REDDIT_DATA_DIR}/visibility/`. Does not fail the execute stage — warns loudly for ops follow-up. Longer-horizon reply/removal polling stays in post-watch.
 
 UTM on intensity-2 / execute LP links (see `utm.ts`):
 
@@ -283,7 +283,7 @@ Loopback admin (`@relay/admin-shell`) with app-owned adapters:
 
 | Collection | Source env | Capabilities |
 |------------|------------|--------------|
-| Actions | `ACTION_STORE_PATH` | edit draftText, status, delete |
+| Actions | `ACTION_STORE_PATH` | edit draftText + **postedUrl**, status, **mark_posted** (enrolls post-watch), delete |
 | Allowlist | `ALLOWLIST_PATH` (default `{REDDIT_DATA_DIR}/allowlist/subreddits.json`) | edit, promote, reject |
 | Jobs | `JOBS_DIR` | inspect, delete |
 | Runs | `COMMUNITY_RUNS_DIR` (may be outside `.data/`) | inspect, delete, debug charts (timeline, duration×outcome, scout funnel, authority slice) |

@@ -249,7 +249,14 @@ export async function processDuePostWatches(
   const nowMs = opts?.nowMs ?? Date.now();
   const startedAt = new Date(nowMs).toISOString();
   const maxPerRun = opts?.maxPerRun ?? cfg.postWatch.maxPerRun;
-  const fetchFn = opts?.fetchComment ?? fetchRedditComment;
+  const fetchFn =
+    opts?.fetchComment ??
+    ((permalink, fetchOpts) =>
+      fetchRedditComment(permalink, {
+        ...fetchOpts,
+        userAgent: fetchOpts?.userAgent ?? cfg.reddit.userAgent,
+        redditApis: cfg.redditApis,
+      }));
   const dataDir = cfg.reddit.dataDir;
   const persistSweep = opts?.persistSweep !== false;
   const sweepSource = opts?.sweepSource ?? "queue";

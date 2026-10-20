@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 import {
   commentIdFromPermalink,
+  fetchRedditComment,
   permalinkToJsonUrl,
   type FetchCommentResult,
 } from "../src/reddit/write/comment-fetch.js";
@@ -114,6 +115,75 @@ describe("comment-fetch helpers", () => {
       ),
       "t1_def456"
     );
+  });
+});
+
+describe("fetchRedditComment via redditapis", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("uses Bearer comment-by-id when redditApis is configured", async () => {
+    let seenUrl = "";
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      seenUrl = String(input);
+      assert.equal(
+        new Headers(init?.headers).get("Authorization"),
+        "Bearer test-key"
+      );
+      return new Response(
+        JSON.stringify({
+          comment: {
+            kind: "t1",
+            data: {
+              id: "phxxrt8",
+              name: "t1_phxxrt8",
+              body: "still up",
+              author: "me",
+              permalink: "/r/test/comments/abc/title/phxxrt8/",
+              replies: {
+                data: {
+                  children: [
+                    {
+                      kind: "t1",
+                      data: {
+                        id: "reply1",
+                        author: "other",
+                        body: "nice tip",
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }) as typeof fetch;
+
+    const result = await fetchRedditComment(
+      "https://www.reddit.com/r/test/comments/abc/title/phxxrt8/",
+      {
+        redditApis: {
+          apiKey: "test-key",
+          baseUrl: "https://api.redditapis.com",
+          configured: true,
+        },
+      }
+    );
+
+    assert.equal(
+      seenUrl,
+      "https://api.redditapis.com/api/reddit/comment/phxxrt8"
+    );
+    assert.equal(result.ok, true);
+    assert.equal(result.source, "redditapis");
+    assert.equal(result.comment?.body, "still up");
+    assert.equal(result.comment?.replies.length, 1);
+    assert.equal(result.comment?.replies[0]?.body, "nice tip");
   });
 });
 

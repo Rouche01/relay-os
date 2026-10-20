@@ -129,4 +129,50 @@ describe("RedditApisClient", () => {
       /REDDITAPIS_API_KEY/
     );
   });
+
+  it("getComment strips t1_ and returns comment node", async () => {
+    let seenUrl = "";
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      seenUrl = String(input);
+      return new Response(
+        JSON.stringify({
+          comment: {
+            kind: "t1",
+            data: {
+              id: "phxxrt8",
+              body: "hello",
+              author: "u1",
+              permalink: "/r/test/comments/abc/title/phxxrt8/",
+              replies: "",
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }) as typeof fetch;
+
+    const client = new RedditApisClient({
+      apiKey: "secret",
+      baseUrl: "https://api.redditapis.com",
+      configured: true,
+    });
+    const result = await client.getComment("t1_phxxrt8");
+    assert.equal(seenUrl, "https://api.redditapis.com/api/reddit/comment/phxxrt8");
+    assert.equal(result.status, 200);
+    assert.equal(result.comment?.data?.id, "phxxrt8");
+    assert.equal(result.comment?.data?.body, "hello");
+  });
+
+  it("getComment maps 404", async () => {
+    globalThis.fetch = (async () =>
+      new Response("gone", { status: 404 })) as typeof fetch;
+    const client = new RedditApisClient({
+      apiKey: "secret",
+      baseUrl: "https://api.redditapis.com",
+      configured: true,
+    });
+    const result = await client.getComment("deadbeef");
+    assert.equal(result.status, 404);
+    assert.ok(result.error);
+  });
 });
