@@ -6,12 +6,21 @@ export interface RedditListingPost {
   subreddit: string;
   title: string;
   selftext: string;
+  /**
+   * Destination URL: image CDN / gallery / external link when known,
+   * otherwise the thread permalink.
+   */
   url: string;
   permalink: string;
   createdUtc: number;
   author: string;
   /** Present on JSON/OAuth listings; omitted when browser extract lacks it. */
   numComments?: number;
+  /**
+   * True for text/self posts. False for link/image/gallery (when known).
+   * Used to flag photo-led threads when the CDN URL is missing.
+   */
+  isSelf?: boolean;
 }
 
 /**

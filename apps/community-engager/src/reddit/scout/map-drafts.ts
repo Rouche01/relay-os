@@ -110,7 +110,15 @@ export function listingPostsToDrafts(
       title: post.title,
       opText,
       postUrl: post.url,
+      permalink: post.permalink,
+      isSelf: post.isSelf,
     });
+    const distinctMediaUrl =
+      post.url &&
+      post.permalink &&
+      post.url.replace(/\/+$/, "") !== post.permalink.replace(/\/+$/, "")
+        ? post.url
+        : undefined;
     drafts.push({
       id,
       platform: "reddit",
@@ -119,9 +127,7 @@ export function listingPostsToDrafts(
       threadTitle: post.title,
       opText,
       ...(media.hint ? { opMediaHint: media.hint } : {}),
-      ...(post.url && post.url !== post.permalink
-        ? { postUrl: post.url }
-        : {}),
+      ...(distinctMediaUrl ? { postUrl: distinctMediaUrl } : {}),
       draftText: "",
       // Start help-only; draft stage clamps further via playbook / plugs-week.
       intensity: 0,

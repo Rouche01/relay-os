@@ -48,6 +48,51 @@ describe("redditapis map-post", () => {
   it("skips posts without id", () => {
     assert.equal(mapRedditApisPosts([{ title: "no id" }]).length, 0);
   });
+
+  it("maps link_url to listing url and is_self=false", () => {
+    const mapped = mapRedditApisPost({
+      id: "img1",
+      name: "t3_img1",
+      title: "Office shirt help",
+      author: "op",
+      permalink: "/r/fashion/comments/img1/office/",
+      url: "https://www.reddit.com/r/fashion/comments/img1/office/",
+      link_url: "https://i.redd.it/abc123.jpg",
+      text: "",
+      subreddit: "fashion",
+      comments: 0,
+      created_utc: 1_700_000_000,
+      is_self: false,
+    });
+    assert.ok(mapped);
+    assert.equal(mapped!.url, "https://i.redd.it/abc123.jpg");
+    assert.equal(mapped!.isSelf, false);
+    assert.match(mapped!.permalink, /reddit\.com\/r\/fashion/);
+  });
+
+  it("falls back to crosspost_origin.link_url for media", () => {
+    const mapped = mapRedditApisPost({
+      id: "xp1",
+      name: "t3_xp1",
+      title: "Fit check",
+      author: "op",
+      permalink: "/r/fashion/comments/xp1/fit/",
+      url: "https://www.reddit.com/r/fashion/comments/xp1/fit/",
+      link_url: null,
+      text: "",
+      subreddit: "fashion",
+      is_self: false,
+      is_crosspost: true,
+      crosspost_origin: {
+        id: "orig",
+        link_url: "https://i.redd.it/orig.jpg",
+      },
+      created_utc: 1_700_000_000,
+    });
+    assert.ok(mapped);
+    assert.equal(mapped!.url, "https://i.redd.it/orig.jpg");
+    assert.equal(mapped!.isSelf, false);
+  });
 });
 
 describe("RedditApisClient", () => {

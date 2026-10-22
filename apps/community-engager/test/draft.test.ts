@@ -128,7 +128,8 @@ describe("buildDraftPrompt", () => {
     );
     assert.match(prompt, /PHOTO \/ MEDIA CONSTRAINT/);
     assert.match(prompt, /cannot see/i);
-    assert.match(prompt, /Do not invent colors/);
+    assert.match(prompt, /do not invent colors/i);
+    assert.match(prompt, /Acknowledge the pic/i);
     assert.match(prompt, /live taping/);
   });
 });

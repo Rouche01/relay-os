@@ -14,8 +14,23 @@ export function normalizeRedditPermalink(
 }
 
 /**
+ * Prefer the media/external destination Reddit attached to the post.
+ * Crossposts often leave `link_url` null on the wrapper — fall back to origin.
+ */
+export function resolveRedditApisMediaUrl(post: RedditApisPost): string {
+  const direct = String(post.link_url ?? "").trim();
+  if (direct) return direct;
+  const origin = post.crosspost_origin;
+  if (origin && typeof origin === "object") {
+    const fromOrigin = String(origin.link_url ?? "").trim();
+    if (fromOrigin) return fromOrigin;
+  }
+  return "";
+}
+
+/**
  * Map a redditapis listing post → shared {@link RedditListingPost}
- * (`text` → selftext, `comments` → numComments).
+ * (`text` → selftext, `comments` → numComments, `link_url` → media `url`).
  */
 export function mapRedditApisPost(post: RedditApisPost): RedditListingPost | null {
   const id = String(post.id ?? "").trim();
@@ -29,9 +44,16 @@ export function mapRedditApisPost(post: RedditApisPost): RedditListingPost | nul
     String(post.permalink ?? ""),
     String(post.url ?? "")
   );
-  const linkOrPermalink = String(post.link_url ?? "").trim() || permalink;
+  const mediaUrl = resolveRedditApisMediaUrl(post);
+  const linkOrPermalink = mediaUrl || permalink;
   const numComments = Number(post.comments);
   const createdUtc = Number(post.created_utc);
+  const isSelf =
+    typeof post.is_self === "boolean"
+      ? post.is_self
+      : mediaUrl
+        ? false
+        : undefined;
 
   return {
     id,
@@ -44,6 +66,7 @@ export function mapRedditApisPost(post: RedditApisPost): RedditListingPost | nul
     createdUtc: Number.isFinite(createdUtc) ? createdUtc : 0,
     author: String(post.author ?? ""),
     numComments: Number.isFinite(numComments) ? numComments : undefined,
+    ...(isSelf !== undefined ? { isSelf } : {}),
   };
 }
 

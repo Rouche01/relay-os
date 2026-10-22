@@ -23,29 +23,54 @@ export interface OpMediaInference {
 }
 
 /**
- * @param postUrl - Listing `url` (CDN / gallery), not the comments permalink.
+ * @param postUrl - Listing media destination (`link_url` / CDN / gallery), not
+ *   the comments permalink when those differ.
+ * @param isSelf - When false, Reddit treated this as a link/image/gallery post
+ *   even if we lack a CDN URL (common on thin wrappers / some listings).
  */
 export function inferOpMedia(input: {
   title: string;
   opText?: string;
   postUrl?: string;
+  /** Thread permalink — used to detect when postUrl is only the comments page. */
+  permalink?: string;
+  isSelf?: boolean;
 }): OpMediaInference {
   const title = input.title ?? "";
   const body = (input.opText ?? "").trim();
   const postUrl = (input.postUrl ?? "").trim();
+  const permalink = (input.permalink ?? "").trim();
   const text = `${title}\n${body}`;
 
-  let kind: OpMediaKind = "none";
-  if (postUrl && GALLERY_URL_RE.test(postUrl)) kind = "gallery";
-  else if (postUrl && VIDEO_URL_RE.test(postUrl)) kind = "video";
-  else if (postUrl && IMAGE_URL_RE.test(postUrl)) kind = "image";
+  const mediaCandidate =
+    postUrl &&
+    permalink &&
+    normalizeUrlKey(postUrl) !== normalizeUrlKey(permalink)
+      ? postUrl
+      : postUrl && !isRedditCommentsUrl(postUrl)
+        ? postUrl
+        : "";
 
-  const thinBody = body.length < 80;
+  let kind: OpMediaKind = "none";
+  if (mediaCandidate && GALLERY_URL_RE.test(mediaCandidate)) kind = "gallery";
+  else if (mediaCandidate && VIDEO_URL_RE.test(mediaCandidate)) kind = "video";
+  else if (mediaCandidate && IMAGE_URL_RE.test(mediaCandidate)) kind = "image";
+  else if (mediaCandidate && !isRedditCommentsUrl(mediaCandidate)) {
+    // Non-thread destination (external link / unknown host) — treat as media-led.
+    kind = "image";
+  }
+
+  const thinBody = body.length < 120;
   const refersToMedia =
     DEICTIC_RE.test(text) || PHOTO_WORD_RE.test(text);
 
   if (kind === "none" && thinBody && refersToMedia) {
     // Title-only / “help with these” posts usually have feed images we did not fetch.
+    kind = "image";
+  }
+
+  // Link/image/gallery posts (`is_self: false`) almost always show media in-feed.
+  if (kind === "none" && input.isSelf === false) {
     kind = "image";
   }
 
@@ -61,7 +86,17 @@ export function inferOpMedia(input: {
   return {
     kind,
     hint:
-      `OP included ${what} (or is pointing at garments with words like “these”). ` +
-      `You cannot see the media. Do not invent colors, fabrics, cuts, or brands.`,
+      `OP included ${what} on the thread (or is pointing at garments with words like “these”). ` +
+      `Acknowledge the pic(s) in one short beat so the reply feels grounded, ` +
+      `but you cannot see the pixels — do not invent colors, fabrics, cuts, logos, or brands. ` +
+      `Ask about / suggest around what the title and body actually say.`,
   };
+}
+
+function normalizeUrlKey(url: string): string {
+  return url.trim().replace(/\/+$/, "").toLowerCase();
+}
+
+function isRedditCommentsUrl(url: string): boolean {
+  return /reddit\.com\/r\/[^/]+\/comments\//i.test(url);
 }

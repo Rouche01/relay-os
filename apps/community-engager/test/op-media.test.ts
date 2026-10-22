@@ -36,8 +36,33 @@ describe("inferOpMedia", () => {
       opText:
         "I keep buying pieces that do not work together. Looking for a simple system.",
       postUrl: "https://www.reddit.com/r/femalefashionadvice/comments/abc",
+      permalink: "https://www.reddit.com/r/femalefashionadvice/comments/abc",
+      isSelf: true,
     });
     assert.equal(m.kind, "none");
     assert.equal(m.hint, undefined);
+  });
+
+  it("treats isSelf=false as photo-led even without a CDN url", () => {
+    const m = inferOpMedia({
+      title: "Office button-up help",
+      opText: "Not sure if this works for business casual.",
+      postUrl: "https://www.reddit.com/r/fashion/comments/abc/title/",
+      permalink: "https://www.reddit.com/r/fashion/comments/abc/title/",
+      isSelf: false,
+    });
+    assert.equal(m.kind, "image");
+    assert.match(m.hint ?? "", /Acknowledge the pic/i);
+  });
+
+  it("uses distinct media url when permalink is the thread", () => {
+    const m = inferOpMedia({
+      title: "Fit check",
+      opText: "Going to a wedding.",
+      postUrl: "https://i.redd.it/abc123.jpg",
+      permalink: "https://www.reddit.com/r/malefashionadvice/comments/abc/fit/",
+      isSelf: false,
+    });
+    assert.equal(m.kind, "image");
   });
 });

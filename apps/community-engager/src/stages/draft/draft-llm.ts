@@ -160,14 +160,16 @@ export function buildDraftPrompt(
       title: draft.threadTitle,
       opText,
       postUrl: draft.postUrl,
+      permalink: draft.threadUrl,
     }).hint;
   const mediaSection = media
     ? [
         "PHOTO / MEDIA CONSTRAINT (required):",
         media,
-        "- Tie the reply to the occasion/goal in the title.",
-        "- Either ask 1–2 specific questions about the pieces, or give one narrow take that still works without seeing them.",
-        "- Never claim you can see the outfit or name garments that are not in the text.",
+        "- Open with a short acknowledgment that they shared photo(s) / an outfit shot (e.g. “from the pics…”).",
+        "- Tie the reply to the occasion/goal in the title and any details in the body.",
+        "- Ask 1–2 specific questions about the pieces OR give one narrow take that still works without seeing them.",
+        "- Never claim you can see the outfit clearly, and never name colors/fabrics/brands that are not in the text.",
         "",
       ]
     : [];

@@ -9,5 +9,10 @@ export {
   mapRedditApisPost,
   mapRedditApisPosts,
   normalizeRedditPermalink,
+  resolveRedditApisMediaUrl,
 } from "./map-post.js";
-export type { RedditApisPost, RedditApisPostsResponse } from "./types.js";
+export type {
+  RedditApisCrosspostOrigin,
+  RedditApisPost,
+  RedditApisPostsResponse,
+} from "./types.js";
