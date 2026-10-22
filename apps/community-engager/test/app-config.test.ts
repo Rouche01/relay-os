@@ -33,6 +33,7 @@ describe("app-config", () => {
     assert.equal(cfg.warmup.minHelpComments, 10);
     assert.equal(cfg.jobs.maxJobs, 3);
     assert.equal(cfg.scout.delayMs, 8000);
+    assert.equal(cfg.scout.maxAgeHours, 6);
     assert.equal(cfg.postWatch.enabled, true);
     assert.equal(cfg.postWatch.firstCheckAfterHours, 1);
     assert.equal(cfg.postWatch.minAgeHours, 1);
@@ -46,7 +47,7 @@ describe("app-config", () => {
     assert.equal(cfg.visibility.enabled, true);
     assert.equal(cfg.visibility.delayMs, 3000);
     assert.match(cfg.discover.goal, /GoStylens/);
-    assert.equal(cfg.discover.onEmptyScout, "off");
+    assert.equal(cfg.discover.onEmptyScout, "force");
     assert.equal(cfg.discover.onEmptyScoutMax, 1);
     assert.equal(cfg.discover.onEmptyScoutMaxPerDay, 3);
     assert.equal(cfg.post.mode, "auto");

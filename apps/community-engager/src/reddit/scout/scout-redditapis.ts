@@ -51,7 +51,8 @@ export async function scoutRedditApis(
 
     let posts;
     try {
-      posts = await client.listNew(sub, 15);
+      // Wider /new window so maxAgeHours still finds actionable help posts.
+      posts = await client.listNew(sub, 25);
     } catch (err) {
       console.warn(`[scout:redditapis] r/${sub} failed:`, err);
       if (i < subs.length - 1 && delayMs > 0) await sleep(delayMs);

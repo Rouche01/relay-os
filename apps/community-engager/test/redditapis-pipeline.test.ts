@@ -8,6 +8,41 @@ import { DEFAULT_PLAYBOOK } from "../src/policy/playbook.js";
  * Docs/rollout golden path: redditapis JSON → RedditListingPost → actionable draft.
  */
 describe("redditapis → listingPostsToDrafts pipeline", () => {
+  it("drops posts older than maxAgeHours", () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const posts = mapRedditApisPosts([
+      {
+        id: "old1",
+        name: "t3_old1",
+        title: "How do I build a capsule wardrobe system?",
+        author: "op",
+        permalink: "/r/femalefashionadvice/comments/old1/capsule/",
+        text: "I need a process for outfits that work together — looking for advice.",
+        subreddit: "femalefashionadvice",
+        comments: 1,
+        created_utc: nowSec - 8 * 3600,
+      },
+      {
+        id: "new1",
+        name: "t3_new1",
+        title: "How do I build a capsule wardrobe system?",
+        author: "op",
+        permalink: "/r/femalefashionadvice/comments/new1/capsule/",
+        text: "I need a process for outfits that work together — looking for advice.",
+        subreddit: "femalefashionadvice",
+        comments: 1,
+        created_utc: nowSec - 3600,
+      },
+    ]);
+    const drafts = listingPostsToDrafts(posts, 5, {
+      playbookFor: () => DEFAULT_PLAYBOOK,
+      maxAgeHours: 6,
+      nowMs: Date.now(),
+    });
+    assert.equal(drafts.length, 1);
+    assert.equal(drafts[0]!.id, "reddit-new1");
+  });
+
   it("produces an actionable draft from a help-shaped listing post", () => {
     const posts = mapRedditApisPosts([
       {

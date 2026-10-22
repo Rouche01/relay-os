@@ -194,6 +194,11 @@ export interface ScoutRuntimeConfig {
   scrollRounds: number;
   deepReadMax: number;
   subBudgetMs: number;
+  /**
+   * Drop listing posts older than this (hours) before ranking.
+   * Prefer fresh help threads over high-scoring stale ones. Default 6.
+   */
+  maxAgeHours: number;
 }
 
 export interface JobsRuntimeConfig {
@@ -434,6 +439,12 @@ export function getCommunityConfig(
     "REDDIT_SCOUT_SUB_BUDGET_MS",
     policy.scout.subBudgetMs,
     { min: 3000 }
+  );
+  const scoutMaxAgeHours = envNumber(
+    env,
+    "REDDIT_SCOUT_MAX_AGE_HOURS",
+    policy.scout.maxAgeHours,
+    { allowZero: false, min: 1 }
   );
 
   const browserHeadless =
@@ -687,6 +698,7 @@ export function getCommunityConfig(
       scrollRounds: scoutScrollRounds,
       deepReadMax: scoutDeepReadMax,
       subBudgetMs: scoutSubBudgetMs,
+      maxAgeHours: scoutMaxAgeHours,
     },
     jobs: {
       maxJobs: envNumber(env, "COMMUNITY_MAX_JOBS", policy.jobs.maxJobs, {

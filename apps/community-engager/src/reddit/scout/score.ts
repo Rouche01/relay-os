@@ -28,7 +28,8 @@ const HAUL_FLEX_RE =
 /** Max top-level-ish comment count still considered “room to contribute”. */
 export const COMPETITION_MAX_COMMENTS = 12;
 
-const FRESH_MS = 48 * 60 * 60 * 1000;
+/** Legacy default when caller does not pass maxAgeMs (48h). Scout prefers cfg.scout.maxAgeHours. */
+export const DEFAULT_FRESH_MS = 48 * 60 * 60 * 1000;
 
 /** True for Daily Questions / WAYWT / megathreads — skip as engage targets. */
 export function isMegathread(title: string): boolean {
@@ -47,6 +48,8 @@ export function scoreRedditPost(
      * Default false — megathreads are treated as non-opportunities.
      */
     scoreMegathread?: boolean;
+    /** Max age for freshnessOk (ms). Default {@link DEFAULT_FRESH_MS}. */
+    maxAgeMs?: number;
   }
 ): {
   score: OpportunityScore;
@@ -59,6 +62,11 @@ export function scoreRedditPost(
   const skipMega = mega && !opts?.scoreMegathread;
   const brandOnly = BRAND_ONLY_RE.test(text);
   const haulFlex = HAUL_FLEX_RE.test(text);
+  const freshMs =
+    typeof opts?.maxAgeMs === "number" && Number.isFinite(opts.maxAgeMs)
+      ? Math.max(0, opts.maxAgeMs)
+      : DEFAULT_FRESH_MS;
+  const freshHours = Math.round(freshMs / (60 * 60 * 1000));
 
   // Megathreads match “questions” heuristics but are not one-shot help posts
   // unless the sub playbook opts into scoring them.
@@ -69,7 +77,7 @@ export function scoreRedditPost(
       HELP_RE.test(text) ||
       /\b(please|any ideas)\b/i.test(text));
   const rulesOk = policy?.rulesOk ?? false;
-  const freshnessOk = ageMs >= 0 && ageMs <= FRESH_MS;
+  const freshnessOk = ageMs >= 0 && ageMs <= freshMs;
   const valueWithoutApp =
     problemFit &&
     !brandOnly &&
@@ -109,7 +117,7 @@ export function scoreRedditPost(
   if (wantsHelp) bits.push("asks for help");
   if (rulesOk) bits.push(`r/${post.subreddit} allowlisted`);
   else bits.push("sub not allowlisted / rules risky");
-  if (freshnessOk) bits.push("fresh (<48h)");
+  if (freshnessOk) bits.push(`fresh (<${freshHours}h)`);
   else bits.push("stale");
   if (valueWithoutApp) bits.push("value without app");
   if (competition) bits.push("low competition");

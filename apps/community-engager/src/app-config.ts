@@ -47,6 +47,7 @@ export interface ScoutFileConfig {
   scrollRounds?: number;
   deepReadMax?: number;
   subBudgetMs?: number;
+  maxAgeHours?: number;
 }
 
 export interface JobsFileConfig {
@@ -169,6 +170,8 @@ export interface CommunityAppConfig {
     scrollRounds: number;
     deepReadMax: number;
     subBudgetMs: number;
+    /** Prefer posts newer than this many hours (default 6). */
+    maxAgeHours: number;
   };
   jobs: {
     maxJobs: number;
@@ -261,6 +264,7 @@ const BUILTIN_DEFAULTS: CommunityAppConfig = {
     scrollRounds: 4,
     deepReadMax: 5,
     subBudgetMs: 45_000,
+    maxAgeHours: 6,
   },
   jobs: {
     maxJobs: 3,
@@ -445,6 +449,10 @@ function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
       scrollRounds: nonNegInt(raw.scout.scrollRounds, 4),
       deepReadMax: nonNegInt(raw.scout.deepReadMax, 5),
       subBudgetMs: Math.max(3000, nonNegInt(raw.scout.subBudgetMs, 45_000)),
+      maxAgeHours: Math.max(
+        1,
+        nonNegInt(raw.scout.maxAgeHours, BUILTIN_DEFAULTS.scout.maxAgeHours)
+      ),
     },
     jobs: {
       maxJobs: positiveInt(raw.jobs.maxJobs, 3),

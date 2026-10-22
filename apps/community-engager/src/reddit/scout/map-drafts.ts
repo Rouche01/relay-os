@@ -10,11 +10,13 @@ import {
   type SubredditPlaybook,
 } from "../../policy/playbook.js";
 import type { RedditListingPost } from "../client.js";
+import { getCommunityConfig } from "../config.js";
 import { inferOpMedia } from "../../stages/draft/op-media.js";
 import { HELP_RE, isMegathread, scoreRedditPost } from "./score.js";
 
 /** Keep OP body small enough for later draft prompts. */
 const OP_TEXT_MAX_CHARS = 4000;
+const MS_PER_HOUR = 60 * 60 * 1000;
 
 function capOpText(selftext: string): string {
   const trimmed = selftext.trim();
@@ -33,6 +35,14 @@ export interface ListingPostsToDraftsOptions {
   excludeIds?: ReadonlySet<string>;
   /** Resolve playbook per sub (lowercase name). Defaults to DEFAULT_PLAYBOOK. */
   playbookFor?: (subreddit: string) => SubredditPlaybook;
+  /**
+   * Drop posts older than this many hours (hard filter).
+   * Default: `getCommunityConfig().scout.maxAgeHours` (6).
+   * Pass `0` to disable the age filter (tests / research).
+   */
+  maxAgeHours?: number;
+  /** Clock override for age filter (tests). */
+  nowMs?: number;
 }
 
 function playbookForSub(
@@ -49,8 +59,18 @@ export function listingPostsToDrafts(
   opts?: ListingPostsToDraftsOptions
 ): CommunityDraft[] {
   const exclude = opts?.excludeIds;
+  const nowMs = opts?.nowMs ?? Date.now();
+  const maxAgeHours =
+    opts?.maxAgeHours !== undefined
+      ? opts.maxAgeHours
+      : getCommunityConfig().scout.maxAgeHours;
+  const maxAgeMs =
+    maxAgeHours > 0 ? maxAgeHours * MS_PER_HOUR : Number.POSITIVE_INFINITY;
+
   const ranked = posts
     .filter((post) => {
+      const ageMs = nowMs - post.createdUtc * 1000;
+      if (ageMs < 0 || ageMs > maxAgeMs) return false;
       const pb = playbookForSub(post.subreddit, opts?.playbookFor);
       return shouldScoutMegathread(isMegathread(post.title), pb);
     })
@@ -59,6 +79,7 @@ export function listingPostsToDrafts(
       const mega = isMegathread(post.title);
       const { score, rationale } = scoreRedditPost(post, {
         scoreMegathread: mega && pb.megathreadPolicy !== "skip",
+        maxAgeMs: Number.isFinite(maxAgeMs) ? maxAgeMs : undefined,
       });
       const playbookNote =
         mega && pb.megathreadPolicy === "help_only"
@@ -74,8 +95,11 @@ export function listingPostsToDrafts(
       };
     })
     .filter((r) => isActionable(r.score))
-    // Best fits first — feed order pins stickies/dailies at the top.
-    .sort((a, b) => b.total - a.total);
+    // Best fits first; prefer newer when scores tie.
+    .sort(
+      (a, b) =>
+        b.total - a.total || b.post.createdUtc - a.post.createdUtc
+    );
 
   const drafts: CommunityDraft[] = [];
   for (const { post, score, rationale } of ranked) {

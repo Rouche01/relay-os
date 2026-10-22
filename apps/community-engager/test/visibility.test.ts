@@ -84,6 +84,7 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
       scrollRounds: 1,
       deepReadMax: 1,
       subBudgetMs: 3000,
+      maxAgeHours: 6,
     },
     jobs: { maxJobs: 3, delayMs: 0 },
     product: { lpBaseUrl: "https://gostylens.app" },
