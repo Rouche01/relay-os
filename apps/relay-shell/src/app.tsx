@@ -1,4 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
+import { SpecReview } from "./pages/SpecReview.tsx";
+import { SpecsList } from "./pages/SpecsList.tsx";
 
 /**
  * Relay product shell — Spec governance first; living-todo mounts later.
@@ -12,6 +14,11 @@ export function App() {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+
+  const specMatch = /^\/spec\/(.+)$/.exec(path);
+  const specId = specMatch?.[1]
+    ? decodeURIComponent(specMatch[1])
+    : undefined;
 
   return (
     <div class="shell">
@@ -33,7 +40,13 @@ export function App() {
         </nav>
       </header>
       <main>
-        {path.startsWith("/todo") ? <TodoStub /> : <ShellHome path={path} />}
+        {path.startsWith("/todo") ? (
+          <TodoStub />
+        ) : specId ? (
+          <SpecReview id={specId} />
+        ) : (
+          <SpecsList />
+        )}
       </main>
     </div>
   );
@@ -41,24 +54,6 @@ export function App() {
 
 function readHashPath(): string {
   return location.hash.replace(/^#/, "") || "/";
-}
-
-function ShellHome({ path }: { path: string }) {
-  return (
-    <section>
-      <p class="eyebrow">Shell</p>
-      <h1>Relay shell</h1>
-      <p class="lede">
-        Preact scaffold ready. Spec list / review ports next. Current route:{" "}
-        <code>{path}</code>
-      </p>
-      <p class="lede muted">
-        Spec API (this app):{" "}
-        <code>pnpm --filter @relay/apps-relay-shell api</code> — proxied at{" "}
-        <code>/api</code>. Not CommunityEngager-bound.
-      </p>
-    </section>
-  );
 }
 
 function TodoStub() {

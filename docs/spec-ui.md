@@ -6,7 +6,7 @@ App-agnostic Intent → Spec **Approve / Abort**. Not owned by CommunityEngager.
 |-------|----------|
 | Spec store | [`@relay/spec-store`](../packages/spec-store) — `{RELAY_DATA_DIR\|\|.data}/specs.json` |
 | API | [`apps/relay-shell/server/api.ts`](../apps/relay-shell/server/api.ts) |
-| UI | [`apps/relay-shell`](../apps/relay-shell) (Preact; Spec screens port next) |
+| UI | [`apps/relay-shell`](../apps/relay-shell) — Specs list, Spec review, New from Intent |
 | Design | [Flowstep · Relay Spec](https://app.flowstep.ai/file?activeFileId=c2f134d4-1f9d-4c8c-975d-4b6baef2eeb4) |
 
 Domain packs (e.g. `community-engager/engage`) stay in their apps. The shell’s “New from Intent” uses the generic `relay/compose` pack (primitives only).
