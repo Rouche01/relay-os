@@ -5,6 +5,7 @@ import {
   getSpec,
   packIdOf,
   partitionActions,
+  takeCreateFlash,
   type SpecBundleDto,
 } from "../api/specs.ts";
 
@@ -16,15 +17,32 @@ export function SpecReview({ id }: Props) {
     null
   );
   const [busy, setBusy] = useState(false);
+  const [decideNote, setDecideNote] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    const createFlash = takeCreateFlash(id);
     void (async () => {
       try {
         const b = await getSpec(id);
         if (!cancelled) {
           setBundle(b);
-          setFlash(null);
+          if (createFlash) {
+            const ids =
+              createFlash.primitiveIds.length > 0
+                ? createFlash.primitiveIds.join(", ")
+                : partitionActions(b).primitives.join(", ");
+            const backend = createFlash.decideBackend
+              ? ` via ${createFlash.decideBackend}`
+              : "";
+            setDecideNote(`Composed primitives${backend}: ${ids || "—"}`);
+            setFlash({
+              text: `Draft ready · ${createFlash.packId ?? packIdOf(b)}`,
+            });
+          } else {
+            setFlash(null);
+            setDecideNote(null);
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -106,6 +124,7 @@ export function SpecReview({ id }: Props) {
       {flash ? (
         <p class={`flash${flash.err ? " err" : ""}`}>{flash.text}</p>
       ) : null}
+      {decideNote ? <p class="hint decide-note">{decideNote}</p> : null}
 
       <div class="panel">
         <h2>Spec summary</h2>
@@ -133,16 +152,21 @@ export function SpecReview({ id }: Props) {
       </div>
 
       <div class="panel">
-        <h2>Execution vocabulary</h2>
+        <h2>Goal-aligned primitives</h2>
+        <p class="hint vocab-lede">
+          Catalog subset for this Spec (not the full fixed pack). Aliases appear
+          only when a domain pack added them.
+        </p>
+        {primitives.length ? (
+          <ul class="prim-chips">
+            {primitives.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        ) : (
+          <p class="empty">No primitives on this Spec.</p>
+        )}
         <div class="vocab">
-          <div>
-            <h3>Primitives</h3>
-            <ul>
-              {primitives.length
-                ? primitives.map((p) => <li key={p}>{p}</li>)
-                : [<li key="empty">—</li>]}
-            </ul>
-          </div>
           <div>
             <h3>Aliases</h3>
             <ul>

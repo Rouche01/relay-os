@@ -165,6 +165,41 @@ h1 {
   margin: 0;
 }
 
+.prim-preview {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--accent);
+  margin: 0.35rem 0 0;
+  max-width: 36rem;
+  line-height: 1.35;
+}
+
+.decide-note {
+  margin: 0.35rem 0 0;
+}
+
+.vocab-lede {
+  margin: -0.35rem 0 1rem;
+}
+
+.prim-chips {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.5rem;
+}
+
+.prim-chips li {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  border: 1px solid var(--line);
+  padding: 0.25rem 0.55rem;
+  color: var(--ink);
+  background: rgba(255, 254, 251, 0.7);
+}
+
 .meta {
   display: flex;
   flex-wrap: wrap;

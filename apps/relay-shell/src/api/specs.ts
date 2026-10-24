@@ -108,3 +108,40 @@ export function abortSpec(id: string): Promise<SpecBundleDto> {
     body: "{}",
   });
 }
+
+const FLASH_PREFIX = "relay-shell:spec-create:";
+
+/** Stash create-time decide metadata for Spec review (hash router has no state). */
+export function stashCreateFlash(created: SpecBundleDto): void {
+  try {
+    sessionStorage.setItem(
+      `${FLASH_PREFIX}${created.id}`,
+      JSON.stringify({
+        primitiveIds: created.primitiveIds ?? [],
+        decideBackend: created.decideBackend ?? null,
+        packId: created.packId ?? null,
+      })
+    );
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+export function takeCreateFlash(id: string): {
+  primitiveIds: string[];
+  decideBackend: string | null;
+  packId: string | null;
+} | null {
+  try {
+    const raw = sessionStorage.getItem(`${FLASH_PREFIX}${id}`);
+    if (!raw) return null;
+    sessionStorage.removeItem(`${FLASH_PREFIX}${id}`);
+    return JSON.parse(raw) as {
+      primitiveIds: string[];
+      decideBackend: string | null;
+      packId: string | null;
+    };
+  } catch {
+    return null;
+  }
+}

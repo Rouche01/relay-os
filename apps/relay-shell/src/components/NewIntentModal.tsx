@@ -1,14 +1,14 @@
 import { useState } from "preact/hooks";
-import { createSpec } from "../api/specs.ts";
+import { createSpec, type SpecBundleDto } from "../api/specs.ts";
 
 type Props = {
   onClose: () => void;
-  onCreated: (id: string) => void;
+  onCreated: (created: SpecBundleDto) => void;
 };
 
 export function NewIntentModal({ onClose, onCreated }: Props) {
   const [goal, setGoal] = useState(
-    "Compose a Spec from Intent under HITL; dry-run only"
+    "Scout Reddit and draft replies, then post after approval"
   );
   const [maxJobs, setMaxJobs] = useState(2);
   const [dryRun, setDryRun] = useState(true);
@@ -23,7 +23,7 @@ export function NewIntentModal({ onClose, onCreated }: Props) {
         goal: goal.trim(),
         slots: { maxJobs, dryRun },
       });
-      onCreated(created.id);
+      onCreated(created);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);
@@ -66,8 +66,9 @@ export function NewIntentModal({ onClose, onCreated }: Props) {
           dryRun
         </label>
         <p class="hint">
-          Uses generic pack <code>relay/compose</code> (domain packs stay in
-          their apps).
+          Decide picks catalog primitives for this goal, then compose drafts a
+          Spec (<code>relay/primitives</code>). Domain packs / CE manifests stay
+          in their apps. Set <code>DECIDE_BACKEND=jev</code> for Jev.
         </p>
         <div class="modal-actions">
           <button
@@ -76,7 +77,7 @@ export function NewIntentModal({ onClose, onCreated }: Props) {
             disabled={busy || !goal.trim()}
             onClick={() => void submit()}
           >
-            Compose Spec
+            {busy ? "Composing…" : "Compose Spec"}
           </button>
           <button type="button" class="btn" onClick={onClose} disabled={busy}>
             Cancel
