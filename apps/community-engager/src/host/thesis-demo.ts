@@ -17,7 +17,7 @@ import {
 } from "@relay/protocol";
 import { CommunityEngagerApp } from "../index.js";
 import { formatRunSummary } from "../metrics/job-queue.js";
-import { compileEngageIntent } from "../spec/engage-compiler.js";
+import { composeCommunityIntent } from "../spec/compose-intent.js";
 import { createFileSpecStore } from "../spec/file-spec-store.js";
 import { formatSpecForHitl } from "../spec/hitl-spec.js";
 
@@ -102,10 +102,12 @@ async function main(): Promise<void> {
   console.log(`  goal=${intent.goal}`);
   console.log(`  slots=${JSON.stringify(intent.slots)}`);
 
-  // 2. Compile → draft Spec → freeze
-  banner(2, "Compile Intent → Spec → freeze");
-  const { intent: compiled, spec: draftSpec } = compileEngageIntent(intent);
+  // 2. Compose → draft Spec → freeze
+  banner(2, "Compose Intent → Spec → freeze");
+  const { intent: compiled, spec: draftSpec, packId } =
+    composeCommunityIntent(intent);
   const spec = freezeSpec(draftSpec, { frozenBy: "thesis-demo" });
+  console.log(`  packId=${packId}`);
   console.log(`  intent.status=${compiled.status} specId=${compiled.specId}`);
   console.log(
     `  spec=${spec.id} v${spec.version} status=${spec.status} ` +

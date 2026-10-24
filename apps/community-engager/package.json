@@ -16,6 +16,7 @@
     "ops": "node dist/host/run-ops.js",
     "e2e": "node dist/host/e2e-hitl.js",
     "thesis-demo": "node dist/host/thesis-demo.js",
+    "compose-demo": "node dist/host/compose-demo.js",
     "smoke": "node dist/host/e2e-hitl.js",
     "verify:voltmem-events": "node dist/host/verify-voltmem-events.js",
     "login:reddit": "node dist/host/run-login.js",

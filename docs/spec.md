@@ -42,8 +42,9 @@ Freeze with `freezeSpec(spec)` from `@relay/protocol` before treating the brief 
 - **Spec HITL** ([`hitl-spec.ts`](../apps/community-engager/src/spec/hitl-spec.ts)): with `spec` + adapter, Approve / Edit / Abort the Spec **before** stages (default on; `--skip-spec-hitl` to skip)
 - Runs **without** `ctx.spec` behave as before (legacy)
 
-## Cold demo
+## Cold demos
 
-See [`thesis-demo.md`](./thesis-demo.md) — `pnpm --filter @relay/apps-community-engager thesis-demo`.
+- Thesis (HITL loop): [`thesis-demo.md`](./thesis-demo.md) — `pnpm --filter @relay/apps-community-engager thesis-demo`
+- Compose POC (universal compose + protocol stub + run): [`compose-demo.md`](./compose-demo.md) — `pnpm --filter @relay/apps-community-engager compose-demo`
 
 See readiness plan: [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](../.cursor/plans/relay_intent_spec_verify_hitl.plan.md).

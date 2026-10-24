@@ -111,10 +111,13 @@ export interface ProtocolEngine {
   declare(spec: Spec): Promise<ProtocolSession>;
 }
 
-function actionAllowed(spec: Spec, actionId: string, primitive: SpecPrimitiveId): boolean {
-  return spec.allowedActions.some(
-    (a) => a.id === actionId || a.id === primitive
-  );
+/**
+ * Action id must appear on Spec.allowedActions (primitive id or pack alias).
+ * Matching only on primitive kind would let any actionId through once e.g.
+ * `invoke` is listed — too loose for Spec authority.
+ */
+function actionAllowed(spec: Spec, actionId: string): boolean {
+  return spec.allowedActions.some((a) => a.id === actionId);
 }
 
 function sideEffectFor(
@@ -176,7 +179,7 @@ class ProtocolSessionStub implements ProtocolSession {
         primitive: action.primitive,
       };
     }
-    if (!actionAllowed(this.spec, action.actionId, action.primitive)) {
+    if (!actionAllowed(this.spec, action.actionId)) {
       return {
         success: false,
         error: `Action not allowed by Spec: ${action.actionId} (${action.primitive})`,
