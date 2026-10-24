@@ -2,9 +2,19 @@ import { FeedbackRequest } from "./feedback";
 
 /**
  * Execution engines an agentic app may declare.
+ * `"protocol"` — Spec-native declare/invoke/observe/evidence (preferred when addressable).
+ * `"browser"` — GUI / computer-use fallback.
  * `"none"` — pure HITL gate (feedback only; no engine execute).
  */
-export type EngineType = "browser" | "llm" | "api" | "code" | "data" | "comms" | "none";
+export type EngineType =
+  | "protocol"
+  | "browser"
+  | "llm"
+  | "api"
+  | "code"
+  | "data"
+  | "comms"
+  | "none";
 
 export interface ExecutionEngine {
   type: EngineType;

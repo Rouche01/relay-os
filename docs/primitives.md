@@ -53,7 +53,7 @@ primitive ──► protocol engine (declare / invoke / observe / evidence)
           └─► browser engine (navigate / observe DOM / type / click → maps to read/write/invoke)
 ```
 
-Same Spec; per-action `actionBinding` overrides Spec default. See plan `protocol-engine-sketch` (next).
+Same Spec; per-action `actionBinding` overrides Spec default. See [`protocol-engine.md`](./protocol-engine.md).
 
 ---
 
@@ -125,7 +125,7 @@ No requirement to rewrite CommunityEngager manifests before the catalog and pers
 
 1. ~~`primitive-catalog-sketch` + `compose-compiler-direction`~~ — this doc  
 2. ~~`spec-persistence`~~ — see [`spec.md`](./spec.md) (Spec store)  
-3. `protocol-engine-sketch` — stub/doc against these primitives  
+3. ~~`protocol-engine-sketch`~~ — see [`protocol-engine.md`](./protocol-engine.md)  
 4. Later plan: compose implementation + optional engage pack expansion  
 
 ## Acceptance for this todo

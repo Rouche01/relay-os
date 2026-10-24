@@ -7,3 +7,4 @@ export * from "./spec";
 export * from "./intent";
 export * from "./evidence";
 export * from "./spec-store";
+export * from "./protocol-engine";

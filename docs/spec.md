@@ -11,6 +11,8 @@ Human-owned authority for agent computer work. Types live in `@relay/protocol`:
 
 **North star catalog:** domain-free **primitives** + compose Intent→Spec — see [`primitives.md`](./primitives.md). CommunityEngager below is a **domain pack** (dogfood), not the end architecture.
 
+**Protocol vs browser:** same Spec, two engines — see [`protocol-engine.md`](./protocol-engine.md) (`ProtocolEngineStub` in `@relay/protocol`).
+
 ## CommunityEngager compiler (v1)
 
 Template fill only — no free-form stage invention:

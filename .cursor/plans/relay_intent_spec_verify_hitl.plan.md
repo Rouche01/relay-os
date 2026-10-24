@@ -28,7 +28,7 @@ todos:
     status: completed
   - id: protocol-engine-sketch
     content: "Sketch Spec-native protocol engine — declare/invoke/observe/evidence against same Spec types; align with primitive catalog (not domain APIs); stub or doc: protocol vs browser under one Spec"
-    status: pending
+    status: completed
   - id: primitive-catalog-sketch
     content: "Sketch domain-free primitive catalog — small Spec-addressable atoms (observe/invoke/read/write/wait_human/assert/…); mark irreversible; each primitive has a runtime binding (protocol | browser). Not CommunityEngager-shaped."
     status: completed
@@ -208,7 +208,7 @@ Phase E exit is **design + persistence**, not a full primitive runtime or engage
 - [x] Execute is blocked without a complete evidence pack when Spec requires it
 - [x] HITL can approve Spec and/or draft; abort prevents write; edit that changes constraints re-opens Spec
 - [x] Cold demo script in-repo (README section or `deploy/` / app README) walks Intent → Spec → Evidence → HITL → act
-- [ ] Protocol engine sketch exists (doc ± stub) showing same Spec, non-GUI path
+- [x] Protocol engine sketch exists (doc ± stub) showing same Spec, non-GUI path
 - [x] Primitive catalog sketch + compose direction documented (domain packs ≠ catalog roots)
 - [x] Intent + frozen Spec can be persisted and loaded by id
 - [ ] research-lab thread points at this product meaning of Spec; no formal verifier required in Relay
@@ -262,3 +262,4 @@ Use the YAML `todos` above as the source of truth for status (`pending` / `in_pr
 - Catalog grain: agreed **primitives + compose**, not per-app compilers forever. Engage compiler = domain pack / recipe. Added Phase E todos: `primitive-catalog-sketch`, `compose-compiler-direction`, `spec-persistence`; tightened non-goals (unbound invention still out; primitive *sketch* in plan). Next: sketch primitives (doc) then persist Specs.
 - Wrote [`docs/primitives.md`](../../docs/primitives.md) — v0 primitive table (`observe`/`invoke`/`read`/`write`/`navigate`/`wait_human`/`assert`), irreversibility, compose path, engage as pack expansion. Linked from `docs/spec.md` + README. Marked `primitive-catalog-sketch` + `compose-compiler-direction` completed. Next: `protocol-engine-sketch` or `spec-persistence`.
 - Spec persistence: `@relay/protocol` `SpecBundle` / `SpecStore`; CommunityEngager `FileJsonSpecStore` (`{dataDir}/specs.json`); `run-dev --with-spec` saves, `--spec-id=` loads; app re-saves after Spec HITL; thesis-demo persists + reloads. Marked `spec-persistence` completed. Next: `protocol-engine-sketch`, `research-lab-link`.
+- Protocol engine sketch: [`docs/protocol-engine.md`](../../docs/protocol-engine.md) + `ProtocolEngineStub` (`declare`/`invoke`/`observe`/`evidence`, Spec-gated, dryRun simulate). `EngineType` includes `protocol`. Tests in `test/protocol-engine-stub.test.ts`. Marked `protocol-engine-sketch` completed. Remaining: `research-lab-link`.
