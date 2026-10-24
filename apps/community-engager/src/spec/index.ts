@@ -11,3 +11,7 @@ export {
   buildEngageJobEvidencePack,
   observeEngageJobEvidence,
 } from "./evidence-pack.js";
+export {
+  buildRunSpec,
+  type BuildRunSpecOptions,
+} from "./build-run-spec.js";

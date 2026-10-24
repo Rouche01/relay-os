@@ -9,6 +9,7 @@ import type { FeedbackAdapter } from "@relay/feedback-broker";
 import type { FeedbackRequest, FeedbackResponse } from "@relay/protocol";
 import { CommunityEngagerApp } from "../index.js";
 import { formatRunSummary, type RunSummary } from "../metrics/job-queue.js";
+import { buildRunSpec } from "../spec/build-run-spec.js";
 
 const E2E_ROOT = path.resolve(process.cwd(), ".data", "e2e");
 
@@ -99,7 +100,7 @@ async function runScenario(
   name: string,
   actions: ScriptedAction[],
   expect: Expectation,
-  opts: { faultyStore?: boolean } = {}
+  opts: { faultyStore?: boolean; withSpec?: boolean } = {}
 ): Promise<ScenarioResult> {
   const dir = path.join(E2E_ROOT, name);
   await rm(dir, { recursive: true, force: true });
@@ -110,12 +111,28 @@ async function runScenario(
     ? new FaultyOnceStore({ filePath: storePath })
     : new FileJsonActionStore({ filePath: storePath });
 
+  const spec = opts.withSpec
+    ? buildRunSpec({
+        goal: `E2E ${name}: fixtures + dry-run under frozen Spec`,
+        dryRun: true,
+        maxJobs: 3,
+        frozenBy: "e2e",
+      })
+    : undefined;
+
+  if (spec) {
+    console.log(
+      `  [spec] ${spec.id} status=${spec.status} acceptance=${spec.acceptance.length}`
+    );
+  }
+
   const app = new CommunityEngagerApp({
     store,
     adapter: new ScriptedFeedbackAdapter(actions),
     agentId: `e2e-${name}`,
     sessionId: `e2e-sess-${name}`,
     jobDelayMs: 0,
+    spec,
   });
 
   const summary = await app.run();
@@ -170,6 +187,24 @@ async function main(): Promise<void> {
       failed: 0,
       storeStatuses: ["posted", "posted"],
     })
+  );
+
+  console.log(
+    "\nScenario 1b: approve under frozen Spec → evidence pack gates execute"
+  );
+  results.push(
+    await runScenario(
+      "approve-with-spec",
+      [{ kind: "approve" }],
+      {
+        jobs: 2,
+        approved: 2,
+        aborted: 0,
+        failed: 0,
+        storeStatuses: ["posted", "posted"],
+      },
+      { withSpec: true }
+    )
   );
 
   console.log("\nScenario 2: abort every job → 2 aborted, run still completes");

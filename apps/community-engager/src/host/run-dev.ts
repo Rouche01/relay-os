@@ -7,6 +7,7 @@ import {
 import { CommunityEngagerApp } from "../index.js";
 import { formatRunSummary } from "../metrics/job-queue.js";
 import type { CommunityEntrypoint } from "../manifest.js";
+import { buildRunSpec } from "../spec/build-run-spec.js";
 
 /** CLI: --force-discover | --discover=auto|force|off */
 function applyDiscoverCliFlags(argv: string[]): void {
@@ -48,10 +49,33 @@ function parseEntrypoint(argv: string[]): CommunityEntrypoint {
   return "engage";
 }
 
+function wantsSpec(argv: string[]): boolean {
+  return (
+    argv.includes("--with-spec") ||
+    argv.includes("--spec") ||
+    process.env.COMMUNITY_WITH_SPEC === "1" ||
+    process.env.COMMUNITY_WITH_SPEC === "true"
+  );
+}
+
+function parseSpecGoal(argv: string[]): string | undefined {
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]!;
+    const m = /^--goal=(.+)$/s.exec(arg);
+    if (m?.[1]) return m[1].trim();
+    if (arg === "--goal") {
+      const next = argv[i + 1];
+      if (next && !next.startsWith("-")) return next.trim();
+    }
+  }
+  return undefined;
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   applyDiscoverCliFlags(argv);
   const entrypoint = parseEntrypoint(argv);
+  const withSpec = wantsSpec(argv);
 
   console.log(
     entrypoint === "post_watch"
@@ -66,13 +90,34 @@ async function main(): Promise<void> {
     ? ((telegram = createTelegramAdapterFromEnv()), telegram)
     : new CliFeedbackAdapter();
 
-  const app = new CommunityEngagerApp({ adapter, entrypoint });
+  const spec = withSpec
+    ? buildRunSpec({
+        entrypoint,
+        goal: parseSpecGoal(argv),
+        forceDiscover: process.env.COMMUNITY_DISCOVER === "force",
+        frozenBy: useTelegram ? "telegram-cli" : "cli",
+      })
+    : undefined;
+
+  const app = new CommunityEngagerApp({ adapter, entrypoint, spec });
   const memory = app.getMemory();
   const healthy = await memory.health();
   console.log(
     `Memory: ${memory.name}${healthy ? " (sidecar ok)" : " (unavailable / fail-open)"}\n`
   );
   console.log(`Entrypoint: ${entrypoint}\n`);
+  if (spec) {
+    console.log(
+      `Spec: ${spec.id} v${spec.version} status=${spec.status} ` +
+        `entrypoint=${spec.procedure.entrypoint} dryRun=${spec.budget.dryRun} ` +
+        `maxJobs=${spec.budget.maxJobs}\n` +
+        `Goal: ${spec.goal}\n`
+    );
+  } else {
+    console.log(
+      "Spec: (none) — pass --with-spec to compile+freeze Intent→Spec for this run\n"
+    );
+  }
 
   if (telegram) {
     telegram.start();
