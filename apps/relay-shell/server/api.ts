@@ -1,6 +1,6 @@
 /**
  * Spec governance API — app-agnostic (Relay shell).
- * Not CommunityEngager-bound. Packs for "New from Intent" use relay/compose.
+ * Not CommunityEngager-bound. Default create: decide primitives → compose.
  *
  *   pnpm --filter @relay/apps-relay-shell api
  *   RELAY_SHELL_SERVE_UI=1 pnpm --filter @relay/apps-relay-shell api   # also serve dist/
@@ -10,14 +10,16 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  composeIntentFromSlots,
   createSpecBundle,
   freezeSpec,
   markSpecAborted,
   markSpecRunning,
 } from "@relay/protocol";
 import { createFileSpecStore } from "@relay/spec-store";
-import { relayComposePack } from "./generic-pack.js";
+import {
+  composeAndBundleSpec,
+  type ComposeSpecBody,
+} from "./compose-spec.js";
 
 const shellRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -128,6 +130,11 @@ async function main(): Promise<void> {
           ok: true,
           store: store.path,
           ui: dist ? dist : null,
+          compose:
+            process.env.RELAY_SHELL_COMPOSE?.trim().toLowerCase() === "pack"
+              ? "pack"
+              : "primitives",
+          decideBackend: process.env.DECIDE_BACKEND?.trim() || "heuristic",
         });
         return;
       }
@@ -152,22 +159,19 @@ async function main(): Promise<void> {
 
       if (method === "POST" && url.pathname === "/api/specs") {
         const raw = await readBody(req);
-        const body = raw
-          ? (JSON.parse(raw) as {
-              goal?: string;
-              slots?: Record<string, string | number | boolean | null>;
-            })
-          : {};
-        const goal =
-          body.goal?.trim() || "Compose a Spec from Intent under HITL";
-        const { intent, spec, packId } = composeIntentFromSlots(
-          goal,
-          body.slots ?? { dryRun: true, maxJobs: 2 },
-          { packs: [relayComposePack] }
-        );
-        const bundle = createSpecBundle(intent, spec, { appId: "relay" });
-        await store.put(bundle);
-        sendJson(res, 201, { ...bundle, packId });
+        const body: ComposeSpecBody = raw ? (JSON.parse(raw) as ComposeSpecBody) : {};
+        const created = await composeAndBundleSpec(body);
+        await store.put(created);
+        sendJson(res, 201, {
+          id: created.id,
+          intent: created.intent,
+          spec: created.spec,
+          savedAt: created.savedAt,
+          appId: created.appId,
+          packId: created.packId,
+          primitiveIds: created.primitiveIds,
+          decideBackend: created.decideBackend,
+        });
         return;
       }
 
@@ -235,7 +239,16 @@ async function main(): Promise<void> {
   console.log(`=== Relay · Spec API (shell) ===`);
   console.log(`http://${host}:${port}`);
   console.log(`Spec store: ${store.path}`);
-  console.log(`Pack: relay/compose (domain packs stay in their apps)`);
+  console.log(
+    `Compose: ${
+      process.env.RELAY_SHELL_COMPOSE?.trim().toLowerCase() === "pack"
+        ? "pack (relay/compose)"
+        : "primitives (decide → composeFromPrimitives)"
+    }`
+  );
+  console.log(
+    `Decide: ${process.env.DECIDE_BACKEND?.trim() || "heuristic"} (domain packs stay in their apps)`
+  );
   if (dist) {
     console.log(`UI (dist): ${dist}`);
   } else if (serveUi) {

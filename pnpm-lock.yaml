@@ -97,6 +97,9 @@ importers:
 
   apps/relay-shell:
     dependencies:
+      '@relay/engines-decide':
+        specifier: workspace:*
+        version: link:../../packages/engines-decide
       '@relay/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@relay/engines-decide": "workspace:*",
     "@relay/protocol": "workspace:*",
     "@relay/spec-store": "workspace:*",
     "preact": "^10.26.4"

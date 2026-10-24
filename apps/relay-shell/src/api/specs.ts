@@ -24,6 +24,10 @@ export type SpecBundleDto = {
   savedAt: string;
   appId?: string;
   packId?: string;
+  /** Present on create — catalog ids chosen for this Spec. */
+  primitiveIds?: string[];
+  /** Decide backend used on create (`heuristic` | `jev` | null if skipped). */
+  decideBackend?: string | null;
 };
 
 const PRIMITIVES = new Set([
