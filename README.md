@@ -1,8 +1,12 @@
 # Relay OS
 
-**Relay** is software for running **agentic apps** — programs that do work on your behalf, pause to ask you when a decision matters, then continue.
+**Thesis:** Agents that compile intent into a frozen spec, run against it, prove acceptance, and negotiate with you before they act.
 
-Think of it less like a flowchart of automations, and more like hiring an assistant who must **check with you** before sending the email, posting the comment, or moving the money.
+**How agents do computer work:** Spec is the addressable surface. A **protocol engine** is preferred when systems expose Spec-shaped capabilities; **browser / computer-use** is the fallback when only a human GUI exists. Agents don’t always need a task GUI — they need a Spec-native way to act. Governance UIs (freeze, HITL, evidence) stay.
+
+**Relay** is software for running **agentic apps** — programs that turn a goal into a durable, inspectable spec, execute against that spec (not a free-form chat plan), verify acceptance, and pause to negotiate when a decision or irreversible action matters.
+
+Think of it less like a flowchart of automations, and more like hiring an assistant who must **freeze the brief**, **prove the work**, and **check with you** before sending the email, posting the comment, or moving the money.
 
 ---
 
@@ -10,7 +14,7 @@ Think of it less like a flowchart of automations, and more like hiring an assist
 
 **n8n** wires systems together and can optionally ask a human before a step.  
 **Loops** run an agent in a disciplined cycle until gates pass.  
-**Relay** runs an agent that negotiates with a human through a protocol, then acts.
+**Relay** compiles intent into a frozen spec, runs against it, proves acceptance, and negotiates with a human through a protocol before acting.
 
 ---
 
@@ -30,12 +34,14 @@ That’s powerful for long unattended runs: *keep going until it’s actually do
 
 ### What Relay is for
 
-Relay is built around **agents** that follow a staged plan and a shared **feedback protocol**:
+Relay is built around **agents** that follow a **spec-owned** loop and a shared **feedback protocol**:
 
 | Idea | What it means for you |
 |------|------------------------|
+| **Intent → frozen spec** | You state a goal; Relay compiles it into a durable brief (constraints, acceptance, allowed actions). The agent may replan *inside* that spec — it does not redefine “done.” |
 | **Agentic app** | A packaged assistant with a job (e.g. “scout Reddit and draft replies”), not a one-off flowchart |
-| **Stages** | Clear steps: find work → draft → wait for you → publish → learn |
+| **Stages / manifest** | Clear steps bound to the spec: find work → draft → wait for you → publish → learn |
+| **Prove acceptance** | “Done” means checks / evidence / gates against the spec — not “the model said so” |
 | **Feedback types** | Not only yes/no — you can **approve**, **edit the draft**, **pick an option**, **enter a code**, or **abort** |
 | **Negotiate, then act** | The agent presents a proposal; you shape it; only then does it take the risky action |
 | **Memory (VoltMem)** | It can remember what you rejected or preferred last time, so the next draft is smarter |
@@ -54,11 +60,11 @@ Same end result is possible in more than one of these. The difference is the **c
 
 - **n8n** → “Wire systems; optionally ask a human before this node.”
 - **Loops** → “Run an agent in a disciplined cycle until gates pass.”
-- **Relay** → “Run an agent that negotiates with a human through a protocol, then acts.”
+- **Relay** → “Compile intent into a frozen spec; run and prove acceptance against it; negotiate with a human before irreversible action.”
 
 If you only need one Reddit bot next week, n8n (or a small custom script) may be enough.  
 If you need long runs that only stop when tests/judges/people clear gates, that’s Loops territory.  
-If you want many agentic apps that all share the same approve / edit / abort / credential patterns — and later a full agent workspace — that’s Relay.
+If you want agentic apps that share intent→spec→verify→HITL patterns — and later a full agent workspace — that’s Relay.
 
 ---
 
@@ -82,17 +88,18 @@ Relay is the **whole flow**, not just infrastructure and not just an approval wi
 
 | Layer | Job |
 |-------|-----|
-| **Living todo** | Priority queue of **agent jobs** (not grocery checklists). Each item can become a plan → manifest → running agent. |
+| **Living todo** | Priority queue of **agent jobs** (not grocery checklists). Each item can become intent → frozen spec → manifest → running agent. |
 | **Feedback surface** | When the agent needs you, the **todo card** (and/or Telegram) is the negotiation UI — same idea as [gotoHuman](https://www.gotohuman.com/)-style review, but owned by Relay’s feedback types. |
-| **Runtime** | Manifest stages, Feedback Broker, engines, VoltMem — so many apps share one approve / edit / abort language. |
+| **Runtime** | Spec + manifest stages, acceptance evidence, Feedback Broker, engines, VoltMem — so many apps share one intent→spec→verify→HITL language. |
 
-**Living todo (plain English):** you add an item with a priority tag; Relay orchestrates a plan into a manifest and runs jobs in priority order (then by age). Mid-flight it pauses that card and asks you when a human decision is required, then continues or aborts.
+**Living todo (plain English):** you add an item with a priority tag; Relay compiles intent into a frozen spec, runs a manifest against it, and proves acceptance. Mid-flight it pauses that card and asks you when a human decision is required, then continues or aborts.
 
-One more center-of-gravity line:
+Center-of-gravity lines:
 
-- **Living todo** → “A priority queue of agent jobs; each job plans a manifest, runs stages, and pauses the card when a human must decide.”
+- **Thesis** → “Agents that compile intent into a frozen spec, run against it, prove acceptance, and negotiate with you before they act.”
+- **Living todo** → “A priority queue of agent jobs; each job owns a frozen spec, runs stages against it, and pauses the card when a human must decide.”
 
-We’re **not** competing as another AI Todoist. We’re **not** only an approval inbox others plug into. The queue is the shell; the review UI is how HITL feels; the protocol is why it’s a product.
+We’re **not** competing as another AI Todoist. We’re **not** only an approval inbox others plug into. We’re **not** a free-form self-orchestrating chat agent. The queue is the shell; the frozen spec is authority; the review UI is how HITL feels; the protocol is why it’s a product.
 
 ---
 
@@ -102,20 +109,23 @@ We’re **not** starting with a fake desktop OS. The shell is the **living todo 
 
 We’re proving the full stack end-to-end:
 
-1. Add a job (priority + chrono queue)  
-2. Run a known agentic app (manifest stages)  
-3. Pause for human feedback on the card (and/or Telegram / CLI)  
-4. Act only after approval (or stop on abort)  
-5. Remember outcomes via [VoltMem](https://github.com/Rouche01/voltmem)  
+1. State intent → compile a **frozen Spec**  
+2. Run a known agentic app (manifest stages) **against that Spec**  
+3. Prove acceptance (evidence pack)  
+4. Pause for human feedback on the card (and/or Telegram / CLI)  
+5. Act only after approval (or stop on abort)  
+6. Remember outcomes via [VoltMem](https://github.com/Rouche01/voltmem)  
 
 First dogfood app: **CommunityEngager** (GoStylens community HITL) — workflow diagram: [`apps/community-engager/README.md`](apps/community-engager/README.md).
 
 **Plans:**
 
+- **Thesis readiness (intent → Spec → verify → HITL):** [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](.cursor/plans/relay_intent_spec_verify_hitl.plan.md)
 - Living todo shell (queue UX + in-card HITL): [`.cursor/plans/relay_living_todo_shell.plan.md`](.cursor/plans/relay_living_todo_shell.plan.md)
 - Community HITL runtime + VoltMem: [`.cursor/plans/relay_hitl_community_voltmem.plan.md`](.cursor/plans/relay_hitl_community_voltmem.plan.md)
 
-Architecture (technical): [`ARCHITECTURE.md`](ARCHITECTURE.md)
+Architecture (technical): [`ARCHITECTURE.md`](ARCHITECTURE.md)  
+Viability / pitch insight: [`docs/viability.md`](docs/viability.md)
 
 ---
 

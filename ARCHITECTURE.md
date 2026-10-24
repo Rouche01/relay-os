@@ -1,13 +1,15 @@
 # Relay OS — Internet-Native Operating System
 
-> A feedback-driven, AI-native operating system built for the browser, where agentic apps replace traditional applications and the internet is the substrate, not the accessory.
+> **Thesis (canonical):** Agents that compile intent into a frozen spec, run against it, prove acceptance, and negotiate with you before they act.
+>
+> Longer-term surface: a feedback-driven, AI-native operating system built for the browser, where agentic apps replace traditional applications and the internet is the substrate, not the accessory.
 
 ## Vision
 
-Build a browser-based operating system where:
+Build a runtime (and eventually a browser-based OS shell) where:
 - **Identity** is the root primitive, not the machine
-- **Intent** is the primary input, not clicks and menus
-- **Agentic apps** replace traditional applications — they act on your behalf, pausing for feedback when needed
+- **Intent** is the primary input — compiled into a **frozen spec** (constraints, acceptance, allowed actions), not a free-form chat plan
+- **Agentic apps** act on your behalf against that spec, **prove acceptance**, and pause to negotiate before irreversible action
 - **A universal protocol** defines how agentic apps declare capabilities, request feedback, and compose with each other
 - **Execution engines** (browser automation, LLM reasoning, API calls, code execution) are pluggable OS services
 
@@ -15,10 +17,11 @@ Build a browser-based operating system where:
 
 See the root [`README.md`](README.md) for plain-language Relay vs n8n vs Loops, and the **living todo + HITL + runtime** product stack:
 
+> **Thesis:** Agents that compile intent into a frozen spec, run against it, prove acceptance, and negotiate with you before they act.  
 > **n8n** wires systems and can optionally ask a human before a node.  
 > **Loops** run an agent in a disciplined cycle until gates pass.  
-> **Relay** runs an agent that negotiates with a human through a protocol, then acts.  
-> **Living todo** is a priority queue of agent jobs; each job plans a manifest, runs stages, and pauses the card when a human must decide.
+> **Relay** owns intent→spec→verify→HITL, then acts.  
+> **Living todo** is a priority queue of agent jobs; each job owns a frozen spec, runs stages against it, and pauses the card when a human must decide.
 
 ---
 
