@@ -9,7 +9,7 @@ Human-owned authority for agent computer work. Types live in `@relay/protocol`:
 
 **Engines:** Spec may bind `protocol` (preferred) or `browser` (GUI fallback). Manifests still define stages; Spec authorizes and defines “done.”
 
-**North star catalog:** domain-free **primitives** + compose Intent→Spec — see [`primitives.md`](./primitives.md). CommunityEngager below is a **domain pack** (dogfood), not the end architecture.
+**North star catalog:** domain-free **primitives** + compose Intent→Spec — see [`primitives.md`](./primitives.md). Protocol API: `composeIntent` / `DomainPack` in [`compose.ts`](../packages/protocol/src/compose.ts). CommunityEngager below is a **domain pack** (dogfood), not the end architecture.
 
 **Protocol vs browser:** same Spec, two engines — see [`protocol-engine.md`](./protocol-engine.md) (`ProtocolEngineStub` in `@relay/protocol`).
 

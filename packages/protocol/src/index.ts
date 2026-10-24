@@ -8,3 +8,4 @@ export * from "./intent";
 export * from "./evidence";
 export * from "./spec-store";
 export * from "./protocol-engine";
+export * from "./compose";
