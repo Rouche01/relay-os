@@ -4,10 +4,10 @@ overview: "Make Relay’s thesis demoable: Intent→frozen Spec→prove→HITL, 
 todos:
   - id: spec-schema
     content: "Define Spec schema in @relay/protocol — goal, constraints, allowed_actions, acceptance[], hitl_required[], budget; optional action_binding (protocol | browser); status draft→frozen→running→satisfied|aborted; freeze = explicit human (or documented auto) gate"
-    status: pending
+    status: completed
   - id: intent-type
     content: "Define Intent type + persistence — natural-language goal + structured slots; link Intent → Spec; store via action-store (or Spec store) for replay/demo"
-    status: pending
+    status: completed
   - id: engage-compiler-v1
     content: "CommunityEngager Intent→Spec compiler v1 — template fill only (no free-form stage invention); map slots to Spec + bind existing engage/post_watch manifests (browser path dogfood)"
     status: pending
@@ -207,3 +207,4 @@ Use the YAML `todos` above as the source of truth for status (`pending` / `in_pr
 - Clarified architecture: **Spec protocol preferred** for computer work; **browser/computer-use is compatibility fallback** for GUI-only systems. Same Spec binds both.
 - Plan change: additive — P0 dogfood path unchanged (CommunityEngager/browser); added `protocol-engine-sketch`, `action_binding` on Spec schema, dual-path diagram, secondary goals. Did not reopen OS / “GUIs are dead” scope.
 - Wrote [`docs/viability.md`](../../docs/viability.md) — viability by layer, risks, path, YC pitch shape; linked from README.
+- Implemented `@relay/protocol` Spec + Intent (`spec.ts`, `intent.ts`): freeze/thaw/running/satisfied/aborted helpers; procedure binding; typed acceptance; action_binding. Persistence (action-store) deferred to engage-compiler / later. Docs: [`docs/spec.md`](../../docs/spec.md). Marked `spec-schema` + `intent-type` completed.

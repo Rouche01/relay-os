@@ -125,7 +125,8 @@ First dogfood app: **CommunityEngager** (GoStylens community HITL) — workflow 
 - Community HITL runtime + VoltMem: [`.cursor/plans/relay_hitl_community_voltmem.plan.md`](.cursor/plans/relay_hitl_community_voltmem.plan.md)
 
 Architecture (technical): [`ARCHITECTURE.md`](ARCHITECTURE.md)  
-Viability / pitch insight: [`docs/viability.md`](docs/viability.md)
+Viability / pitch insight: [`docs/viability.md`](docs/viability.md)  
+Spec & Intent (protocol types): [`docs/spec.md`](docs/spec.md)
 
 ---
 
