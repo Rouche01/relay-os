@@ -12,7 +12,7 @@ App-agnostic Intent → Spec **Approve / Abort**. Not owned by CommunityEngager.
 
 **Default create path:** free-form goal → pick catalog primitives (heuristic or Jev) → draft Spec (`packId: relay/primitives`) → human Approve / Abort.
 
-Domain packs (e.g. `community-engager/engage`) and CE **manifest** runs stay in their apps — additive only; the shell does not replace them.
+**CE-parity target:** engage-like goals should compose to roughly `observe` / `read` / `navigate|invoke` / `assert` / `wait_human` / `write` — see [primitives.md · Domain pack example — engage](./primitives.md#domain-pack-example--engage-parity-target). Domain packs and CE **manifest** runs stay in their apps — additive only; the shell does not replace them.
 
 Living-todo **queue / in-card HITL** is owned by [`.cursor/plans/relay_living_todo_shell.plan.md`](../.cursor/plans/relay_living_todo_shell.plan.md); the shell only mounts a `#/todo` stub for now.
 

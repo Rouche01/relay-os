@@ -1,11 +1,11 @@
 # Spec primitives & compose (sketch)
 
-**Status:** design sketch (Phase E). No runtime rewrite yet.  
-**Plan:** [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](../.cursor/plans/relay_intent_spec_verify_hitl.plan.md) — `primitive-catalog-sketch`, `compose-compiler-direction`.
+**Status:** design sketch + shell compose path live. CE **manifest runtime stays** (additive).  
+**Plans:** [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](../.cursor/plans/relay_intent_spec_verify_hitl.plan.md) · [`.cursor/plans/primitive_compose_ui_6acdc392.plan.md`](../.cursor/plans/primitive_compose_ui_6acdc392.plan.md)
 
-**Goal:** Almost any Intent becomes a Spec by **mixing domain-free primitives**, not by shipping a new compiler per app. Domain packs (e.g. CommunityEngager `engage`) are optional recipes that expand into the same primitives.
+**Goal:** Almost any Intent becomes a Spec by **mixing domain-free primitives**, not by shipping a new compiler per app. Domain packs (e.g. CommunityEngager `engage`) are optional recipes that expand into the same primitives. **North star:** an engage-like Spec from shell compose is *functionally comparable* to today’s pack expansion — without deleting the manifest path.
 
-Related: [`spec.md`](./spec.md) (types + engage dogfood), [`viability.md`](./viability.md).
+Related: [`spec.md`](./spec.md) (types + engage dogfood), [`spec-ui.md`](./spec-ui.md) (shell decide → compose), [`viability.md`](./viability.md).
 
 ---
 
@@ -80,30 +80,60 @@ Intent (goal + optional slots)
 
 **One compose function; many packs.** Not one compiler package forever per app.
 
-Implementation (protocol): [`packages/protocol/src/compose.ts`](../packages/protocol/src/compose.ts) — `composeIntent`, `DomainPack`, `ComposeExpansion`.
+Implementation (protocol): [`packages/protocol/src/compose.ts`](../packages/protocol/src/compose.ts) — `composeIntent`, `composeFromPrimitives`, `DomainPack`, `ComposeExpansion`.
+
+Decide picker: [`packages/engines-decide/src/pick-primitives.ts`](../packages/engines-decide/src/pick-primitives.ts) — `pickPrimitivesForGoal` (Jev | heuristic).
 
 CommunityEngager packs: [`apps/community-engager/src/spec/packs/community-engager-packs.ts`](../apps/community-engager/src/spec/packs/community-engager-packs.ts) — use `composeCommunityIntent` (or `compileEngageIntent` alias).
 
-### Domain pack example — engage (illustrative)
+Shell wiring: [`docs/spec-ui.md`](./spec-ui.md).
 
-Recipe `community-engager/engage` expands roughly to:
+### Domain pack example — engage (parity target)
 
-1. `observe` / `read` — allowlist, queue, memory  
-2. `invoke` or browser-mapped scout — find candidates (still constrained)  
-3. `assert` — score / policy gates  
-4. `wait_human` — draft HITL  
-5. `write` — post comment only after approve  
+Recipe `community-engager/engage` expands to **primitives + documented aliases**. Source of truth for fields: [`engage-spec-fields.ts`](../apps/community-engager/src/spec/engage-spec-fields.ts) (`buildPrimitiveActions` + `buildAliasActions`).
 
-`post_watch` is another recipe on the same primitive set. Packs may add **constraints** (`allowlist_only`, `no_promo`) and **acceptance** items; they must not introduce unbound action ids outside the catalog + documented pack aliases.
+| Engage concern (today) | Catalog primitive | Notes |
+|------------------------|-------------------|--------|
+| Session / page / allowlist / memory | `observe`, `read` | Browser + store |
+| Open Reddit / move surfaces | `navigate` | Browser binding |
+| Scout / draft tools | `invoke` | Reversible; aliases e.g. `scout_threads`, `draft_reply` |
+| Score / policy / evidence gates | `assert` | Evidence pack |
+| Spec + draft HITL | `wait_human` | Feedback Broker / Spec UI |
+| Post comment (irreversible) | `write` | Alias `post_comment`; always behind HITL |
+
+**CE-parity Spec (acceptance for shell compose):** for an engage-like free-form goal, decide + `composeFromPrimitives` should yield a draft whose `allowedActions` **include at least**:
+
+`observe`, `read`, `navigate` and/or `invoke`, `assert`, `wait_human`, `write`
+
+(plus `before_irreversible` HITL when `write` is present — enforced by `ensurePrimitiveSafety`).
+
+Aliases (`scout_threads`, `post_comment`, …) remain **pack-only**; the shell compose path does **not** invent them. A Spec that lists the primitive set above is the governance parity target; the **manifest stage graph** remains how CE actually runs today.
+
+`post_watch` is another recipe on the same primitive set (poll → draft → HITL → write). Packs may add **constraints** (`allowlist_only`, `no_promo`) and **acceptance** items; they must not introduce unbound action ids outside the catalog + documented pack aliases.
+
+### Two paths (coexist)
+
+```text
+A) Manifest dogfood (unchanged)
+   Intent → community-engager/engage pack → Spec (primitives+aliases)
+        → procedure binds engage stages → browser runtime
+
+B) Shell primitive compose (new)
+   Intent goal → engines-decide → composeFromPrimitives
+        → Spec (catalog subset, packId relay/primitives)
+        → human Approve / Abort in Spec UI
+```
+
+Hard invariant: **A keeps working.** B is additive governance / thesis UI. Migrating A’s *runtime* onto a pure primitive executor is a later plan with an explicit dogfood gate — not a silent rewrite.
 
 ### Procedure field today vs later
 
 Current `Spec.procedure = { appId, entrypoint }` points at a dogfood manifest. Under compose:
 
-- **Near term:** `procedure` may still name a pack (`community-engager` / `engage`) while `allowedActions` migrate toward primitive ids (or dual-list during transition).
-- **Later:** `procedure` can mean “compose run” / pack id, with the **runtime executing the primitive plan** rather than a fixed stage graph invented outside the Spec.
+- **Near term:** CE packs still set `procedure` to `community-engager` / `engage|post_watch`. Shell primitive Specs use `relay` / `compose`.
+- **Later (optional):** `procedure` can mean “compose run” / pack id, with the **runtime executing the primitive plan** rather than a fixed stage graph invented outside the Spec.
 
-No requirement to rewrite CommunityEngager manifests before the catalog and persistence land.
+No requirement to rewrite CommunityEngager manifests for shell compose or CE-parity docs to land.
 
 ---
 
@@ -131,9 +161,14 @@ No requirement to rewrite CommunityEngager manifests before the catalog and pers
 2. ~~`spec-persistence`~~ — see [`spec.md`](./spec.md) (Spec store)  
 3. ~~`protocol-engine-sketch`~~ — see [`protocol-engine.md`](./protocol-engine.md)  
 4. ~~Compose + engage packs + demo~~ — `composeCommunityIntent`, packs, [`compose-demo.md`](./compose-demo.md)  
+5. ~~Shell decide → composeFromPrimitives → Spec UI~~ — [`spec-ui.md`](./spec-ui.md)  
+6. ~~CE-parity sketch~~ — engage → primitive table above (manifest path kept)  
+7. Follow-on: automated parity check (engage pack primitives ⊆ / ≈ shell pick for engage-like goals); primitive runtime still deferred  
 
 ## Acceptance for this todo
 
 - [x] Small domain-free primitive table with side effects and binding notes  
 - [x] Compose story documented; engage framed as pack/recipe  
 - [x] Linked from Spec docs / plan Phase E  
+- [x] CE-parity: engage concern → primitive map + coexistence of manifest vs shell paths  
+
