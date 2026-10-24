@@ -308,6 +308,7 @@ export { formatRunSummary };
 export * from "./types.js";
 export * from "./decide/feedback-map.js";
 export * from "./manifest.js";
+export * from "./spec/index.js";
 export * from "./engines.js";
 export * from "./metrics/job-queue.js";
 export * from "./metrics/run-log.js";

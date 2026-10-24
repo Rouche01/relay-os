@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: engage-compiler-v1
     content: "CommunityEngager Intent→Spec compiler v1 — template fill only (no free-form stage invention); map slots to Spec + bind existing engage/post_watch manifests (browser path dogfood)"
-    status: pending
+    status: completed
   - id: runtime-bound-to-spec
     content: "Runtime/app refuse work outside frozen Spec — capabilities, budgets, dry-run default, allowlist/policy; thaw required to widen constraints"
     status: pending
@@ -208,3 +208,4 @@ Use the YAML `todos` above as the source of truth for status (`pending` / `in_pr
 - Plan change: additive — P0 dogfood path unchanged (CommunityEngager/browser); added `protocol-engine-sketch`, `action_binding` on Spec schema, dual-path diagram, secondary goals. Did not reopen OS / “GUIs are dead” scope.
 - Wrote [`docs/viability.md`](../../docs/viability.md) — viability by layer, risks, path, YC pitch shape; linked from README.
 - Implemented `@relay/protocol` Spec + Intent (`spec.ts`, `intent.ts`): freeze/thaw/running/satisfied/aborted helpers; procedure binding; typed acceptance; action_binding. Persistence (action-store) deferred to engage-compiler / later. Docs: [`docs/spec.md`](../../docs/spec.md). Marked `spec-schema` + `intent-type` completed.
+- CommunityEngager `compileEngageFromSlots` / `compileEngageIntent` — template Intent→draft Spec for engage|post_watch; tests in `test/engage-compiler.test.ts`. Marked `engage-compiler-v1` completed. Next: `evidence-pack` / `runtime-bound-to-spec`.

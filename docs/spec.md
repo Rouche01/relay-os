@@ -9,4 +9,14 @@ Human-owned authority for agent computer work. Types live in `@relay/protocol`:
 
 **Engines:** Spec may bind `protocol` (preferred) or `browser` (GUI fallback). Manifests still define stages; Spec authorizes and defines “done.”
 
+## CommunityEngager compiler (v1)
+
+Template fill only — no free-form stage invention:
+
+- [`apps/community-engager/src/spec/engage-compiler.ts`](../apps/community-engager/src/spec/engage-compiler.ts)
+- `compileEngageFromSlots(goal, slots)` → `{ intent, spec }` draft Spec with `procedure.appId = community-engager` and `entrypoint` `engage` | `post_watch`
+- Slots: `entrypoint`, `maxJobs`, `dryRun`, `forceDiscover`, `allowPromo`
+
+Freeze with `freezeSpec(spec)` from `@relay/protocol` before treating the brief as law.
+
 See readiness plan: [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](../.cursor/plans/relay_intent_spec_verify_hitl.plan.md).

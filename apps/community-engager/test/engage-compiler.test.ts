@@ -1,0 +1,73 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { freezeSpec, thawSpec } from "@relay/protocol";
+import {
+  COMMUNITY_ENGAGER_APP_ID,
+  compileEngageFromSlots,
+  compileEngageIntent,
+} from "../src/spec/engage-compiler.js";
+
+describe("compileEngageIntent (template v1)", () => {
+  it("compiles engage defaults into a draft Spec bound to community-engager", () => {
+    const { intent, spec } = compileEngageFromSlots(
+      "Helpful replies in fashion subs",
+      {},
+      { defaults: { maxJobs: 2, dryRun: true } }
+    );
+
+    assert.equal(intent.status, "compiled");
+    assert.equal(intent.specId, spec.id);
+    assert.equal(spec.status, "draft");
+    assert.equal(spec.intentId, intent.id);
+    assert.equal(spec.procedure.appId, COMMUNITY_ENGAGER_APP_ID);
+    assert.equal(spec.procedure.entrypoint, "engage");
+    assert.equal(spec.actionBinding, "browser");
+    assert.equal(spec.budget.maxJobs, 2);
+    assert.equal(spec.budget.dryRun, true);
+    assert.ok(spec.acceptance.length >= 1);
+    assert.ok(spec.allowedActions.some((a) => a.id === "post_comment"));
+    assert.ok(
+      spec.allowedActions.find((a) => a.id === "post_comment")?.sideEffect ===
+        "irreversible"
+    );
+    assert.ok(spec.constraints.some((c) => c.id === "hitl_before_post"));
+    assert.ok(spec.hitlRequired.some((h) => h.when === "before_irreversible"));
+  });
+
+  it("honors slots for post_watch, maxJobs, dryRun, allowPromo", () => {
+    const { spec } = compileEngageFromSlots("Watch posts", {
+      entrypoint: "post_watch",
+      maxJobs: 1,
+      dryRun: false,
+      allowPromo: false,
+    });
+
+    assert.equal(spec.procedure.entrypoint, "post_watch");
+    assert.equal(spec.budget.maxJobs, 1);
+    assert.equal(spec.budget.dryRun, false);
+    assert.ok(spec.allowedActions.some((a) => a.id === "post_watch"));
+    assert.ok(!spec.allowedActions.some((a) => a.id === "scout_threads"));
+    assert.ok(spec.constraints.some((c) => c.id === "no_promo"));
+    assert.ok(!spec.acceptance.some((a) => a.id === "intensity2_gate"));
+  });
+
+  it("forceDiscover adds constraint on engage", () => {
+    const { spec } = compileEngageFromSlots("Engage with discover", {
+      forceDiscover: true,
+    });
+    assert.ok(spec.constraints.some((c) => c.id === "force_discover"));
+  });
+
+  it("freeze requires acceptance and thaw bumps version", () => {
+    const { spec } = compileEngageIntent("Scout and draft");
+    const frozen = freezeSpec(spec, { frozenBy: "test" });
+    assert.equal(frozen.status, "frozen");
+    assert.equal(frozen.frozenBy, "test");
+    assert.ok(frozen.frozenAt);
+
+    const draft = thawSpec(frozen);
+    assert.equal(draft.status, "draft");
+    assert.equal(draft.version, frozen.version + 1);
+    assert.equal(draft.frozenAt, undefined);
+  });
+});
