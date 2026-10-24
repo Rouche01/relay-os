@@ -1,7 +1,10 @@
-import { freezeSpec, type Spec } from "@relay/protocol";
+import { freezeSpec, type Intent, type Spec } from "@relay/protocol";
 import {
   compileEngageFromSlots,
   type EngageCompileOptions,
+  type FeedbackAdapterKind,
+  resolveFeedbackAdapterFromSpec,
+  resolveFeedbackAdapterSlot,
 } from "./engage-compiler.js";
 import type { CommunityEntrypoint } from "../manifest.js";
 import { getCommunityConfig } from "../reddit/config.js";
@@ -13,9 +16,18 @@ export type BuildRunSpecOptions = {
   dryRun?: boolean;
   forceDiscover?: boolean;
   allowPromo?: boolean;
+  /** Intent slot: which HITL adapter the host should use. */
+  adapter?: FeedbackAdapterKind;
   frozenBy?: string;
   /** When false, return draft Spec (tests). Default true. */
   freeze?: boolean;
+};
+
+export type BuildRunSpecBundle = {
+  intent: Intent;
+  spec: Spec;
+  /** Resolved adapter from slots / options (cli | telegram). */
+  adapter?: FeedbackAdapterKind;
 };
 
 /**
@@ -23,6 +35,13 @@ export type BuildRunSpecOptions = {
  * current env defaults (dry-run, max jobs) and optional overrides.
  */
 export function buildRunSpec(opts: BuildRunSpecOptions = {}): Spec {
+  return buildRunSpecBundle(opts).spec;
+}
+
+/** Same as {@link buildRunSpec}, also returns Intent + resolved adapter slot. */
+export function buildRunSpecBundle(
+  opts: BuildRunSpecOptions = {}
+): BuildRunSpecBundle {
   const cfg = getCommunityConfig();
   const entrypoint = opts.entrypoint ?? "engage";
   const compileOpts: EngageCompileOptions = {
@@ -32,6 +51,7 @@ export function buildRunSpec(opts: BuildRunSpecOptions = {}): Spec {
       dryRun: opts.dryRun ?? cfg.reddit.dryRun,
       forceDiscover: opts.forceDiscover ?? false,
       allowPromo: opts.allowPromo ?? true,
+      adapter: opts.adapter,
     },
   };
 
@@ -41,20 +61,31 @@ export function buildRunSpec(opts: BuildRunSpecOptions = {}): Spec {
       ? "Watch enrolled posts and draft follow-ups under HITL"
       : "Scout allowlisted communities and draft helpful replies under HITL");
 
-  const { spec } = compileEngageFromSlots(
+  const slots = {
+    entrypoint,
+    maxJobs: compileOpts.defaults!.maxJobs!,
+    dryRun: compileOpts.defaults!.dryRun!,
+    forceDiscover: compileOpts.defaults!.forceDiscover!,
+    allowPromo: compileOpts.defaults!.allowPromo!,
+    ...(opts.adapter ? { adapter: opts.adapter } : {}),
+  };
+
+  const { intent, spec: draft } = compileEngageFromSlots(
     goal,
-    {
-      entrypoint,
-      maxJobs: compileOpts.defaults!.maxJobs!,
-      dryRun: compileOpts.defaults!.dryRun!,
-      forceDiscover: compileOpts.defaults!.forceDiscover!,
-      allowPromo: compileOpts.defaults!.allowPromo!,
-    },
+    slots,
     compileOpts
   );
 
-  if (opts.freeze === false) return spec;
-  return freezeSpec(spec, {
-    frozenBy: opts.frozenBy ?? "cli",
-  });
+  const spec =
+    opts.freeze === false
+      ? draft
+      : freezeSpec(draft, {
+          frozenBy: opts.frozenBy ?? opts.adapter ?? "cli",
+        });
+
+  const adapter =
+    resolveFeedbackAdapterSlot(intent.slots, opts.adapter) ??
+    resolveFeedbackAdapterFromSpec(spec);
+
+  return { intent, spec, adapter };
 }

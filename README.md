@@ -126,7 +126,9 @@ First dogfood app: **CommunityEngager** (GoStylens community HITL) — workflow 
 
 Architecture (technical): [`ARCHITECTURE.md`](ARCHITECTURE.md)  
 Viability / pitch insight: [`docs/viability.md`](docs/viability.md)  
-Spec & Intent (protocol types): [`docs/spec.md`](docs/spec.md)
+Spec & Intent (protocol types): [`docs/spec.md`](docs/spec.md)  
+Spec primitives & compose (sketch): [`docs/primitives.md`](docs/primitives.md)  
+Thesis demo (cold script): [`docs/thesis-demo.md`](docs/thesis-demo.md) — `pnpm --filter @relay/apps-community-engager thesis-demo`
 
 ---
 

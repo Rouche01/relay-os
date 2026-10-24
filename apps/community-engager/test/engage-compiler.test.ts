@@ -5,6 +5,8 @@ import {
   COMMUNITY_ENGAGER_APP_ID,
   compileEngageFromSlots,
   compileEngageIntent,
+  resolveFeedbackAdapterFromSpec,
+  resolveFeedbackAdapterSlot,
 } from "../src/spec/engage-compiler.js";
 
 describe("compileEngageIntent (template v1)", () => {
@@ -56,6 +58,23 @@ describe("compileEngageIntent (template v1)", () => {
       forceDiscover: true,
     });
     assert.ok(spec.constraints.some((c) => c.id === "force_discover"));
+  });
+
+  it("adapter slot records cli|telegram on Spec constraints", () => {
+    const { intent, spec: tg } = compileEngageFromSlots("Scout", {
+      adapter: "telegram",
+    });
+    assert.equal(intent.slots.adapter, "telegram");
+    assert.ok(tg.constraints.some((c) => c.id === "hitl_adapter_telegram"));
+    assert.equal(resolveFeedbackAdapterFromSpec(tg), "telegram");
+
+    const { spec: cli } = compileEngageFromSlots("Scout", { adapter: "cli" });
+    assert.ok(cli.constraints.some((c) => c.id === "hitl_adapter_cli"));
+    assert.equal(resolveFeedbackAdapterFromSpec(cli), "cli");
+
+    assert.equal(resolveFeedbackAdapterSlot({ adapter: "tg" }), "telegram");
+    assert.equal(resolveFeedbackAdapterSlot({ adapter: "terminal" }), "cli");
+    assert.equal(resolveFeedbackAdapterSlot({}), undefined);
   });
 
   it("freeze requires acceptance and thaw bumps version", () => {

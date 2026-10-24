@@ -2,9 +2,12 @@ export {
   COMMUNITY_ENGAGER_APP_ID,
   compileEngageFromSlots,
   compileEngageIntent,
+  resolveFeedbackAdapterFromSpec,
+  resolveFeedbackAdapterSlot,
   type EngageCompileOptions,
   type EngageCompileResult,
   type EngageIntentSlotKey,
+  type FeedbackAdapterKind,
 } from "./engage-compiler.js";
 export {
   assertEngagePreExecuteEvidence,
@@ -13,6 +16,8 @@ export {
 } from "./evidence-pack.js";
 export {
   buildRunSpec,
+  buildRunSpecBundle,
+  type BuildRunSpecBundle,
   type BuildRunSpecOptions,
 } from "./build-run-spec.js";
 export {

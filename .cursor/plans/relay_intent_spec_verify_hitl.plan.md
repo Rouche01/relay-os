@@ -1,6 +1,6 @@
 ---
 name: Relay intent→spec→verify→HITL readiness
-overview: "Make Relay’s thesis demoable: Intent→frozen Spec→prove→HITL, with Spec as the addressable surface for computer work. Protocol engine is the preferred path (Spec-native capabilities); browser/computer-use is the compatibility fallback for GUI-only systems. Dogfood on CommunityEngager first; formal vericoding stays in research-lab."
+overview: "Make Relay’s thesis demoable: Intent→frozen Spec→prove→HITL. Dogfood on CommunityEngager (domain recipe). North star: domain-free primitive catalog + compose Intent→Spec so almost any intent is a mix of primitives; protocol engine preferred, browser as fallback. Formal vericoding stays in research-lab."
 todos:
   - id: spec-schema
     content: "Define Spec schema in @relay/protocol — goal, constraints, allowed_actions, acceptance[], hitl_required[], budget; optional action_binding (protocol | browser); status draft→frozen→running→satisfied|aborted; freeze = explicit human (or documented auto) gate"
@@ -22,12 +22,21 @@ todos:
     status: completed
   - id: thin-shell-or-demo-path
     content: "Thin demo surface — living-todo card OR documented CLI/Telegram script showing Intent→Spec→Evidence→HITL→act; full living-todo UX can stay on shell plan"
-    status: pending
+    status: completed
   - id: e2e-thesis-demo
     content: "E2E cold demo — create intent → show Spec → freeze → run → WAITING_YOU with evidence → edit/approve/abort → dry-run or post; record checklist + short script"
-    status: pending
+    status: completed
   - id: protocol-engine-sketch
-    content: "Sketch Spec-native protocol engine — declare/invoke/observe/evidence against same Spec types; no full adoption push yet; one stub or doc that shows protocol path vs browser path under one Spec"
+    content: "Sketch Spec-native protocol engine — declare/invoke/observe/evidence against same Spec types; align with primitive catalog (not domain APIs); stub or doc: protocol vs browser under one Spec"
+    status: pending
+  - id: primitive-catalog-sketch
+    content: "Sketch domain-free primitive catalog — small Spec-addressable atoms (observe/invoke/read/write/wait_human/assert/…); mark irreversible; each primitive has a runtime binding (protocol | browser). Not CommunityEngager-shaped."
+    status: completed
+  - id: compose-compiler-direction
+    content: "Document single compose path — Intent → select/order/constrain primitives → Spec; domain packs (engage) are optional recipes that expand to primitives. No per-app compiler forever; no free invent of unbound stages."
+    status: completed
+  - id: spec-persistence
+    content: "Persist Intent + frozen Spec (action-store or Spec store) for replay/resume/demo; load by id to run under that Spec"
     status: pending
   - id: research-lab-link
     content: "Cross-link research-lab/spec-owned-vericoding — product Spec = near-term human-owned surface; formal vericoding deferred; steal patterns both ways, no merge"
@@ -60,6 +69,26 @@ Implications:
 - Long horizon: Spec-derived **intent-native apps** (happy path may have no task GUI). That is north star, not the first demo.
 - CommunityEngager remains the dogfood vertical on the **browser** path; protocol path is sketched so Spec schema doesn’t paint us into “GUI-only agents.”
 
+### Catalog grain (2026-10-24) — primitives, not domains
+
+**Target:** one compose path that can Spec almost any Intent by **mixing domain-free primitives**, not by shipping a new compiler per app.
+
+| Layer | Role | Examples |
+|-------|------|----------|
+| **Primitives** | Spec-addressable atoms the runtime can run; catalog is domain-free | `observe`, `invoke`, `read`, `write` (side-effect class), `wait_human`, `assert` / evidence |
+| **Composition** | Single compiler job: Intent → choose / order / constrain primitives → Spec | `allowed_actions[]`, constraints, acceptance, HITL, budget |
+| **Domain packs** | Optional recipes that *expand* into primitives | `engage` / `post_watch` — shortcuts, not catalog roots |
+
+Today’s `engage-compiler` is a **domain pack** (template → engage procedure). That remains valid dogfood. It is **not** the end architecture: per-app compilers forever would fight the thesis.
+
+**Non-negotiables for primitives:**
+
+- Small catalog; irreversible primitives always behind HITL + evidence when Spec says so
+- Every primitive has a real binding (`protocol` preferred, `browser` fallback) — composition must not invent unbound fiction
+- Domain packs may stay for UX/speed; they compile down to the same primitive Spec shape
+
+**Defer:** LLM inventing stages outside the catalog; multi-app Intent Router product; rewriting CommunityEngager off manifests before the primitive sketch exists.
+
 ## Goals
 
 ### Primary (ready bar)
@@ -78,13 +107,16 @@ Ship **one vertical** (CommunityEngager) where a cold demo visibly does the thes
 
 8. Spec schema + docs make **protocol vs browser** binding explicit
 9. **`protocol-engine-sketch`** — stub or design note: same Spec, protocol engine path (no requirement to migrate Reddit off browser yet)
+10. **`primitive-catalog-sketch`** + **`compose-compiler-direction`** — lock catalog grain so we don’t cement per-domain compilers
+11. **`spec-persistence`** — Spec survives the process (replay / “run by that Spec”)
 
 ### Non-goals (this plan)
 
-- Full browser OS / Intent Router app registry / multi-app composition
-- Free-form self-orchestration that invents stage graphs
+- Full browser OS / Intent Router app registry as a product
+- Free-form self-orchestration that invents **unbound** stage graphs (outside the primitive catalog)
+- Implementing the full primitive runtime + migrating engage off manifests in this plan’s exit
 - Porting Dafny / formal vericoding into Relay runtime
-- Second vertical before engage proves the loop
+- Second **domain vertical** before engage proves the loop (primitives sketch ≠ second vertical)
 - Replacing Telegram/CLI HITL with a polished product UI (thin demo surface is enough)
 - Replacing all browser automation with protocol before Spec loop works
 - Declaring “GUIs are dead” as a product claim (governance surfaces stay)
@@ -106,29 +138,29 @@ Near-term trust split (aligned with the lab README): **human-owned surface = Int
 ## Target loop
 
 ```text
-Intent ──compile──► Spec (draft)
-                      │
-                   freeze (HITL or explicit accept)
-                      ▼
-                 Spec (frozen)
-                      │
-          ┌───────────┴───────────┐
-          ▼                       ▼
-   protocol engine          browser engine
-   (preferred when          (fallback when
-    Spec-addressable)        GUI-only)
-          │                       │
-          └───────────┬───────────┘
-                      ▼
-                 Evidence pack ◄── acceptance checks
-                      │
-                   incomplete? ── fail closed
-                      │
-                   complete ──► WAITING_YOU (negotiate)
-                      │
-              approve / edit / abort
-                      │
-         irreversible act only after approve
+Intent ──compose──► Spec (draft)
+   │                   │  allowed_actions = primitives
+   │                   │  (domain pack = optional expand)
+   │                freeze (HITL or explicit accept)
+   │                   ▼
+   │              Spec (frozen) ── persist / load by id
+   │                   │
+   │       ┌───────────┴───────────┐
+   │       ▼                       ▼
+   │  protocol engine          browser engine
+   │  (preferred)              (fallback)
+   │       │                       │
+   │       └───────────┬───────────┘
+   │                   ▼
+   │              Evidence pack ◄── acceptance / assert primitives
+   │                   │
+   │                incomplete? ── fail closed
+   │                   │
+   │                complete ──► WAITING_YOU (negotiate)
+   │                   │
+   │           approve / edit / abort
+   │                   │
+   └──── irreversible act only after approve
 ```
 
 ## Steps (work order)
@@ -160,15 +192,25 @@ Intent ──compile──► Spec (draft)
 10. **`protocol-engine-sketch`** — Design note + minimal stub: Spec-native invoke/observe under same types; prove we aren’t Spec-for-DOM-only
 11. **`research-lab-link`** — Update lab Related thread: Relay frozen Spec = near-term human-owned surface
 
+### Phase E — Primitive catalog + durable Spec (north star track)
+
+12. **`primitive-catalog-sketch`** — Name a small domain-free primitive set + irreversibility + binding notes (doc first; types optional)
+13. **`compose-compiler-direction`** — One Intent→Spec compose story; engage as recipe→primitives; deprecate “per-app compiler” as the architecture story
+14. **`spec-persistence`** — Store Intent + frozen Spec; load by id for replay / run-under-Spec
+
+Phase E exit is **design + persistence**, not a full primitive runtime or engage rewrite. Implementation of compose-from-primitives can be a follow-on plan once the catalog is agreed.
+
 ## Acceptance criteria (plan done)
 
-- [ ] Spec schema exists and is used by CommunityEngager engage path
-- [ ] Spec schema allows distinguishing protocol vs browser action binding
-- [ ] At least one Intent template compiles to a frozen Spec bound to the engage manifest
-- [ ] Execute is blocked without a complete evidence pack when Spec requires it
-- [ ] HITL can approve Spec and/or draft; abort prevents write; edit that changes constraints re-opens Spec
-- [ ] Cold demo script in-repo (README section or `deploy/` / app README) walks Intent → Spec → Evidence → HITL → act
+- [x] Spec schema exists and is used by CommunityEngager engage path
+- [x] Spec schema allows distinguishing protocol vs browser action binding
+- [x] At least one Intent template compiles to a frozen Spec bound to the engage manifest
+- [x] Execute is blocked without a complete evidence pack when Spec requires it
+- [x] HITL can approve Spec and/or draft; abort prevents write; edit that changes constraints re-opens Spec
+- [x] Cold demo script in-repo (README section or `deploy/` / app README) walks Intent → Spec → Evidence → HITL → act
 - [ ] Protocol engine sketch exists (doc ± stub) showing same Spec, non-GUI path
+- [x] Primitive catalog sketch + compose direction documented (domain packs ≠ catalog roots)
+- [ ] Intent + frozen Spec can be persisted and loaded by id
 - [ ] research-lab thread points at this product meaning of Spec; no formal verifier required in Relay
 
 ## Tracking
@@ -183,12 +225,16 @@ Use the YAML `todos` above as the source of truth for status (`pending` / `in_pr
 | P0 | `engage-compiler-v1`, `evidence-pack` | Thesis becomes visible on dogfood app (browser) |
 | P1 | `runtime-bound-to-spec`, `hitl-bound-to-spec` | Trust split is real |
 | P1 | `thin-shell-or-demo-path`, `e2e-thesis-demo` | Ready for storytelling / YC-style demo |
-| P2 | `protocol-engine-sketch` | Lock dual-path architecture without delaying engage demo |
+| P2 | `protocol-engine-sketch`, `primitive-catalog-sketch`, `compose-compiler-direction` | Lock dual-path + catalog grain (don’t cement per-domain compilers) |
+| P2 | `spec-persistence` | Spec as durable artifact (“run by that Spec”) |
 | P2 | `research-lab-link`, `readme-plans-index` | Keep docs/research aligned |
+
+**Suggested Phase E order:** `primitive-catalog-sketch` → `compose-compiler-direction` (same doc pass OK) → `protocol-engine-sketch` (primitives as invoke/observe targets) → `spec-persistence` → `research-lab-link`.
 
 ## Out of scope reminders
 
-- Self-orchestrating stage invention = **after** template Spec loop works
+- Unbound stage invention (outside primitive catalog) = **after** catalog + template Spec loop are trusted
+- Full primitive runtime + engage rewrite off manifests = **follow-on plan**, not Phase E exit
 - Living todo polish = [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md)
 - Formal proofs / mid-IR = research-lab only until a high-stakes stage needs it
 - Full Spec-native protocol adoption across third-party apps = later plan
@@ -212,3 +258,6 @@ Use the YAML `todos` above as the source of truth for status (`pending` / `in_pr
 - Evidence pack: `@relay/protocol` `evaluateSpecEvidence`; CommunityEngager `assertEngagePreExecuteEvidence` gates `runExecute` when `ctx.spec` set; `options.spec` propagated to fanout children. Tests in `test/evidence-pack.test.ts`. Marked `evidence-pack` completed. Next: `runtime-bound-to-spec`.
 - Runtime bind: `bindingsFromSpec` / `resolveMaxJobs` / `activateSpecForRun` — Spec enforces maxJobs, dryRun, forceDiscover, no_promo on draft+execute; fanout uses Spec maxJobs. Marked `runtime-bound-to-spec` completed. Next: `hitl-bound-to-spec`.
 - Spec HITL: `negotiateSpecBeforeRun` before stages (Approve/Edit/Abort); Edit recompiles+freezes; Abort returns empty ABORTED summary. Default on when spec+adapter; `--skip-spec-hitl` to skip. Marked `hitl-bound-to-spec` completed. Next: `e2e-thesis-demo` / thin demo path.
+- Thesis demo: `pnpm --filter @relay/apps-community-engager thesis-demo` + [`docs/thesis-demo.md`](../../docs/thesis-demo.md). Covers thin CLI demo path. Marked `e2e-thesis-demo` + `thin-shell-or-demo-path` completed. Remaining: `protocol-engine-sketch`, `research-lab-link`.
+- Catalog grain: agreed **primitives + compose**, not per-app compilers forever. Engage compiler = domain pack / recipe. Added Phase E todos: `primitive-catalog-sketch`, `compose-compiler-direction`, `spec-persistence`; tightened non-goals (unbound invention still out; primitive *sketch* in plan). Next: sketch primitives (doc) then persist Specs.
+- Wrote [`docs/primitives.md`](../../docs/primitives.md) — v0 primitive table (`observe`/`invoke`/`read`/`write`/`navigate`/`wait_human`/`assert`), irreversibility, compose path, engage as pack expansion. Linked from `docs/spec.md` + README. Marked `primitive-catalog-sketch` + `compose-compiler-direction` completed. Next: `protocol-engine-sketch` or `spec-persistence`.

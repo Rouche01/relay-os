@@ -15,13 +15,17 @@ import type { CommunityEntrypoint } from "../manifest.js";
 /** Stable app id for Spec.procedure.appId */
 export const COMMUNITY_ENGAGER_APP_ID = "community-engager";
 
+/** HITL surface for Spec / draft negotiation (host concern; recorded on Spec). */
+export type FeedbackAdapterKind = "cli" | "telegram";
+
 /** Known Intent.slots keys for engage / post_watch template fill. */
 export type EngageIntentSlotKey =
   | "entrypoint"
   | "maxJobs"
   | "dryRun"
   | "forceDiscover"
-  | "allowPromo";
+  | "allowPromo"
+  | "adapter";
 
 export type EngageCompileOptions = {
   /** Defaults from env/app when slots omit a value. */
@@ -31,6 +35,7 @@ export type EngageCompileOptions = {
     dryRun?: boolean;
     forceDiscover?: boolean;
     allowPromo?: boolean;
+    adapter?: FeedbackAdapterKind;
   };
   /** Spec id override (tests). */
   specId?: string;
@@ -86,6 +91,22 @@ function resolveEntrypoint(
   if (raw === "engage" || raw === "scout" || raw === "community") {
     return "engage";
   }
+  return fallback;
+}
+
+/**
+ * Read `adapter` / `feedbackAdapter` slot (`cli` | `telegram`).
+ * Returns undefined when unset / unknown so the host can fall back to env.
+ */
+export function resolveFeedbackAdapterSlot(
+  slots: IntentSlots,
+  fallback?: FeedbackAdapterKind
+): FeedbackAdapterKind | undefined {
+  const raw =
+    slotString(slots, "adapter")?.toLowerCase() ??
+    slotString(slots, "feedbackAdapter")?.toLowerCase();
+  if (raw === "cli" || raw === "terminal" || raw === "stdin") return "cli";
+  if (raw === "telegram" || raw === "tg") return "telegram";
   return fallback;
 }
 
@@ -158,6 +179,7 @@ function buildConstraints(opts: {
   dryRun: boolean;
   forceDiscover: boolean;
   allowPromo: boolean;
+  adapter?: FeedbackAdapterKind;
 }): SpecConstraint[] {
   const out: SpecConstraint[] = [
     {
@@ -198,7 +220,28 @@ function buildConstraints(opts: {
         "Intensity 2 requires extra confirmation (disclose + UTM intentional)",
     });
   }
+  if (opts.adapter === "telegram") {
+    out.push({
+      id: "hitl_adapter_telegram",
+      description: "Human negotiation via Telegram adapter",
+    });
+  } else if (opts.adapter === "cli") {
+    out.push({
+      id: "hitl_adapter_cli",
+      description: "Human negotiation via CLI adapter",
+    });
+  }
   return out;
+}
+
+/** Prefer adapter recorded on Spec constraints (from Intent slot). */
+export function resolveFeedbackAdapterFromSpec(
+  spec: Spec
+): FeedbackAdapterKind | undefined {
+  const ids = new Set(spec.constraints.map((c) => c.id));
+  if (ids.has("hitl_adapter_telegram")) return "telegram";
+  if (ids.has("hitl_adapter_cli")) return "cli";
+  return undefined;
 }
 
 function buildAcceptance(opts: {
@@ -319,6 +362,7 @@ export function compileEngageIntent(
     defaults.forceDiscover ?? false
   );
   const allowPromo = slotBool(slots, "allowPromo", defaults.allowPromo ?? true);
+  const adapter = resolveFeedbackAdapterSlot(slots, defaults.adapter);
 
   const spec = createDraftSpec({
     id: options.specId,
@@ -335,6 +379,7 @@ export function compileEngageIntent(
       dryRun,
       forceDiscover,
       allowPromo,
+      adapter,
     }),
     allowedActions: buildAllowedActions({ entrypoint, allowPromo }),
     acceptance: buildAcceptance({ entrypoint, dryRun, allowPromo }),

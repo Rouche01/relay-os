@@ -6,7 +6,11 @@ import {
   type FeedbackRequest,
   type Spec,
 } from "@relay/protocol";
-import { compileEngageFromSlots } from "./engage-compiler.js";
+import {
+  compileEngageFromSlots,
+  resolveFeedbackAdapterFromSpec,
+  type FeedbackAdapterKind,
+} from "./engage-compiler.js";
 import { bindingsFromSpec } from "./runtime-bind.js";
 
 export type SpecHitlResult =
@@ -51,7 +55,7 @@ export function formatSpecForHitl(spec: Spec): {
     "",
     "Approve to run under this Spec.",
     "Abort to cancel the run.",
-    "Edit: change the goal text, or use lines like maxJobs=2 / dryRun=true / allowPromo=false",
+    "Edit: change the goal text, or use lines like maxJobs=2 / dryRun=true / allowPromo=false / adapter=cli|telegram",
   ].join("\n");
   return {
     title: `Spec ${spec.id.slice(0, 18)}… v${spec.version}`,
@@ -86,6 +90,7 @@ export function buildSpecHitlRequest(
  * Supports:
  * - freeform → new goal
  * - `maxJobs=2`, `dryRun=true`, `allowPromo=false`, `forceDiscover=true`
+ * - `adapter=cli|telegram`
  * - `goal: …` or `goal=…` for an explicit goal line
  */
 export function parseSpecEdit(text: string): {
@@ -94,6 +99,7 @@ export function parseSpecEdit(text: string): {
   dryRun?: boolean;
   allowPromo?: boolean;
   forceDiscover?: boolean;
+  adapter?: FeedbackAdapterKind;
 } {
   const trimmed = text.trim();
   if (!trimmed) return {};
@@ -108,9 +114,10 @@ export function parseSpecEdit(text: string): {
       goalLines.push(goalM[2].trim());
       continue;
     }
-    const m = /^(maxJobs|dryRun|allowPromo|forceDiscover)\s*[:=]\s*(.+)$/i.exec(
-      line
-    );
+    const m =
+      /^(maxJobs|dryRun|allowPromo|forceDiscover|adapter)\s*[:=]\s*(.+)$/i.exec(
+        line
+      );
     if (m?.[1] && m[2] !== undefined) {
       kv[m[1].toLowerCase()] = m[2].trim();
       continue;
@@ -124,6 +131,7 @@ export function parseSpecEdit(text: string): {
     dryRun?: boolean;
     allowPromo?: boolean;
     forceDiscover?: boolean;
+    adapter?: FeedbackAdapterKind;
   } = {};
 
   if (goalLines.length) out.goal = goalLines.join(" ").trim();
@@ -145,6 +153,11 @@ export function parseSpecEdit(text: string): {
   if (promo !== undefined) out.allowPromo = promo;
   const disc = parseBool(kv.forcediscover);
   if (disc !== undefined) out.forceDiscover = disc;
+  if (kv.adapter != null) {
+    const a = kv.adapter.toLowerCase();
+    if (a === "telegram" || a === "tg") out.adapter = "telegram";
+    else if (a === "cli" || a === "terminal" || a === "stdin") out.adapter = "cli";
+  }
 
   return out;
 }
@@ -156,6 +169,9 @@ export function applySpecEdit(spec: Spec, editText: string, frozenBy: string): S
   const entrypoint =
     spec.procedure.entrypoint === "post_watch" ? "post_watch" : "engage";
 
+  const adapter =
+    parsed.adapter ?? resolveFeedbackAdapterFromSpec(spec);
+
   const { spec: drafted } = compileEngageFromSlots(
     parsed.goal?.trim() || spec.goal,
     {
@@ -164,6 +180,7 @@ export function applySpecEdit(spec: Spec, editText: string, frozenBy: string): S
       dryRun: parsed.dryRun ?? prior?.dryRun ?? spec.budget.dryRun ?? true,
       forceDiscover: parsed.forceDiscover ?? prior?.forceDiscover ?? false,
       allowPromo: parsed.allowPromo ?? prior?.allowPromo ?? true,
+      ...(adapter ? { adapter } : {}),
     },
     { intentId: spec.intentId }
   );

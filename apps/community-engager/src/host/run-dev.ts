@@ -7,7 +7,8 @@ import {
 import { CommunityEngagerApp } from "../index.js";
 import { formatRunSummary } from "../metrics/job-queue.js";
 import type { CommunityEntrypoint } from "../manifest.js";
-import { buildRunSpec } from "../spec/build-run-spec.js";
+import { buildRunSpecBundle } from "../spec/build-run-spec.js";
+import type { FeedbackAdapterKind } from "../spec/engage-compiler.js";
 
 /** CLI: --force-discover | --discover=auto|force|off */
 function applyDiscoverCliFlags(argv: string[]): void {
@@ -79,11 +80,47 @@ function parseSpecGoal(argv: string[]): string | undefined {
   return undefined;
 }
 
+/** `--adapter=cli|telegram` or `--adapter cli` — Intent slot for HITL surface. */
+function parseAdapterArg(argv: string[]): FeedbackAdapterKind | undefined {
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]!;
+    const m = /^--adapter=(cli|telegram|tg|terminal)$/i.exec(arg);
+    if (m?.[1]) {
+      const v = m[1].toLowerCase();
+      if (v === "telegram" || v === "tg") return "telegram";
+      return "cli";
+    }
+    if (arg === "--adapter") {
+      const next = argv[i + 1]?.toLowerCase();
+      if (next === "telegram" || next === "tg") return "telegram";
+      if (next === "cli" || next === "terminal") return "cli";
+    }
+  }
+  return undefined;
+}
+
+function resolveAdapterKind(
+  argv: string[],
+  fromSpec?: FeedbackAdapterKind
+): FeedbackAdapterKind {
+  const fromArg = parseAdapterArg(argv);
+  if (fromArg) return fromArg;
+  if (fromSpec) return fromSpec;
+  if (
+    process.env.FEEDBACK_ADAPTER === "telegram" ||
+    process.env.COMMUNITY_ADAPTER === "telegram"
+  ) {
+    return "telegram";
+  }
+  return "cli";
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   applyDiscoverCliFlags(argv);
   const entrypoint = parseEntrypoint(argv);
   const withSpec = wantsSpec(argv);
+  const adapterFromArg = parseAdapterArg(argv);
 
   console.log(
     entrypoint === "post_watch"
@@ -91,21 +128,25 @@ async function main(): Promise<void> {
       : "=== Relay · CommunityEngager (dev) ===\n"
   );
 
-  const useTelegram = process.env.FEEDBACK_ADAPTER === "telegram";
-  let telegram: TelegramFeedbackAdapter | undefined;
-
-  const adapter = useTelegram
-    ? ((telegram = createTelegramAdapterFromEnv()), telegram)
-    : new CliFeedbackAdapter();
-
-  const spec = withSpec
-    ? buildRunSpec({
+  const bundle = withSpec
+    ? buildRunSpecBundle({
         entrypoint,
         goal: parseSpecGoal(argv),
         forceDiscover: process.env.COMMUNITY_DISCOVER === "force",
-        frozenBy: useTelegram ? "telegram-cli" : "cli",
+        adapter: adapterFromArg,
+        frozenBy: adapterFromArg ?? "cli",
       })
     : undefined;
+
+  const adapterKind = resolveAdapterKind(argv, bundle?.adapter);
+  let telegram: TelegramFeedbackAdapter | undefined;
+
+  const adapter =
+    adapterKind === "telegram"
+      ? ((telegram = createTelegramAdapterFromEnv()), telegram)
+      : new CliFeedbackAdapter();
+
+  const spec = bundle?.spec;
 
   const app = new CommunityEngagerApp({
     adapter,
@@ -119,19 +160,24 @@ async function main(): Promise<void> {
     `Memory: ${memory.name}${healthy ? " (sidecar ok)" : " (unavailable / fail-open)"}\n`
   );
   console.log(`Entrypoint: ${entrypoint}\n`);
+  console.log(`Adapter: ${adapterKind}\n`);
   if (spec) {
     console.log(
       `Spec: ${spec.id} v${spec.version} status=${spec.status} ` +
         `entrypoint=${spec.procedure.entrypoint} dryRun=${spec.budget.dryRun} ` +
         `maxJobs=${spec.budget.maxJobs}\n` +
         `Goal: ${spec.goal}\n` +
+        (bundle?.intent
+          ? `Intent slots.adapter=${String(bundle.intent.slots.adapter ?? "(unset)")}\n`
+          : "") +
         (skipSpecHitl(argv)
           ? "Spec HITL: skipped (--skip-spec-hitl)\n"
           : "Spec HITL: you will Approve / Edit / Abort the Spec before stages run\n")
     );
   } else {
     console.log(
-      "Spec: (none) — pass --with-spec to compile+freeze Intent→Spec for this run\n"
+      "Spec: (none) — pass --with-spec to compile+freeze Intent→Spec for this run\n" +
+        "Adapter still selectable via --adapter=cli|telegram or FEEDBACK_ADAPTER\n"
     );
   }
 
@@ -140,7 +186,9 @@ async function main(): Promise<void> {
     console.log("Feedback adapter: telegram (allowlisted user only)\n");
   } else {
     console.log("Feedback adapter: cli  (approve | abort | edit: …)\n");
-    console.log("Set FEEDBACK_ADAPTER=telegram for Telegram HITL.\n");
+    console.log(
+      "Telegram HITL: --adapter=telegram, Intent slot adapter=telegram, or FEEDBACK_ADAPTER=telegram\n"
+    );
   }
 
   if (entrypoint === "post_watch") {
