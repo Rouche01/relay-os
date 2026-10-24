@@ -10,6 +10,16 @@ export {
   type FeedbackAdapterKind,
 } from "./engage-compiler.js";
 export {
+  composeCommunityFromSlots,
+  composeCommunityIntent,
+  type ComposeCommunityResult,
+} from "./compose-intent.js";
+export {
+  communityEngagePack,
+  communityEngagerPacks,
+  communityPostWatchPack,
+} from "./packs/community-engager-packs.js";
+export {
   assertEngagePreExecuteEvidence,
   buildEngageJobEvidencePack,
   observeEngageJobEvidence,

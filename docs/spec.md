@@ -13,14 +13,16 @@ Human-owned authority for agent computer work. Types live in `@relay/protocol`:
 
 **Protocol vs browser:** same Spec, two engines — see [`protocol-engine.md`](./protocol-engine.md) (`ProtocolEngineStub` in `@relay/protocol`).
 
-## CommunityEngager compiler (v1)
+## CommunityEngager compiler (v1 → compose packs)
 
-Template fill only — no free-form stage invention:
+Pack-based compose — no free-form stage invention:
 
-- [`apps/community-engager/src/spec/engage-compiler.ts`](../apps/community-engager/src/spec/engage-compiler.ts)
-- `compileEngageFromSlots(goal, slots)` → `{ intent, spec }` draft Spec with `procedure.appId = community-engager` and `entrypoint` `engage` | `post_watch`
-- Slots: `entrypoint`, `maxJobs`, `dryRun`, `forceDiscover`, `allowPromo`, `adapter` (`cli` | `telegram` — HITL surface; recorded as Spec constraint `hitl_adapter_*`)
-- Host: `--adapter=cli|telegram` on `run-dev` (or `FEEDBACK_ADAPTER`) picks the feedback adapter; with `--with-spec`, the slot is compiled into the Spec
+- Protocol: `composeIntent` + [`DomainPack`](../packages/protocol/src/compose.ts)
+- Packs: [`community-engager-packs.ts`](../apps/community-engager/src/spec/packs/community-engager-packs.ts) (`community-engager/engage` | `…/post_watch`)
+- App entry: `composeCommunityIntent` / `compileEngageFromSlots` (legacy alias) → `{ intent, spec, packId }`
+- Spec includes **primitives** (`observe`, `write`, …) **and** stage aliases (`scout_threads`, `post_comment`, …); `procedure` still binds engage/post_watch for the browser runtime
+- Slots: `entrypoint` / `pack`, `maxJobs`, `dryRun`, `forceDiscover`, `allowPromo`, `adapter` (`cli` | `telegram`)
+- Host: `--adapter=cli|telegram` on `run-dev` (or `FEEDBACK_ADAPTER`); with `--with-spec`, the slot is composed into the Spec
 
 Freeze with `freezeSpec(spec)` from `@relay/protocol` before treating the brief as law.
 

@@ -8,10 +8,11 @@ import {
   resolveFeedbackAdapterFromSpec,
   resolveFeedbackAdapterSlot,
 } from "../src/spec/engage-compiler.js";
+import { composeCommunityFromSlots } from "../src/spec/compose-intent.js";
 
-describe("compileEngageIntent (template v1)", () => {
+describe("compileEngageIntent (compose + packs)", () => {
   it("compiles engage defaults into a draft Spec bound to community-engager", () => {
-    const { intent, spec } = compileEngageFromSlots(
+    const { intent, spec, packId } = compileEngageFromSlots(
       "Helpful replies in fashion subs",
       {},
       { defaults: { maxJobs: 2, dryRun: true } }
@@ -26,6 +27,7 @@ describe("compileEngageIntent (template v1)", () => {
     assert.equal(spec.actionBinding, "browser");
     assert.equal(spec.budget.maxJobs, 2);
     assert.equal(spec.budget.dryRun, true);
+    assert.equal(packId, "community-engager/engage");
     assert.ok(spec.acceptance.length >= 1);
     assert.ok(spec.allowedActions.some((a) => a.id === "post_comment"));
     assert.ok(
@@ -34,6 +36,22 @@ describe("compileEngageIntent (template v1)", () => {
     );
     assert.ok(spec.constraints.some((c) => c.id === "hitl_before_post"));
     assert.ok(spec.hitlRequired.some((h) => h.when === "before_irreversible"));
+    assert.equal(
+      spec.constraints.find((c) => c.id === "compose_pack")?.description,
+      "community-engager/engage"
+    );
+    assert.ok(spec.allowedActions.some((a) => a.id === "observe"));
+    assert.ok(spec.allowedActions.some((a) => a.id === "write"));
+    assert.ok(spec.allowedActions.some((a) => a.id === "wait_human"));
+  });
+
+  it("composeCommunityFromSlots selects post_watch pack", () => {
+    const { packId, spec } = composeCommunityFromSlots("Watch", {
+      entrypoint: "post_watch",
+    });
+    assert.equal(packId, "community-engager/post_watch");
+    assert.equal(spec.procedure.entrypoint, "post_watch");
+    assert.ok(spec.allowedActions.some((a) => a.id === "assert"));
   });
 
   it("honors slots for post_watch, maxJobs, dryRun, allowPromo", () => {

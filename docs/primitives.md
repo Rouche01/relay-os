@@ -80,7 +80,9 @@ Intent (goal + optional slots)
 
 **One compose function; many packs.** Not one compiler package forever per app.
 
-Implementation (protocol): [`packages/protocol/src/compose.ts`](../packages/protocol/src/compose.ts) — `composeIntent`, `DomainPack`, `ComposeExpansion`. Packs live in apps (CommunityEngager next).
+Implementation (protocol): [`packages/protocol/src/compose.ts`](../packages/protocol/src/compose.ts) — `composeIntent`, `DomainPack`, `ComposeExpansion`.
+
+CommunityEngager packs: [`apps/community-engager/src/spec/packs/community-engager-packs.ts`](../apps/community-engager/src/spec/packs/community-engager-packs.ts) — use `composeCommunityIntent` (or `compileEngageIntent` alias).
 
 ### Domain pack example — engage (illustrative)
 
