@@ -16,7 +16,7 @@ todos:
     status: pending
   - id: evidence-pack
     content: "Evidence pack before execute — acceptance checks as artifacts (score gate, constraint checklist, dry-run log, allowlist membership); fail closed if incomplete"
-    status: pending
+    status: completed
   - id: hitl-bound-to-spec
     content: "HITL bound to Spec — optional Approve Spec before run; Approve/Edit/Abort draft; Spec-affecting edits thaw→re-freeze; Telegram/CLI remain primary adapters"
     status: pending
@@ -209,3 +209,4 @@ Use the YAML `todos` above as the source of truth for status (`pending` / `in_pr
 - Wrote [`docs/viability.md`](../../docs/viability.md) — viability by layer, risks, path, YC pitch shape; linked from README.
 - Implemented `@relay/protocol` Spec + Intent (`spec.ts`, `intent.ts`): freeze/thaw/running/satisfied/aborted helpers; procedure binding; typed acceptance; action_binding. Persistence (action-store) deferred to engage-compiler / later. Docs: [`docs/spec.md`](../../docs/spec.md). Marked `spec-schema` + `intent-type` completed.
 - CommunityEngager `compileEngageFromSlots` / `compileEngageIntent` — template Intent→draft Spec for engage|post_watch; tests in `test/engage-compiler.test.ts`. Marked `engage-compiler-v1` completed. Next: `evidence-pack` / `runtime-bound-to-spec`.
+- Evidence pack: `@relay/protocol` `evaluateSpecEvidence`; CommunityEngager `assertEngagePreExecuteEvidence` gates `runExecute` when `ctx.spec` set; `options.spec` propagated to fanout children. Tests in `test/evidence-pack.test.ts`. Marked `evidence-pack` completed. Next: `runtime-bound-to-spec`.

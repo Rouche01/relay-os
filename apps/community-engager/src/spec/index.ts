@@ -6,3 +6,8 @@ export {
   type EngageCompileResult,
   type EngageIntentSlotKey,
 } from "./engage-compiler.js";
+export {
+  assertEngagePreExecuteEvidence,
+  buildEngageJobEvidencePack,
+  observeEngageJobEvidence,
+} from "./evidence-pack.js";

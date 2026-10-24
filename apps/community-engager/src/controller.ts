@@ -74,6 +74,7 @@ import {
 } from "./stages/execute/executor.js";
 import { formatManualPostNotify } from "./stages/execute/manual-notify.js";
 import { executeJobId } from "./reddit/scout/scout-live.js";
+import { assertEngagePreExecuteEvidence } from "./spec/evidence-pack.js";
 import { getAllowlistStore, resolvePlaybook } from "./policy/allowlist-store.js";
 import { CommunityMemory, communityFactDomain } from "./memory.js";
 import {
@@ -2232,6 +2233,15 @@ export class CommunityEngagerController implements AppController {
     const draft = ctx.currentDraft as CommunityDraft | undefined;
     if (!draft) {
       throw new Error("No currentDraft for execute");
+    }
+
+    // Spec path: fail closed unless acceptance evidence is complete.
+    // Legacy runs without ctx.spec are unchanged.
+    const evidencePack = assertEngagePreExecuteEvidence(ctx);
+    if (evidencePack) {
+      console.log(
+        `[evidence] pre_execute complete spec=${evidencePack.specId} items=${evidencePack.items.length}`
+      );
     }
 
     const runtimeCfg = getCommunityConfig();

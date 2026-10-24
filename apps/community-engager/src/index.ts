@@ -17,6 +17,7 @@ import {
   type ExecutionEngine,
   type FeedbackRequest,
   type FeedbackResponse,
+  type Spec,
   type StageDefinition,
 } from "@relay/protocol";
 import {
@@ -69,6 +70,11 @@ export interface CommunityEngagerAppOptions {
    * Ops `/engage_discover` — does not consume the empty-scout daily ledger.
    */
   forceDiscover?: boolean;
+  /**
+   * Frozen (or soon-to-run) Spec for this run. Copied onto parent + fanout
+   * child contexts so execute fails closed without a complete evidence pack.
+   */
+  spec?: Spec;
 }
 
 /**
@@ -140,6 +146,10 @@ export class CommunityEngagerApp implements FanoutHost {
   }
 
   async onChildStart(child: AgentRuntime, _item: unknown, index: number): Promise<void> {
+    const parentSpec = this.runtime.getContext().spec as Spec | undefined;
+    if (parentSpec) {
+      child.getContext().spec = parentSpec;
+    }
     this.bindEvents(child, `job ${index + 1}`);
     this.attachBroker(child);
   }
@@ -179,6 +189,9 @@ export class CommunityEngagerApp implements FanoutHost {
 
     if (forceDiscover) {
       this.runtime.getContext().forceDiscover = true;
+    }
+    if (this.options.spec) {
+      this.runtime.getContext().spec = this.options.spec;
     }
 
     this.attachBroker(this.runtime);

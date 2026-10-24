@@ -19,4 +19,11 @@ Template fill only — no free-form stage invention:
 
 Freeze with `freezeSpec(spec)` from `@relay/protocol` before treating the brief as law.
 
+## Evidence pack
+
+- Protocol: [`packages/protocol/src/evidence.ts`](../packages/protocol/src/evidence.ts) — `evaluateSpecEvidence`
+- CommunityEngager: [`apps/community-engager/src/spec/evidence-pack.ts`](../apps/community-engager/src/spec/evidence-pack.ts)
+- When `CommunityEngagerApp` is constructed with `spec` (frozen/running), that Spec is copied to fanout children; **execute fails closed** unless the pre-execute evidence pack is complete
+- Runs **without** `ctx.spec` behave as before (legacy)
+
 See readiness plan: [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](../.cursor/plans/relay_intent_spec_verify_hitl.plan.md).
