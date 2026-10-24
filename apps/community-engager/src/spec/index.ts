@@ -48,4 +48,4 @@ export {
   createFileSpecStore,
   FileJsonSpecStore,
   type FileJsonSpecStoreOptions,
-} from "./file-spec-store.js";
+} from "@relay/spec-store";

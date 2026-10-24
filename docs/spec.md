@@ -29,9 +29,9 @@ Freeze with `freezeSpec(spec)` from `@relay/protocol` before treating the brief 
 ## Spec persistence
 
 - Protocol: [`packages/protocol/src/spec-store.ts`](../packages/protocol/src/spec-store.ts) — `SpecBundle` (Intent + Spec), `SpecStore` port, `createSpecBundle`
-- File driver: [`apps/community-engager/src/spec/file-spec-store.ts`](../apps/community-engager/src/spec/file-spec-store.ts) — `{dataDir}/specs.json`
-- `run-dev --with-spec` saves the bundle; `--spec-id=<id>` loads and runs under that Spec
-- App re-saves after Spec HITL (Approve / Edit / Abort) when `intent` + `specStore` are set
+- File driver: [`@relay/spec-store`](../packages/spec-store) — app-agnostic `{dataDir}/specs.json`
+- Governance API/UI: Relay shell — [`docs/spec-ui.md`](./spec-ui.md) (not CommunityEngager-owned)
+- CommunityEngager `run-dev --with-spec` may still save under its own dataDir for dogfood runs
 
 ## Evidence pack
 
@@ -41,6 +41,10 @@ Freeze with `freezeSpec(spec)` from `@relay/protocol` before treating the brief 
 - **Runtime bind** ([`runtime-bind.ts`](../apps/community-engager/src/spec/runtime-bind.ts)): frozen Spec enforces `maxJobs`, `dryRun`, `force_discover`, and `no_promo` during the run
 - **Spec HITL** ([`hitl-spec.ts`](../apps/community-engager/src/spec/hitl-spec.ts)): with `spec` + adapter, Approve / Edit / Abort the Spec **before** stages (default on; `--skip-spec-hitl` to skip)
 - Runs **without** `ctx.spec` behave as before (legacy)
+
+## Spec UI (governance)
+
+App-agnostic shell: [`spec-ui.md`](./spec-ui.md) — `pnpm --filter @relay/apps-relay-shell api` + `dev`
 
 ## Cold demos
 

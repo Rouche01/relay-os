@@ -18,7 +18,7 @@ import {
 import { CommunityEngagerApp } from "../index.js";
 import { formatRunSummary } from "../metrics/job-queue.js";
 import { composeCommunityIntent } from "../spec/compose-intent.js";
-import { createFileSpecStore } from "../spec/file-spec-store.js";
+import { createFileSpecStore } from "@relay/spec-store";
 import { formatSpecForHitl } from "../spec/hitl-spec.js";
 
 const DEMO_ROOT = path.resolve(process.cwd(), ".data", "thesis-demo");

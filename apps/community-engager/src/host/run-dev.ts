@@ -18,7 +18,7 @@ import {
 import {
   createFileSpecStore,
   type FileJsonSpecStore,
-} from "../spec/file-spec-store.js";
+} from "@relay/spec-store";
 
 /** CLI: --force-discover | --discover=auto|force|off */
 function applyDiscoverCliFlags(argv: string[]): void {

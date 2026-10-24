@@ -130,7 +130,9 @@ Spec & Intent (protocol types): [`docs/spec.md`](docs/spec.md)
 Spec primitives & compose (sketch): [`docs/primitives.md`](docs/primitives.md)  
 Protocol engine (sketch): [`docs/protocol-engine.md`](docs/protocol-engine.md)  
 Thesis demo (cold script): [`docs/thesis-demo.md`](docs/thesis-demo.md) — `pnpm --filter @relay/apps-community-engager thesis-demo`  
-Compose demo (Intent→pack Spec→protocol stub→run): [`docs/compose-demo.md`](docs/compose-demo.md) — `pnpm --filter @relay/apps-community-engager compose-demo`
+Compose demo (Intent→pack Spec→protocol stub→run): [`docs/compose-demo.md`](docs/compose-demo.md) — `pnpm --filter @relay/apps-community-engager compose-demo`  
+Relay shell (Spec governance + Preact UI): [`docs/spec-ui.md`](docs/spec-ui.md) — `pnpm --filter @relay/apps-relay-shell api` + `dev`  
+Spec store (shared): `@relay/spec-store`
 
 ---
 
@@ -140,6 +142,7 @@ Compose demo (Intent→pack Spec→protocol stub→run): [`docs/compose-demo.md`
 relay-os/
 ├── apps/
 │   ├── community-engager/     # first dogfood agentic app
+│   ├── relay-shell/           # Preact product UI (Spec → living-todo later)
 │   └── newsletter-migrator/   # early example (parked)
 ├── packages/
 │   ├── protocol/              # manifests, feedback types, events

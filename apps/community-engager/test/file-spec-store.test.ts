@@ -8,7 +8,7 @@ import { compileEngageFromSlots } from "../src/spec/engage-compiler.js";
 import {
   createFileSpecStore,
   FileJsonSpecStore,
-} from "../src/spec/file-spec-store.js";
+} from "@relay/spec-store";
 
 describe("FileJsonSpecStore", () => {
   it("puts and gets Intent+Spec bundles by Spec id", async () => {
