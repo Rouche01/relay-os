@@ -22,6 +22,13 @@ Template fill only — no free-form stage invention:
 
 Freeze with `freezeSpec(spec)` from `@relay/protocol` before treating the brief as law.
 
+## Spec persistence
+
+- Protocol: [`packages/protocol/src/spec-store.ts`](../packages/protocol/src/spec-store.ts) — `SpecBundle` (Intent + Spec), `SpecStore` port, `createSpecBundle`
+- File driver: [`apps/community-engager/src/spec/file-spec-store.ts`](../apps/community-engager/src/spec/file-spec-store.ts) — `{dataDir}/specs.json`
+- `run-dev --with-spec` saves the bundle; `--spec-id=<id>` loads and runs under that Spec
+- App re-saves after Spec HITL (Approve / Edit / Abort) when `intent` + `specStore` are set
+
 ## Evidence pack
 
 - Protocol: [`packages/protocol/src/evidence.ts`](../packages/protocol/src/evidence.ts) — `evaluateSpecEvidence`

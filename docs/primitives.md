@@ -124,8 +124,8 @@ No requirement to rewrite CommunityEngager manifests before the catalog and pers
 ## Next steps (plan)
 
 1. ~~`primitive-catalog-sketch` + `compose-compiler-direction`~~ — this doc  
-2. `protocol-engine-sketch` — stub/doc against these primitives  
-3. `spec-persistence` — store Intent + frozen Spec; load by id  
+2. ~~`spec-persistence`~~ — see [`spec.md`](./spec.md) (Spec store)  
+3. `protocol-engine-sketch` — stub/doc against these primitives  
 4. Later plan: compose implementation + optional engage pack expansion  
 
 ## Acceptance for this todo

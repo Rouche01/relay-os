@@ -34,3 +34,8 @@ export {
   parseSpecEdit,
   type SpecHitlResult,
 } from "./hitl-spec.js";
+export {
+  createFileSpecStore,
+  FileJsonSpecStore,
+  type FileJsonSpecStoreOptions,
+} from "./file-spec-store.js";

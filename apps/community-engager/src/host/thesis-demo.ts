@@ -10,6 +10,7 @@ import { FileJsonActionStore } from "@relay/action-store";
 import type { FeedbackAdapter } from "@relay/feedback-broker";
 import {
   createIntent,
+  createSpecBundle,
   freezeSpec,
   type FeedbackRequest,
   type FeedbackResponse,
@@ -17,6 +18,7 @@ import {
 import { CommunityEngagerApp } from "../index.js";
 import { formatRunSummary } from "../metrics/job-queue.js";
 import { compileEngageIntent } from "../spec/engage-compiler.js";
+import { createFileSpecStore } from "../spec/file-spec-store.js";
 import { formatSpecForHitl } from "../spec/hitl-spec.js";
 
 const DEMO_ROOT = path.resolve(process.cwd(), ".data", "thesis-demo");
@@ -118,6 +120,12 @@ async function main(): Promise<void> {
   const card = formatSpecForHitl(spec);
   console.log(`  HITL card title: ${card.title}`);
 
+  const specStore = createFileSpecStore(DEMO_ROOT);
+  await specStore.put(
+    createSpecBundle(compiled, spec, { appId: "community-engager" })
+  );
+  console.log(`  persisted → ${specStore.path} (id=${spec.id})`);
+
   // 3–6. Run with Spec HITL + draft HITL (scripted approve)
   banner(3, "Spec HITL → stages → evidence → draft HITL → execute");
   console.log("  (scripted: Approve Spec, then Approve each draft)\n");
@@ -137,6 +145,8 @@ async function main(): Promise<void> {
     store,
     adapter,
     spec,
+    intent: compiled,
+    specStore,
     specHitl: true,
     agentId: "thesis-demo",
     sessionId: `thesis-${Date.now()}`,
@@ -148,16 +158,22 @@ async function main(): Promise<void> {
 
   banner(4, "Result");
   console.log(formatRunSummary(summary));
+  const reloaded = await specStore.get(spec.id);
+  console.log(
+    `  Spec store reload: ${reloaded ? `ok v${reloaded.spec.version} status=${reloaded.spec.status}` : "MISSING"}`
+  );
 
   const ok =
     summary.runState === "COMPLETE" &&
     summary.jobs.length >= 1 &&
     summary.approved >= 1 &&
-    summary.failed === 0;
+    summary.failed === 0 &&
+    Boolean(reloaded);
 
   console.log("\n── Checklist ──");
   console.log(`  [x] Intent created`);
   console.log(`  [x] Spec compiled + frozen`);
+  console.log(`  [x] Spec persisted (Intent+Spec bundle)`);
   console.log(`  [x] Spec HITL (Approve)`);
   console.log(`  [x] Runtime bound to Spec (dry-run / maxJobs)`);
   console.log(`  [x] Evidence pack before execute`);

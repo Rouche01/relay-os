@@ -21,7 +21,7 @@ Script: [`apps/community-engager/src/host/thesis-demo.ts`](../apps/community-eng
 | Step | What happens |
 |------|----------------|
 | 1 | Create **Intent** (goal + slots) |
-| 2 | **Compile** → draft Spec → **freeze** |
+| 2 | **Compile** → draft Spec → **freeze** → **persist** (`specs.json`) |
 | 3 | **Spec HITL** — Approve the brief |
 | 4 | Run stages under Spec (`maxJobs`, `dryRun`, …) |
 | 5 | **Evidence pack** must be complete before execute |
@@ -36,6 +36,12 @@ pnpm --filter @relay/apps-community-engager start -- --with-spec \
 ```
 
 You will Approve/Edit/Abort the Spec first, then each draft. Add `--skip-spec-hitl` to skip Spec approval only.
+
+Replay a saved Spec (from `.data/specs.json` by default):
+
+```bash
+pnpm --filter @relay/apps-community-engager start -- --spec-id=<spec_id>
+```
 
 ## Checklist (demo done when)
 

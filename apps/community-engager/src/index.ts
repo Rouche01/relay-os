@@ -17,8 +17,11 @@ import {
   type ExecutionEngine,
   type FeedbackRequest,
   type FeedbackResponse,
+  type Intent,
   type Spec,
+  type SpecStore,
   type StageDefinition,
+  createSpecBundle,
 } from "@relay/protocol";
 import {
   AgentRuntime,
@@ -81,6 +84,16 @@ export interface CommunityEngagerAppOptions {
    * child contexts so execute fails closed without a complete evidence pack.
    */
   spec?: Spec;
+  /**
+   * Intent that compiled into `spec` — required with `specStore` to persist
+   * after freeze / Spec HITL.
+   */
+  intent?: Intent;
+  /**
+   * When set with `intent` + `spec`, persist Intent+Spec after Spec HITL
+   * (and on abort) so the run can be replayed by Spec id.
+   */
+  specStore?: SpecStore;
   /**
    * When true (default if `spec` + `adapter` are set), pause for Spec
    * Approve / Edit / Abort before stages run. Set false to skip.
@@ -182,6 +195,26 @@ export class CommunityEngagerApp implements FanoutHost {
     return this.entrypoint;
   }
 
+  /** Persist Intent+Spec when `specStore` + `intent` + `spec` are set. */
+  private async persistSpecBundle(spec: Spec | undefined): Promise<void> {
+    const store = this.options.specStore;
+    const intent = this.options.intent;
+    if (!store || !intent || !spec) return;
+    try {
+      await store.put(
+        createSpecBundle(intent, spec, { appId: "community-engager" })
+      );
+      console.log(
+        `[spec-store] saved ${spec.id} v${spec.version} status=${spec.status}`
+      );
+    } catch (err) {
+      console.warn(
+        `[spec-store] failed to save ${spec.id}:`,
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
   /** Run the selected parent manifest end-to-end (fanout included). */
   async run(): Promise<RunSummary> {
     const startedAt = new Date().toISOString();
@@ -201,6 +234,7 @@ export class CommunityEngagerApp implements FanoutHost {
       if (negotiated.aborted) {
         console.warn(`[spec-hitl] ${negotiated.reason}`);
         this.runtime.getContext().spec = negotiated.spec;
+        await this.persistSpecBundle(negotiated.spec);
         return {
           runState: "ABORTED",
           scouted: 0,
@@ -214,6 +248,7 @@ export class CommunityEngagerApp implements FanoutHost {
       runSpec = negotiated.spec;
     }
 
+    await this.persistSpecBundle(runSpec);
     const activeSpec = activateSpecForRun(runSpec);
     const bindings = bindingsFromSpec(activeSpec);
     const forceDiscover =

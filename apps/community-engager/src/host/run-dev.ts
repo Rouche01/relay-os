@@ -7,8 +7,18 @@ import {
 import { CommunityEngagerApp } from "../index.js";
 import { formatRunSummary } from "../metrics/job-queue.js";
 import type { CommunityEntrypoint } from "../manifest.js";
+import { createSpecBundle } from "@relay/protocol";
+import { getCommunityConfig } from "../reddit/config.js";
 import { buildRunSpecBundle } from "../spec/build-run-spec.js";
-import type { FeedbackAdapterKind } from "../spec/engage-compiler.js";
+import {
+  resolveFeedbackAdapterFromSpec,
+  resolveFeedbackAdapterSlot,
+  type FeedbackAdapterKind,
+} from "../spec/engage-compiler.js";
+import {
+  createFileSpecStore,
+  type FileJsonSpecStore,
+} from "../spec/file-spec-store.js";
 
 /** CLI: --force-discover | --discover=auto|force|off */
 function applyDiscoverCliFlags(argv: string[]): void {
@@ -115,12 +125,29 @@ function resolveAdapterKind(
   return "cli";
 }
 
+/** `--spec-id=<id>` or `--spec-id <id>` — load a persisted Spec bundle. */
+function parseSpecId(argv: string[]): string | undefined {
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]!;
+    const m = /^--spec-id=(.+)$/.exec(arg);
+    if (m?.[1]) return m[1].trim();
+    if (arg === "--spec-id") {
+      const next = argv[i + 1];
+      if (next && !next.startsWith("-")) return next.trim();
+    }
+  }
+  return undefined;
+}
+
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   applyDiscoverCliFlags(argv);
   const entrypoint = parseEntrypoint(argv);
   const withSpec = wantsSpec(argv);
   const adapterFromArg = parseAdapterArg(argv);
+  const specId = parseSpecId(argv);
+  const cfg = getCommunityConfig();
+  const specStore: FileJsonSpecStore = createFileSpecStore(cfg.reddit.dataDir);
 
   console.log(
     entrypoint === "post_watch"
@@ -128,17 +155,50 @@ async function main(): Promise<void> {
       : "=== Relay · CommunityEngager (dev) ===\n"
   );
 
-  const bundle = withSpec
-    ? buildRunSpecBundle({
-        entrypoint,
-        goal: parseSpecGoal(argv),
-        forceDiscover: process.env.COMMUNITY_DISCOVER === "force",
-        adapter: adapterFromArg,
-        frozenBy: adapterFromArg ?? "cli",
-      })
-    : undefined;
+  let intent = undefined as
+    | ReturnType<typeof buildRunSpecBundle>["intent"]
+    | undefined;
+  let spec = undefined as
+    | ReturnType<typeof buildRunSpecBundle>["spec"]
+    | undefined;
+  let adapterFromBundle: FeedbackAdapterKind | undefined;
+  let loadedFromStore = false;
 
-  const adapterKind = resolveAdapterKind(argv, bundle?.adapter);
+  if (specId) {
+    const loaded = await specStore.get(specId);
+    if (!loaded) {
+      console.error(
+        `Spec not found: ${specId}\nStore: ${specStore.path}\n` +
+          `List with: node -e "…" or check ${specStore.path}`
+      );
+      process.exit(1);
+    }
+    intent = loaded.intent;
+    spec = loaded.spec;
+    adapterFromBundle =
+      resolveFeedbackAdapterFromSpec(spec) ??
+      resolveFeedbackAdapterSlot(intent.slots);
+    loadedFromStore = true;
+  } else if (withSpec) {
+    const built = buildRunSpecBundle({
+      entrypoint,
+      goal: parseSpecGoal(argv),
+      forceDiscover: process.env.COMMUNITY_DISCOVER === "force",
+      adapter: adapterFromArg,
+      frozenBy: adapterFromArg ?? "cli",
+    });
+    intent = built.intent;
+    spec = built.spec;
+    adapterFromBundle = built.adapter;
+    await specStore.put(
+      createSpecBundle(intent, spec, { appId: "community-engager" })
+    );
+  }
+
+  const adapterKind = resolveAdapterKind(
+    argv,
+    adapterFromArg ?? adapterFromBundle
+  );
   let telegram: TelegramFeedbackAdapter | undefined;
 
   const adapter =
@@ -146,12 +206,15 @@ async function main(): Promise<void> {
       ? ((telegram = createTelegramAdapterFromEnv()), telegram)
       : new CliFeedbackAdapter();
 
-  const spec = bundle?.spec;
+  const runEntrypoint: CommunityEntrypoint =
+    spec?.procedure.entrypoint === "post_watch" ? "post_watch" : entrypoint;
 
   const app = new CommunityEngagerApp({
     adapter,
-    entrypoint,
+    entrypoint: runEntrypoint,
     spec,
+    intent,
+    specStore: spec ? specStore : undefined,
     specHitl: spec ? !skipSpecHitl(argv) : false,
   });
   const memory = app.getMemory();
@@ -159,7 +222,7 @@ async function main(): Promise<void> {
   console.log(
     `Memory: ${memory.name}${healthy ? " (sidecar ok)" : " (unavailable / fail-open)"}\n`
   );
-  console.log(`Entrypoint: ${entrypoint}\n`);
+  console.log(`Entrypoint: ${app.getEntrypoint()}\n`);
   console.log(`Adapter: ${adapterKind}\n`);
   if (spec) {
     console.log(
@@ -167,16 +230,19 @@ async function main(): Promise<void> {
         `entrypoint=${spec.procedure.entrypoint} dryRun=${spec.budget.dryRun} ` +
         `maxJobs=${spec.budget.maxJobs}\n` +
         `Goal: ${spec.goal}\n` +
-        (bundle?.intent
-          ? `Intent slots.adapter=${String(bundle.intent.slots.adapter ?? "(unset)")}\n`
+        (intent
+          ? `Intent slots.adapter=${String(intent.slots.adapter ?? "(unset)")}\n`
           : "") +
+        `Spec store: ${specStore.path}` +
+        (loadedFromStore ? " (loaded --spec-id)\n" : " (saved)\n") +
         (skipSpecHitl(argv)
           ? "Spec HITL: skipped (--skip-spec-hitl)\n"
           : "Spec HITL: you will Approve / Edit / Abort the Spec before stages run\n")
     );
   } else {
     console.log(
-      "Spec: (none) — pass --with-spec to compile+freeze Intent→Spec for this run\n" +
+      "Spec: (none) — pass --with-spec to compile+freeze+save, or --spec-id=<id> to load\n" +
+        `Spec store: ${specStore.path}\n` +
         "Adapter still selectable via --adapter=cli|telegram or FEEDBACK_ADAPTER\n"
     );
   }
