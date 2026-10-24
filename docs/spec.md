@@ -44,7 +44,7 @@ Freeze with `freezeSpec(spec)` from `@relay/protocol` before treating the brief 
 
 ## Spec UI (governance)
 
-App-agnostic shell: [`spec-ui.md`](./spec-ui.md) — `pnpm --filter @relay/apps-relay-shell api` + `dev`
+App-agnostic shell: [`spec-ui.md`](./spec-ui.md) — `pnpm --filter @relay/apps-relay-shell dev:all`
 
 ## Cold demos
 

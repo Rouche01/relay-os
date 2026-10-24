@@ -11,7 +11,9 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "shell": "pnpm --filter @relay/apps-relay-shell dev:all",
+    "shell:api": "pnpm --filter @relay/apps-relay-shell api"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

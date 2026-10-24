@@ -185,6 +185,253 @@ export function composeIntentFromSlots(
   return composeIntent(intent, options);
 }
 
+/** Pack id stamped on Specs built via {@link composeFromPrimitives}. */
+export const PRIMITIVES_COMPOSE_PACK_ID = "relay/primitives";
+
+const PRIMITIVE_META: Record<
+  SpecPrimitiveId,
+  { description: string; sideEffect: SpecAllowedAction["sideEffect"] }
+> = {
+  observe: { description: "Observe world state without changing it", sideEffect: "none" },
+  invoke: {
+    description: "Invoke a Spec-shaped capability / tool",
+    sideEffect: "reversible",
+  },
+  read: { description: "Fetch a specific artifact or record", sideEffect: "none" },
+  write: {
+    description: "Create or mutate an external artifact",
+    sideEffect: "irreversible",
+  },
+  navigate: {
+    description: "Move focus / context (URL, app surface)",
+    sideEffect: "none",
+  },
+  wait_human: {
+    description: "Block for Approve / Edit / Abort",
+    sideEffect: "none",
+  },
+  assert: {
+    description: "Check an acceptance / evidence item",
+    sideEffect: "none",
+  },
+};
+
+export type ComposeFromPrimitivesOptions = {
+  goal: string;
+  /** Catalog ids only; unknown ids fail closed. */
+  primitiveIds: readonly string[];
+  /** Budget slots (maxJobs, dryRun) and opaque Intent slots. */
+  slots?: IntentSlots;
+  intentId?: string;
+  specId?: string;
+  /** Defaults to `{ appId: "relay", entrypoint: "compose" }`. */
+  procedure?: SpecProcedure;
+  actionBinding?: ActionBinding;
+};
+
+/**
+ * Normalize + validate catalog primitive ids.
+ * Dedupes (first wins), rejects unknowns, fails closed on empty.
+ */
+export function normalizePrimitiveIds(
+  ids: readonly string[]
+): SpecPrimitiveId[] {
+  const out: SpecPrimitiveId[] = [];
+  const seen = new Set<string>();
+  for (const raw of ids) {
+    const id = raw.trim();
+    if (!id) continue;
+    if (!PRIMITIVE_SET.has(id)) {
+      throw new Error(
+        `Unknown Spec primitive "${id}" (catalog: ${SPEC_PRIMITIVE_IDS.join(", ")})`
+      );
+    }
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id as SpecPrimitiveId);
+  }
+  if (out.length === 0) {
+    throw new Error(
+      "composeFromPrimitives requires at least one Spec primitive (fail closed)"
+    );
+  }
+  return out;
+}
+
+/**
+ * Ensure HITL / assert when irreversible primitives are present.
+ * Additive only — never removes caller-chosen ids.
+ */
+export function ensurePrimitiveSafety(
+  ids: readonly SpecPrimitiveId[]
+): SpecPrimitiveId[] {
+  const set = new Set(ids);
+  const hasIrreversible = ids.some(
+    (id) => PRIMITIVE_META[id].sideEffect === "irreversible"
+  );
+  if (hasIrreversible) {
+    set.add("wait_human");
+    set.add("assert");
+  }
+  // Stable order: catalog order, not insertion order of safety adds.
+  return SPEC_PRIMITIVE_IDS.filter((id) => set.has(id));
+}
+
+function slotNumber(
+  slots: IntentSlots | undefined,
+  key: string,
+  fallback: number
+): number {
+  const v = slots?.[key];
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
+}
+
+function slotBool(
+  slots: IntentSlots | undefined,
+  key: string,
+  fallback: boolean
+): boolean {
+  const v = slots?.[key];
+  if (v === undefined || v === null) return fallback;
+  if (typeof v === "boolean") return v;
+  if (v === 1 || v === "1" || v === "true") return true;
+  if (v === 0 || v === "0" || v === "false") return false;
+  return Boolean(v);
+}
+
+/**
+ * Catalog-only compose: goal + chosen primitives → draft Spec.
+ *
+ * Does not invent unbound action ids or manifests. Domain packs remain a
+ * parallel path ({@link composeIntent}). Additive safety: irreversible
+ * primitives force `wait_human` + `assert`.
+ */
+export function composeFromPrimitives(
+  options: ComposeFromPrimitivesOptions
+): ComposeIntentResult {
+  const goal = options.goal.trim();
+  if (!goal) {
+    throw new Error("composeFromPrimitives requires a non-empty goal");
+  }
+
+  const chosen = ensurePrimitiveSafety(
+    normalizePrimitiveIds(options.primitiveIds)
+  );
+  const slots = options.slots ?? {};
+  const maxJobs = slotNumber(slots, "maxJobs", 3);
+  const dryRun = slotBool(slots, "dryRun", true);
+  const hasIrreversible = chosen.some(
+    (id) => PRIMITIVE_META[id].sideEffect === "irreversible"
+  );
+
+  const allowedActions: SpecAllowedAction[] = chosen.map((id) => ({
+    id,
+    description: PRIMITIVE_META[id].description,
+    sideEffect: PRIMITIVE_META[id].sideEffect,
+  }));
+
+  const constraints: SpecConstraint[] = [
+    {
+      id: "hitl_before_irreversible",
+      description: "Negotiate before irreversible write",
+    },
+  ];
+  if (dryRun) {
+    constraints.push({
+      id: "dry_run_default",
+      description: "dryRun: simulate irreversible acts",
+    });
+  }
+
+  const hitlRequired: SpecHitlRequirement[] = [
+    {
+      id: "before_run",
+      description: "Approve Spec before treating it as law",
+      when: "before_run",
+    },
+  ];
+  if (hasIrreversible) {
+    hitlRequired.push({
+      id: "before_irreversible",
+      description: "HITL before irreversible primitive",
+      when: "before_irreversible",
+    });
+  }
+
+  const acceptance: SpecAcceptanceItem[] = [
+    {
+      id: "intent_captured",
+      description: "Intent goal recorded on Spec",
+      kind: "gate",
+    },
+    {
+      id: "human_freeze",
+      description: "Human Approve / Abort via Spec UI or adapter",
+      kind: "human",
+    },
+  ];
+  if (chosen.includes("assert")) {
+    acceptance.push({
+      id: "asserts_evaluated",
+      description: "Assert primitives checked against evidence when required",
+      kind: "gate",
+    });
+  }
+
+  const expansion: ComposeExpansion = {
+    goal,
+    procedure: options.procedure ?? {
+      appId: "relay",
+      entrypoint: "compose",
+    },
+    actionBinding: options.actionBinding ?? "protocol",
+    constraints,
+    allowedActions,
+    acceptance,
+    hitlRequired,
+    budget: { maxJobs, dryRun },
+  };
+
+  if (!expansionUsesPrimitives(expansion)) {
+    throw new Error(
+      "composeFromPrimitives produced no Spec primitives (fail closed)"
+    );
+  }
+
+  const intent = createIntent({
+    goal,
+    slots,
+    id: options.intentId,
+  });
+
+  const spec = createDraftSpec({
+    id: options.specId,
+    intentId: intent.id,
+    goal: expansion.goal,
+    procedure: expansion.procedure,
+    actionBinding: expansion.actionBinding,
+    constraints: withPackConstraint(
+      expansion.constraints ?? [],
+      PRIMITIVES_COMPOSE_PACK_ID
+    ),
+    allowedActions: expansion.allowedActions,
+    acceptance: expansion.acceptance,
+    hitlRequired: expansion.hitlRequired,
+    budget: expansion.budget,
+  });
+
+  return {
+    intent: markIntentCompiled(intent, spec.id),
+    spec,
+    packId: PRIMITIVES_COMPOSE_PACK_ID,
+  };
+}
+
 function withPackConstraint(
   constraints: SpecConstraint[],
   packId: string

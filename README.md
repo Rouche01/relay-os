@@ -131,7 +131,7 @@ Spec primitives & compose (sketch): [`docs/primitives.md`](docs/primitives.md)
 Protocol engine (sketch): [`docs/protocol-engine.md`](docs/protocol-engine.md)  
 Thesis demo (cold script): [`docs/thesis-demo.md`](docs/thesis-demo.md) — `pnpm --filter @relay/apps-community-engager thesis-demo`  
 Compose demo (Intent→pack Spec→protocol stub→run): [`docs/compose-demo.md`](docs/compose-demo.md) — `pnpm --filter @relay/apps-community-engager compose-demo`  
-Relay shell (Spec governance + Preact UI): [`docs/spec-ui.md`](docs/spec-ui.md) — `pnpm --filter @relay/apps-relay-shell api` + `dev`  
+Relay shell (Spec governance + Preact UI): [`docs/spec-ui.md`](docs/spec-ui.md) — `pnpm --filter @relay/apps-relay-shell dev:all`  
 Spec store (shared): `@relay/spec-store`
 
 ---

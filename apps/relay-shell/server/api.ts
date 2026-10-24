@@ -3,9 +3,12 @@
  * Not CommunityEngager-bound. Packs for "New from Intent" use relay/compose.
  *
  *   pnpm --filter @relay/apps-relay-shell api
+ *   RELAY_SHELL_SERVE_UI=1 pnpm --filter @relay/apps-relay-shell api   # also serve dist/
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createReadStream, existsSync, statSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   composeIntentFromSlots,
   createSpecBundle,
@@ -15,6 +18,8 @@ import {
 } from "@relay/protocol";
 import { createFileSpecStore } from "@relay/spec-store";
 import { relayComposePack } from "./generic-pack.js";
+
+const shellRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body, null, 2);
@@ -41,10 +46,67 @@ function dataDir(): string {
   );
 }
 
+function distDir(): string | null {
+  const override = process.env.RELAY_SHELL_DIST?.trim();
+  const dir = override
+    ? path.resolve(override)
+    : path.join(shellRoot, "dist");
+  if (!existsSync(path.join(dir, "index.html"))) return null;
+  return dir;
+}
+
+function contentType(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case ".html":
+      return "text/html; charset=utf-8";
+    case ".js":
+      return "text/javascript; charset=utf-8";
+    case ".css":
+      return "text/css; charset=utf-8";
+    case ".svg":
+      return "image/svg+xml";
+    case ".json":
+      return "application/json";
+    case ".ico":
+      return "image/x-icon";
+    case ".woff2":
+      return "font/woff2";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+function tryServeStatic(
+  res: ServerResponse,
+  dist: string,
+  pathname: string
+): boolean {
+  const safe = path.normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, "");
+  let filePath = path.join(dist, safe === "/" ? "index.html" : safe);
+  if (!filePath.startsWith(dist)) return false;
+
+  if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
+    filePath = path.join(dist, "index.html");
+  }
+  if (!existsSync(filePath)) return false;
+
+  res.writeHead(200, {
+    "content-type": contentType(filePath),
+    "cache-control": filePath.endsWith("index.html") ? "no-store" : "public, max-age=3600",
+  });
+  createReadStream(filePath).pipe(res);
+  return true;
+}
+
 async function main(): Promise<void> {
   const store = createFileSpecStore(dataDir());
   const host = process.env.SPEC_UI_HOST ?? "127.0.0.1";
   const port = Number(process.env.SPEC_UI_PORT ?? "8790");
+  const serveUi =
+    process.env.RELAY_SHELL_SERVE_UI === "1" ||
+    process.env.RELAY_SHELL_SERVE_UI === "true";
+  const dist = serveUi ? distDir() : null;
 
   const server = createServer(async (req, res) => {
     try {
@@ -62,7 +124,11 @@ async function main(): Promise<void> {
       const method = req.method ?? "GET";
 
       if (method === "GET" && url.pathname === "/api/health") {
-        sendJson(res, 200, { ok: true, store: store.path });
+        sendJson(res, 200, {
+          ok: true,
+          store: store.path,
+          ui: dist ? dist : null,
+        });
         return;
       }
 
@@ -149,6 +215,10 @@ async function main(): Promise<void> {
         return;
       }
 
+      if (dist && method === "GET" && !url.pathname.startsWith("/api")) {
+        if (tryServeStatic(res, dist, url.pathname)) return;
+      }
+
       sendJson(res, 404, { error: "Not found" });
     } catch (err) {
       sendJson(res, 500, {
@@ -165,7 +235,15 @@ async function main(): Promise<void> {
   console.log(`=== Relay · Spec API (shell) ===`);
   console.log(`http://${host}:${port}`);
   console.log(`Spec store: ${store.path}`);
-  console.log(`Pack: relay/compose (domain packs stay in their apps)\n`);
+  console.log(`Pack: relay/compose (domain packs stay in their apps)`);
+  if (dist) {
+    console.log(`UI (dist): ${dist}`);
+  } else if (serveUi) {
+    console.log(`UI: requested but dist/ missing — run pnpm build first`);
+  } else {
+    console.log(`UI: Vite dev (proxy /api) or RELAY_SHELL_SERVE_UI=1 after build`);
+  }
+  console.log("");
 }
 
 main().catch((err) => {

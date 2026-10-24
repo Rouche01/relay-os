@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  composeFromPrimitives,
   composeIntent,
   composeIntentFromSlots,
   createIntent,
+  ensurePrimitiveSafety,
+  normalizePrimitiveIds,
+  PRIMITIVES_COMPOSE_PACK_ID,
   type DomainPack,
 } from "../src/index.js";
 
@@ -93,5 +97,84 @@ describe("composeIntent", () => {
       () => composeIntent("g", { packs: [bad] }),
       /at least one Spec primitive/
     );
+  });
+});
+
+describe("composeFromPrimitives", () => {
+  it("builds a draft Spec from a catalog subset", () => {
+    const { intent, spec, packId } = composeFromPrimitives({
+      goal: "Scout and draft a reply",
+      primitiveIds: ["observe", "read", "assert", "wait_human"],
+      slots: { maxJobs: 2, dryRun: true },
+    });
+    assert.equal(packId, PRIMITIVES_COMPOSE_PACK_ID);
+    assert.equal(intent.status, "compiled");
+    assert.equal(spec.status, "draft");
+    assert.equal(spec.procedure.appId, "relay");
+    assert.equal(spec.actionBinding, "protocol");
+    assert.equal(spec.budget.maxJobs, 2);
+    assert.equal(spec.budget.dryRun, true);
+    assert.deepEqual(
+      spec.allowedActions.map((a) => a.id),
+      ["observe", "read", "wait_human", "assert"]
+    );
+    assert.ok(!spec.allowedActions.some((a) => a.id === "write"));
+    assert.equal(
+      spec.constraints.find((c) => c.id === "compose_pack")?.description,
+      PRIMITIVES_COMPOSE_PACK_ID
+    );
+  });
+
+  it("forces wait_human + assert when write is present", () => {
+    const { spec } = composeFromPrimitives({
+      goal: "Post a comment after approval",
+      primitiveIds: ["observe", "write"],
+    });
+    const ids = spec.allowedActions.map((a) => a.id);
+    assert.ok(ids.includes("write"));
+    assert.ok(ids.includes("wait_human"));
+    assert.ok(ids.includes("assert"));
+    assert.ok(
+      spec.hitlRequired.some((h) => h.when === "before_irreversible")
+    );
+  });
+
+  it("fails closed on empty, unknown, or blank goal", () => {
+    assert.throws(
+      () => composeFromPrimitives({ goal: "x", primitiveIds: [] }),
+      /at least one Spec primitive/
+    );
+    assert.throws(
+      () =>
+        composeFromPrimitives({
+          goal: "x",
+          primitiveIds: ["scout_threads"],
+        }),
+      /Unknown Spec primitive/
+    );
+    assert.throws(
+      () =>
+        composeFromPrimitives({
+          goal: "   ",
+          primitiveIds: ["observe"],
+        }),
+      /non-empty goal/
+    );
+  });
+
+  it("normalizePrimitiveIds dedupes and ensurePrimitiveSafety is additive", () => {
+    assert.deepEqual(normalizePrimitiveIds(["read", "read", "observe"]), [
+      "read",
+      "observe",
+    ]);
+    assert.deepEqual(ensurePrimitiveSafety(["write"]), [
+      "write",
+      "wait_human",
+      "assert",
+    ]);
+    assert.deepEqual(ensurePrimitiveSafety(["observe", "read"]), [
+      "observe",
+      "read",
+    ]);
   });
 });

@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:all": "tsx scripts/dev-stack.mts",
     "build": "vite build",
     "preview": "vite preview",
     "api": "tsx server/api.ts",
+    "start": "RELAY_SHELL_SERVE_UI=1 tsx server/api.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
