@@ -8,6 +8,10 @@ import type {
   NoulDecisionQuestion,
   ScoreDecisionQuestion,
 } from "@relay/protocol";
+import {
+  PRIMITIVE_PICK_META_KIND,
+  heuristicPrimitiveNoulYes,
+} from "../pick-primitives.js";
 import type { DecisionBackend } from "../types.js";
 
 export interface HeuristicDecisionBackendOptions {
@@ -39,8 +43,15 @@ export class HeuristicDecisionBackend implements DecisionBackend {
     const answers: Record<string, DecisionAnswerValue> = {};
     const confidences: number[] = [];
 
+    const primitivePick = request.meta?.kind === PRIMITIVE_PICK_META_KIND;
+
     for (const question of request.questions) {
-      const value = answerQuestion(question, stateText, overrides);
+      const value = answerQuestion(
+        question,
+        stateText,
+        overrides,
+        primitivePick
+      );
       answers[question.id] = value;
       confidences.push(confidenceFor(value, overrides.confidence));
     }
@@ -79,12 +90,17 @@ function readOverrides(meta: Record<string, unknown> | undefined): HeuristicOver
 function answerQuestion(
   question: DecisionQuestion,
   stateText: string,
-  overrides: HeuristicOverrides
+  overrides: HeuristicOverrides,
+  primitivePick: boolean
 ): DecisionAnswerValue {
   switch (question.kind) {
     case "choice":
       return answerChoice(question, stateText, overrides.choiceId);
     case "noul":
+      if (primitivePick && overrides.noulYes === undefined) {
+        const yes = heuristicPrimitiveNoulYes(question.id, stateText);
+        return { kind: "noul", yes, probability: yes ? 0.85 : 0.15 };
+      }
       return answerNoul(question, stateText, overrides.noulYes);
     case "score":
       return answerScore(question, overrides.score);

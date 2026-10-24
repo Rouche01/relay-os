@@ -39,3 +39,13 @@ export {
   JevDecisionBackend,
   type JevDecisionBackendOptions,
 } from "./backends/jev.js";
+
+export {
+  PRIMITIVE_PICK_META_KIND,
+  buildPrimitivePickRequest,
+  heuristicPrimitiveNoulYes,
+  pickPrimitivesForGoal,
+  suggestPrimitivesHeuristic,
+  type PickPrimitivesOptions,
+  type PickPrimitivesResult,
+} from "./pick-primitives.js";
