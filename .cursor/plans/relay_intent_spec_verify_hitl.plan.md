@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: runtime-bound-to-spec
     content: "Runtime/app refuse work outside frozen Spec — capabilities, budgets, dry-run default, allowlist/policy; thaw required to widen constraints"
-    status: pending
+    status: completed
   - id: evidence-pack
     content: "Evidence pack before execute — acceptance checks as artifacts (score gate, constraint checklist, dry-run log, allowlist membership); fail closed if incomplete"
     status: completed
@@ -210,3 +210,4 @@ Use the YAML `todos` above as the source of truth for status (`pending` / `in_pr
 - Implemented `@relay/protocol` Spec + Intent (`spec.ts`, `intent.ts`): freeze/thaw/running/satisfied/aborted helpers; procedure binding; typed acceptance; action_binding. Persistence (action-store) deferred to engage-compiler / later. Docs: [`docs/spec.md`](../../docs/spec.md). Marked `spec-schema` + `intent-type` completed.
 - CommunityEngager `compileEngageFromSlots` / `compileEngageIntent` — template Intent→draft Spec for engage|post_watch; tests in `test/engage-compiler.test.ts`. Marked `engage-compiler-v1` completed. Next: `evidence-pack` / `runtime-bound-to-spec`.
 - Evidence pack: `@relay/protocol` `evaluateSpecEvidence`; CommunityEngager `assertEngagePreExecuteEvidence` gates `runExecute` when `ctx.spec` set; `options.spec` propagated to fanout children. Tests in `test/evidence-pack.test.ts`. Marked `evidence-pack` completed. Next: `runtime-bound-to-spec`.
+- Runtime bind: `bindingsFromSpec` / `resolveMaxJobs` / `activateSpecForRun` — Spec enforces maxJobs, dryRun, forceDiscover, no_promo on draft+execute; fanout uses Spec maxJobs. Marked `runtime-bound-to-spec` completed. Next: `hitl-bound-to-spec`.

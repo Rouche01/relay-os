@@ -11,6 +11,7 @@ import {
   type FeedbackContext,
   type FeedbackPoint,
   type FeedbackResponse,
+  type Spec,
   type StageDefinition,
 } from "@relay/protocol";
 import type { AppController } from "@relay/runtime";
@@ -75,6 +76,7 @@ import {
 import { formatManualPostNotify } from "./stages/execute/manual-notify.js";
 import { executeJobId } from "./reddit/scout/scout-live.js";
 import { assertEngagePreExecuteEvidence } from "./spec/evidence-pack.js";
+import { bindingsFromSpec } from "./spec/runtime-bind.js";
 import { getAllowlistStore, resolvePlaybook } from "./policy/allowlist-store.js";
 import { CommunityMemory, communityFactDomain } from "./memory.js";
 import {
@@ -2132,16 +2134,25 @@ export class CommunityEngagerController implements AppController {
     }
     ctx.agentMemory = memoryBlock;
 
+    const specBindings = bindingsFromSpec(ctx.spec as Spec | undefined);
+    const specBlocksPromo = specBindings?.allowPromo === false;
     const forceIntensity0 =
       warmup.active ||
       promo.blockPromo ||
       plugsWeekBlocked ||
-      cadence.promoExhausted;
+      cadence.promoExhausted ||
+      specBlocksPromo;
+    if (specBlocksPromo) {
+      console.log("[spec] no_promo — forcing intensity 0 for this draft");
+    }
     const draftOverrides = {
       memoryBlock: memoryBlock || undefined,
       warmupActive: warmup.active,
       forceIntensity0:
-        promo.blockPromo || plugsWeekBlocked || cadence.promoExhausted,
+        promo.blockPromo ||
+        plugsWeekBlocked ||
+        cadence.promoExhausted ||
+        specBlocksPromo,
       plugsWeekBlocked,
       playbook,
     };
@@ -2262,9 +2273,16 @@ export class CommunityEngagerController implements AppController {
     const cadence =
       (ctx.cadenceStatus as CadenceStatus | undefined) ??
       (await resolveCadenceStatus(runtimeCfg));
+    const specBindings = bindingsFromSpec(ctx.spec as Spec | undefined);
+    if (specBindings?.allowPromo === false && draft.intensity > 0) {
+      throw new Error(
+        `Spec no_promo — refusing execute at intensity=${draft.intensity}`
+      );
+    }
     const result = await executeApproved(draft, {
+      dryRun: specBindings?.dryRun,
       warmupActive: warmup.active,
-      promoBlocked: promo.blockPromo,
+      promoBlocked: promo.blockPromo || specBindings?.allowPromo === false,
       cadenceBlocked: cadenceBlocksIntensity(cadence, draft.intensity),
     });
     ctx.executeResult = result;

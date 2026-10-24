@@ -42,6 +42,11 @@ import type {
 import { writeRunLog } from "./metrics/run-log.js";
 import type { ScoutReport } from "./stages/scout/scout-report.js";
 import type { CommunityDraft } from "./types.js";
+import {
+  activateSpecForRun,
+  bindingsFromSpec,
+  resolveMaxJobs,
+} from "./spec/runtime-bind.js";
 
 export interface CommunityEngagerAppOptions {
   store?: ActionStore;
@@ -174,11 +179,20 @@ export class CommunityEngagerApp implements FanoutHost {
   /** Run the selected parent manifest end-to-end (fanout included). */
   async run(): Promise<RunSummary> {
     const startedAt = new Date().toISOString();
+    const activeSpec = activateSpecForRun(this.options.spec);
+    const bindings = bindingsFromSpec(activeSpec);
     const forceDiscover =
-      this.entrypoint === "engage" && Boolean(this.options.forceDiscover);
+      this.entrypoint === "engage" &&
+      (Boolean(this.options.forceDiscover) || Boolean(bindings?.forceDiscover));
     console.log(
       `[run] entrypoint=${this.entrypoint}` +
-        (forceDiscover ? " forceDiscover=1" : "")
+        (forceDiscover ? " forceDiscover=1" : "") +
+        (activeSpec
+          ? ` spec=${activeSpec.id}:${activeSpec.status}` +
+            (bindings
+              ? ` maxJobs=${bindings.maxJobs ?? "—"} dryRun=${bindings.dryRun ?? "—"} allowPromo=${bindings.allowPromo}`
+              : "")
+          : "")
     );
     let memoryHealthy: boolean | undefined;
     try {
@@ -190,8 +204,8 @@ export class CommunityEngagerApp implements FanoutHost {
     if (forceDiscover) {
       this.runtime.getContext().forceDiscover = true;
     }
-    if (this.options.spec) {
-      this.runtime.getContext().spec = this.options.spec;
+    if (activeSpec) {
+      this.runtime.getContext().spec = activeSpec;
     }
 
     this.attachBroker(this.runtime);
@@ -253,14 +267,18 @@ export class CommunityEngagerApp implements FanoutHost {
   }
 
   private maxJobs(): number {
-    if (this.options.maxJobs != null) return this.options.maxJobs;
     const cfg = getCommunityConfig();
     // Post-watch entrypoint: do not share engage's scout job budget blindly —
     // cap fanout by how many watches we poll per run.
-    if (this.entrypoint === "post_watch") {
-      return Math.min(cfg.jobs.maxJobs, cfg.postWatch.maxPerRun);
-    }
-    return cfg.jobs.maxJobs;
+    const fallback =
+      this.entrypoint === "post_watch"
+        ? Math.min(cfg.jobs.maxJobs, cfg.postWatch.maxPerRun)
+        : cfg.jobs.maxJobs;
+    return resolveMaxJobs({
+      spec: (this.runtime.getContext().spec as Spec | undefined) ?? this.options.spec,
+      optionMaxJobs: this.options.maxJobs,
+      fallback,
+    });
   }
 
   private jobDelayMs(): number {

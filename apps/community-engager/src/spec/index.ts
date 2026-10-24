@@ -15,3 +15,9 @@ export {
   buildRunSpec,
   type BuildRunSpecOptions,
 } from "./build-run-spec.js";
+export {
+  activateSpecForRun,
+  bindingsFromSpec,
+  resolveMaxJobs,
+  type SpecRuntimeBindings,
+} from "./runtime-bind.js";
