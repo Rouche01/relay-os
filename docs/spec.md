@@ -25,6 +25,7 @@ Freeze with `freezeSpec(spec)` from `@relay/protocol` before treating the brief 
 - CommunityEngager: [`apps/community-engager/src/spec/evidence-pack.ts`](../apps/community-engager/src/spec/evidence-pack.ts)
 - When `CommunityEngagerApp` is constructed with `spec` (frozen/running), that Spec is copied to fanout children; **execute fails closed** unless the pre-execute evidence pack is complete
 - **Runtime bind** ([`runtime-bind.ts`](../apps/community-engager/src/spec/runtime-bind.ts)): frozen Spec enforces `maxJobs`, `dryRun`, `force_discover`, and `no_promo` during the run
+- **Spec HITL** ([`hitl-spec.ts`](../apps/community-engager/src/spec/hitl-spec.ts)): with `spec` + adapter, Approve / Edit / Abort the Spec **before** stages (default on; `--skip-spec-hitl` to skip)
 - Runs **without** `ctx.spec` behave as before (legacy)
 
 See readiness plan: [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](../.cursor/plans/relay_intent_spec_verify_hitl.plan.md).

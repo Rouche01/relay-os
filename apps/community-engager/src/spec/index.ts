@@ -21,3 +21,11 @@ export {
   resolveMaxJobs,
   type SpecRuntimeBindings,
 } from "./runtime-bind.js";
+export {
+  applySpecEdit,
+  buildSpecHitlRequest,
+  formatSpecForHitl,
+  negotiateSpecBeforeRun,
+  parseSpecEdit,
+  type SpecHitlResult,
+} from "./hitl-spec.js";

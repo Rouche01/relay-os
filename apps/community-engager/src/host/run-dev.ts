@@ -58,6 +58,14 @@ function wantsSpec(argv: string[]): boolean {
   );
 }
 
+function skipSpecHitl(argv: string[]): boolean {
+  return (
+    argv.includes("--skip-spec-hitl") ||
+    process.env.COMMUNITY_SKIP_SPEC_HITL === "1" ||
+    process.env.COMMUNITY_SKIP_SPEC_HITL === "true"
+  );
+}
+
 function parseSpecGoal(argv: string[]): string | undefined {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
@@ -99,7 +107,12 @@ async function main(): Promise<void> {
       })
     : undefined;
 
-  const app = new CommunityEngagerApp({ adapter, entrypoint, spec });
+  const app = new CommunityEngagerApp({
+    adapter,
+    entrypoint,
+    spec,
+    specHitl: spec ? !skipSpecHitl(argv) : false,
+  });
   const memory = app.getMemory();
   const healthy = await memory.health();
   console.log(
@@ -111,7 +124,10 @@ async function main(): Promise<void> {
       `Spec: ${spec.id} v${spec.version} status=${spec.status} ` +
         `entrypoint=${spec.procedure.entrypoint} dryRun=${spec.budget.dryRun} ` +
         `maxJobs=${spec.budget.maxJobs}\n` +
-        `Goal: ${spec.goal}\n`
+        `Goal: ${spec.goal}\n` +
+        (skipSpecHitl(argv)
+          ? "Spec HITL: skipped (--skip-spec-hitl)\n"
+          : "Spec HITL: you will Approve / Edit / Abort the Spec before stages run\n")
     );
   } else {
     console.log(

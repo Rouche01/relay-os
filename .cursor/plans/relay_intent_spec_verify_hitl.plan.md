@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: hitl-bound-to-spec
     content: "HITL bound to Spec — optional Approve Spec before run; Approve/Edit/Abort draft; Spec-affecting edits thaw→re-freeze; Telegram/CLI remain primary adapters"
-    status: pending
+    status: completed
   - id: thin-shell-or-demo-path
     content: "Thin demo surface — living-todo card OR documented CLI/Telegram script showing Intent→Spec→Evidence→HITL→act; full living-todo UX can stay on shell plan"
     status: pending
@@ -211,3 +211,4 @@ Use the YAML `todos` above as the source of truth for status (`pending` / `in_pr
 - CommunityEngager `compileEngageFromSlots` / `compileEngageIntent` — template Intent→draft Spec for engage|post_watch; tests in `test/engage-compiler.test.ts`. Marked `engage-compiler-v1` completed. Next: `evidence-pack` / `runtime-bound-to-spec`.
 - Evidence pack: `@relay/protocol` `evaluateSpecEvidence`; CommunityEngager `assertEngagePreExecuteEvidence` gates `runExecute` when `ctx.spec` set; `options.spec` propagated to fanout children. Tests in `test/evidence-pack.test.ts`. Marked `evidence-pack` completed. Next: `runtime-bound-to-spec`.
 - Runtime bind: `bindingsFromSpec` / `resolveMaxJobs` / `activateSpecForRun` — Spec enforces maxJobs, dryRun, forceDiscover, no_promo on draft+execute; fanout uses Spec maxJobs. Marked `runtime-bound-to-spec` completed. Next: `hitl-bound-to-spec`.
+- Spec HITL: `negotiateSpecBeforeRun` before stages (Approve/Edit/Abort); Edit recompiles+freezes; Abort returns empty ABORTED summary. Default on when spec+adapter; `--skip-spec-hitl` to skip. Marked `hitl-bound-to-spec` completed. Next: `e2e-thesis-demo` / thin demo path.

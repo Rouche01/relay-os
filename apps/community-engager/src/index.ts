@@ -47,6 +47,7 @@ import {
   bindingsFromSpec,
   resolveMaxJobs,
 } from "./spec/runtime-bind.js";
+import { negotiateSpecBeforeRun } from "./spec/hitl-spec.js";
 
 export interface CommunityEngagerAppOptions {
   store?: ActionStore;
@@ -80,6 +81,11 @@ export interface CommunityEngagerAppOptions {
    * child contexts so execute fails closed without a complete evidence pack.
    */
   spec?: Spec;
+  /**
+   * When true (default if `spec` + `adapter` are set), pause for Spec
+   * Approve / Edit / Abort before stages run. Set false to skip.
+   */
+  specHitl?: boolean;
 }
 
 /**
@@ -179,7 +185,36 @@ export class CommunityEngagerApp implements FanoutHost {
   /** Run the selected parent manifest end-to-end (fanout included). */
   async run(): Promise<RunSummary> {
     const startedAt = new Date().toISOString();
-    const activeSpec = activateSpecForRun(this.options.spec);
+    let runSpec = this.options.spec;
+    const wantSpecHitl =
+      Boolean(runSpec) &&
+      Boolean(this.options.adapter) &&
+      this.options.specHitl !== false;
+
+    if (wantSpecHitl && runSpec && this.options.adapter) {
+      const negotiated = await negotiateSpecBeforeRun({
+        adapter: this.options.adapter,
+        spec: runSpec,
+        agentId: this.options.agentId ?? "community-engager-1",
+        frozenBy: "spec-hitl",
+      });
+      if (negotiated.aborted) {
+        console.warn(`[spec-hitl] ${negotiated.reason}`);
+        this.runtime.getContext().spec = negotiated.spec;
+        return {
+          runState: "ABORTED",
+          scouted: 0,
+          skipped: 0,
+          jobs: [],
+          approved: 0,
+          aborted: 0,
+          failed: 0,
+        };
+      }
+      runSpec = negotiated.spec;
+    }
+
+    const activeSpec = activateSpecForRun(runSpec);
     const bindings = bindingsFromSpec(activeSpec);
     const forceDiscover =
       this.entrypoint === "engage" &&
