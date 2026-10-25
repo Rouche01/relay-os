@@ -8,6 +8,7 @@ import {
   takeCreateFlash,
   type SpecBundleDto,
 } from "../api/specs.ts";
+import { explainSpec } from "../lib/spec-explain.ts";
 
 type Props = { id: string };
 
@@ -73,10 +74,11 @@ export function SpecReview({ id }: Props) {
   }
 
   const { primitives, aliases } = partitionActions(bundle);
-  const constraints = bundle.spec.constraints
-    .filter((c) => c.id !== "compose_pack")
-    .map((c) => c.id)
-    .join(", ");
+  const explain = explainSpec(bundle);
+  const constraints = bundle.spec.constraints.filter(
+    (c) => c.id !== "compose_pack"
+  );
+  const hitl = bundle.spec.hitlRequired ?? [];
   const canApprove =
     bundle.spec.status === "draft" || bundle.spec.status === "frozen";
   const canAbort =
@@ -118,45 +120,126 @@ export function SpecReview({ id }: Props) {
     <section>
       <p class="eyebrow">Spec review</p>
       <h1>{bundle.spec.goal}</h1>
-      <p class="lede">
-        Freeze authority for this run. Approve to continue; Abort cancels.
-      </p>
+      <p class="lede explain-headline">{explain.headline}</p>
       {flash ? (
         <p class={`flash${flash.err ? " err" : ""}`}>{flash.text}</p>
       ) : null}
       {decideNote ? <p class="hint decide-note">{decideNote}</p> : null}
 
       <div class="panel">
-        <h2>Spec summary</h2>
+        <h2>What it may do</h2>
+        <p class="hint vocab-lede">
+          Intended capability flow for this goal (not a runnable stage graph —
+          CE manifests still own real engage runs).
+        </p>
+        {explain.flow.length ? (
+          <ol class="flow-list">
+            {explain.flow.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        ) : (
+          <p class="empty">No allowed actions.</p>
+        )}
+        {explain.caveats.length ? (
+          <ul class="caveat-list">
+            {explain.caveats.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+
+      <div class="panel">
+        <h2>Allowed actions</h2>
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Id</th>
+              <th>Means</th>
+              <th>Side effect</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bundle.spec.allowedActions.map((a) => (
+              <tr key={a.id}>
+                <td>
+                  <code>{a.id}</code>
+                </td>
+                <td>{a.description || "—"}</td>
+                <td>{a.sideEffect || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {aliases.length ? (
+          <p class="hint">
+            Includes domain aliases: {aliases.join(", ")}
+          </p>
+        ) : null}
+      </div>
+
+      <div class="panel">
+        <h2>Constraints & budget</h2>
         <dl class="dl">
-          <dt>Intent</dt>
-          <dd>{bundle.intent.goal || "—"}</dd>
-          <dt>Procedure</dt>
-          <dd>
-            {bundle.spec.procedure.appId}/{bundle.spec.procedure.entrypoint}
-          </dd>
           <dt>Pack</dt>
           <dd>{packIdOf(bundle)}</dd>
           <dt>Status</dt>
           <dd>
             {bundle.spec.status} · v{bundle.spec.version}
           </dd>
-          <dt>Constraints</dt>
-          <dd>{constraints || "—"}</dd>
+          <dt>Binding</dt>
+          <dd>{bundle.spec.actionBinding}</dd>
           <dt>Budget</dt>
           <dd>
             dryRun {String(bundle.spec.budget.dryRun ?? "—")}, maxJobs{" "}
             {bundle.spec.budget.maxJobs ?? "—"}
           </dd>
+          <dt>Procedure</dt>
+          <dd>
+            {bundle.spec.procedure.appId}/{bundle.spec.procedure.entrypoint}
+          </dd>
         </dl>
+        {constraints.length ? (
+          <ul class="detail-list">
+            {constraints.map((c) => (
+              <li key={c.id}>
+                <code>{c.id}</code> — {c.description}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="hint">No extra constraints.</p>
+        )}
       </div>
 
       <div class="panel">
-        <h2>Goal-aligned primitives</h2>
-        <p class="hint vocab-lede">
-          Catalog subset for this Spec (not the full fixed pack). Aliases appear
-          only when a domain pack added them.
-        </p>
+        <h2>Acceptance & HITL</h2>
+        <h3 class="subhead">Done when</h3>
+        <ul class="detail-list">
+          {bundle.spec.acceptance.map((a) => (
+            <li key={a.id}>
+              <code>{a.id}</code>
+              {a.kind ? ` (${a.kind})` : ""} — {a.description || "—"}
+            </li>
+          ))}
+        </ul>
+        <h3 class="subhead">Human gates</h3>
+        {hitl.length ? (
+          <ul class="detail-list">
+            {hitl.map((h) => (
+              <li key={h.id}>
+                <code>{h.when || h.id}</code> — {h.description || "—"}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="hint">No HITL requirements listed.</p>
+        )}
+      </div>
+
+      <div class="panel">
+        <h2>Primitives</h2>
         {primitives.length ? (
           <ul class="prim-chips">
             {primitives.map((p) => (
@@ -164,18 +247,8 @@ export function SpecReview({ id }: Props) {
             ))}
           </ul>
         ) : (
-          <p class="empty">No primitives on this Spec.</p>
+          <p class="empty">None</p>
         )}
-        <div class="vocab">
-          <div>
-            <h3>Aliases</h3>
-            <ul>
-              {aliases.length
-                ? aliases.map((a) => <li key={a}>{a}</li>)
-                : [<li key="empty">—</li>]}
-            </ul>
-          </div>
-        </div>
       </div>
 
       <div class="actions">

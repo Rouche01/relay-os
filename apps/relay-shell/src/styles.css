@@ -200,6 +200,76 @@ h1 {
   background: rgba(255, 254, 251, 0.7);
 }
 
+.explain-headline {
+  max-width: 40rem;
+  color: var(--ink);
+}
+
+.flow-list {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  max-width: 40rem;
+}
+
+.flow-list li {
+  margin: 0.4rem 0;
+}
+
+.caveat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 40rem;
+}
+
+.caveat-list li {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: 0.35rem 0;
+  padding-left: 0.85rem;
+  border-left: 2px solid var(--line);
+}
+
+.spec-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.spec-table th,
+.spec-table td {
+  text-align: left;
+  padding: 0.45rem 0.6rem 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.spec-table th {
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.detail-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  max-width: 40rem;
+}
+
+.detail-list li {
+  margin: 0.4rem 0;
+  font-size: 0.9rem;
+}
+
+.subhead {
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--muted);
+  margin: 1rem 0 0.4rem;
+}
+
 .meta {
   display: flex;
   flex-wrap: wrap;

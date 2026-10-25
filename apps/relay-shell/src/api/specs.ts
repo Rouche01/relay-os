@@ -15,8 +15,21 @@ export type SpecBundleDto = {
     goal: string;
     procedure: { appId: string; entrypoint: string };
     constraints: Array<{ id: string; description: string }>;
-    allowedActions: Array<{ id: string; description?: string }>;
-    acceptance: Array<{ id: string }>;
+    allowedActions: Array<{
+      id: string;
+      description?: string;
+      sideEffect?: string;
+    }>;
+    acceptance: Array<{
+      id: string;
+      description?: string;
+      kind?: string;
+    }>;
+    hitlRequired?: Array<{
+      id: string;
+      description?: string;
+      when?: string;
+    }>;
     budget: { maxJobs?: number; dryRun?: boolean };
     actionBinding: string;
     frozenBy?: string;
