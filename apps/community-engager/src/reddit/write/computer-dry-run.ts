@@ -4,6 +4,7 @@ import {
   ComputerTaskRunner,
 } from "@relay/engines-computer";
 import type { CommunityDraft } from "../../types.js";
+import type { ComputerRunSession } from "./computer-run-session.js";
 
 /** Subset of execute result — avoid circular import with executor. */
 export interface ComputerDryRunResult {
@@ -23,6 +24,11 @@ export interface ComputerDryRunOptions {
   jobId: string;
   dataDir: string;
   engine: ComputerEngine;
+  /**
+   * Run-scoped desktop. When set, reattaches via engage job_id and parks soft
+   * after evidence (caller recycles at end of App.run).
+   */
+  runSession?: ComputerRunSession;
   /** Settle time after navigation before screenshot (ms). */
   settleMs?: number;
   /** Inject runner for tests. */
@@ -30,20 +36,26 @@ export interface ComputerDryRunOptions {
 }
 
 /**
- * Lease a Computer Runtime desktop, open the thread URL via keystrokes,
- * capture a screenshot into evidence, release. Never posts a comment.
+ * Open the thread URL on a Computer Runtime desktop and capture evidence.
+ * Never posts a comment.
+ *
+ * With `runSession`: ensureLeased (reattach) → open + capture → soft park.
+ * Without: lease → open + capture → soft park (one-shot).
  *
  * Implemented via ComputerTaskRunner builtins (`open_url` + `capture_frame`).
  */
 export async function runComputerDryRunEvidence(
   opts: ComputerDryRunOptions
 ): Promise<ComputerDryRunResult> {
-  const { draft, text, jobId, dataDir, engine } = opts;
+  const { draft, text, jobId, dataDir } = opts;
+  const runSession = opts.runSession;
+  const engine = runSession?.engine ?? opts.engine;
   const settleMs = opts.settleMs ?? 2000;
   const evidenceDir = path.join(dataDir, "evidence", "computer");
   const safeId = jobId.replace(/:/g, "_");
   const pngPath = path.join(evidenceDir, `${safeId}.png`);
   const metaPath = path.join(evidenceDir, `${safeId}.json`);
+  const leaseJobId = runSession?.jobId ?? jobId;
 
   const runner =
     opts.runner ??
@@ -53,63 +65,92 @@ export async function runComputerDryRunEvidence(
       agentId: "community-engager",
     });
 
-  const opened = await runner.run(
-    "open_url",
-    { url: draft.threadUrl, settleMs },
-    { jobId, evidenceDir, holdSession: true }
-  );
-  if (!opened.success) {
-    await releaseBestEffort(engine);
-    return fail(jobId, opened.vncUrl, opened.error ?? "open_url failed");
+  if (runSession) {
+    const lease = await runSession.ensureLeased();
+    if (!lease.ok) {
+      return fail(jobId, lease.vncUrl, lease.error ?? "computer lease failed");
+    }
   }
 
-  const vncUrl = opened.vncUrl ?? engine.getVncUrl() ?? undefined;
-
-  const captured = await runner.run(
-    "capture_frame",
-    {
-      evidenceDir,
-      fileStem: safeId,
-      meta: {
-        jobId,
-        threadUrl: draft.threadUrl,
-        subreddit: draft.subreddit,
-        note: "computer dry-run evidence — comment was NOT posted",
-        draftPreview: text.slice(0, 280),
-      },
-    },
-    { jobId, evidenceDir, reuseSession: true }
-  );
-
-  if (!captured.success) {
-    // capture_frame with reuseSession releases on finish; belt-and-suspenders.
-    await releaseBestEffort(engine);
-    return fail(
-      jobId,
-      captured.vncUrl ?? vncUrl,
-      captured.error ?? "capture_frame failed"
+  try {
+    const opened = await runner.run(
+      "open_url",
+      { url: draft.threadUrl, settleMs },
+      {
+        jobId: leaseJobId,
+        evidenceDir,
+        holdSession: true,
+        reuseSession: Boolean(runSession) || Boolean(engine.getSessionId()),
+      }
     );
+    if (!opened.success) {
+      if (!runSession) await releaseBestEffort(engine);
+      return fail(jobId, opened.vncUrl, opened.error ?? "open_url failed");
+    }
+
+    const vncUrl = opened.vncUrl ?? engine.getVncUrl() ?? runSession?.vncUrl;
+
+    const captured = await runner.run(
+      "capture_frame",
+      {
+        evidenceDir,
+        fileStem: safeId,
+        meta: {
+          jobId,
+          threadUrl: draft.threadUrl,
+          subreddit: draft.subreddit,
+          note: "computer dry-run evidence — comment was NOT posted",
+          draftPreview: text.slice(0, 280),
+        },
+      },
+      {
+        jobId: leaseJobId,
+        evidenceDir,
+        reuseSession: true,
+        // Run session parks itself; one-shot path soft-parks via runner release.
+        holdSession: Boolean(runSession),
+      }
+    );
+
+    if (!captured.success) {
+      if (!runSession) await releaseBestEffort(engine);
+      return fail(
+        jobId,
+        captured.vncUrl ?? vncUrl,
+        captured.error ?? "capture_frame failed"
+      );
+    }
+
+    const log =
+      `[computer:dry-run] Opened thread on leased desktop (no post)\n` +
+      `  jobId: ${jobId}\n` +
+      `  engageJobId: ${leaseJobId}\n` +
+      `  thread: ${draft.threadUrl}\n` +
+      `  vnc: ${captured.vncUrl ?? vncUrl ?? "(none)"}\n` +
+      `  evidence: ${pngPath}\n` +
+      `  meta: ${metaPath}\n` +
+      `  intensity: ${draft.intensity}\n` +
+      `  text (not typed):\n${text}`;
+    console.log(log);
+
+    return {
+      ok: true,
+      dryRun: true,
+      jobId,
+      transport: "computer",
+      log,
+      postedUrl: undefined,
+    };
+  } finally {
+    if (runSession) {
+      const parked = await runSession.park();
+      if (!parked.ok) {
+        console.warn(
+          `[computer:dry-run] park failed: ${parked.error ?? "unknown"}`
+        );
+      }
+    }
   }
-
-  const log =
-    `[computer:dry-run] Opened thread on leased desktop (no post)\n` +
-    `  jobId: ${jobId}\n` +
-    `  thread: ${draft.threadUrl}\n` +
-    `  vnc: ${captured.vncUrl ?? vncUrl ?? "(none)"}\n` +
-    `  evidence: ${pngPath}\n` +
-    `  meta: ${metaPath}\n` +
-    `  intensity: ${draft.intensity}\n` +
-    `  text (not typed):\n${text}`;
-  console.log(log);
-
-  return {
-    ok: true,
-    dryRun: true,
-    jobId,
-    transport: "computer",
-    log,
-    postedUrl: undefined,
-  };
 }
 
 function fail(

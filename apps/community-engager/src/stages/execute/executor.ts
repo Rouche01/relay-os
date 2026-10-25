@@ -15,6 +15,7 @@ import {
   createComputerEngine,
   runComputerDryRunEvidence,
 } from "../../reddit/write/computer-dry-run.js";
+import type { ComputerRunSession } from "../../reddit/write/computer-run-session.js";
 import { executeJobId } from "../../reddit/scout/scout-live.js";
 import type { ComputerEngine } from "@relay/engines-computer";
 import { recordAttribution } from "./attribution.js";
@@ -60,6 +61,11 @@ export interface ExecuteOptions {
    * Production builds one from COMPUTER_GATEWAY_URL / COMPUTER_API_TOKEN.
    */
   computerEngine?: ComputerEngine;
+  /**
+   * Run-scoped desktop (preview → HITL → execute). Prefer over ad-hoc engine
+   * so execute reattaches the same parked session.
+   */
+  computerRun?: ComputerRunSession;
   /** Override settle wait after navigation (computer dry-run). */
   computerSettleMs?: number;
 }
@@ -172,7 +178,9 @@ export async function executeApproved(
 
   // Computer Runtime: always evidence-only (never posts), even if REDDIT_DRY_RUN=false.
   if (writeTransport === "computer" || cfg.reddit.transport === "computer") {
+    const runSession = opts.computerRun;
     const engine =
+      runSession?.engine ??
       opts.computerEngine ??
       createComputerEngine({
         gatewayUrl: cfg.computer.gatewayUrl,
@@ -184,6 +192,7 @@ export async function executeApproved(
       jobId,
       dataDir,
       engine,
+      runSession,
       settleMs: opts.computerSettleMs ?? cfg.computer.settleMs,
     });
     await writeJob(jobPath, result);

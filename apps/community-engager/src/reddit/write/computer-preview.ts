@@ -7,12 +7,18 @@ import {
 import type { CommunityDraft } from "../../types.js";
 import type { CommunityRuntimeConfig } from "../config.js";
 import { createComputerEngine } from "./computer-dry-run.js";
+import type { ComputerRunSession } from "./computer-run-session.js";
 
 export interface ComputerPreviewOptions {
   opportunities: CommunityDraft[];
   cfg: CommunityRuntimeConfig;
   /** Bound app engine; defaults to a fresh engine from cfg.computer. */
   engine?: ComputerEngine;
+  /**
+   * Run-scoped desktop. When set, leases via engage job_id, parks after tour
+   * (soft), and leaves Firefox warm for HITL / execute reattach.
+   */
+  runSession?: ComputerRunSession;
   /** Inject runner for tests. */
   runner?: ComputerTaskRunner;
   /** Override evidence root (default `{dataDir}/evidence/computer/preview`). */
@@ -28,6 +34,8 @@ export interface ComputerPreviewResult extends ComputerTaskResult {
 
 /**
  * Lease desktop → open up to previewMax opportunity thread URLs → screenshot.
+ * With `runSession`: park soft after tour (same desktop for HITL/execute).
+ * Without: one-shot lease then soft park via runner release.
  * Prints the VNC URL as soon as the lease succeeds so you can click it while
  * the tour runs. Failures are returned (caller should warn, not abort engage).
  */
@@ -58,9 +66,12 @@ export async function runComputerDesktopPreview(
   const evidenceDir =
     opts.evidenceDir ??
     path.join(cfg.reddit.dataDir, "evidence", "computer", "preview");
-  const jobId = opts.jobId ?? `preview-${Date.now()}`;
+  const runSession = opts.runSession;
+  const jobId =
+    runSession?.jobId ?? opts.jobId ?? `preview-${Date.now()}`;
 
   const engine =
+    runSession?.engine ??
     opts.engine ??
     createComputerEngine({
       gatewayUrl: cfg.computer.gatewayUrl,
@@ -74,23 +85,36 @@ export async function runComputerDesktopPreview(
       agentId: "community-engager",
     });
 
-  // Lease first so we can print a clickable VNC URL before navigation starts.
-  const lease = await engine.execute({
-    type: "lease",
-    params: { job_id: jobId, agent_id: "community-engager" },
-  });
-  if (!lease.success) {
-    return {
-      success: false,
-      error: lease.error ?? "computer lease failed",
-      urls,
-    };
+  let vncUrl: string | undefined;
+
+  if (runSession) {
+    const lease = await runSession.ensureLeased();
+    if (!lease.ok) {
+      return {
+        success: false,
+        error: lease.error ?? "computer lease failed",
+        urls,
+      };
+    }
+    vncUrl = lease.vncUrl ?? runSession.vncUrl;
+  } else {
+    const lease = await engine.execute({
+      type: "lease",
+      params: { job_id: jobId, agent_id: "community-engager" },
+    });
+    if (!lease.success) {
+      return {
+        success: false,
+        error: lease.error ?? "computer lease failed",
+        urls,
+      };
+    }
+    vncUrl =
+      (lease.data?.vnc_url as string | undefined) ??
+      engine.getVncUrl() ??
+      undefined;
   }
 
-  const vncUrl =
-    (lease.data?.vnc_url as string | undefined) ??
-    engine.getVncUrl() ??
-    undefined;
   if (vncUrl) {
     // Bare URL on its own line → clickable in most terminals / Cursor.
     console.log("[computer:preview] Live desktop — open while the tour runs:");
@@ -102,29 +126,46 @@ export async function runComputerDesktopPreview(
     );
   }
 
-  const result = await runner.run(
-    "tour_urls",
-    {
-      urls,
-      settleMs: cfg.computer.settleMs,
-      paceMs: 500,
-      fileStemPrefix: "preview",
-      evidenceDir,
-    },
-    { jobId, evidenceDir, reuseSession: true }
-  );
-
-  if (result.evidencePaths?.length) {
-    console.log(
-      `[computer:preview] screenshots:\n  ${result.evidencePaths
-        .filter((p) => p.endsWith(".png"))
-        .join("\n  ")}`
+  try {
+    const result = await runner.run(
+      "tour_urls",
+      {
+        urls,
+        settleMs: cfg.computer.settleMs,
+        paceMs: 500,
+        fileStemPrefix: "preview",
+        evidenceDir,
+      },
+      {
+        jobId,
+        evidenceDir,
+        reuseSession: true,
+        // Run session parks itself so soft park state stays on ComputerRunSession.
+        holdSession: Boolean(runSession),
+      }
     );
-  }
 
-  return {
-    ...result,
-    vncUrl: result.vncUrl ?? vncUrl,
-    urls,
-  };
+    if (result.evidencePaths?.length) {
+      console.log(
+        `[computer:preview] screenshots:\n  ${result.evidencePaths
+          .filter((p) => p.endsWith(".png"))
+          .join("\n  ")}`
+      );
+    }
+
+    return {
+      ...result,
+      vncUrl: result.vncUrl ?? vncUrl ?? runSession?.vncUrl,
+      urls,
+    };
+  } finally {
+    if (runSession) {
+      const parked = await runSession.park();
+      if (!parked.ok) {
+        console.warn(
+          `[computer:preview] park failed: ${parked.error ?? "unknown"}`
+        );
+      }
+    }
+  }
 }

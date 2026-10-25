@@ -39,6 +39,11 @@ import {
   type CommunityEntrypoint,
 } from "./manifest.js";
 import { getCommunityConfig } from "./reddit/config.js";
+import {
+  createComputerRunSession,
+  engageJobId,
+  type ComputerRunSession,
+} from "./reddit/write/computer-run-session.js";
 import type {
   DiscoverEvidence,
   SessionEvidence,
@@ -116,6 +121,8 @@ export class CommunityEngagerApp implements FanoutHost {
   private readonly brokers = new WeakMap<AgentRuntime, FeedbackBroker>();
   private readonly options: CommunityEngagerAppOptions;
   private readonly entrypoint: CommunityEntrypoint;
+  /** Shared desktop across preview → HITL → job execute (when computer bound). */
+  private readonly computerRun?: ComputerRunSession;
 
   constructor(options: CommunityEngagerAppOptions = {}) {
     this.options = options;
@@ -130,15 +137,26 @@ export class CommunityEngagerApp implements FanoutHost {
 
     this.engines = createCommunityEngines({ memory: this.memory });
 
+    const sessionId = options.sessionId ?? `sess-${Date.now()}`;
+    const computerEngine =
+      this.engines.computer instanceof ComputerEngine
+        ? this.engines.computer
+        : undefined;
+    this.computerRun = computerEngine
+      ? createComputerRunSession({
+          engine: computerEngine,
+          jobId: engageJobId(sessionId),
+          agentId: options.agentId ?? "community-engager",
+        })
+      : undefined;
+
     this.controller = new CommunityEngagerController({
       store: this.store,
       memory: this.memory,
       getContext: () => this.runtime.getContext(),
       adapter: options.adapter,
-      computerEngine:
-        this.engines.computer instanceof ComputerEngine
-          ? this.engines.computer
-          : undefined,
+      computerEngine,
+      computerRun: this.computerRun,
     });
 
     this.runtime = new AgentRuntime(
@@ -147,7 +165,7 @@ export class CommunityEngagerApp implements FanoutHost {
       {
         agentId: options.agentId ?? "community-engager-1",
         userId: options.userId ?? "user-1",
-        sessionId: options.sessionId ?? `sess-${Date.now()}`,
+        sessionId,
       },
       this.controller,
       this,
@@ -171,6 +189,8 @@ export class CommunityEngagerApp implements FanoutHost {
       opportunity: item as CommunityDraft,
       getContext,
       adapter: this.options.adapter,
+      computerEngine: this.computerRun?.engine,
+      computerRun: this.computerRun,
     });
   }
 
@@ -223,6 +243,14 @@ export class CommunityEngagerApp implements FanoutHost {
   /** Run the selected parent manifest end-to-end (fanout included). */
   async run(): Promise<RunSummary> {
     const startedAt = new Date().toISOString();
+    try {
+      return await this.runInner(startedAt);
+    } finally {
+      await this.recycleComputerRun();
+    }
+  }
+
+  private async runInner(startedAt: string): Promise<RunSummary> {
     let runSpec = this.options.spec;
     const wantSpecHitl =
       Boolean(runSpec) &&
@@ -322,6 +350,26 @@ export class CommunityEngagerApp implements FanoutHost {
     }
 
     return summary;
+  }
+
+  /** Wipe Firefox / free worker after the engage run (parked or leased). */
+  private async recycleComputerRun(): Promise<void> {
+    if (!this.computerRun || this.computerRun.isRecycled) return;
+    const jobId = this.computerRun.jobId;
+    const hadDesktop = Boolean(
+      this.computerRun.sessionId ??
+        this.computerRun.engine.getSessionId() ??
+        this.computerRun.engine.getParkedSessionId()
+    );
+    const result = await this.computerRun.recycle();
+    if (!hadDesktop) return;
+    if (!result.ok) {
+      console.warn(
+        `[computer] recycle failed job_id=${jobId}: ${result.error ?? "unknown"}`
+      );
+      return;
+    }
+    console.log(`[computer] recycled desktop job_id=${jobId}`);
   }
 
   private attachBroker(runtime: AgentRuntime): void {

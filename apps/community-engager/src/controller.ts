@@ -18,6 +18,7 @@ import {
 import type { AppController } from "@relay/runtime";
 import type { FeedbackAdapter } from "@relay/feedback-broker";
 import { runComputerDesktopPreview } from "./reddit/write/computer-preview.js";
+import type { ComputerRunSession } from "./reddit/write/computer-run-session.js";
 import { draftToFeedbackContext } from "./decide/feedback-map.js";
 import { applyWarmupClamp, draftReply } from "./stages/draft/drafter.js";
 import {
@@ -135,6 +136,11 @@ export interface CommunityControllerOptions {
    * Used for post-scout desktop preview when COMPUTER_PREVIEW is on.
    */
   computerEngine?: ComputerEngine;
+  /**
+   * Run-scoped desktop shared across preview → HITL → job execute.
+   * Soft-parks between phases; App.run recycles at teardown.
+   */
+  computerRun?: ComputerRunSession;
 }
 
 type EnsureSessionResult = {
@@ -1441,6 +1447,7 @@ export class CommunityEngagerController implements AppController {
         opportunities,
         cfg,
         engine: this.options.computerEngine,
+        runSession: this.options.computerRun,
       });
       ctx.stageResults = {
         ...(ctx.stageResults ?? {}),
@@ -2361,6 +2368,8 @@ export class CommunityEngagerController implements AppController {
       warmupActive: warmup.active,
       promoBlocked: promo.blockPromo || specBindings?.allowPromo === false,
       cadenceBlocked: cadenceBlocksIntensity(cadence, draft.intensity),
+      computerEngine: this.options.computerEngine,
+      computerRun: this.options.computerRun,
     });
     ctx.executeResult = result;
     let visibility: VisibilityCheckResult | undefined;
