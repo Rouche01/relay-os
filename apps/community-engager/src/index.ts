@@ -6,6 +6,7 @@ import {
   createContextEngine,
   type ContextEngine,
 } from "@relay/context-engine";
+import { ComputerEngine } from "@relay/engines-computer";
 import {
   FeedbackBroker,
   type FeedbackAdapter,
@@ -127,14 +128,18 @@ export class CommunityEngagerApp implements FanoutHost {
         userId: options.userId,
       });
 
+    this.engines = createCommunityEngines({ memory: this.memory });
+
     this.controller = new CommunityEngagerController({
       store: this.store,
       memory: this.memory,
       getContext: () => this.runtime.getContext(),
       adapter: options.adapter,
+      computerEngine:
+        this.engines.computer instanceof ComputerEngine
+          ? this.engines.computer
+          : undefined,
     });
-
-    this.engines = createCommunityEngines({ memory: this.memory });
 
     this.runtime = new AgentRuntime(
       CommunityEngagerManifest,

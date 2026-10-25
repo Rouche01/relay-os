@@ -3,6 +3,7 @@ import {
   type ActionStore,
 } from "@relay/action-store";
 import type { ContextEngine } from "@relay/context-engine";
+import type { ComputerEngine } from "@relay/engines-computer";
 import {
   isAbortResponse,
   isEditResponse,
@@ -16,6 +17,7 @@ import {
 } from "@relay/protocol";
 import type { AppController } from "@relay/runtime";
 import type { FeedbackAdapter } from "@relay/feedback-broker";
+import { runComputerDesktopPreview } from "./reddit/write/computer-preview.js";
 import { draftToFeedbackContext } from "./decide/feedback-map.js";
 import { applyWarmupClamp, draftReply } from "./stages/draft/drafter.js";
 import {
@@ -128,6 +130,11 @@ export interface CommunityControllerOptions {
   opportunity?: CommunityDraft;
   /** HITL adapter — used for one-way CAPTCHA notices during login. */
   adapter?: FeedbackAdapter;
+  /**
+   * Bound ComputerEngine from createCommunityEngines (parent engage runtime).
+   * Used for post-scout desktop preview when COMPUTER_PREVIEW is on.
+   */
+  computerEngine?: ComputerEngine;
 }
 
 type EnsureSessionResult = {
@@ -168,7 +175,8 @@ export class CommunityEngagerController implements AppController {
       case "await_approval":
         break;
       case "jobs":
-        // Fanout handled by AgentRuntime; nothing for the parent controller.
+        // Fanout handled by AgentRuntime; optional desktop preview first.
+        await this.runComputerDesktopPreview(ctx);
         break;
       case "execute":
         await this.runExecute(ctx);
@@ -1404,6 +1412,75 @@ export class CommunityEngagerController implements AppController {
       }
     } finally {
       await this.applyCadenceGate(ctx);
+    }
+  }
+
+  /**
+   * When COMPUTER_PREVIEW is on (default for REDDIT_TRANSPORT=computer),
+   * open candidate thread URLs on a leased desktop before jobs HITL.
+   * Failures warn only — do not abort the engage run.
+   */
+  private async runComputerDesktopPreview(ctx: AgentContext): Promise<void> {
+    const cfg = getCommunityConfig();
+    if (!cfg.computer.preview) return;
+
+    const opportunities =
+      (ctx.opportunities as CommunityDraft[] | undefined) ?? [];
+    if (opportunities.length === 0) {
+      console.log("[computer:preview] skipped — no opportunities");
+      return;
+    }
+
+    console.log(
+      `[computer:preview] touring up to ${cfg.computer.previewMax} thread(s) ` +
+        `via ${cfg.computer.gatewayUrl}`
+    );
+
+    try {
+      const result = await runComputerDesktopPreview({
+        opportunities,
+        cfg,
+        engine: this.options.computerEngine,
+      });
+      ctx.stageResults = {
+        ...(ctx.stageResults ?? {}),
+        computer_preview: {
+          success: result.success,
+          skipped: result.skipped ?? false,
+          reason: result.reason,
+          error: result.error,
+          vncUrl: result.vncUrl,
+          evidencePaths: result.evidencePaths,
+          urls: result.urls,
+        },
+      };
+      if (result.skipped) {
+        console.log(`[computer:preview] skipped — ${result.reason}`);
+        return;
+      }
+      if (!result.success) {
+        console.warn(
+          `[computer:preview] failed (continuing engage): ${result.error}` +
+            (result.vncUrl ? ` vnc=${result.vncUrl}` : "")
+        );
+        return;
+      }
+      console.log(
+        `[computer:preview] ok urls=${result.urls?.length ?? 0}` +
+          (result.vncUrl ? ` vnc=${result.vncUrl}` : "") +
+          (result.evidencePaths?.length
+            ? ` evidence=${result.evidencePaths.join(", ")}`
+            : "")
+      );
+    } catch (err) {
+      console.warn("[computer:preview] threw (continuing engage):", err);
+      ctx.stageResults = {
+        ...(ctx.stageResults ?? {}),
+        computer_preview: {
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      };
     }
   }
 

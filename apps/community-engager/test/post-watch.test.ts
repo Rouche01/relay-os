@@ -42,6 +42,9 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
       configured: false,
     },
     computer: {
+      preview: false,
+      previewMax: 3,
+      settleMs: 0,
       gatewayUrl: "http://127.0.0.1:9000",
     },
     postMode: "auto",

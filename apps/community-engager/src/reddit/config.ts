@@ -266,6 +266,15 @@ export interface ComputerRuntimeConfig {
   gatewayUrl: string;
   /** Bearer token when gateway sets COMPUTER_API_TOKEN */
   apiToken?: string;
+  /**
+   * After scout (before jobs HITL), open candidate thread URLs on a leased
+   * desktop and screenshot evidence. Default on when REDDIT_TRANSPORT=computer.
+   */
+  preview: boolean;
+  /** Max thread URLs to open in one preview tour (default jobs.maxJobs). */
+  previewMax: number;
+  /** Settle wait after each navigation (ms). */
+  settleMs: number;
 }
 
 export interface CommunityRuntimeConfig {
@@ -534,6 +543,17 @@ export function getCommunityConfig(
       gatewayUrl:
         env.COMPUTER_GATEWAY_URL?.trim() || "http://127.0.0.1:9000",
       apiToken: env.COMPUTER_API_TOKEN?.trim() || undefined,
+      preview: envBool(
+        env,
+        "COMPUTER_PREVIEW",
+        transport === "computer"
+      ),
+      previewMax: envNumber(
+        env,
+        "COMPUTER_PREVIEW_MAX",
+        envNumber(env, "COMMUNITY_MAX_JOBS", policy.jobs.maxJobs)
+      ),
+      settleMs: envNumber(env, "COMPUTER_SETTLE_MS", 2000),
     },
     postMode,
     warmup: {
