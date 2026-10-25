@@ -184,7 +184,7 @@ export async function executeApproved(
       jobId,
       dataDir,
       engine,
-      settleMs: opts.computerSettleMs,
+      settleMs: opts.computerSettleMs ?? cfg.computer.settleMs,
     });
     await writeJob(jobPath, result);
     await safeRecordAttribution(dataDir, {
