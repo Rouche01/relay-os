@@ -35,6 +35,9 @@ importers:
       '@relay/engines-browser':
         specifier: workspace:*
         version: link:../../packages/engines-browser
+      '@relay/engines-computer':
+        specifier: workspace:*
+        version: link:../../packages/engines-computer
       '@relay/engines-decide':
         specifier: workspace:*
         version: link:../../packages/engines-decide

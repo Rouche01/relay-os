@@ -97,7 +97,9 @@ export type RedditTransport =
   | "browser"
   | "oauth"
   | "json"
-  | "fixtures";
+  | "fixtures"
+  /** Computer Runtime gateway — dry-run evidence only (never posts). */
+  | "computer";
 
 /** COMMUNITY_DISCOVER=auto|force|off (true→force, false→off). */
 export type DiscoverMode = "auto" | "force" | "off";
@@ -258,10 +260,20 @@ export interface VisibilityRuntimeConfig {
  * Resolved CommunityEngager runtime config (policy file + env secrets/overrides).
  * Nested to mirror `config/default.json`. Use {@link getCommunityConfig}.
  */
+/** Computer Runtime gateway (sibling computer-with-agent). */
+export interface ComputerRuntimeConfig {
+  /** Gateway origin, e.g. http://127.0.0.1:9000 */
+  gatewayUrl: string;
+  /** Bearer token when gateway sets COMPUTER_API_TOKEN */
+  apiToken?: string;
+}
+
 export interface CommunityRuntimeConfig {
   reddit: RedditSessionConfig;
   /** Optional third-party read-only listing API (scout). */
   redditApis: RedditApisConfig;
+  /** Desktop session gateway for REDDIT_TRANSPORT=computer */
+  computer: ComputerRuntimeConfig;
   /** How approved drafts leave the pipeline (manual notify vs auto execute). */
   postMode: PostMode;
   warmup: WarmupRuntimeConfig;
@@ -339,7 +351,8 @@ function parseTransport(raw: string): RedditTransport {
     v === "browser" ||
     v === "oauth" ||
     v === "json" ||
-    v === "fixtures"
+    v === "fixtures" ||
+    v === "computer"
   ) {
     return v;
   }
@@ -361,8 +374,9 @@ export function isRedditApisScoutSource(source: ScoutSource): boolean {
  */
 export function resolveWriteTransport(
   cfg: CommunityRuntimeConfig
-): "browser" | "oauth" | "none" {
+): "browser" | "oauth" | "computer" | "none" {
   const { transport, oauthConfigured, hasUserPass } = cfg.reddit;
+  if (transport === "computer") return "computer";
   if (transport === "browser") return "browser";
   if (transport === "oauth") return oauthConfigured ? "oauth" : "none";
   if (transport === "json" || transport === "fixtures") return "none";
@@ -374,11 +388,13 @@ export function resolveWriteTransport(
 /**
  * Ordered write attempts for `auto` (and explicit transports as a one-item list).
  * Used so OAuth remains an optional fast path after browser failure.
+ * `computer` is not in this chain — it is evidence-only via executeApproved.
  */
 export function resolveWriteTransportChain(
   cfg: CommunityRuntimeConfig
 ): Array<"browser" | "oauth"> {
   const { transport, oauthConfigured } = cfg.reddit;
+  if (transport === "computer") return [];
   if (transport === "browser") return ["browser"];
   if (transport === "oauth") return oauthConfigured ? ["oauth"] : [];
   if (transport === "json" || transport === "fixtures") return [];
@@ -513,6 +529,11 @@ export function getCommunityConfig(
       apiKey: redditApisKey,
       baseUrl: redditApisBase.replace(/\/+$/, ""),
       configured: Boolean(redditApisKey),
+    },
+    computer: {
+      gatewayUrl:
+        env.COMPUTER_GATEWAY_URL?.trim() || "http://127.0.0.1:9000",
+      apiToken: env.COMPUTER_API_TOKEN?.trim() || undefined,
     },
     postMode,
     warmup: {

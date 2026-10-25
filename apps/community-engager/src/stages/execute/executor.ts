@@ -11,7 +11,12 @@ import {
 } from "../../reddit/config.js";
 import { hasStorageState } from "../../reddit/session/cookies.js";
 import { postCommentBrowser } from "../../reddit/write/browser-comment.js";
+import {
+  createComputerEngine,
+  runComputerDryRunEvidence,
+} from "../../reddit/write/computer-dry-run.js";
 import { executeJobId } from "../../reddit/scout/scout-live.js";
+import type { ComputerEngine } from "@relay/engines-computer";
 import { recordAttribution } from "./attribution.js";
 import { applyUtmLinks } from "../draft/soft-cta.js";
 import { formatUtmLog, resolveExecuteUtm } from "./utm.js";
@@ -23,7 +28,7 @@ export interface ExecuteResult {
   ok: boolean;
   dryRun: boolean;
   jobId: string;
-  /** browser | oauth | dry-run | none | manual */
+  /** browser | oauth | dry-run | computer | none | manual */
   transport?: string;
   postedUrl?: string;
   idempotentHit?: boolean;
@@ -50,6 +55,13 @@ export interface ExecuteOptions {
    * When true, refuse this intensity (daily cadence help/promo budget exhausted).
    */
   cadenceBlocked?: boolean;
+  /**
+   * Inject ComputerEngine for REDDIT_TRANSPORT=computer (tests).
+   * Production builds one from COMPUTER_GATEWAY_URL / COMPUTER_API_TOKEN.
+   */
+  computerEngine?: ComputerEngine;
+  /** Override settle wait after navigation (computer dry-run). */
+  computerSettleMs?: number;
 }
 
 /**
@@ -60,6 +72,7 @@ export interface ExecuteOptions {
  * Transport (`REDDIT_TRANSPORT` / auto):
  * - browser preferred (HITL cookie path)
  * - oauth optional fast path when REDDIT_CLIENT_* present (auto falls back after browser failure)
+ * - computer: dry-run evidence only (lease → open URL → screenshot → release; never posts)
  */
 export async function executeApproved(
   draft: CommunityDraft,
@@ -155,6 +168,34 @@ export async function executeApproved(
     console.log(
       `[execute] prior dry-run job ${jobId} — proceeding with live post`
     );
+  }
+
+  // Computer Runtime: always evidence-only (never posts), even if REDDIT_DRY_RUN=false.
+  if (writeTransport === "computer" || cfg.reddit.transport === "computer") {
+    const engine =
+      opts.computerEngine ??
+      createComputerEngine({
+        gatewayUrl: cfg.computer.gatewayUrl,
+        apiToken: cfg.computer.apiToken,
+      });
+    const result = await runComputerDryRunEvidence({
+      draft,
+      text,
+      jobId,
+      dataDir,
+      engine,
+      settleMs: opts.computerSettleMs,
+    });
+    await writeJob(jobPath, result);
+    await safeRecordAttribution(dataDir, {
+      jobId,
+      draftId: draft.id,
+      subreddit: draft.subreddit,
+      intensity: draft.intensity,
+      utm,
+      dryRun: true,
+    });
+    return result;
   }
 
   if (dryRun) {

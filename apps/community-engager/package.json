@@ -29,6 +29,7 @@
     "@relay/admin-shell": "workspace:*",
     "@relay/context-engine": "workspace:*",
     "@relay/engines-browser": "workspace:*",
+    "@relay/engines-computer": "workspace:*",
     "@relay/engines-decide": "workspace:*",
     "@relay/feedback-broker": "workspace:*",
     "@relay/llm": "workspace:*",

@@ -41,6 +41,9 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
       baseUrl: "https://api.redditapis.com",
       configured: false,
     },
+    computer: {
+      gatewayUrl: "http://127.0.0.1:9000",
+    },
     postMode: "auto",
     warmup: {
       mode: "off",
