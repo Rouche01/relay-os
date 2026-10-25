@@ -30,7 +30,7 @@ export const CommunityJobManifest: AgenticAppManifest = {
     "community.execute",
   ],
   engines_required: ["llm", "browser", "data"],
-  engines_optional: ["api"],
+  engines_optional: ["api", "computer"],
   permissions: ["community.reddit.read", "community.reddit.write"],
 
   stages: [
@@ -123,7 +123,7 @@ export const CommunityPostWatchManifest: AgenticAppManifest = {
     "community.execute",
   ],
   engines_required: ["llm", "data"],
-  engines_optional: ["browser", "api"],
+  engines_optional: ["browser", "api", "computer"],
   permissions: ["community.reddit.read", "community.reddit.write"],
 
   stages: [
@@ -177,7 +177,7 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
     "community.execute",
   ],
   engines_required: ["browser", "llm", "data"],
-  engines_optional: ["api"],
+  engines_optional: ["api", "computer"],
   permissions: ["community.reddit.read", "community.reddit.write"],
 
   stages: [

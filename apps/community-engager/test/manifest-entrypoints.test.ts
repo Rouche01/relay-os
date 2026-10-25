@@ -25,7 +25,9 @@ import {
 } from "../src/manifest.js";
 
 function stubEngines(): Record<string, ExecutionEngine> {
-  const mk = (type: "browser" | "llm" | "data"): ExecutionEngine => ({
+  const mk = (
+    type: "browser" | "llm" | "data" | "computer"
+  ): ExecutionEngine => ({
     type,
     async execute() {
       return { success: true, data: {} };
@@ -35,7 +37,12 @@ function stubEngines(): Record<string, ExecutionEngine> {
     },
     async teardown() {},
   });
-  return { browser: mk("browser"), llm: mk("llm"), data: mk("data") };
+  return {
+    browser: mk("browser"),
+    llm: mk("llm"),
+    data: mk("data"),
+    computer: mk("computer"),
+  };
 }
 
 /** Records which stages `onStageStart` saw (runtime does not call a separate execute). */
@@ -135,6 +142,18 @@ describe("manifest entrypoints (A1)", () => {
     assert.ok(engines.browser);
     assert.ok(engines.llm);
     assert.ok(engines.data);
+    assert.ok(engines.computer);
+    assert.equal(engines.computer!.type, "computer");
+  });
+
+  it("declares computer as optional on engage + job manifests", () => {
+    assert.ok(CommunityEngagerManifest.engines_optional?.includes("computer"));
+    assert.ok(
+      CommunityEngagerManifest.stages
+        .find((s) => s.name === "jobs")
+        ?.fanout?.manifest.engines_optional?.includes("computer")
+    );
+    assert.ok(CommunityPostWatchManifest.engines_optional?.includes("computer"));
   });
 
   it("AgentRuntime default runs root stages only", async () => {

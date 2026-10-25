@@ -1,5 +1,6 @@
 import type { ContextEngine } from "@relay/context-engine";
 import { PlaywrightEngine } from "@relay/engines-browser";
+import { ComputerEngine } from "@relay/engines-computer";
 import type {
   EngineAction,
   EngineResult,
@@ -28,6 +29,9 @@ export interface CommunityEnginesOptions {
  * Browser sessions for scout/login/comment still use per-op
  * `createRedditBrowserEngine` (short-lived); the bound browser engine is the
  * declared capability + default Playwright config for the app.
+ *
+ * Computer is optional on the manifest but always bound from
+ * COMPUTER_GATEWAY_URL / COMPUTER_API_TOKEN (desktop preview + evidence).
  */
 export function createCommunityEngines(
   options: CommunityEnginesOptions
@@ -41,6 +45,7 @@ export function createCommunityEngines(
     }),
     llm: createLlmDraftEngine(),
     data: createDataEngine(options.memory),
+    computer: createComputerCapabilityEngine(cfg),
   };
 
   if (cfg.reddit.oauthConfigured) {
@@ -48,6 +53,17 @@ export function createCommunityEngines(
   }
 
   return bindEngines(CommunityEngagerManifest, providers);
+}
+
+/** Desktop session gateway — primitives for ComputerTaskRunner / execute evidence. */
+export function createComputerCapabilityEngine(
+  cfg: CommunityRuntimeConfig
+): ComputerEngine {
+  return new ComputerEngine({
+    baseUrl: cfg.computer.gatewayUrl,
+    token: cfg.computer.apiToken,
+    agentId: "community-engager",
+  });
 }
 
 /** Draft-stage LLM engine. draftReply calls Gemini when GEMINI_API_KEY is set. */
