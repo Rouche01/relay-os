@@ -32,6 +32,7 @@ import {
 import { CommunityEngagerController } from "./controller.js";
 import { createCommunityEngines } from "./engines.js";
 import { watchInterstitialCleared } from "./reddit/interstitial/interstitial-watch.js";
+import { watchComputerChallengeCleared } from "./reddit/write/computer-challenge-watch.js";
 import { formatRunSummary, runSummaryFromFanout, type RunSummary } from "./metrics/job-queue.js";
 import {
   CommunityEngagerManifest,
@@ -376,7 +377,10 @@ export class CommunityEngagerApp implements FanoutHost {
     if (!this.options.adapter || this.brokers.has(runtime)) return;
     const broker = new FeedbackBroker(runtime, {
       adapter: this.options.adapter,
-      autoResolvers: [watchInterstitialCleared],
+      autoResolvers: [
+        watchInterstitialCleared,
+        watchComputerChallengeCleared,
+      ],
     });
     broker.attach();
     this.brokers.set(runtime, broker);
