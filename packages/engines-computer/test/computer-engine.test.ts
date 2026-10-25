@@ -5,6 +5,7 @@ import { ComputerEngine } from "../src/computer-engine.js";
 type RouteHandler = (req: {
   method: string;
   path: string;
+  search: string;
   body: unknown;
   headers: Headers;
 }) => { status: number; json?: unknown };
@@ -28,6 +29,7 @@ function mockGateway(handlers: Record<string, RouteHandler>): typeof fetch {
     const result = handler({
       method,
       path: url.pathname,
+      search: url.search,
       body,
       headers: new Headers(init?.headers),
     });
@@ -41,8 +43,17 @@ function mockGateway(handlers: Record<string, RouteHandler>): typeof fetch {
   };
 }
 
+function leaseJson(sessionId = "sess-1") {
+  return {
+    session_id: sessionId,
+    api_base: `http://gw/v1/sessions/${sessionId}`,
+    vnc_url: "http://localhost:6081/vnc.html",
+    expires_at: "2099-01-01T00:00:00Z",
+  };
+}
+
 describe("ComputerEngine", () => {
-  it("leases, screenshots, acts, and releases against the gateway", async () => {
+  it("leases, screenshots, acts, and soft-parks on release", async () => {
     let leased = false;
     const fetchImpl = mockGateway({
       "GET /ready": () => ({ status: 200, json: { ok: true, free: 1 } }),
@@ -55,15 +66,7 @@ describe("ComputerEngine", () => {
           ttl_sec: 120,
         });
         leased = true;
-        return {
-          status: 200,
-          json: {
-            session_id: "sess-1",
-            api_base: "http://gw/v1/sessions/sess-1",
-            vnc_url: "http://localhost:6081/vnc.html",
-            expires_at: "2099-01-01T00:00:00Z",
-          },
-        };
+        return { status: 200, json: leaseJson() };
       },
       "GET /v1/sessions/sess-1/screenshot": () => {
         assert.equal(leased, true);
@@ -73,9 +76,13 @@ describe("ComputerEngine", () => {
         assert.deepEqual(body, { type: "key", text: "ctrl+l" });
         return { status: 200, json: { ok: true } };
       },
-      "DELETE /v1/sessions/sess-1": () => {
+      "DELETE /v1/sessions/sess-1": ({ search }) => {
+        assert.equal(search, "");
         leased = false;
-        return { status: 200, json: { ok: true } };
+        return {
+          status: 200,
+          json: { ok: true, session_id: "sess-1", parked: true },
+        };
       },
     });
 
@@ -108,25 +115,123 @@ describe("ComputerEngine", () => {
 
     const rel = await engine.execute({ type: "release", params: {} });
     assert.equal(rel.success, true);
+    assert.equal(rel.data?.parked, true);
     assert.equal(engine.getSessionId(), null);
+    assert.equal(engine.getParkedSessionId(), "sess-1");
+    assert.equal(engine.getVncUrl(), "http://localhost:6081/vnc.html");
     assert.equal(leased, false);
   });
 
-  it("teardown releases an open session", async () => {
-    let deleted = false;
+  it("acquires a soft-parked session", async () => {
+    let state: "free" | "leased" | "parked" = "free";
+    const fetchImpl = mockGateway({
+      "POST /v1/sessions": () => {
+        state = "leased";
+        return { status: 200, json: leaseJson() };
+      },
+      "DELETE /v1/sessions/sess-1": ({ search }) => {
+        if (search.includes("recycle=true")) {
+          state = "free";
+          return { status: 200, json: { ok: true, recycled: true } };
+        }
+        state = "parked";
+        return {
+          status: 200,
+          json: { ok: true, session_id: "sess-1", parked: true },
+        };
+      },
+      "POST /v1/sessions/sess-1/acquire": ({ body }) => {
+        assert.equal(state, "parked");
+        assert.equal((body as { ttl_sec?: number }).ttl_sec, 90);
+        state = "leased";
+        return { status: 200, json: leaseJson() };
+      },
+    });
+
+    const engine = new ComputerEngine({
+      baseUrl: "http://gw",
+      agentId: "ce",
+      fetch: fetchImpl,
+    });
+
+    await engine.execute({ type: "lease", params: { job_id: "engage-1" } });
+    await engine.execute({ type: "release", params: {} });
+    assert.equal(engine.getParkedSessionId(), "sess-1");
+
+    const acq = await engine.execute({
+      type: "acquire",
+      params: { ttl_sec: 90 },
+    });
+    assert.equal(acq.success, true);
+    assert.equal(engine.getSessionId(), "sess-1");
+    assert.equal(engine.getParkedSessionId(), null);
+    assert.equal(state, "leased");
+  });
+
+  it("recycles with recycle=true query and clears parked state", async () => {
+    let recycled = false;
+    const fetchImpl = mockGateway({
+      "POST /v1/sessions": () => ({ status: 200, json: leaseJson() }),
+      "DELETE /v1/sessions/sess-1": ({ search }) => {
+        assert.match(search, /recycle=true/);
+        recycled = true;
+        return {
+          status: 200,
+          json: { ok: true, session_id: "sess-1", recycled: true },
+        };
+      },
+    });
+
+    const engine = new ComputerEngine({ baseUrl: "http://gw", fetch: fetchImpl });
+    await engine.execute({ type: "lease", params: {} });
+    const result = await engine.execute({ type: "recycle", params: {} });
+    assert.equal(result.success, true);
+    assert.equal(result.data?.recycled, true);
+    assert.equal(recycled, true);
+    assert.equal(engine.getSessionId(), null);
+    assert.equal(engine.getParkedSessionId(), null);
+    assert.equal(engine.getVncUrl(), null);
+  });
+
+  it("recycles a parked session without an active lease", async () => {
+    let sawRecycle = false;
+    const fetchImpl = mockGateway({
+      "POST /v1/sessions": () => ({ status: 200, json: leaseJson() }),
+      "DELETE /v1/sessions/sess-1": ({ search }) => {
+        if (search.includes("recycle=true")) {
+          sawRecycle = true;
+          return { status: 200, json: { ok: true, recycled: true } };
+        }
+        return {
+          status: 200,
+          json: { ok: true, session_id: "sess-1", parked: true },
+        };
+      },
+    });
+
+    const engine = new ComputerEngine({ baseUrl: "http://gw", fetch: fetchImpl });
+    await engine.execute({ type: "lease", params: {} });
+    await engine.execute({ type: "release", params: {} });
+    const result = await engine.execute({ type: "recycle", params: {} });
+    assert.equal(result.success, true);
+    assert.equal(sawRecycle, true);
+    assert.equal(engine.getParkedSessionId(), null);
+  });
+
+  it("teardown soft-parks an open session", async () => {
+    let parked = false;
     const fetchImpl = mockGateway({
       "POST /v1/sessions": () => ({
         status: 200,
-        json: {
-          session_id: "s2",
-          api_base: "http://gw/v1/sessions/s2",
-          vnc_url: "http://vnc",
-          expires_at: "2099-01-01T00:00:00Z",
-        },
+        json: leaseJson("s2"),
       }),
-      "DELETE /v1/sessions/s2": () => {
-        deleted = true;
-        return { status: 200, json: { ok: true } };
+      "DELETE /v1/sessions/s2": ({ search }) => {
+        assert.equal(search, "");
+        parked = true;
+        return {
+          status: 200,
+          json: { ok: true, session_id: "s2", parked: true },
+        };
       },
     });
 
@@ -136,8 +241,9 @@ describe("ComputerEngine", () => {
     });
     await engine.execute({ type: "lease", params: {} });
     await engine.teardown();
-    assert.equal(deleted, true);
+    assert.equal(parked, true);
     assert.equal(engine.getSessionId(), null);
+    assert.equal(engine.getParkedSessionId(), "s2");
   });
 
   it("returns failure when pool is full", async () => {

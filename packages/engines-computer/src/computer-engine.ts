@@ -17,7 +17,14 @@ export interface ComputerEngineOptions {
 }
 
 /**
- * Typed client for the Computer Runtime gateway (lease → screenshot/action → release).
+ * Typed client for the Computer Runtime gateway.
+ *
+ * Session lifecycle (gateway park model):
+ * - `lease` — claim a free worker, or reattach a parked slot when `job_id` matches
+ * - `release` — soft **park** (keep Firefox warm; clear local claim)
+ * - `acquire` — re-lease a parked desktop by `session_id`
+ * - `recycle` — wipe Firefox and free the worker
+ *
  * Inference stays outside — this engine only talks HTTP.
  */
 export class ComputerEngine implements ExecutionEngine {
@@ -29,10 +36,15 @@ export class ComputerEngine implements ExecutionEngine {
   private readonly defaultTtlSec: number;
   private readonly fetchImpl: typeof fetch;
 
+  /** Active exclusive claim (leased). */
   private sessionId: string | null = null;
   private apiBase: string | null = null;
   private vncUrl: string | null = null;
   private expiresAt: string | null = null;
+
+  /** Last soft-parked session (for acquire without re-passing id). */
+  private parkedSessionId: string | null = null;
+  private parkedVncUrl: string | null = null;
 
   constructor(options: ComputerEngineOptions) {
     if (!options.baseUrl?.trim()) {
@@ -50,11 +62,16 @@ export class ComputerEngine implements ExecutionEngine {
   }
 
   getVncUrl(): string | null {
-    return this.vncUrl;
+    return this.vncUrl ?? this.parkedVncUrl;
   }
 
   getApiBase(): string | null {
     return this.apiBase;
+  }
+
+  /** Session id after soft park (null while exclusively leased or after recycle). */
+  getParkedSessionId(): string | null {
+    return this.parkedSessionId;
   }
 
   async healthCheck(): Promise<boolean> {
@@ -66,10 +83,11 @@ export class ComputerEngine implements ExecutionEngine {
     }
   }
 
+  /** Soft-park if leased (best-effort). Prefer `recycle` when the job is finished. */
   async teardown(): Promise<void> {
     if (!this.sessionId) return;
     try {
-      await this.releaseSession();
+      await this.parkSession();
     } catch {
       /* best-effort */
     }
@@ -80,6 +98,8 @@ export class ComputerEngine implements ExecutionEngine {
       switch (action.type) {
         case "lease":
           return await this.lease(action);
+        case "acquire":
+          return await this.acquire(action);
         case "screenshot":
           return await this.screenshot();
         case "action":
@@ -90,6 +110,8 @@ export class ComputerEngine implements ExecutionEngine {
           return await this.reset();
         case "release":
           return await this.release();
+        case "recycle":
+          return await this.recycle(action);
         default:
           return {
             success: false,
@@ -126,6 +148,54 @@ export class ComputerEngine implements ExecutionEngine {
     }
     const lease = (await res.json()) as ComputerLeaseInfo;
     this.applyLease(lease);
+    this.parkedSessionId = null;
+    this.parkedVncUrl = null;
+    return {
+      success: true,
+      data: {
+        session_id: lease.session_id,
+        api_base: lease.api_base,
+        vnc_url: lease.vnc_url,
+        expires_at: lease.expires_at,
+      },
+    };
+  }
+
+  private async acquire(action: ComputerEngineAction): Promise<EngineResult> {
+    if (this.sessionId) {
+      return {
+        success: false,
+        error: `already leased session ${this.sessionId}; release first`,
+      };
+    }
+    const sid =
+      action.params.session_id?.trim() || this.parkedSessionId || undefined;
+    if (!sid) {
+      return {
+        success: false,
+        error: "acquire requires params.session_id or a prior soft-parked session",
+      };
+    }
+    const body = {
+      agent_id: action.params.agent_id ?? this.agentId,
+      ttl_sec: action.params.ttl_sec ?? this.defaultTtlSec,
+    };
+    const res = await this.request(
+      "POST",
+      `/v1/sessions/${sid}/acquire`,
+      body
+    );
+    if (!res.ok) {
+      const detail = await this.readBody(res);
+      return {
+        success: false,
+        error: `acquire failed (${res.status}): ${detail}`,
+      };
+    }
+    const lease = (await res.json()) as ComputerLeaseInfo;
+    this.applyLease(lease);
+    this.parkedSessionId = null;
+    this.parkedVncUrl = null;
     return {
       success: true,
       data: {
@@ -218,19 +288,63 @@ export class ComputerEngine implements ExecutionEngine {
     return { success: true, data: await res.json().catch(() => ({ ok: true })) };
   }
 
+  /** Soft park — keep Firefox warm for later acquire / job_id reattach. */
   private async release(): Promise<EngineResult> {
-    await this.releaseSession();
-    return { success: true, data: { ok: true } };
+    const sid = this.sessionId;
+    if (!sid) {
+      return { success: true, data: { ok: true, parked: false } };
+    }
+    const vnc = this.vncUrl;
+    await this.parkSession();
+    return {
+      success: true,
+      data: { ok: true, parked: true, session_id: sid, vnc_url: vnc },
+    };
   }
 
-  private async releaseSession(): Promise<void> {
+  /** Wipe Firefox and free the worker (leased or use params.session_id / parked). */
+  private async recycle(action: ComputerEngineAction): Promise<EngineResult> {
+    const sid =
+      this.sessionId ??
+      action.params.session_id?.trim() ??
+      this.parkedSessionId ??
+      undefined;
+    if (!sid) {
+      return {
+        success: false,
+        error: "recycle requires an active, parked, or params.session_id session",
+      };
+    }
+    const res = await this.request(
+      "DELETE",
+      `/v1/sessions/${sid}`,
+      undefined,
+      { query: { recycle: "true" } }
+    );
+    this.clearLease();
+    this.parkedSessionId = null;
+    this.parkedVncUrl = null;
+    if (!res.ok && res.status !== 404) {
+      return {
+        success: false,
+        error: `recycle failed (${res.status}): ${await this.readBody(res)}`,
+      };
+    }
+    const data = await res.json().catch(() => ({ ok: true, recycled: true }));
+    return { success: true, data };
+  }
+
+  private async parkSession(): Promise<void> {
     const sid = this.sessionId;
     if (!sid) return;
+    const vnc = this.vncUrl;
     const res = await this.request("DELETE", `/v1/sessions/${sid}`);
+    this.parkedSessionId = sid;
+    this.parkedVncUrl = vnc;
     this.clearLease();
     if (!res.ok && res.status !== 404) {
       throw new Error(
-        `release failed (${res.status}): ${await this.readBody(res)}`
+        `park (soft release) failed (${res.status}): ${await this.readBody(res)}`
       );
     }
   }
@@ -260,7 +374,7 @@ export class ComputerEngine implements ExecutionEngine {
     method: string,
     path: string,
     body?: unknown,
-    opts?: { jobId?: string }
+    opts?: { jobId?: string; query?: Record<string, string> }
   ): Promise<Response> {
     const headers: Record<string, string> = {
       Accept: "application/json",
@@ -274,7 +388,12 @@ export class ComputerEngine implements ExecutionEngine {
     if (body !== undefined) {
       headers["Content-Type"] = "application/json";
     }
-    return this.fetchImpl(`${this.baseUrl}${path}`, {
+    let url = `${this.baseUrl}${path}`;
+    if (opts?.query && Object.keys(opts.query).length > 0) {
+      const q = new URLSearchParams(opts.query);
+      url += `?${q.toString()}`;
+    }
+    return this.fetchImpl(url, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,

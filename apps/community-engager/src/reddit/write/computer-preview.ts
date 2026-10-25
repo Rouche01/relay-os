@@ -28,7 +28,8 @@ export interface ComputerPreviewResult extends ComputerTaskResult {
 
 /**
  * Lease desktop → open up to previewMax opportunity thread URLs → screenshot.
- * Failures are returned (caller should warn, not abort engage).
+ * Prints the VNC URL as soon as the lease succeeds so you can click it while
+ * the tour runs. Failures are returned (caller should warn, not abort engage).
  */
 export async function runComputerDesktopPreview(
   opts: ComputerPreviewOptions
@@ -73,6 +74,34 @@ export async function runComputerDesktopPreview(
       agentId: "community-engager",
     });
 
+  // Lease first so we can print a clickable VNC URL before navigation starts.
+  const lease = await engine.execute({
+    type: "lease",
+    params: { job_id: jobId, agent_id: "community-engager" },
+  });
+  if (!lease.success) {
+    return {
+      success: false,
+      error: lease.error ?? "computer lease failed",
+      urls,
+    };
+  }
+
+  const vncUrl =
+    (lease.data?.vnc_url as string | undefined) ??
+    engine.getVncUrl() ??
+    undefined;
+  if (vncUrl) {
+    // Bare URL on its own line → clickable in most terminals / Cursor.
+    console.log("[computer:preview] Live desktop — open while the tour runs:");
+    console.log(vncUrl);
+  } else {
+    console.warn(
+      "[computer:preview] lease ok but no vnc_url from gateway — check screenshots under " +
+        evidenceDir
+    );
+  }
+
   const result = await runner.run(
     "tour_urls",
     {
@@ -82,11 +111,20 @@ export async function runComputerDesktopPreview(
       fileStemPrefix: "preview",
       evidenceDir,
     },
-    { jobId, evidenceDir }
+    { jobId, evidenceDir, reuseSession: true }
   );
+
+  if (result.evidencePaths?.length) {
+    console.log(
+      `[computer:preview] screenshots:\n  ${result.evidencePaths
+        .filter((p) => p.endsWith(".png"))
+        .join("\n  ")}`
+    );
+  }
 
   return {
     ...result,
+    vncUrl: result.vncUrl ?? vncUrl,
     urls,
   };
 }

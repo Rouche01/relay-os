@@ -39,7 +39,12 @@ function toCommunityEntrypoint(name: string): CommunityEntrypoint {
 }
 
 async function main(): Promise<void> {
-  const raw = process.argv.slice(2).join(" ").trim();
+  // pnpm may forward a literal "--" (`pnpm ops -- engage` → argv ["--","engage"]).
+  const raw = process.argv
+    .slice(2)
+    .filter((a) => a !== "--")
+    .join(" ")
+    .trim();
   if (!raw || raw === "-h" || raw === "--help") usage();
 
   const cfg = getCommunityConfig();
