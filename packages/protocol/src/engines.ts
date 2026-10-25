@@ -3,12 +3,14 @@ import { FeedbackRequest } from "./feedback";
 /**
  * Execution engines an agentic app may declare.
  * `"protocol"` — Spec-native declare/invoke/observe/evidence (preferred when addressable).
- * `"browser"` — GUI / computer-use fallback.
+ * `"browser"` — Playwright / DOM GUI path.
+ * `"computer"` — full desktop session (screenshot + OS input) via Computer Runtime gateway.
  * `"none"` — pure HITL gate (feedback only; no engine execute).
  */
 export type EngineType =
   | "protocol"
   | "browser"
+  | "computer"
   | "llm"
   | "api"
   | "code"
