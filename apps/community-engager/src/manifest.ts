@@ -184,7 +184,7 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
     {
       name: "ensure_session",
       description:
-        "Ensure Reddit browser cookie jar (skip if present; else HITL credential login or env)",
+        "Ensure Reddit session (browser cookie jar, or Computer Runtime desktop login)",
       engine: "browser",
       feedback_points: [
         {
@@ -200,6 +200,13 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
             "Reddit 2FA / email verification code (OTP) if prompted after login",
           required: true,
           timeout_ms: 300_000,
+        },
+        {
+          type: "confirmation",
+          description:
+            "Computer desktop: finish Reddit login / CAPTCHA in VNC, then Approve (Abort cancels)",
+          required: true,
+          timeout_ms: 600_000,
         },
       ],
     },

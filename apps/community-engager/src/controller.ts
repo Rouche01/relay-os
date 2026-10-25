@@ -1,3 +1,4 @@
+import path from "node:path";
 import {
   createActionRecord,
   type ActionStore,
@@ -18,6 +19,15 @@ import {
 import type { AppController } from "@relay/runtime";
 import type { FeedbackAdapter } from "@relay/feedback-broker";
 import { runComputerDesktopPreview } from "./reddit/write/computer-preview.js";
+import {
+  pollComputerChallengeOnce,
+  prepareComputerChallenge,
+  type ComputerChallengeHitlContext,
+} from "./reddit/write/computer-challenge.js";
+import {
+  clearComputerChallengeSession,
+  getComputerChallengeSession,
+} from "./reddit/write/computer-challenge-session.js";
 import type { ComputerRunSession } from "./reddit/write/computer-run-session.js";
 import { draftToFeedbackContext } from "./decide/feedback-map.js";
 import { applyWarmupClamp, draftReply } from "./stages/draft/drafter.js";
@@ -145,10 +155,11 @@ export interface CommunityControllerOptions {
 
 type EnsureSessionResult = {
   ok: boolean;
-  source?: "jar" | "env" | "hitl" | "deferred";
+  source?: "jar" | "env" | "hitl" | "deferred" | "computer";
   storagePath?: string;
   error?: string;
   challenged?: boolean;
+  vncUrl?: string;
 };
 
 /**
@@ -206,11 +217,15 @@ export class CommunityEngagerController implements AppController {
     }
 
     if (stage.name === "discover") {
-      const challenge = this.options.getContext().discoverChallenge as
+      const ctx = this.options.getContext();
+      const challenge = ctx.discoverChallenge as
         | { reason?: string }
         | undefined;
       let result: void | boolean;
-      if (challenge?.reason === "login_wall") {
+      if (ctx.computerDiscoverChallenge) {
+        // Computer VNC: confirmation owns login + CAPTCHA.
+        result = await this.applyDiscoverCaptchaFeedback(feedback);
+      } else if (challenge?.reason === "login_wall") {
         result = await this.applyDiscoverLoginFeedback(feedback);
       } else if (challenge) {
         result = await this.applyDiscoverCaptchaFeedback(feedback);
@@ -225,6 +240,11 @@ export class CommunityEngagerController implements AppController {
       const ctx = this.options.getContext();
       if (ctx.emptyScoutFallbackActive) {
         return this.applyEmptyScoutFallbackHitl(feedback);
+      }
+      if (ctx.computerScoutChallenge) {
+        const out = await this.applyInterstitialFeedback(feedback);
+        this.finishScoutHitlWait();
+        return out;
       }
       const challenge = ctx.interstitialChallenge as
         | { reason?: string }
@@ -320,6 +340,33 @@ export class CommunityEngagerController implements AppController {
 
     if (stage.name === "ensure_session") {
       markWait();
+      const computerChallenge = context.computerEnsureChallenge as
+        | ComputerChallengeHitlContext
+        | undefined;
+      if (fp.type === "confirmation" && computerChallenge) {
+        return {
+          title: "Reddit session (computer desktop)",
+          url: computerChallenge.vncUrl ?? "https://www.reddit.com/login/",
+          body: computerChallenge.description,
+          details: [
+            { label: "Stage", value: "ensure_session" },
+            { label: "Transport", value: "computer" },
+            { label: "Page", value: computerChallenge.decision.pageClass },
+            {
+              label: "Hint",
+              value:
+                "Finish login / CAPTCHA in VNC, then Approve. We never auto-solve.",
+            },
+          ],
+          meta: {
+            ...computerChallenge.meta,
+            kind: computerChallenge.meta.kind,
+            transport: "computer",
+            vncUrl: computerChallenge.vncUrl,
+            evidencePath: computerChallenge.meta.evidencePath,
+          },
+        };
+      }
       return {
         title: "Reddit session",
         url: "https://www.reddit.com/login/",
@@ -357,9 +404,30 @@ export class CommunityEngagerController implements AppController {
     }
     if (stage.name === "discover" && fp.type === "confirmation") {
       markWait();
-      const challenge = context.discoverChallenge as
-        | { url?: string; reason?: string }
+      const computerHitl = context.computerDiscoverChallenge as
+        | ComputerChallengeHitlContext
         | undefined;
+      const challenge = context.discoverChallenge as
+        | { url?: string; reason?: string; vncUrl?: string }
+        | undefined;
+      if (computerHitl) {
+        return {
+          title: "Discover blocked — computer desktop",
+          url: computerHitl.vncUrl ?? challenge?.url,
+          body: computerHitl.description,
+          details: [
+            { label: "Stage", value: "discover" },
+            { label: "Transport", value: "computer" },
+            { label: "Reason", value: challenge?.reason ?? "captcha" },
+            {
+              label: "Hint",
+              value:
+                "Solve login/CAPTCHA in VNC, then Approve. Abort skips discovery.",
+            },
+          ],
+          meta: { ...computerHitl.meta },
+        };
+      }
       return {
         title: "Discover blocked — solve CAPTCHA",
         url: challenge?.url,
@@ -426,9 +494,36 @@ export class CommunityEngagerController implements AppController {
       };
     }
     if (stage.name === "scout" && fp.type === "confirmation") {
-      const challenge = context.interstitialChallenge as
-        | { url?: string; subreddit?: string; blockedSubs?: string[]; reason?: string }
+      const computerHitl = context.computerScoutChallenge as
+        | ComputerChallengeHitlContext
         | undefined;
+      const challenge = context.interstitialChallenge as
+        | {
+            url?: string;
+            subreddit?: string;
+            blockedSubs?: string[];
+            reason?: string;
+            vncUrl?: string;
+          }
+        | undefined;
+      if (computerHitl) {
+        return {
+          title: "Scout blocked — computer desktop",
+          url: computerHitl.vncUrl ?? challenge?.url,
+          body: computerHitl.description,
+          details: [
+            { label: "Subreddit", value: challenge?.subreddit ?? "?" },
+            { label: "Transport", value: "computer" },
+            { label: "Reason", value: challenge?.reason ?? "captcha" },
+            {
+              label: "Hint",
+              value:
+                "Solve login/CAPTCHA in VNC, then Approve. Abort skips jar save.",
+            },
+          ],
+          meta: { ...computerHitl.meta },
+        };
+      }
       return {
         title:
           challenge?.reason === "login_pending"
@@ -476,18 +571,24 @@ export class CommunityEngagerController implements AppController {
     if (stage.name === "discover") {
       // Gated skip / failed research — no discover HITL.
       if (context.discoverRan === false) return true;
+      const computerDiscover = context.computerDiscoverChallenge as
+        | ComputerChallengeHitlContext
+        | undefined;
       if (fp.type === "credential") {
+        // Computer VNC path: confirmation owns login + CAPTCHA.
+        if (computerDiscover) return true;
         const challenge = context.discoverChallenge as
           | { reason?: string }
           | undefined;
         return challenge?.reason !== "login_wall";
       }
       if (fp.type === "confirmation") {
+        if (computerDiscover) return false;
         const challenge = context.discoverChallenge as
           | { reason?: string }
           | undefined;
         if (!challenge) return true;
-        // Credential FP owns the pure login-wall case.
+        // Credential FP owns the pure login-wall case (browser).
         return challenge.reason === "login_wall";
       }
       if (fp.type === "choice") {
@@ -497,7 +598,9 @@ export class CommunityEngagerController implements AppController {
       }
     }
     if (stage.name === "scout" && fp.type === "credential") {
+      if (context.computerScoutChallenge) return true;
       if (context.emptyScoutFallbackActive) {
+        if (context.computerDiscoverChallenge) return true;
         const discoverChallenge = context.discoverChallenge as
           | { reason?: string }
           | undefined;
@@ -509,7 +612,9 @@ export class CommunityEngagerController implements AppController {
       return challenge?.reason !== "login_wall";
     }
     if (stage.name === "scout" && fp.type === "confirmation") {
+      if (context.computerScoutChallenge) return false;
       if (context.emptyScoutFallbackActive) {
+        if (context.computerDiscoverChallenge) return false;
         const discoverChallenge = context.discoverChallenge as
           | { reason?: string }
           | undefined;
@@ -544,6 +649,17 @@ export class CommunityEngagerController implements AppController {
     context: AgentContext
   ): Promise<string | undefined> {
     if (stage.name === "ensure_session") {
+      const computerChallenge = context.computerEnsureChallenge as
+        | ComputerChallengeHitlContext
+        | undefined;
+      if (fp.type === "confirmation" && computerChallenge) {
+        return (
+          computerChallenge.description +
+          (computerChallenge.vncUrl
+            ? `\nVNC: ${computerChallenge.vncUrl}`
+            : "")
+        );
+      }
       if (isOtpCredentialPoint(fp.description)) {
         return (
           "Reddit asked for a verification code. Reply with the OTP only " +
@@ -697,45 +813,49 @@ export class CommunityEngagerController implements AppController {
     }
 
     if (result.challenge) {
-      setInterstitialSession({
-        engine: result.challenge.engine,
-        storagePath: result.challenge.storagePath,
-        url: result.challenge.url,
-        subreddit: "discover",
-        blockedSubs: ["discover"],
-      });
-
-      if (result.challenge.reason === "login_wall") {
-        const loginOutcome = await this.prepareLoginWallSession();
-        if (loginOutcome === "logged_in") {
-          console.log(
-            "[discover] login wall cleared with env credentials — continuing discovery"
-          );
-          await this.continueDiscoveryAfterClear(
-            ctx,
-            getInterstitialSession()
-          );
-          return;
-        }
-        ctx.discoverChallenge = {
-          url: result.challenge.url,
-          reason: "login_wall",
-          title: result.challenge.title,
-          storagePath: result.challenge.storagePath,
-        };
-        console.log(
-          "[discover] paused for LOGIN credentials — form open; reply via Telegram/CLI"
-        );
+      if (this.usesComputerChallenge()) {
+        await this.handOffDiscoverChallengeToComputer(ctx, result.challenge);
       } else {
-        ctx.discoverChallenge = {
-          url: result.challenge.url,
-          reason: result.challenge.reason,
-          title: result.challenge.title,
+        setInterstitialSession({
+          engine: result.challenge.engine,
           storagePath: result.challenge.storagePath,
-        };
-        console.log(
-          "[discover] paused for CAPTCHA HITL — headed browser left open; auto-detects clear (or Approve)"
-        );
+          url: result.challenge.url,
+          subreddit: "discover",
+          blockedSubs: ["discover"],
+        });
+
+        if (result.challenge.reason === "login_wall") {
+          const loginOutcome = await this.prepareLoginWallSession();
+          if (loginOutcome === "logged_in") {
+            console.log(
+              "[discover] login wall cleared with env credentials — continuing discovery"
+            );
+            await this.continueDiscoveryAfterClear(
+              ctx,
+              getInterstitialSession()
+            );
+            return;
+          }
+          ctx.discoverChallenge = {
+            url: result.challenge.url,
+            reason: "login_wall",
+            title: result.challenge.title,
+            storagePath: result.challenge.storagePath,
+          };
+          console.log(
+            "[discover] paused for LOGIN credentials — form open; reply via Telegram/CLI"
+          );
+        } else {
+          ctx.discoverChallenge = {
+            url: result.challenge.url,
+            reason: result.challenge.reason,
+            title: result.challenge.title,
+            storagePath: result.challenge.storagePath,
+          };
+          console.log(
+            "[discover] paused for CAPTCHA HITL — headed browser left open; auto-detects clear (or Approve)"
+          );
+        }
       }
     }
 
@@ -763,6 +883,13 @@ export class CommunityEngagerController implements AppController {
     feedback: FeedbackResponse
   ): Promise<boolean> {
     const ctx = this.options.getContext();
+    const computerHitl = ctx.computerDiscoverChallenge as
+      | ComputerChallengeHitlContext
+      | undefined;
+
+    if (computerHitl || this.usesComputerChallenge()) {
+      return this.applyDiscoverComputerChallengeFeedback(feedback);
+    }
 
     if (isAbortResponse(feedback)) {
       await clearInterstitialSession(false);
@@ -792,6 +919,40 @@ export class CommunityEngagerController implements AppController {
     );
 
     const retry = await this.continueDiscoveryAfterClear(ctx, live);
+    return retry;
+  }
+
+  private async applyDiscoverComputerChallengeFeedback(
+    feedback: FeedbackResponse
+  ): Promise<boolean> {
+    const ctx = this.options.getContext();
+
+    if (isAbortResponse(feedback)) {
+      clearComputerChallengeSession();
+      delete ctx.computerDiscoverChallenge;
+      delete ctx.discoverChallenge;
+      await this.options.computerRun?.park();
+      console.warn(
+        "[discover] computer CAPTCHA HITL aborted — continuing without new proposals"
+      );
+      ctx.stageResults = {
+        ...(ctx.stageResults ?? {}),
+        discover: {
+          ...((ctx.stageResults?.discover as object) ?? {}),
+          captcha: "skipped",
+        },
+      };
+      return false;
+    }
+
+    await this.trustComputerChallengeApprove("discover");
+    delete ctx.computerDiscoverChallenge;
+    delete ctx.discoverChallenge;
+
+    console.log(
+      "[discover] computer challenge cleared — retrying discovery (no headed browser)"
+    );
+    const retry = await this.continueDiscoveryAfterClear(ctx, null);
     return retry;
   }
 
@@ -1014,6 +1175,11 @@ export class CommunityEngagerController implements AppController {
       process.env.REDDIT_ENSURE_SESSION === "true" ||
       process.env.REDDIT_ENSURE_SESSION === "1";
 
+    if (cfg.reddit.transport === "computer" && this.options.computerRun) {
+      await this.runEnsureSessionComputer(ctx);
+      return;
+    }
+
     if (await hasStorageState(cfg.reddit)) {
       const result: EnsureSessionResult = { ok: true, source: "jar" };
       this.setEnsureSession(ctx, result);
@@ -1048,15 +1214,152 @@ export class CommunityEngagerController implements AppController {
     console.log("[ensure_session] waiting for HITL credentials…");
   }
 
+  /**
+   * Computer Runtime ensure_session: open Reddit on the warm desktop, classify,
+   * park + confirmation HITL when login/CAPTCHA needed. Never auto-solves.
+   */
+  private async runEnsureSessionComputer(ctx: AgentContext): Promise<void> {
+    const runSession = this.options.computerRun;
+    if (!runSession) {
+      this.setEnsureSession(ctx, {
+        ok: false,
+        error: "computer transport but no ComputerRunSession",
+      });
+      return;
+    }
+
+    const cfg = getCommunityConfig();
+    const evidenceDir = path.join(
+      cfg.reddit.dataDir,
+      "evidence",
+      "computer",
+      "ensure_session"
+    );
+
+    console.log(
+      `[ensure_session] computer desktop via ${cfg.computer.gatewayUrl} ` +
+        `job_id=${runSession.jobId}`
+    );
+
+    // First look at home — feed means already logged-in (warm profile).
+    const home = await prepareComputerChallenge({
+      runSession,
+      evidenceDir,
+      reason: "login",
+      url: "https://www.reddit.com/",
+      settleMs: cfg.computer.settleMs,
+      notify: (msg) => this.options.adapter?.notify?.(msg) ?? Promise.resolve(),
+    });
+
+    if (home.status === "clear") {
+      await runSession.park();
+      this.setEnsureSession(ctx, {
+        ok: true,
+        source: "computer",
+        vncUrl: home.vncUrl ?? runSession.vncUrl,
+      });
+      console.log(
+        "[ensure_session] computer — already looks logged in (feed)" +
+          (home.vncUrl ? ` vnc=${home.vncUrl}` : "")
+      );
+      return;
+    }
+
+    if (home.status === "rate_limit") {
+      await runSession.park();
+      this.setEnsureSession(ctx, {
+        ok: false,
+        error: "rate_limit",
+        vncUrl: home.vncUrl ?? runSession.vncUrl,
+      });
+      console.warn(
+        "[ensure_session] computer — rate limit wall; cool down before retry"
+      );
+      return;
+    }
+
+    if (home.status === "error") {
+      this.setEnsureSession(ctx, {
+        ok: false,
+        error: home.error,
+        vncUrl: home.vncUrl ?? runSession.vncUrl,
+      });
+      throw new Error(
+        `ensure_session computer failed: ${home.error ?? "unknown"}`
+      );
+    }
+
+    // Wall on home — open login URL for a clearer VNC target (session still parked).
+    const loginPage = await prepareComputerChallenge({
+      runSession,
+      evidenceDir,
+      reason: "login",
+      url: "https://www.reddit.com/login/",
+      settleMs: cfg.computer.settleMs,
+      fileStem: `ensure-login-${Date.now()}`,
+      notify: (msg) => this.options.adapter?.notify?.(msg) ?? Promise.resolve(),
+    });
+
+    if (loginPage.status === "clear") {
+      await runSession.park();
+      this.setEnsureSession(ctx, {
+        ok: true,
+        source: "computer",
+        vncUrl: loginPage.vncUrl ?? runSession.vncUrl,
+      });
+      console.log("[ensure_session] computer — clear after opening login URL");
+      return;
+    }
+
+    if (loginPage.status === "rate_limit") {
+      this.setEnsureSession(ctx, {
+        ok: false,
+        error: "rate_limit",
+        vncUrl: loginPage.vncUrl ?? runSession.vncUrl,
+      });
+      return;
+    }
+
+    if (loginPage.status === "error") {
+      this.setEnsureSession(ctx, {
+        ok: false,
+        error: loginPage.error,
+        vncUrl: loginPage.vncUrl ?? runSession.vncUrl,
+      });
+      throw new Error(
+        `ensure_session computer login open failed: ${loginPage.error ?? "unknown"}`
+      );
+    }
+
+    // Wall — confirmation FP next (Approve = human finished login/CAPTCHA in VNC).
+    ctx.computerEnsureChallenge = loginPage.hitl;
+    console.log(
+      "[ensure_session] computer — waiting for HITL Approve after login/CAPTCHA in VNC" +
+        (loginPage.hitl.vncUrl ? ` vnc=${loginPage.hitl.vncUrl}` : "")
+    );
+  }
+
   private async shouldSkipEnsureSessionFeedback(
     fp: FeedbackPoint,
     context: AgentContext
   ): Promise<boolean> {
-    if (fp.type !== "credential") return true;
-
     const prior = context.stageResults?.ensure_session as
       | EnsureSessionResult
       | undefined;
+    const computerChallenge = context.computerEnsureChallenge as
+      | ComputerChallengeHitlContext
+      | undefined;
+
+    if (fp.type === "confirmation") {
+      // Computer VNC login/CAPTCHA — human Approves when done.
+      if (computerChallenge) return false;
+      return true;
+    }
+
+    if (fp.type !== "credential") return true;
+
+    // VNC path owns the challenge — skip username/password / OTP prompts.
+    if (computerChallenge) return true;
 
     if (isOtpCredentialPoint(fp.description)) {
       // v1: 2FA/CAPTCHA via headed browser + login onChallenge; dedicated OTP ask later
@@ -1064,10 +1367,18 @@ export class CommunityEngagerController implements AppController {
     }
 
     if (isLoginCredentialPoint(fp.description)) {
-      if (prior?.ok && (prior.source === "jar" || prior.source === "env" || prior.source === "hitl")) {
+      if (
+        prior?.ok &&
+        (prior.source === "jar" ||
+          prior.source === "env" ||
+          prior.source === "hitl" ||
+          prior.source === "computer")
+      ) {
         return true;
       }
       if (prior?.source === "deferred") return true;
+      // Computer start already resolved (ok or hard fail) — no credential ask.
+      if (prior && !computerChallenge) return true;
       return false;
     }
 
@@ -1078,6 +1389,14 @@ export class CommunityEngagerController implements AppController {
     feedback: FeedbackResponse
   ): Promise<void> {
     const ctx = this.options.getContext();
+    const computerChallenge = ctx.computerEnsureChallenge as
+      | ComputerChallengeHitlContext
+      | undefined;
+
+    if (computerChallenge) {
+      await this.applyEnsureSessionComputerFeedback(feedback, computerChallenge);
+      return;
+    }
 
     if (isAbortResponse(feedback)) {
       this.setEnsureSession(ctx, {
@@ -1132,14 +1451,263 @@ export class CommunityEngagerController implements AppController {
   }
 
   /**
+   * Approve = human confirms login/CAPTCHA finished on the computer desktop.
+   * Best-effort reclassify; trust Approve even if classify is still unsure.
+   */
+  private async applyEnsureSessionComputerFeedback(
+    feedback: FeedbackResponse,
+    challenge: ComputerChallengeHitlContext
+  ): Promise<void> {
+    const ctx = this.options.getContext();
+    const runSession = this.options.computerRun;
+    const vncUrl = challenge.vncUrl ?? runSession?.vncUrl;
+
+    if (isAbortResponse(feedback)) {
+      clearComputerChallengeSession();
+      delete ctx.computerEnsureChallenge;
+      this.setEnsureSession(ctx, {
+        ok: false,
+        error: "aborted",
+        vncUrl,
+      });
+      return;
+    }
+
+    let stillChallenged = true;
+    const session = getComputerChallengeSession();
+    if (session) {
+      try {
+        const once = await pollComputerChallengeOnce(session);
+        stillChallenged = !once.clear;
+        if (stillChallenged) {
+          console.warn(
+            `[ensure_session] computer Approve received but classify still sees ` +
+              `${once.decision.pageClass} — trusting human confirmation`
+          );
+        } else {
+          console.log(
+            "[ensure_session] computer — classify confirms clear after Approve"
+          );
+        }
+      } catch (err) {
+        console.warn("[ensure_session] computer recheck failed:", err);
+      }
+    }
+
+    clearComputerChallengeSession();
+    delete ctx.computerEnsureChallenge;
+
+    if (runSession) {
+      await runSession.park();
+    }
+
+    this.setEnsureSession(ctx, {
+      ok: true,
+      source: "computer",
+      challenged: stillChallenged,
+      vncUrl,
+    });
+    console.log(
+      "[ensure_session] computer — session accepted after HITL Approve" +
+        (vncUrl ? ` vnc=${vncUrl}` : "")
+    );
+  }
+
+  /**
    * Browser scout needs a cookie jar even when dry-run (read path).
+   * Computer transport always ensures the desktop session when bound.
    * OAuth/fixtures/json do not. Force with REDDIT_ENSURE_SESSION=true always works.
    */
   private sessionRequiredForRun(cfg: CommunityRuntimeConfig): boolean {
+    if (cfg.reddit.transport === "computer" && this.options.computerRun) {
+      return true;
+    }
     if (cfg.reddit.transport === "oauth" && cfg.reddit.oauthConfigured) return false;
     if (cfg.reddit.transport === "fixtures" || cfg.reddit.transport === "json") return false;
     if (cfg.reddit.transport === "browser" || cfg.reddit.transport === "auto") return true;
     return !cfg.reddit.dryRun;
+  }
+
+  private usesComputerChallenge(): boolean {
+    return (
+      getCommunityConfig().reddit.transport === "computer" &&
+      Boolean(this.options.computerRun)
+    );
+  }
+
+  private challengeReasonToComputer(
+    reason: string | undefined
+  ): "login" | "interstitial" {
+    if (reason === "login_wall" || reason === "login_pending") return "login";
+    return "interstitial";
+  }
+
+  /**
+   * Close any headed Chromium hand-off and park a Computer Runtime challenge
+   * for FeedbackBroker confirmation (VNC + Approve).
+   */
+  private async handOffDiscoverChallengeToComputer(
+    ctx: AgentContext,
+    challenge: {
+      url: string;
+      reason: string;
+      title?: string;
+      storagePath?: string;
+      engine?: unknown;
+    }
+  ): Promise<void> {
+    try {
+      await clearInterstitialSession(false);
+    } catch {
+      /* headed may already be closed */
+    }
+
+    const prepared = await this.prepareBoundComputerChallenge({
+      url: challenge.url,
+      reason: this.challengeReasonToComputer(challenge.reason),
+      fileStem: `discover-${Date.now()}`,
+    });
+
+    if (prepared.status === "clear") {
+      console.log(
+        "[discover] computer — wall cleared without HITL; continuing discovery"
+      );
+      await this.continueDiscoveryAfterClear(ctx, null);
+      return;
+    }
+
+    if (prepared.status === "rate_limit") {
+      console.warn("[discover] computer — rate limit; skipping discovery proposals");
+      ctx.discoveryCandidates = [];
+      return;
+    }
+
+    if (prepared.status === "error") {
+      console.warn(`[discover] computer challenge failed: ${prepared.error}`);
+      ctx.discoveryCandidates = [];
+      return;
+    }
+
+    ctx.computerDiscoverChallenge = prepared.hitl;
+    ctx.discoverChallenge = {
+      url: challenge.url,
+      reason: challenge.reason,
+      title: challenge.title,
+      storagePath: challenge.storagePath,
+      transport: "computer",
+      vncUrl: prepared.hitl.vncUrl,
+    };
+    console.log(
+      `[discover] paused for computer HITL (${challenge.reason}) — solve in VNC then Approve` +
+        (prepared.hitl.vncUrl ? ` vnc=${prepared.hitl.vncUrl}` : "")
+    );
+  }
+
+  private async handOffScoutChallengeToComputer(
+    ctx: AgentContext,
+    challenge: {
+      url: string;
+      subreddit: string;
+      reason: string;
+      blockedSubs: string[];
+    }
+  ): Promise<void> {
+    try {
+      await clearInterstitialSession(false);
+    } catch {
+      /* ignore */
+    }
+
+    const prepared = await this.prepareBoundComputerChallenge({
+      url: challenge.url,
+      reason: this.challengeReasonToComputer(challenge.reason),
+      fileStem: `scout-${challenge.subreddit}-${Date.now()}`,
+    });
+
+    if (prepared.status === "clear") {
+      console.log(
+        `[scout] computer — r/${challenge.subreddit} clear without HITL; retrying scout`
+      );
+      await this.runScout(ctx);
+      return;
+    }
+
+    if (prepared.status === "rate_limit") {
+      console.warn(
+        `[scout] computer — rate limit on r/${challenge.subreddit}; not escalating HITL`
+      );
+      return;
+    }
+
+    if (prepared.status === "error") {
+      console.warn(`[scout] computer challenge failed: ${prepared.error}`);
+      return;
+    }
+
+    ctx.computerScoutChallenge = prepared.hitl;
+    ctx.interstitialChallenge = {
+      url: challenge.url,
+      subreddit: challenge.subreddit,
+      blockedSubs: challenge.blockedSubs,
+      reason: challenge.reason,
+      transport: "computer",
+      vncUrl: prepared.hitl.vncUrl,
+      live: false,
+    };
+    console.log(
+      `[scout] paused for computer HITL on r/${challenge.subreddit} (${challenge.reason}) — VNC then Approve` +
+        (prepared.hitl.vncUrl ? ` vnc=${prepared.hitl.vncUrl}` : "")
+    );
+  }
+
+  private async prepareBoundComputerChallenge(opts: {
+    url: string;
+    reason: "login" | "interstitial";
+    fileStem?: string;
+  }): Promise<Awaited<ReturnType<typeof prepareComputerChallenge>>> {
+    const runSession = this.options.computerRun;
+    if (!runSession) {
+      return { status: "error", error: "no ComputerRunSession" };
+    }
+    const cfg = getCommunityConfig();
+    const evidenceDir = path.join(
+      cfg.reddit.dataDir,
+      "evidence",
+      "computer",
+      "challenge"
+    );
+    return prepareComputerChallenge({
+      runSession,
+      evidenceDir,
+      reason: opts.reason,
+      url: opts.url,
+      settleMs: cfg.computer.settleMs,
+      fileStem: opts.fileStem,
+      notify: (msg) => this.options.adapter?.notify?.(msg) ?? Promise.resolve(),
+    });
+  }
+
+  /** Approve received — optional classify recheck, then park; trust human. */
+  private async trustComputerChallengeApprove(
+    label: string
+  ): Promise<void> {
+    const session = getComputerChallengeSession();
+    if (session) {
+      try {
+        const once = await pollComputerChallengeOnce(session);
+        if (once.clear) {
+          console.log(`[${label}] computer classify confirms clear after Approve`);
+        } else {
+          console.warn(
+            `[${label}] computer Approve but classify still ${once.decision.pageClass} — trusting human`
+          );
+        }
+      } catch (err) {
+        console.warn(`[${label}] computer recheck failed:`, err);
+      }
+    }
+    clearComputerChallengeSession();
+    await this.options.computerRun?.park();
   }
 
   private setEnsureSession(ctx: AgentContext, result: EnsureSessionResult): void {
@@ -1676,6 +2244,18 @@ export class CommunityEngagerController implements AppController {
     };
 
     if (result.challenge) {
+      if (this.usesComputerChallenge()) {
+        await this.handOffScoutChallengeToComputer(ctx, {
+          url: result.challenge.url,
+          subreddit: result.challenge.subreddit,
+          reason: result.challenge.reason,
+          blockedSubs: result.blocked
+            .filter((b) => b.reason !== "rate_limit")
+            .map((b) => b.subreddit),
+        });
+        return;
+      }
+
       setInterstitialSession({
         engine: result.challenge.engine,
         storagePath: result.challenge.storagePath,
@@ -1780,6 +2360,17 @@ export class CommunityEngagerController implements AppController {
       );
     }
     if (captchaBlocked.length === 0) return;
+
+    if (this.usesComputerChallenge()) {
+      const first = captchaBlocked[0]!;
+      await this.handOffScoutChallengeToComputer(ctx, {
+        url: first.url,
+        subreddit: first.subreddit,
+        reason: first.reason,
+        blockedSubs: captchaBlocked.map((b) => b.subreddit),
+      });
+      return;
+    }
 
     if (!cfg.reddit.interstitialHitl) {
       console.warn(
@@ -2095,6 +2686,14 @@ export class CommunityEngagerController implements AppController {
     feedback: FeedbackResponse
   ): Promise<boolean | void> {
     const ctx = this.options.getContext();
+    const computerHitl = ctx.computerScoutChallenge as
+      | ComputerChallengeHitlContext
+      | undefined;
+
+    if (computerHitl || (this.usesComputerChallenge() && ctx.interstitialChallenge)) {
+      return this.applyScoutComputerChallengeFeedback(feedback);
+    }
+
     const skipSub =
       (ctx.interstitialChallenge as { subreddit?: string } | undefined)
         ?.subreddit ?? "unknown";
@@ -2146,6 +2745,48 @@ export class CommunityEngagerController implements AppController {
       );
       await clearInterstitialSession(false);
       delete ctx.interstitialChallenge;
+    }
+  }
+
+  private async applyScoutComputerChallengeFeedback(
+    feedback: FeedbackResponse
+  ): Promise<boolean | void> {
+    const ctx = this.options.getContext();
+
+    if (isAbortResponse(feedback)) {
+      clearComputerChallengeSession();
+      delete ctx.computerScoutChallenge;
+      delete ctx.interstitialChallenge;
+      await this.options.computerRun?.park();
+      console.warn(
+        "[scout] computer interstitial HITL aborted — continuing run"
+      );
+      ctx.stageResults = {
+        ...(ctx.stageResults ?? {}),
+        scout: {
+          ...((ctx.stageResults?.scout as object) ?? {}),
+          interstitial: "skipped",
+        },
+      };
+      return false;
+    }
+
+    await this.trustComputerChallengeApprove("scout");
+    delete ctx.computerScoutChallenge;
+    delete ctx.interstitialChallenge;
+
+    console.log(
+      "[scout] computer challenge cleared — retrying scout (same ComputerRunSession)"
+    );
+    await this.runScout(ctx);
+    if (ctx.interstitialChallenge || ctx.computerScoutChallenge) {
+      console.warn(
+        "[scout] still challenged after computer Approve — continuing with current opportunities"
+      );
+      clearComputerChallengeSession();
+      delete ctx.computerScoutChallenge;
+      delete ctx.interstitialChallenge;
+      await this.options.computerRun?.park();
     }
   }
 
