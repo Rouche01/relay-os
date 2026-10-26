@@ -1,15 +1,18 @@
 ---
 name: Relay Desk — HITL operator shell
-overview: Add apps/relay-desk (Tauri) as a desktop operator shell — living-todo / intent later, Feedback Broker HITL now, embed computer-with-agent noVNC (vnc_url) when a human must watch or act. Keep computer-with-agent as the runtime sibling; no RFB client in v1.
+overview: Add apps/relay-desk (Tauri) as a desktop operator shell — living-todo / intent later, Feedback Broker HITL now, embed computer-with-agent noVNC (vnc_url) when a human must watch or act. Watch (stream only) is separate from Acquire (exclusive lease). Keep computer-with-agent as the runtime sibling; no RFB client in v1.
 todos:
   - id: p0-scaffold
     content: Scaffold apps/relay-desk (Tauri + web UI) in relay-os monorepo; package name @relay/apps-relay-desk; document run in apps/relay-desk/README.md
     status: completed
   - id: p1-gateway-client
     content: Settings for COMPUTER_GATEWAY_URL + COMPUTER_API_TOKEN; lease/acquire/heartbeat/release against computer-with-agent; open WebView on lease.vnc_url (autoconnect+resize=scale)
-    status: pending
+    status: completed
   - id: p1-seat-ui
     content: Minimal UI — connect to gateway, show free/leased/parked, open seat window, heartbeat while focused, soft-release on close
+    status: completed
+  - id: p1.5-watch
+    content: "Watch path (no exclusive lease): open stream from known vnc_url / session_id / last park; optional gateway seat list (free/leased/parked + vnc_url); UI separates Watch vs Acquire"
     status: pending
   - id: p2-feedback-adapter
     content: Desktop Feedback Broker adapter (approval / edit / abort / confirmation) parallel to Telegram/CLI; include vnc_url + job_id + session_id in WAITING_USER payloads from computer/interstitial paths
@@ -24,7 +27,7 @@ todos:
     content: Document laptop install + env pointing at desk.hsv / 127.0.0.1 gateway; cross-link computer-with-agent AGENTS.md deploy
     status: pending
   - id: out-of-scope-v1
-    content: "Explicit non-goals v1: native RFB client, LLM inside the desk app, on-demand K8s sandboxes, merging computer-with-agent into relay-os"
+    content: "Explicit non-goals v1: native RFB client, LLM inside the desk app, on-demand K8s sandboxes, merging computer-with-agent into relay-os, multi-tile VNC dashboard"
     status: pending
 isProject: true
 ---
@@ -73,10 +76,20 @@ One composition: **operator console**, not a dashboard of ten widgets.
 
 - Connection status (gateway reachable / token set)
 - Active or pending HITL card (Approve / Edit / Abort) when wired
-- Primary CTA: **Open seat** / auto-open stream when feedback includes `vnc_url`
-- Embedded noVNC for the leased session
+- CTAs: **Open seat** (exclusive lease) and **Watch** (stream only, no claim)
+- Auto-open stream when feedback includes `vnc_url` (prefer Watch; Acquire only when the human must drive)
+- Embedded noVNC for one active stream at a time
 
 Defer living-todo full queue UI to the living-todo plan; Desk may show a single “current job” strip only.
+
+### Watch vs Acquire
+
+| Mode | Gateway claim | Use |
+|------|---------------|-----|
+| **Watch** | None (open `vnc_url` only) | HITL eyes-on, ops “what’s on desk2?”, debug parked jobs without stealing the lease |
+| **Acquire / Open seat** | Exclusive lease + heartbeat | Human drives mouse/keyboard; agent must not hold the same seat |
+
+Watch must not call lease/acquire or proxy actions. Promote Watch → Acquire only via an explicit CTA when the operator needs control.
 
 ## Phases
 
@@ -84,7 +97,7 @@ Defer living-todo full queue UI to the living-todo plan; Desk may show a single 
 
 - `apps/relay-desk` with Tauri 2 + small web frontend (Preact or whatever `relay-shell` uses — prefer consistency with `apps/relay-shell`)
 - `pnpm` workspace package `@relay/apps-relay-desk`
-- README: `pnpm --filter @relay/apps-relay-desk tauri dev`
+- README: `pnpm --filter @relay/apps-relay-desk tauri:dev`
 
 ### Phase 1 — Computer gateway client only
 
@@ -92,10 +105,28 @@ No Relay runtime required yet.
 
 - Settings: gateway base URL (`http://desk.hsv` or `http://127.0.0.1:9000`), Bearer token
 - API: lease, heartbeat, acquire (parked), soft-release, recycle
-- UI: list/open seat → WebView loads `vnc_url`
+- UI: open seat → WebView loads `vnc_url`
 - Heartbeat while the seat window is focused; soft-release on close
 
 **Success:** From the app alone, lease a ThinkPad worker and watch Firefox via embedded noVNC.
+
+### Phase 1.5 — Watch existing worker (no exclusive lease)
+
+Lease-only is too blunt for HITL and multi-worker ops. Add a **Watch** path beside **Open seat**.
+
+**Desk (minimal first):**
+
+- **Watch from known target:** paste `vnc_url`, or reopen last parked `session_id` / stored `vnc_url` without calling lease
+- UI: clear **Watch** vs **Acquire**; Watch window has no action proxy / no heartbeat claim
+- Optional: **Promote to Acquire** when the operator needs control (then heartbeat + soft-release rules apply)
+
+**Gateway (when discovery is needed):**
+
+- Today `/health` exposes aggregate `free` / `leased` / `parked` only — not per-worker `vnc_url`
+- Add a small **seat list** (or enrich health) returning workers/sessions: id, state (`free` \| `leased` \| `parked`), `vnc_url`, optional `job_id` / `session_id`
+- Lives in `computer-with-agent`; Desk consumes it — still no multi-tile dashboard in v1 (picker → one stream)
+
+**Success:** Operator picks desk1/desk2 (or pastes `vnc_url`) and streams without taking a lease; can Acquire later if they need to drive.
 
 ### Phase 2 — Feedback Broker desktop adapter
 
@@ -123,6 +154,7 @@ No Relay runtime required yet.
 - On-demand K8s/Docker provisioner in Desk
 - Replacing `apps/relay-shell` web Spec UI wholesale
 - Merging `computer-with-agent` into this monorepo
+- Multi-tile / mosaic VNC dashboard (one stream + seat picker only)
 
 ## Dependencies
 
