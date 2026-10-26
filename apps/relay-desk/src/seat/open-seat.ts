@@ -4,36 +4,64 @@ import { withVncViewerParams } from "../gateway/vnc-url.ts";
 
 const SEAT_LABEL = "seat";
 
+export type SeatWindowMode = "lease" | "watch";
+
+export interface OpenSeatOptions {
+  /** Soft-park / cleanup when the WebView is destroyed (lease only). */
+  onClosed?: () => void;
+  mode?: SeatWindowMode;
+}
+
+let lastOpenedUrl: string | null = null;
+
 function inTauri(): boolean {
   return Boolean(
     (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
   );
 }
 
+function windowTitle(mode: SeatWindowMode): string {
+  return mode === "watch" ? "Relay Desk · Watch" : "Relay Desk · Seat";
+}
+
 /**
- * Open (or focus) the seat WebView on the lease vnc_url.
+ * Open (or focus) the seat WebView on the given vnc_url.
+ * Recreates the window when the URL changes so Watch can switch targets.
  * Falls back to the system browser when not running under Tauri.
  */
 export async function openSeatWindow(
   vncUrl: string,
-  onClosed?: () => void
+  opts?: OpenSeatOptions
 ): Promise<void> {
   const url = withVncViewerParams(vncUrl);
+  const mode = opts?.mode ?? "lease";
+  const onClosed = opts?.onClosed;
+  const title = windowTitle(mode);
 
   if (!inTauri()) {
     window.open(url, "relay-desk-seat", "noopener,noreferrer");
+    lastOpenedUrl = url;
     return;
   }
 
   const existing = await WebviewWindow.getByLabel(SEAT_LABEL);
   if (existing) {
-    await existing.setFocus();
-    return;
+    if (lastOpenedUrl === url) {
+      await existing.setFocus();
+      return;
+    }
+    try {
+      await existing.close();
+    } catch {
+      /* ignore */
+    }
   }
+
+  lastOpenedUrl = url;
 
   const seat = new WebviewWindow(SEAT_LABEL, {
     url,
-    title: "Relay Desk · Seat",
+    title,
     width: 1280,
     height: 820,
     resizable: true,
@@ -46,7 +74,12 @@ export async function openSeatWindow(
 
   if (onClosed) {
     seat.once("tauri://destroyed", () => {
+      lastOpenedUrl = null;
       onClosed();
+    });
+  } else {
+    seat.once("tauri://destroyed", () => {
+      lastOpenedUrl = null;
     });
   }
 }
@@ -57,6 +90,7 @@ export async function closeSeatWindow(): Promise<void> {
   if (existing) {
     await existing.close();
   }
+  lastOpenedUrl = null;
 }
 
 /** Escape hatch if WebView cannot load noVNC. */

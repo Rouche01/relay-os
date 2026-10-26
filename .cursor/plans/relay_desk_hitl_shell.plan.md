@@ -13,7 +13,13 @@ todos:
     status: completed
   - id: p1.5-watch
     content: "Watch path (no exclusive lease): open stream from known vnc_url / session_id / last park; optional gateway seat list (free/leased/parked + vnc_url); UI separates Watch vs Acquire"
+    status: completed
+  - id: p1.5-gateway-list
+    content: "Optional: computer-with-agent seat list API (state + vnc_url per worker) for Desk picker — deferred until discovery is needed"
     status: pending
+  - id: p1.6-flowstep-design
+    content: "Flowstep design for Relay Desk operator shell (Idle / Watching+HITL / Leased) — DESIGN.md + screens; scaffold UI remains until p5"
+    status: completed
   - id: p2-feedback-adapter
     content: Desktop Feedback Broker adapter (approval / edit / abort / confirmation) parallel to Telegram/CLI; include vnc_url + job_id + session_id in WAITING_USER payloads from computer/interstitial paths
     status: pending
@@ -25,6 +31,9 @@ todos:
     status: pending
   - id: p4-thinkpad
     content: Document laptop install + env pointing at desk.hsv / 127.0.0.1 gateway; cross-link computer-with-agent AGENTS.md deploy
+    status: pending
+  - id: p5-flowstep-ui
+    content: "Implement Flowstep Relay Desk UI in apps/relay-desk (replace Phase 1 scaffold look): Idle / Watching+HITL / Leased compositions; Settings drawer; keep gateway Watch/Acquire behavior"
     status: pending
   - id: out-of-scope-v1
     content: "Explicit non-goals v1: native RFB client, LLM inside the desk app, on-demand K8s sandboxes, merging computer-with-agent into relay-os, multi-tile VNC dashboard"
@@ -128,6 +137,19 @@ Lease-only is too blunt for HITL and multi-worker ops. Add a **Watch** path besi
 
 **Success:** Operator picks desk1/desk2 (or pastes `vnc_url`) and streams without taking a lease; can Acquire later if they need to drive.
 
+### Phase 1.6 — Flowstep design (done; code later)
+
+Operator shell designed in Flowstep before replacing the Phase 1 scaffold look.
+
+- **File:** [Relay Desk on Flowstep](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe) (`a7a26c2d-f42b-4309-955c-7f931d81c6fe`)
+- **DESIGN.md** on the file: brand-first composition, Watch vs Acquire, charcoal/graphite + amber accent, Settings off first viewport, one stream
+- **Screens:**
+  1. **Idle — connected** — brand hero, Watch / Open seat, empty stream plane, Settings link only
+  2. **Watching — HITL** — stream dominant + single Approve/Abort card; Acquire secondary
+  3. **Leased — driving** — claimed/heartbeat, Park / Recycle / Focus stream, one-line job strip
+
+Scaffold `apps/relay-desk` UI stays functional until **Phase 5**. Do not polish CSS toward a different look in the meantime.
+
 ### Phase 2 — Feedback Broker desktop adapter
 
 - Implement adapter parallel to Telegram/CLI for feedback types used by CommunityEngager (`approval`, edit path, `abort`, `confirmation`, `credential` as needed)
@@ -146,6 +168,17 @@ Lease-only is too blunt for HITL and multi-worker ops. Add a **Watch** path besi
 - Install Desk on the Mac; point at `desk.hsv`
 - Cross-link computer-with-agent deploy (Caddy `desk` / `desk1` / `desk2`)
 - CE env: `COMPUTER_GATEWAY_URL`, matching token, `REDDIT_TRANSPORT=computer` dogfood
+
+### Phase 5 — Implement Flowstep UI (deferred)
+
+Replace the Phase 1/1.5 scaffold presentation with the Flowstep compositions. Behavior (lease / watch / park / acquire / heartbeat) stays; chrome and layout change.
+
+- Port Idle / Watching+HITL / Leased from the Flowstep file (JSX + DESIGN.md as source of truth)
+- Settings (gateway URL, token, job_id) in a drawer / secondary surface — not on first viewport
+- HITL card shell ready for Phase 2 adapter payloads (`vnc_url`, Approve / Abort)
+- Keep one stream WebView; no mosaic
+
+**Success:** Desk looks like the Flowstep screens; Watch / Open seat / Acquire / Park still work against the gateway.
 
 ## Non-goals (v1)
 

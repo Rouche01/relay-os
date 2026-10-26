@@ -80,6 +80,10 @@ body {
   color: #e0b35a;
 }
 
+.status[data-phase="watching"] {
+  color: #7eb8e8;
+}
+
 .status[data-phase="error"] {
   color: #f0a0a0;
 }

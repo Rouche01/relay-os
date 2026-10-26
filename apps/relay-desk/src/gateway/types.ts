@@ -13,7 +13,8 @@ export interface ComputerLease {
   expires_at?: string;
 }
 
-export type SeatPhase = "idle" | "leased" | "parked" | "error";
+/** leased = exclusive claim; watching = stream only; parked = warm, no stream claim */
+export type SeatPhase = "idle" | "leased" | "watching" | "parked" | "error";
 
 export interface SeatState {
   phase: SeatPhase;
