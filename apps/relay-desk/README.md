@@ -18,9 +18,11 @@ Desk talks to **any** computer-with-agent gateway over HTTP. Same app, two commo
 | Profile | `COMPUTER_GATEWAY_URL` | When |
 |---------|------------------------|------|
 | **Local** | `http://127.0.0.1:9000` (default) | Compose on this machine; dogfood / same-box seats |
-| **Remote** | e.g. `http://desk.hsv` | ThinkPad (or other host) running the runtime; Desk is client-only |
+| **Remote** | e.g. `https://cu-gateway.hsv` | ThinkPad (or other host) running the runtime; Desk is client-only |
 
-Token must match the gateway. Stream `vnc_url`s come from the gateway (localhost ports locally, `desk1.hsv` / `desk2.hsv` when remote). Guided local install / Docker-free path: [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md) (deferred).
+Use **`https://`** for Caddy-fronted hosts (plain `http://` may 308 in a way clients mishandle). Token must match the gateway. Stream `vnc_url`s come from the gateway (`cu1.hsv` / `cu2.hsv` when remote). Tauri HTTP uses the **system trust store** so Caddy’s Local Authority (installed on the Mac) is accepted.
+
+Guided local install / Docker-free path: [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md) (deferred).
 
 ## Run
 

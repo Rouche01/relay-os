@@ -18,7 +18,7 @@ Desk is a **client** of computer-with-agent. The gateway may be:
 | Profile | Typical URL | Notes |
 |---------|-------------|--------|
 | **Local** | `http://127.0.0.1:9000` | Compose (or future Docker-free engine) on the same machine as Desk |
-| **Remote** | `http://desk.hsv` | Runtime on ThinkPad / always-on host; Desk install is client-only |
+| **Remote** | `https://cu-gateway.hsv` (or similar) | Runtime on ThinkPad / always-on host; Desk install is client-only; prefer HTTPS via Caddy |
 
 Settings (`COMPUTER_GATEWAY_URL` + token) select the profile — no separate Desk builds. Optional guided local install: [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md).
 
