@@ -33,7 +33,11 @@ isProject: true
 
 Deferred plan for **same-machine** computer seats alongside Relay Desk. Sibling of [`relay_desk_hitl_shell.plan.md`](./relay_desk_hitl_shell.plan.md) and the runtime at `~/Projects/computer-with-agent`. Revisit after Desk **p4-thinkpad** docs; do not block current Desk ship.
 
-**Already true today:** one Desk app works with a **local** gateway (`127.0.0.1:9000`) or a **remote** one (`desk.hsv`) via Settings — documented in [`apps/relay-desk/README.md`](../../apps/relay-desk/README.md) and [`DESIGN.md`](../../apps/relay-desk/DESIGN.md). This plan only adds guided Local install + a future Docker-free engine.
+**Already true today:** one Desk app works with a **local** gateway (`127.0.0.1:9000`) or a **remote** one (`cu-gateway.hsv` / similar) via Settings — documented in [`apps/relay-desk/LAPTOP.md`](../../apps/relay-desk/LAPTOP.md) and [`DESIGN.md`](../../apps/relay-desk/DESIGN.md).
+
+**Public download (later):** first-run chooses (1) **guided local runtime** (Compose/Docker) or (2) **bring your own gateway** — short tutorial (this plan + AGENTS.md / LAPTOP.md), not a forced bundling of workers into the `.app`. Personal unsigned/signed builds for the author can ship anytime via `tauri:build` without waiting on that wizard.
+
+This plan adds guided Local install + BYO-gateway tutorial + a future Docker-free engine.
 
 ## Why this exists
 

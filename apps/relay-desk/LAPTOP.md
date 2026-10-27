@@ -28,9 +28,29 @@ pnpm --filter @relay/apps-relay-desk tauri:dev
 
 - Dev window: Tauri loads Vite (`localhost:1420` under the hood). Prefer **`tauri:dev`** so gateway calls use Rust (`gateway_http`) — no CORS.
 - Typecheck: `pnpm --filter @relay/apps-relay-desk typecheck`
-- Production build (optional): `pnpm --filter @relay/apps-relay-desk tauri:build`
-
 Settings persist in the webview `localStorage` (gateway URL, token, HITL URL, `job_id`).
+
+### Personal macOS build (for you)
+
+No notarization required for local/personal use (Gatekeeper may warn once — right-click → Open).
+
+```bash
+cd /path/to/relay-os
+nvm use
+pnpm install
+pnpm --filter @relay/apps-relay-desk tauri:build
+```
+
+Artifacts (typical when `CARGO_TARGET_DIR` is unset):
+
+- App: `apps/relay-desk/src-tauri/target/release/bundle/macos/Relay Desk.app`
+- DMG: `apps/relay-desk/src-tauri/target/release/bundle/dmg/Relay Desk_*_aarch64.dmg`
+
+Agent builds may also land under `apps/relay-desk/dist-bundle/` (copied `.app` + `.dmg`).
+
+First open on macOS: right-click → **Open** if Gatekeeper blocks an unsigned personal build. Point Settings at `https://cu-gateway.hsv` or `http://127.0.0.1:9000` the same as in `tauri:dev`.
+
+Public “download for anyone” (signed installers + local-runtime / BYO-gateway first-run) stays on [`relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md).
 
 ## 2. Pick a gateway profile
 
