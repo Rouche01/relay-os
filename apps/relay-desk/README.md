@@ -9,7 +9,18 @@ Package: `@relay/apps-relay-desk`
 - Node 22+ / pnpm 9+ (monorepo root)
 - [Rust](https://rustup.rs/) stable (`rustup default stable`)
 - macOS: Xcode CLT / Xcode
-- computer-with-agent gateway for seats (`http://127.0.0.1:9000` or `http://desk.hsv`)
+- computer-with-agent gateway for seats (local or remote — see below)
+
+## Gateway profiles (local or remote)
+
+Desk talks to **any** computer-with-agent gateway over HTTP. Same app, two common setups:
+
+| Profile | `COMPUTER_GATEWAY_URL` | When |
+|---------|------------------------|------|
+| **Local** | `http://127.0.0.1:9000` (default) | Compose on this machine; dogfood / same-box seats |
+| **Remote** | e.g. `http://desk.hsv` | ThinkPad (or other host) running the runtime; Desk is client-only |
+
+Token must match the gateway. Stream `vnc_url`s come from the gateway (localhost ports locally, `desk1.hsv` / `desk2.hsv` when remote). Guided local install / Docker-free path: [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md) (deferred).
 
 ## Run
 
@@ -35,9 +46,9 @@ In the app:
 5. Heartbeat every 45s while **leased** and the desk window is visible (never while watching)
 6. **Park** — soft `DELETE` (Firefox warm); **Acquire** — take exclusive claim (from parked or watching); **Recycle** — wipe + free worker
 7. **Refresh seats** — `GET /v1/seats` pool inventory; Watch / Acquire / Recycle per parked or leased worker when Open seat returns `no free workers`
-7. Closing the seat WebView soft-parks when still leased; closing a Watch window does not touch the gateway
+8. Closing the seat WebView soft-parks when still leased; closing a Watch window does not touch the gateway
 
-Settings + last park target persist in `localStorage`. Gateway seat-list discovery is deferred (see plan Phase 1.5).
+Settings + last park target persist in `localStorage`.
 
 ## Phase 2 — Desk HITL bridge
 
@@ -59,6 +70,7 @@ In Desk: set **DESK_HITL_URL** (`http://127.0.0.1:9100`) + optional token → **
 | `src/seat/` | Seat / Watch WebView helpers |
 | `src-tauri/` | Tauri 2 + `gateway_http` command (no CORS) |
 | Plan | [`.cursor/plans/relay_desk_hitl_shell.plan.md`](../../.cursor/plans/relay_desk_hitl_shell.plan.md) |
+| Local runtime (optional) | [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md) |
 
 ## Phases
 

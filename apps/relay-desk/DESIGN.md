@@ -11,6 +11,17 @@ Canonical product/UI structure for `apps/relay-desk`. Visual source of truth in 
 
 Do **not** embed the live desktop as the main-window hero. Streams open in separate Tauri WebViews (`openSeatWindow`).
 
+## Gateway topology (locked)
+
+Desk is a **client** of computer-with-agent. The gateway may be:
+
+| Profile | Typical URL | Notes |
+|---------|-------------|--------|
+| **Local** | `http://127.0.0.1:9000` | Compose (or future Docker-free engine) on the same machine as Desk |
+| **Remote** | `http://desk.hsv` | Runtime on ThinkPad / always-on host; Desk install is client-only |
+
+Settings (`COMPUTER_GATEWAY_URL` + token) select the profile — no separate Desk builds. Optional guided local install: [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md).
+
 ## Separation of concerns
 
 | Concern | Role | Owns | Does not own |

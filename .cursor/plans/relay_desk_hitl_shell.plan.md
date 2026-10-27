@@ -41,7 +41,6 @@ todos:
   - id: p1.5-gateway-list
     content: "computer-with-agent GET /v1/seats + Desk Gateway pool rows (Watch/Acquire/Recycle)"
     status: completed
-    status: pending
   - id: out-of-scope-v1
     content: "Explicit non-goals v1: native RFB client, LLM inside the desk app, on-demand K8s sandboxes, merging computer-with-agent into relay-os, in-main VNC mosaic (multi separate OS windows OK later via Seat inventory)"
     status: pending
@@ -181,6 +180,7 @@ Scaffold UI stays until **Phase 5**.
 - Install Desk on the Mac; point at `desk.hsv`
 - Cross-link computer-with-agent deploy (Caddy `desk` / `desk1` / `desk2`)
 - CE env: `COMPUTER_GATEWAY_URL`, matching token, `REDDIT_TRANSPORT=computer` dogfood
+- Local same-machine runtime (optional Compose / future Docker-free): deferred to [`relay_desk_local_runtime.plan.md`](./relay_desk_local_runtime.plan.md)
 
 ### Phase 5 — Implement Flowstep UI (done)
 
