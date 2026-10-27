@@ -82,7 +82,7 @@ In Desk: set **DESK_HITL_URL** (`http://127.0.0.1:9100`) + optional token → **
 1.6–1.8. Design — [DESIGN.md](./DESIGN.md) (concerns + design system) · [Flowstep](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe)  
 2. Feedback Broker desk adapter + CommunityEngager wire  
 5. **DESIGN.md UI** (Gateway · Watch · Seat · HITL · Settings) — current  
-3. Thin intent stub  
+3. Collapsible sidebar · Console | Spec scaffold  
 4. ThinkPad / laptop docs  
 
 Runtime stays in `computer-with-agent`; streams open in a **separate** WebView (no native RFB in v1). See [DESIGN.md](./DESIGN.md).

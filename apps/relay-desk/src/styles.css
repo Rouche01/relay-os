@@ -43,7 +43,7 @@ body {
 .desk {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   width: 100%;
   margin: 0;
   padding: 0;
@@ -51,67 +51,94 @@ body {
   background: var(--void);
 }
 
-/* Flowstep: h-14 w-full px-8 bg-sidebar border-b — full viewport width */
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  height: 3.5rem;
-  padding: 0 2rem;
-  margin: 0;
-  background: var(--sidebar);
-  border-bottom: 1px solid var(--line);
+/* Collapsible left rail (Flowstep / DESIGN.md) */
+.rail {
+  width: 14rem;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.25rem 0.75rem;
+  background: var(--sidebar);
+  border-right: 1px solid var(--line);
   box-sizing: border-box;
 }
 
-.topbar-left {
-  display: flex;
+.desk[data-sidebar="collapsed"] .rail {
+  width: 3.5rem;
+  padding: 1.25rem 0.4rem;
   align-items: center;
-  gap: 2rem;
-  min-width: 0;
 }
 
-.topbar-brand-wrap {
+.rail-top,
+.rail-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.rail-top {
+  gap: 2rem;
+}
+
+.rail-brand {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  padding: 0 0.5rem;
+  min-height: 2rem;
 }
 
-.topbar-tabs {
+.desk[data-sidebar="collapsed"] .rail-brand {
+  justify-content: center;
+  padding: 0;
+}
+
+.rail-nav {
   display: flex;
-  align-items: center;
-  gap: 1.25rem;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-.topbar-tab {
+.rail-item {
   appearance: none;
   border: 0;
-  border-bottom: 1px solid transparent;
+  border-radius: 0.375rem;
   background: transparent;
   color: var(--muted);
   font-family: var(--font-sans);
   font-size: 0.875rem;
   font-weight: 400;
-  padding: 0.15rem 0;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  width: 100%;
+  text-align: left;
 }
 
-.topbar-tab:hover {
+.desk[data-sidebar="collapsed"] .rail-item {
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+}
+
+.rail-item:hover {
   color: var(--ink);
 }
 
-.topbar-tab[data-active="1"] {
+.rail-item[data-active="1"] {
   color: var(--ink);
   font-weight: 500;
-  border-bottom-color: var(--ink);
+  background: rgba(14, 20, 28, 0.85);
 }
 
-.tile.spec-scaffold {
-  grid-column: span 12;
-  min-height: 18rem;
-  max-width: none;
+.rail-item svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
 }
 
 .topbar-radio {
@@ -128,37 +155,26 @@ body {
   letter-spacing: -0.025em;
   color: var(--ink);
   line-height: 1;
+  white-space: nowrap;
 }
 
-.topbar-right {
+.desk-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.status-strip {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-}
-
-.settings-btn {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font-family: var(--font-sans);
-  font-size: 0.875rem;
-  font-weight: 400;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0;
-}
-
-.settings-btn:hover {
-  color: var(--ink);
-}
-
-.settings-btn svg {
-  width: 1rem;
-  height: 1rem;
+  justify-content: flex-end;
+  height: 3rem;
+  padding: 0 2rem;
+  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .status-chip {
@@ -192,12 +208,18 @@ body {
   color: var(--danger);
 }
 
-/* Flowstep: main px-16 py-12 min-h-screen (full bleed padding) */
+.tile.spec-scaffold {
+  min-height: 18rem;
+  width: 100%;
+}
+
+/* Flowstep: main px-16 py-12 */
 .desk-main {
   width: 100%;
   flex: 1;
   padding: 3rem 4rem;
   box-sizing: border-box;
+  overflow: auto;
 }
 
 /* Flowstep: mx-auto max-w-7xl flex-col gap-10 */
@@ -571,7 +593,30 @@ body {
     font-size: 2.25rem;
   }
 
-  .topbar {
+  .status-strip {
     padding: 0 1.25rem;
+  }
+
+  .desk[data-sidebar="expanded"] .rail {
+    width: 3.5rem;
+    padding: 1.25rem 0.4rem;
+    align-items: center;
+  }
+
+  .desk[data-sidebar="expanded"] .rail-brand span,
+  .desk[data-sidebar="expanded"] .rail-item span {
+    display: none;
+  }
+
+  .desk[data-sidebar="expanded"] .rail-brand {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .desk[data-sidebar="expanded"] .rail-item {
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
   }
 }

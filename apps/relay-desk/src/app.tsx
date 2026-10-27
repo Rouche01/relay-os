@@ -61,6 +61,13 @@ export function App() {
   const [hitlBusy, setHitlBusy] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mainTab, setMainTab] = useState<"console" | "spec">("console");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("relay-desk.sidebar-collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
   const [pool, setPool] = useState<GatewaySeatsResponse | null>(null);
   const [poolError, setPoolError] = useState<string | undefined>();
   const openedHitlWatch = useRef<Set<string>>(new Set());
@@ -73,6 +80,18 @@ export function App() {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
       saveSettings(next);
+      return next;
+    });
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("relay-desk.sidebar-collapsed", next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
       return next;
     });
   }, []);
@@ -611,11 +630,30 @@ export function App() {
           : statusLabel
       : statusLabel;
 
+  const statusChip = (
+    <p
+      class="status-chip"
+      data-phase={seat.phase}
+      data-hitl={hitl ? "1" : "0"}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="m8.5 12.5 2.5 2.5 4.5-5" />
+      </svg>
+      <span>
+        {statusDisplay}
+        {seat.lastHeartbeatAt
+          ? ` · hb ${new Date(seat.lastHeartbeatAt).toLocaleTimeString()}`
+          : ""}
+      </span>
+    </p>
+  );
+
   return (
-    <div class="desk">
-      <header class="topbar">
-        <div class="topbar-left">
-          <div class="topbar-brand-wrap">
+    <div class="desk" data-sidebar={sidebarCollapsed ? "collapsed" : "expanded"}>
+      <aside class="rail" aria-label="Relay Desk navigation">
+        <div class="rail-top">
+          <div class="rail-brand" title="Relay Desk">
             <svg
               class="topbar-radio"
               viewBox="0 0 24 24"
@@ -632,59 +670,82 @@ export function App() {
               <path d="M7.76 7.76a5.5 5.5 0 0 0 0 8.48" />
               <path d="M16.24 7.76a5.5 5.5 0 0 1 0 8.48" />
             </svg>
-            <span class="topbar-brand">Relay Desk</span>
+            {!sidebarCollapsed ? (
+              <span class="topbar-brand">Relay Desk</span>
+            ) : null}
           </div>
-          <nav class="topbar-tabs" aria-label="Main">
+          <nav class="rail-nav" aria-label="Main">
             <button
               type="button"
-              class="topbar-tab"
+              class="rail-item"
               data-active={mainTab === "console" ? "1" : "0"}
+              title="Console"
               onClick={() => setMainTab("console")}
             >
-              Console
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" />
+              </svg>
+              {!sidebarCollapsed ? <span>Console</span> : null}
             </button>
             <button
               type="button"
-              class="topbar-tab"
+              class="rail-item"
               data-active={mainTab === "spec" ? "1" : "0"}
+              title="Spec"
               onClick={() => setMainTab("spec")}
             >
-              Spec
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M8 13h8M8 17h6" />
+              </svg>
+              {!sidebarCollapsed ? <span>Spec</span> : null}
             </button>
           </nav>
         </div>
-        <div class="topbar-right">
+        <div class="rail-bottom">
           <button
             type="button"
-            class="settings-btn"
+            class="rail-item"
+            title="Settings"
             onClick={() => setSettingsOpen(true)}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
               <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
               <path d="M19.4 13a7.7 7.7 0 0 0 .1-2l2-1.2-2-3.4-2.3.5a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.5 2.4a7.4 7.4 0 0 0-1.7 1L6.5 6.4l-2 3.4 2 1.2a7.7 7.7 0 0 0 0 2l-2 1.2 2 3.4 2.3-.5a7.4 7.4 0 0 0 1.7 1l.5 2.4h4l.5-2.4a7.4 7.4 0 0 0 1.7-1l2.3.5 2-3.4-2-1.2Z" />
             </svg>
-            <span>Settings</span>
+            {!sidebarCollapsed ? <span>Settings</span> : null}
           </button>
-          <p
-            class="status-chip"
-            data-phase={seat.phase}
-            data-hitl={hitl ? "1" : "0"}
+          <button
+            type="button"
+            class="rail-item"
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!sidebarCollapsed}
+            onClick={() => toggleSidebar()}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="m8.5 12.5 2.5 2.5 4.5-5" />
-            </svg>
-            <span>
-              {statusDisplay}
-              {seat.lastHeartbeatAt
-                ? ` · hb ${new Date(seat.lastHeartbeatAt).toLocaleTimeString()}`
-                : ""}
-            </span>
-          </p>
+            {sidebarCollapsed ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <path d="M9 4v16M14 12h5M16 9l3 3-3 3" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <path d="M9 4v16M14 12H9M11 9l-3 3 3 3" />
+              </svg>
+            )}
+            {!sidebarCollapsed ? <span>Collapse</span> : null}
+          </button>
         </div>
-      </header>
+      </aside>
 
-      <main class="desk-main">
+      <div class="desk-column">
+        <div class="status-strip">{statusChip}</div>
+
+        <main class="desk-main">
         {mainTab === "spec" ? (
           <div class="desk-body">
             <div class="console-head">
@@ -699,8 +760,8 @@ export function App() {
                 <div class="tile-copy">
                   <h2 class="tile-title">Spec compiler lives here</h2>
                   <p class="tile-meta">
-                    Console stays the operator bento. This tab will own Intent,
-                    frozen Spec, and freeze gates — not implemented yet.
+                    Console stays the operator bento. This surface will own
+                    Intent, frozen Spec, and freeze gates — not implemented yet.
                   </p>
                   <p class="tile-meta mono">
                     see relay_intent_spec_verify_hitl · living_todo_shell
@@ -1090,7 +1151,8 @@ export function App() {
           </div>
         </div>
         )}
-      </main>
+        </main>
+      </div>
 
       {settingsOpen ? (
         <div

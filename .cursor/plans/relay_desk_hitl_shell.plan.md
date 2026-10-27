@@ -43,7 +43,7 @@ todos:
     status: completed
   - id: p3-intent-stub
     content: "Implement sidebar + Spec scaffold in Desk (match Flowstep); full Spec compile deferred to intent/living-todo plans"
-    status: pending
+    status: completed
   - id: p4-thinkpad
     content: Document laptop install + env pointing at desk.hsv / 127.0.0.1 gateway; cross-link computer-with-agent AGENTS.md deploy
     status: pending
