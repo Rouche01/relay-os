@@ -26,6 +26,8 @@ Guided local install / Docker-free path: [`.cursor/plans/relay_desk_local_runtim
 
 **Laptop ↔ ThinkPad runbook:** [`LAPTOP.md`](./LAPTOP.md) (install Desk, `/etc/hosts`, Caddy CA, Settings, CE dogfood).
 
+**Download (GitHub Releases):** tag `relay-desk-v*` or run workflow **Relay Desk release** — draft release with macOS DMGs (see `LAPTOP.md` § GitHub Release).
+
 ## Run
 
 From the **monorepo root**:

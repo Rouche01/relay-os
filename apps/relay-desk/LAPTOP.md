@@ -52,6 +52,20 @@ First open on macOS: right-click → **Open** if Gatekeeper blocks an unsigned p
 
 Public “download for anyone” (signed installers + local-runtime / BYO-gateway first-run) stays on [`relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md).
 
+### GitHub Release (CI)
+
+Workflow: [`.github/workflows/relay-desk-release.yml`](../../.github/workflows/relay-desk-release.yml)
+
+```bash
+# bump version in apps/relay-desk/package.json + src-tauri/tauri.conf.json first
+git tag relay-desk-v0.1.0
+git push origin relay-desk-v0.1.0
+```
+
+Or **Actions → Relay Desk release → Run workflow**. CI builds macOS **arm64** + **x64** DMGs and attaches them to a **draft** GitHub Release — review assets, then publish. Repo **Settings → Actions → General → Workflow permissions** must allow read/write so the action can create the release.
+
+Unsigned: recipients may need right-click → Open. Apple notarization is not configured yet.
+
 ## 2. Pick a gateway profile
 
 Same Desk app; only Settings change.

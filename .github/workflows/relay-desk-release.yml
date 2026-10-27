@@ -1,0 +1,85 @@
+# Build Relay Desk (Tauri) and attach installers to a GitHub Release.
+#
+# Triggers:
+#   - Push tag: relay-desk-v0.1.0 (version should match apps/relay-desk package / tauri.conf)
+#   - Actions → Relay Desk release → Run workflow
+#
+# Creates a **draft** release by default — publish it when the assets look right.
+# Unsigned builds: macOS Gatekeeper may require right-click → Open.
+# Notarization / Apple signing: add secrets later (see Tauri sign docs).
+
+name: Relay Desk release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "relay-desk-v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: relay-desk-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-14
+            args: --target aarch64-apple-darwin
+            rust_target: aarch64-apple-darwin
+          - platform: macos-14
+            args: --target x86_64-apple-darwin
+            rust_target: x86_64-apple-darwin
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.3"
+          cache: pnpm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/relay-desk/src-tauri -> target
+
+      - name: Install monorepo dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and upload to Release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/relay-desk
+          tagName: relay-desk-v__VERSION__
+          releaseName: Relay Desk v__VERSION__
+          releaseBody: |
+            Desktop HITL operator shell (Console + Spec scaffold).
+
+            **Install (macOS, unsigned):** download the `.dmg` for your chip → open → if Gatekeeper blocks, right-click the app → Open.
+
+            Configure Settings → gateway (`https://cu-gateway.hsv` or `http://127.0.0.1:9000`) + token. See `apps/relay-desk/LAPTOP.md`.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
