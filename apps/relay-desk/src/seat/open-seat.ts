@@ -47,6 +47,22 @@ export async function openSeatWindow(
   const existing = await WebviewWindow.getByLabel(SEAT_LABEL);
   if (existing) {
     if (lastOpenedUrl === url) {
+      // setFocus alone does not restore a minimized window (esp. macOS).
+      try {
+        await existing.unminimize();
+      } catch {
+        /* ignore */
+      }
+      try {
+        await existing.show();
+      } catch {
+        /* ignore */
+      }
+      try {
+        await existing.setTitle(title);
+      } catch {
+        /* ignore */
+      }
       await existing.setFocus();
       return;
     }

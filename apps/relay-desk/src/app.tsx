@@ -3,6 +3,7 @@ import {
   acquireSession,
   heartbeatSession,
   leaseSession,
+  listGatewaySeats,
   probeGateway,
   recycleSession,
   softReleaseSession,
@@ -14,7 +15,12 @@ import {
   type LastParkTarget,
 } from "./gateway/last-park.ts";
 import { loadSettings, saveSettings } from "./gateway/settings.ts";
-import type { DeskSettings, SeatState } from "./gateway/types.ts";
+import type {
+  DeskSettings,
+  GatewaySeat,
+  GatewaySeatsResponse,
+  SeatState,
+} from "./gateway/types.ts";
 import { withVncViewerParams } from "./gateway/vnc-url.ts";
 import {
   fetchPending,
@@ -36,8 +42,9 @@ const HEARTBEAT_MS = 45_000;
 const HITL_POLL_MS = 2_000;
 
 /**
- * Relay Desk — HITL operator shell.
- * Phase 1.5: Watch (stream only) beside Open seat / Acquire (exclusive lease).
+ * Relay Desk — operator console (DESIGN.md Phase 5).
+ * Gateway / Watch / Seat / HITL tiles; Settings in header drawer.
+ * Stream stays in a separate WebView.
  */
 export function App() {
   const [settings, setSettings] = useState<DeskSettings>(() => loadSettings());
@@ -52,6 +59,9 @@ export function App() {
   const [hitlPending, setHitlPending] = useState<PendingFeedback[]>([]);
   const [hitlError, setHitlError] = useState<string | undefined>();
   const [hitlBusy, setHitlBusy] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pool, setPool] = useState<GatewaySeatsResponse | null>(null);
+  const [poolError, setPoolError] = useState<string | undefined>();
   const openedHitlWatch = useRef<Set<string>>(new Set());
   const seatRef = useRef(seat);
   const settingsRef = useRef(settings);
@@ -76,12 +86,25 @@ export function App() {
     setLastPark(target);
   };
 
+  const refreshPool = useCallback(async () => {
+    try {
+      const next = await listGatewaySeats(settingsRef.current);
+      setPool(next);
+      setPoolError(undefined);
+      return next;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setPoolError(msg);
+      return null;
+    }
+  }, []);
+
   const onProbe = async () => {
     setBusy(true);
     setProbe("checking…");
     try {
-      const msg = await probeGateway(settings);
-      setProbe(msg);
+      setProbe(await probeGateway(settings));
+      await refreshPool();
     } catch (err) {
       setProbe(err instanceof Error ? err.message : String(err));
     } finally {
@@ -115,35 +138,6 @@ export function App() {
       setHitlError(err instanceof Error ? err.message : String(err));
     } finally {
       setHitlBusy(false);
-    }
-  };
-
-  const onLease = async () => {
-    setBusy(true);
-    try {
-      const lease = await leaseSession(settings);
-      setSeat({
-        phase: "leased",
-        sessionId: lease.session_id,
-        vncUrl: lease.vnc_url,
-        expiresAt: lease.expires_at,
-        error: undefined,
-      });
-      await openSeatWindow(lease.vnc_url, {
-        mode: "lease",
-        onClosed: () => {
-          void softParkFromSeatClose();
-        },
-      });
-    } catch (err) {
-      setSeat({
-        phase: "error",
-        error: err instanceof Error ? err.message : String(err),
-        sessionId: seat.sessionId,
-        vncUrl: seat.vncUrl,
-      });
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -224,6 +218,37 @@ export function App() {
     } catch (err) {
       openedHitlWatch.current.delete(req.id);
       setHitlError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const onLease = async () => {
+    setBusy(true);
+    try {
+      const lease = await leaseSession(settings);
+      setSeat({
+        phase: "leased",
+        sessionId: lease.session_id,
+        vncUrl: lease.vnc_url,
+        expiresAt: lease.expires_at,
+        error: undefined,
+      });
+      await openSeatWindow(lease.vnc_url, {
+        mode: "lease",
+        onClosed: () => {
+          void softParkFromSeatClose();
+        },
+      });
+      await refreshPool();
+    } catch (err) {
+      setSeat({
+        phase: "error",
+        error: err instanceof Error ? err.message : String(err),
+        sessionId: seat.sessionId,
+        vncUrl: seat.vncUrl,
+      });
+      await refreshPool();
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -329,6 +354,7 @@ export function App() {
       clearLastPark();
       setLastPark(null);
       setSeat({ phase: "idle" });
+      await refreshPool();
     } catch (err) {
       setSeat({
         phase: "error",
@@ -341,10 +367,108 @@ export function App() {
     }
   };
 
-  // Heartbeat while leased only — Watch never claims the seat.
+  /** Recycle a pool seat by session_id (from GET /v1/seats inventory). */
+  const onRecyclePoolSeat = async (row: GatewaySeat) => {
+    if (!row.session_id) return;
+    setBusy(true);
+    try {
+      await recycleSession(settings, row.session_id);
+      if (seat.sessionId === row.session_id) {
+        await closeSeatWindow();
+        clearLastPark();
+        setLastPark(null);
+        setSeat({ phase: "idle" });
+      }
+      await refreshPool();
+    } catch (err) {
+      setSeat({
+        ...seat,
+        phase: "error",
+        error: err instanceof Error ? err.message : String(err),
+      });
+      await refreshPool();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onWatchPoolSeat = async (row: GatewaySeat) => {
+    if (!row.vnc_url || seat.phase === "leased") return;
+    setBusy(true);
+    try {
+      await startWatch(row.vnc_url, row.session_id ?? undefined);
+    } catch (err) {
+      setSeat({
+        phase: "error",
+        error: err instanceof Error ? err.message : String(err),
+        sessionId: row.session_id ?? undefined,
+        vncUrl: row.vnc_url,
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onAcquirePoolSeat = async (row: GatewaySeat) => {
+    if (!row.session_id || row.state !== "parked") return;
+    setBusy(true);
+    try {
+      const lease = await acquireSession(settings, row.session_id);
+      setSeat({
+        phase: "leased",
+        sessionId: lease.session_id,
+        vncUrl: lease.vnc_url,
+        expiresAt: lease.expires_at,
+        error: undefined,
+      });
+      await openSeatWindow(lease.vnc_url, {
+        mode: "lease",
+        onClosed: () => {
+          void softParkFromSeatClose();
+        },
+      });
+      await refreshPool();
+    } catch (err) {
+      setSeat({
+        phase: "error",
+        error: err instanceof Error ? err.message : String(err),
+        sessionId: row.session_id,
+        vncUrl: row.vnc_url,
+      });
+      await refreshPool();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onFocusStream = async () => {
+    if (!seat.vncUrl) return;
+    await openSeatWindow(seat.vncUrl, {
+      mode: seat.phase === "watching" ? "watch" : "lease",
+      onClosed:
+        seat.phase === "leased"
+          ? () => {
+              void softParkFromSeatClose();
+            }
+          : seat.phase === "watching"
+            ? () => {
+                onWatchClose();
+              }
+            : undefined,
+    });
+  };
+
+  const onCloseStream = async () => {
+    if (seat.phase === "leased") {
+      await onPark();
+      return;
+    }
+    await closeSeatWindow();
+    onWatchClose();
+  };
+
   useEffect(() => {
     if (seat.phase !== "leased" || !seat.sessionId) return;
-
     let cancelled = false;
     const tick = async () => {
       if (cancelled) return;
@@ -367,7 +491,6 @@ export function App() {
         }
       }
     };
-
     void tick();
     const id = window.setInterval(() => void tick(), HEARTBEAT_MS);
     return () => {
@@ -376,7 +499,6 @@ export function App() {
     };
   }, [seat.phase, seat.sessionId, settings]);
 
-  // Soft-park on main window unload while leased.
   useEffect(() => {
     const onUnload = () => {
       const cur = seatRef.current;
@@ -388,7 +510,6 @@ export function App() {
     return () => window.removeEventListener("pagehide", onUnload);
   }, []);
 
-  // Poll CommunityEngager desk adapter for pending HITL.
   useEffect(() => {
     if (!settings.hitlUrl.trim()) return;
     let cancelled = false;
@@ -403,9 +524,7 @@ export function App() {
           if (!ids.has(id)) openedHitlWatch.current.delete(id);
         }
         for (const req of pending) {
-          if (vncUrlFromPending(req)) {
-            void openWatchForHitl(req);
-          }
+          if (vncUrlFromPending(req)) void openWatchForHitl(req);
         }
       } catch (err) {
         if (!cancelled) {
@@ -423,311 +542,633 @@ export function App() {
   }, [settings.hitlUrl, settings.hitlToken]);
 
   const canAcquire =
-    (seat.phase === "parked" || seat.phase === "watching") && Boolean(seat.sessionId);
+    (seat.phase === "parked" || seat.phase === "watching") &&
+    Boolean(seat.sessionId);
   const watchPasteReady = Boolean((watchUrlDraft || seat.vncUrl || "").trim());
+  const hitl = hitlPending[0];
+  const streamOpen = seat.phase === "leased" || seat.phase === "watching";
+
+  const consoleTitle =
+    hitl
+      ? "HITL waiting"
+      : seat.phase === "leased"
+        ? "Leased"
+        : seat.phase === "watching"
+          ? "Watching"
+          : seat.phase === "parked"
+            ? "Parked"
+            : "Idle console";
+
+  const consoleSub =
+    hitl
+      ? `${hitl.type} · awaiting operator`
+      : seat.phase === "leased"
+        ? `claimed · ${seat.sessionId ?? "—"}`
+        : seat.phase === "watching"
+          ? seat.sessionId
+            ? `${seat.sessionId} · observe only`
+            : "observe only · no claim"
+          : seat.phase === "parked"
+            ? `session warm · ${seat.sessionId ?? "—"}`
+            : "operator surface · no active lease";
 
   const statusLabel =
+    hitl
+      ? `HITL · ${hitl.type}`
+      : seat.phase === "leased"
+        ? `claimed · heartbeat`
+        : seat.phase === "watching"
+          ? "watching"
+          : seat.phase === "parked"
+            ? "parked · warm"
+            : seat.phase === "error"
+              ? "error"
+              : "ready";
+
+  const gatewayTitle =
     seat.phase === "leased"
-      ? `leased · ${seat.sessionId}`
-      : seat.phase === "watching"
-        ? seat.sessionId
-          ? `watching · ${seat.sessionId}`
-          : "watching (no claim)"
-        : seat.phase === "parked"
-          ? `parked · ${seat.sessionId}`
-          : seat.phase === "error"
-            ? "error"
-            : "idle";
+      ? "Lease active"
+      : seat.phase === "parked"
+        ? "Parked · session warm"
+        : probe.startsWith("reachable")
+          ? "Probe · ready"
+          : probe === "not checked"
+            ? "Gateway"
+            : "Probe";
+
+  const poolSummary = pool
+    ? `pool · free ${pool.free} · leased ${pool.leased} · parked ${pool.parked}`
+    : null;
+  const occupiedSeats = pool?.seats.filter((s) => s.state !== "free") ?? [];
+
+  const statusDisplay =
+    seat.phase === "idle" && !hitl
+      ? probe.startsWith("reachable")
+        ? "desk.hsv · ready"
+        : statusLabel === "ready"
+          ? "desk.hsv · ready"
+          : statusLabel
+      : statusLabel;
 
   return (
     <div class="desk">
-      <header class="brand">
-        <div class="brand-block">
-          <span class="brand-name">Relay Desk</span>
-          <span class="brand-sub">Operator · HITL · computer seat</span>
+      <header class="topbar">
+        <div class="topbar-brand-wrap">
+          <svg
+            class="topbar-radio"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="2" />
+            <path d="M4.93 4.93a10 10 0 0 0 0 14.14" />
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            <path d="M7.76 7.76a5.5 5.5 0 0 0 0 8.48" />
+            <path d="M16.24 7.76a5.5 5.5 0 0 1 0 8.48" />
+          </svg>
+          <span class="topbar-brand">Relay Desk</span>
         </div>
-        <p class="status" data-phase={seat.phase}>
-          {statusLabel}
-          {seat.lastHeartbeatAt
-            ? ` · hb ${new Date(seat.lastHeartbeatAt).toLocaleTimeString()}`
-            : ""}
-        </p>
+        <div class="topbar-right">
+          <button
+            type="button"
+            class="settings-btn"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+              <path d="M19.4 13a7.7 7.7 0 0 0 .1-2l2-1.2-2-3.4-2.3.5a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.5 2.4a7.4 7.4 0 0 0-1.7 1L6.5 6.4l-2 3.4 2 1.2a7.7 7.7 0 0 0 0 2l-2 1.2 2 3.4 2.3-.5a7.4 7.4 0 0 0 1.7 1l.5 2.4h4l.5-2.4a7.4 7.4 0 0 0 1.7-1l2.3.5 2-3.4-2-1.2Z" />
+            </svg>
+            <span>Settings</span>
+          </button>
+          <p
+            class="status-chip"
+            data-phase={seat.phase}
+            data-hitl={hitl ? "1" : "0"}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="m8.5 12.5 2.5 2.5 4.5-5" />
+            </svg>
+            <span>
+              {statusDisplay}
+              {seat.lastHeartbeatAt
+                ? ` · hb ${new Date(seat.lastHeartbeatAt).toLocaleTimeString()}`
+                : ""}
+            </span>
+          </p>
+        </div>
       </header>
 
-      <main class="stage">
-        <section class="panel">
-          <h2>Gateway</h2>
-          <label class="field">
-            <span>COMPUTER_GATEWAY_URL</span>
-            <input
-              value={settings.gatewayUrl}
-              onInput={(e) =>
-                updateSettings({ gatewayUrl: (e.target as HTMLInputElement).value })
-              }
-              spellcheck={false}
-            />
-          </label>
-          <label class="field">
-            <span>COMPUTER_API_TOKEN</span>
-            <input
-              type="password"
-              value={settings.apiToken}
-              onInput={(e) =>
-                updateSettings({ apiToken: (e.target as HTMLInputElement).value })
-              }
-              spellcheck={false}
-            />
-          </label>
-          <label class="field">
-            <span>job_id</span>
-            <input
-              value={settings.jobId}
-              onInput={(e) =>
-                updateSettings({ jobId: (e.target as HTMLInputElement).value })
-              }
-              spellcheck={false}
-            />
-          </label>
-          <div class="cta-row">
-            <button type="button" class="cta ghost" disabled={busy} onClick={onProbe}>
-              Probe
-            </button>
-            <span class="hint">{probe}</span>
+      <main class="desk-main">
+        <div class="desk-body">
+          <div class="console-head">
+            <h1 class="console-title">{consoleTitle}</h1>
+            <p class="console-sub">{consoleSub}</p>
           </div>
 
-          <h2>HITL bridge</h2>
-          <p class="muted">
-            CommunityEngager with `FEEDBACK_ADAPTER=desk` (default :9100).
-          </p>
-          <label class="field">
-            <span>DESK_HITL_URL</span>
-            <input
-              value={settings.hitlUrl}
-              onInput={(e) =>
-                updateSettings({ hitlUrl: (e.target as HTMLInputElement).value })
-              }
-              spellcheck={false}
-            />
-          </label>
-          <label class="field">
-            <span>DESK_HITL_TOKEN</span>
-            <input
-              type="password"
-              value={settings.hitlToken}
-              placeholder="optional"
-              onInput={(e) =>
-                updateSettings({ hitlToken: (e.target as HTMLInputElement).value })
-              }
-              spellcheck={false}
-            />
-          </label>
-          <div class="cta-row">
-            <button
-              type="button"
-              class="cta ghost"
-              disabled={busy}
-              onClick={() => void onProbeHitl()}
-            >
-              Probe HITL
-            </button>
-            <span class="hint">{hitlProbe}</span>
-          </div>
-
-          {hitlPending[0] ? (
-            <div class="hitl-card" role="region" aria-label="Human input required">
-              <p class="hitl-kicker">Human input required · {hitlPending[0].type}</p>
-              <h3>
-                {hitlPending[0].context?.title?.trim() ||
-                  hitlPending[0].prompt.slice(0, 120)}
-              </h3>
-              {hitlPending[0].context?.body ? (
-                <p class="muted break">{hitlPending[0].context.body}</p>
+          <div class="bento">
+          {/* HITL — col-span 7 */}
+          <section class={`tile${hitl ? " hitl-active" : ""}`}>
+            <div class="tile-stack">
+              <p class="tile-label">HITL</p>
+              {hitl ? (
+                <div class="tile-copy">
+                  <h2 class="tile-title">
+                    {hitl.context?.title?.trim() || hitl.prompt.slice(0, 100)}
+                  </h2>
+                  <p class="tile-meta">
+                    {hitl.context?.body?.slice(0, 160) || hitl.prompt}
+                  </p>
+                  {vncUrlFromPending(hitl) ? (
+                    <p class="mono muted break">
+                      stream · {vncUrlFromPending(hitl)}
+                    </p>
+                  ) : null}
+                  {hitlError ? <p class="error">{hitlError}</p> : null}
+                </div>
               ) : (
-                <p class="muted">{hitlPending[0].prompt}</p>
+                <div class="tile-copy">
+                  <h2 class="tile-title">No pending feedback</h2>
+                  <p class="tile-meta">Runtime clear · waiting for a signal</p>
+                  {hitlError ? <p class="error">{hitlError}</p> : null}
+                </div>
               )}
-              {vncUrlFromPending(hitlPending[0]) ? (
-                <p class="mono muted break">
-                  stream · {vncUrlFromPending(hitlPending[0])}
-                </p>
-              ) : null}
-              <div class="cta-row wrap">
+            </div>
+            {hitl ? (
+              <div class="cta-row">
                 <button
                   type="button"
                   class="cta"
                   disabled={hitlBusy}
-                  onClick={() => void onHitlRespond(hitlPending[0]!, "proceed")}
+                  onClick={() => void onHitlRespond(hitl, "proceed")}
                 >
                   Approve
                 </button>
                 <button
                   type="button"
-                  class="cta ghost"
+                  class="cta danger"
                   disabled={hitlBusy}
-                  onClick={() => void onHitlRespond(hitlPending[0]!, "abort")}
+                  onClick={() => void onHitlRespond(hitl, "abort")}
                 >
                   Abort
                 </button>
-                {vncUrlFromPending(hitlPending[0]) ? (
+                {vncUrlFromPending(hitl) ? (
                   <button
                     type="button"
                     class="cta ghost"
                     disabled={hitlBusy}
-                    onClick={() => void openWatchForHitl(hitlPending[0]!)}
+                    onClick={() => void openWatchForHitl(hitl)}
                   >
                     Focus Watch
                   </button>
                 ) : null}
               </div>
+            ) : null}
+          </section>
+
+          {/* Seat — col-span 5 */}
+          <section class="tile tile-narrow">
+            <div class="tile-head">
+              <p class="tile-label">Seat</p>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h10" />
+              </svg>
             </div>
-          ) : (
-            <p class="muted">No pending HITL — waiting on desk adapter.</p>
-          )}
-          {hitlError ? <p class="error">{hitlError}</p> : null}
+            {streamOpen && seat.vncUrl ? (
+              <div class="tile-copy">
+                <h2 class="tile-title">Active streams</h2>
+                <div class="seat-rows">
+                  <div class="seat-row">
+                    <span>
+                      <span
+                        class="seat-row-mode"
+                        data-mode={seat.phase === "leased" ? "Claimed" : "Watch"}
+                      >
+                        {seat.phase === "leased" ? "Claimed" : "Watch"}
+                      </span>
+                      {" · "}
+                      {seat.sessionId?.slice(0, 12) || "stream"}
+                    </span>
+                    <div class="cta-row">
+                      <button
+                        type="button"
+                        class="cta linkish"
+                        disabled={busy}
+                        onClick={() => void onFocusStream()}
+                      >
+                        Focus
+                      </button>
+                      <button
+                        type="button"
+                        class="cta linkish"
+                        disabled={busy}
+                        onClick={() => void onCloseStream()}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p class="tile-meta">opens in a separate window</p>
+              </div>
+            ) : (
+              <div class="tile-copy">
+                <h2 class="tile-title">No active streams</h2>
+                <p class="tile-meta">opens in new window</p>
+              </div>
+            )}
+          </section>
 
-          <h2>Watch</h2>
-          <p class="muted">
-            Stream only — no lease, no heartbeat. Use Acquire when you need control.
-          </p>
-          <label class="field">
-            <span>vnc_url</span>
-            <input
-              value={watchUrlDraft}
-              placeholder="http://127.0.0.1:6080/vnc.html"
-              onInput={(e) =>
-                setWatchUrlDraft((e.target as HTMLInputElement).value)
-              }
-              spellcheck={false}
-            />
-          </label>
-          <div class="cta-row wrap">
-            <button
-              type="button"
-              class="cta"
-              disabled={busy || seat.phase === "leased" || !watchPasteReady}
-              onClick={() => void onWatchPaste()}
-            >
-              Watch
-            </button>
-            <button
-              type="button"
-              class="cta ghost"
-              disabled={
-                busy ||
-                seat.phase === "leased" ||
-                !(
-                  (seat.phase === "parked" && seat.vncUrl) ||
-                  lastPark
-                )
-              }
-              onClick={() => void onWatchLastPark()}
-            >
-              Watch last park
-            </button>
-            <button
-              type="button"
-              class="cta ghost"
-              disabled={busy || !canAcquire}
-              onClick={() => void onAcquire()}
-              title="Take exclusive lease on this session"
-            >
-              Acquire
-            </button>
-          </div>
-          {lastPark ? (
-            <p class="mono muted break">
-              last park · {lastPark.sessionId}
-            </p>
-          ) : null}
+          {/* Gateway — col-span 7 */}
+          <section class="tile">
+            <div class="tile-stack">
+              <p class="tile-label">Gateway</p>
+              <div class="tile-copy">
+                <h2 class="tile-title">{gatewayTitle}</h2>
+                <p class="tile-meta mono">
+                  {seat.phase === "leased"
+                    ? "heartbeat on · exclusive claim"
+                    : seat.phase === "parked"
+                      ? "Firefox warm · no claim"
+                      : poolSummary
+                        ? poolSummary
+                        : probe === "not checked"
+                          ? "desk.hsv · reachable"
+                          : probe}
+                </p>
+                {seat.error ? <p class="error">{seat.error}</p> : null}
+                {poolError ? (
+                  <p class="error">
+                    seats · {poolError} (redeploy gateway for GET /v1/seats)
+                  </p>
+                ) : null}
+                {occupiedSeats.length > 0 ? (
+                  <div class="pool-rows">
+                    {occupiedSeats.map((row) => (
+                      <div class="pool-row" key={row.id}>
+                        <div class="pool-row-meta">
+                          <span
+                            class="pool-row-state"
+                            data-state={row.state}
+                          >
+                            {row.id} · {row.state}
+                          </span>
+                          <span class="mono muted">
+                            {row.session_id
+                              ? row.session_id.slice(0, 8)
+                              : "—"}
+                            {row.job_id ? ` · ${row.job_id}` : ""}
+                          </span>
+                        </div>
+                        <div class="cta-row pool-row-actions">
+                          {row.vnc_url ? (
+                            <button
+                              type="button"
+                              class="cta linkish"
+                              disabled={busy || seat.phase === "leased"}
+                              onClick={() => void onWatchPoolSeat(row)}
+                            >
+                              Watch
+                            </button>
+                          ) : null}
+                          {row.state === "parked" && row.session_id ? (
+                            <button
+                              type="button"
+                              class="cta linkish"
+                              disabled={busy}
+                              onClick={() => void onAcquirePoolSeat(row)}
+                            >
+                              Acquire
+                            </button>
+                          ) : null}
+                          {row.session_id ? (
+                            <button
+                              type="button"
+                              class="cta linkish"
+                              disabled={busy}
+                              onClick={() => void onRecyclePoolSeat(row)}
+                            >
+                              Recycle
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : pool ? (
+                  <p class="tile-meta">all workers free</p>
+                ) : null}
+              </div>
+            </div>
+            <div class="cta-row">
+              {seat.phase === "leased" ? (
+                <>
+                  <button
+                    type="button"
+                    class="cta ghost"
+                    disabled={busy}
+                    onClick={() => void onPark()}
+                  >
+                    Park
+                  </button>
+                  <button
+                    type="button"
+                    class="cta danger"
+                    disabled={busy}
+                    onClick={() => void onRecycle()}
+                  >
+                    Recycle
+                  </button>
+                  <button
+                    type="button"
+                    class="cta"
+                    disabled={busy}
+                    onClick={() => void onFocusStream()}
+                  >
+                    Focus stream
+                  </button>
+                </>
+              ) : seat.phase === "parked" ? (
+                <>
+                  <button
+                    type="button"
+                    class="cta"
+                    disabled={busy}
+                    onClick={() => void onWatchLastPark()}
+                  >
+                    Watch
+                  </button>
+                  <button
+                    type="button"
+                    class="cta ghost"
+                    disabled={busy || !canAcquire}
+                    onClick={() => void onAcquire()}
+                  >
+                    Acquire
+                  </button>
+                  <button
+                    type="button"
+                    class="cta danger"
+                    disabled={busy}
+                    onClick={() => void onRecycle()}
+                  >
+                    Recycle
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    class="cta"
+                    disabled={busy || seat.phase === "watching"}
+                    onClick={() => void onLease()}
+                  >
+                    Open seat
+                  </button>
+                  {canAcquire ? (
+                    <button
+                      type="button"
+                      class="cta ghost"
+                      disabled={busy}
+                      onClick={() => void onAcquire()}
+                    >
+                      Acquire
+                    </button>
+                  ) : null}
+                  {seat.sessionId ? (
+                    <button
+                      type="button"
+                      class="cta danger"
+                      disabled={busy}
+                      onClick={() => void onRecycle()}
+                    >
+                      Recycle
+                    </button>
+                  ) : null}
+                </>
+              )}
+              <button
+                type="button"
+                class="cta linkish"
+                disabled={busy}
+                onClick={() => void refreshPool()}
+              >
+                Refresh seats
+              </button>
+            </div>
+          </section>
 
-          <h2>Seat</h2>
-          <div class="cta-row wrap">
-            <button
-              type="button"
-              class="cta"
-              disabled={busy || seat.phase === "leased"}
-              onClick={onLease}
-            >
-              Open seat
-            </button>
-            <button
-              type="button"
-              class="cta ghost"
-              disabled={busy || seat.phase !== "leased"}
-              onClick={onPark}
-            >
-              Park
-            </button>
-            <button
-              type="button"
-              class="cta danger"
-              disabled={busy || !seat.sessionId}
-              onClick={onRecycle}
-            >
-              Recycle
-            </button>
-          </div>
-          {seat.vncUrl ? (
+          {/* Watch — col-span 5 */}
+          <section class="tile tile-narrow">
+            <div class="tile-stack">
+              <p class="tile-label">Watch</p>
+              <div class="tile-copy">
+                <h2 class="tile-title">
+                  {seat.phase === "watching" ? "Watch window open" : "Watch"}
+                </h2>
+                <p class="tile-meta">
+                  {seat.phase === "watching"
+                    ? "Eyes on Watch window · no claim"
+                    : "observe without claim"}
+                </p>
+                <label class="field">
+                  <span>vnc_url</span>
+                  <input
+                    value={watchUrlDraft}
+                    placeholder="http://127.0.0.1:6080/vnc.html"
+                    onInput={(e) =>
+                      setWatchUrlDraft((e.target as HTMLInputElement).value)
+                    }
+                    spellcheck={false}
+                  />
+                </label>
+              </div>
+            </div>
             <div class="cta-row">
               <button
                 type="button"
-                class="cta ghost"
-                disabled={busy}
-                onClick={() =>
-                  void openSeatWindow(seat.vncUrl!, {
-                    mode: seat.phase === "watching" ? "watch" : "lease",
-                  })
-                }
+                class="cta"
+                disabled={busy || seat.phase === "leased" || !watchPasteReady}
+                onClick={() => void onWatchPaste()}
               >
-                Focus stream
+                Watch
               </button>
               <button
                 type="button"
-                class="cta ghost"
-                disabled={busy}
-                onClick={() => void openSeatInBrowser(seat.vncUrl!)}
+                class="cta linkish"
+                disabled={
+                  busy ||
+                  seat.phase === "leased" ||
+                  !((seat.phase === "parked" && seat.vncUrl) || lastPark)
+                }
+                onClick={() => void onWatchLastPark()}
               >
-                Open in browser
+                Watch last park
+              </button>
+              {seat.phase === "watching" ? (
+                <>
+                  <button
+                    type="button"
+                    class="cta ghost"
+                    disabled={busy || !canAcquire}
+                    onClick={() => void onAcquire()}
+                  >
+                    Acquire
+                  </button>
+                  <button
+                    type="button"
+                    class="cta ghost"
+                    disabled={busy}
+                    onClick={() => void onFocusStream()}
+                  >
+                    Focus
+                  </button>
+                </>
+              ) : null}
+              {seat.vncUrl ? (
+                <button
+                  type="button"
+                  class="cta linkish"
+                  disabled={busy}
+                  onClick={() => void openSeatInBrowser(seat.vncUrl!)}
+                >
+                  Open in browser
+                </button>
+              ) : null}
+            </div>
+          </section>
+          </div>
+        </div>
+      </main>
+
+      {settingsOpen ? (
+        <div
+          class="drawer-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSettingsOpen(false);
+          }}
+        >
+          <div class="drawer" role="dialog" aria-label="Settings">
+            <h2>Settings</h2>
+            <p class="tile-meta">Connection surfaces · stored locally</p>
+
+            <div class="drawer-section">
+              <h3>Gateway</h3>
+              <label class="field">
+                <span>COMPUTER_GATEWAY_URL</span>
+                <input
+                  value={settings.gatewayUrl}
+                  onInput={(e) =>
+                    updateSettings({
+                      gatewayUrl: (e.target as HTMLInputElement).value,
+                    })
+                  }
+                  spellcheck={false}
+                />
+              </label>
+              <label class="field">
+                <span>COMPUTER_API_TOKEN</span>
+                <input
+                  type="password"
+                  value={settings.apiToken}
+                  onInput={(e) =>
+                    updateSettings({
+                      apiToken: (e.target as HTMLInputElement).value,
+                    })
+                  }
+                  spellcheck={false}
+                />
+              </label>
+              <label class="field">
+                <span>job_id</span>
+                <input
+                  value={settings.jobId}
+                  onInput={(e) =>
+                    updateSettings({
+                      jobId: (e.target as HTMLInputElement).value,
+                    })
+                  }
+                  spellcheck={false}
+                />
+              </label>
+              <div class="cta-row">
+                <button
+                  type="button"
+                  class="cta ghost"
+                  disabled={busy}
+                  onClick={() => void onProbe()}
+                >
+                  Probe
+                </button>
+                <span class="hint">{probe}</span>
+              </div>
+            </div>
+
+            <div class="drawer-section">
+              <h3>HITL bridge</h3>
+              <label class="field">
+                <span>DESK_HITL_URL</span>
+                <input
+                  value={settings.hitlUrl}
+                  onInput={(e) =>
+                    updateSettings({
+                      hitlUrl: (e.target as HTMLInputElement).value,
+                    })
+                  }
+                  spellcheck={false}
+                />
+              </label>
+              <label class="field">
+                <span>DESK_HITL_TOKEN</span>
+                <input
+                  type="password"
+                  value={settings.hitlToken}
+                  placeholder="optional"
+                  onInput={(e) =>
+                    updateSettings({
+                      hitlToken: (e.target as HTMLInputElement).value,
+                    })
+                  }
+                  spellcheck={false}
+                />
+              </label>
+              <div class="cta-row">
+                <button
+                  type="button"
+                  class="cta ghost"
+                  disabled={busy}
+                  onClick={() => void onProbeHitl()}
+                >
+                  Probe HITL
+                </button>
+                <span class="hint">{hitlProbe}</span>
+              </div>
+            </div>
+
+            <div class="cta-row">
+              <button
+                type="button"
+                class="cta"
+                onClick={() => setSettingsOpen(false)}
+              >
+                Done
+              </button>
+              <button
+                type="button"
+                class="cta linkish"
+                onClick={() => setSettingsOpen(false)}
+              >
+                Close
               </button>
             </div>
-          ) : null}
-          {seat.error ? <p class="error">{seat.error}</p> : null}
-          {seat.vncUrl ? (
-            <p class="mono muted break">{seat.vncUrl}</p>
-          ) : (
-            <p class="muted">
-              Watch a known `vnc_url`, or Open seat to lease a free worker.
-            </p>
-          )}
-        </section>
-
-        <aside class="seat-placeholder" aria-label="Seat stream">
-          {seat.phase === "leased" && seat.vncUrl ? (
-            <>
-              <p>Seat claimed</p>
-              <p class="muted">Heartbeat on · soft-park if you close the stream.</p>
-            </>
-          ) : seat.phase === "watching" ? (
-            <>
-              <p>Watching (no claim)</p>
-              <p class="muted">
-                {seat.sessionId
-                  ? "Acquire to take mouse/keyboard on this session."
-                  : "Paste-only watch — no session to acquire."}
-              </p>
-            </>
-          ) : seat.phase === "parked" ? (
-            <>
-              <p>Parked (Firefox warm)</p>
-              <p class="muted">Watch to stream, or Acquire to reclaim control.</p>
-            </>
-          ) : (
-            <>
-              <p>noVNC seat</p>
-              <p class="muted">Watch stream-only, or Open seat for an exclusive lease</p>
-            </>
-          )}
-        </aside>
-      </main>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

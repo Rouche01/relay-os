@@ -1,5 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ComputerLease, DeskSettings } from "./types.ts";
+import type {
+  ComputerLease,
+  DeskSettings,
+  GatewaySeat,
+  GatewaySeatsResponse,
+} from "./types.ts";
 import { withVncViewerParams } from "./vnc-url.ts";
 
 export interface GatewayHttpResult {
@@ -83,6 +88,29 @@ export async function probeGateway(settings: DeskSettings): Promise<string> {
     return `reachable (HTTP ${openapi.status})`;
   }
   failStatus("probe", openapi.status, openapi.body);
+}
+
+/** Per-worker pool inventory (requires gateway with GET /v1/seats). */
+export async function listGatewaySeats(
+  settings: DeskSettings
+): Promise<GatewaySeatsResponse> {
+  const res = await gatewayHttp(settings, "GET", "/v1/seats");
+  if (res.status < 200 || res.status >= 300) {
+    failStatus("list seats", res.status, res.body);
+  }
+  const data = parseJson<GatewaySeatsResponse>(res.body);
+  const seats: GatewaySeat[] = (data.seats ?? []).map((s) => ({
+    ...s,
+    vnc_url: withVncViewerParams(s.vnc_url),
+  }));
+  return {
+    ok: data.ok !== false,
+    workers: data.workers ?? seats.length,
+    free: data.free ?? seats.filter((s) => s.state === "free").length,
+    leased: data.leased ?? seats.filter((s) => s.state === "leased").length,
+    parked: data.parked ?? seats.filter((s) => s.state === "parked").length,
+    seats,
+  };
 }
 
 export async function leaseSession(

@@ -16,6 +16,30 @@ export interface ComputerLease {
   expires_at?: string;
 }
 
+/** Gateway `GET /v1/seats` row — pool inventory for inspect / recycle. */
+export type GatewaySeatState = "free" | "leased" | "parked";
+
+export interface GatewaySeat {
+  id: string;
+  state: GatewaySeatState;
+  vnc_url: string;
+  worker_base_url?: string;
+  session_id?: string | null;
+  agent_id?: string | null;
+  job_id?: string | null;
+  expires_at?: string | null;
+  parked_at?: string | null;
+}
+
+export interface GatewaySeatsResponse {
+  ok: boolean;
+  workers: number;
+  free: number;
+  leased: number;
+  parked: number;
+  seats: GatewaySeat[];
+}
+
 /** leased = exclusive claim; watching = stream only; parked = warm, no stream claim */
 export type SeatPhase = "idle" | "leased" | "watching" | "parked" | "error";
 

@@ -34,6 +34,7 @@ In the app:
 4. **Open seat** — `POST /v1/sessions` with `job_id`, opens a WebView on `vnc_url` (`autoconnect=1&resize=scale`)
 5. Heartbeat every 45s while **leased** and the desk window is visible (never while watching)
 6. **Park** — soft `DELETE` (Firefox warm); **Acquire** — take exclusive claim (from parked or watching); **Recycle** — wipe + free worker
+7. **Refresh seats** — `GET /v1/seats` pool inventory; Watch / Acquire / Recycle per parked or leased worker when Open seat returns `no free workers`
 7. Closing the seat WebView soft-parks when still leased; closing a Watch window does not touch the gateway
 
 Settings + last park target persist in `localStorage`. Gateway seat-list discovery is deferred (see plan Phase 1.5).
@@ -66,8 +67,8 @@ In Desk: set **DESK_HITL_URL** (`http://127.0.0.1:9100`) + optional token → **
 1.5. Watch (stream-only)  
 1.6–1.8. Design — [DESIGN.md](./DESIGN.md) (concerns + design system) · [Flowstep](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe)  
 2. Feedback Broker desk adapter + CommunityEngager wire  
-5. Implement DESIGN.md / Flowstep UI (Gateway · Watch · Seat · HITL · Settings)  
+5. **DESIGN.md UI** (Gateway · Watch · Seat · HITL · Settings) — current  
 3. Thin intent stub  
 4. ThinkPad / laptop docs  
 
-Runtime stays in `computer-with-agent`; streams open in a **separate** WebView (no native RFB in v1). Current app chrome is a functional scaffold until Phase 5.
+Runtime stays in `computer-with-agent`; streams open in a **separate** WebView (no native RFB in v1). See [DESIGN.md](./DESIGN.md).

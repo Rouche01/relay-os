@@ -28,10 +28,10 @@ todos:
     status: completed
   - id: p2-ce-wire
     content: CommunityEngager computer dry-run + interstitial HITL surface cards in relay-desk; dogfood Approve while watching desk stream
-    status: pending
+    status: completed
   - id: p5-flowstep-ui
     content: "Implement DESIGN.md + Flowstep Relay Desk UI: Gateway/Watch/Seat/HITL tiles, Settings drawer; stream stays separate WebView; Seat inventory ready for multi-seat later"
-    status: pending
+    status: completed
   - id: p3-intent-stub
     content: Thin intent entry (text → kick engage / open seat) without owning Spec compile; defer full living-todo to relay_living_todo_shell
     status: pending
@@ -39,7 +39,8 @@ todos:
     content: Document laptop install + env pointing at desk.hsv / 127.0.0.1 gateway; cross-link computer-with-agent AGENTS.md deploy
     status: pending
   - id: p1.5-gateway-list
-    content: "Optional: computer-with-agent seat list API (state + vnc_url per worker) for Desk picker — deferred until discovery is needed"
+    content: "computer-with-agent GET /v1/seats + Desk Gateway pool rows (Watch/Acquire/Recycle)"
+    status: completed
     status: pending
   - id: out-of-scope-v1
     content: "Explicit non-goals v1: native RFB client, LLM inside the desk app, on-demand K8s sandboxes, merging computer-with-agent into relay-os, in-main VNC mosaic (multi separate OS windows OK later via Seat inventory)"
@@ -181,16 +182,16 @@ Scaffold UI stays until **Phase 5**.
 - Cross-link computer-with-agent deploy (Caddy `desk` / `desk1` / `desk2`)
 - CE env: `COMPUTER_GATEWAY_URL`, matching token, `REDDIT_TRANSPORT=computer` dogfood
 
-### Phase 5 — Implement Flowstep UI (deferred)
+### Phase 5 — Implement Flowstep UI (done)
 
-Replace the Phase 1/1.5 scaffold presentation with the Flowstep compositions. Behavior (lease / watch / park / acquire / heartbeat) stays; chrome and layout change.
+Main window matches [`apps/relay-desk/DESIGN.md`](../../apps/relay-desk/DESIGN.md):
 
-- Port Idle / Watching+HITL / Leased from the Flowstep file (JSX + DESIGN.md as source of truth)
-- Settings (gateway URL, token, job_id) in a drawer / secondary surface — not on first viewport
-- HITL card shell ready for Phase 2 adapter payloads (`vnc_url`, Approve / Abort)
-- Keep one stream WebView; no mosaic
+- Header: brand · Settings · status
+- Bento: HITL | Seat / Gateway | Watch
+- Settings drawer: gateway + HITL bridge fields
+- Stream still separate WebView; Seat tile is a list (v1: one row)
 
-**Success:** Desk looks like the Flowstep screens; Watch / Open seat / Acquire / Park still work against the gateway.
+**Success:** Desk looks like the Flowstep console; Watch / Open seat / Acquire / Park / HITL still work.
 
 ## Non-goals (v1)
 
