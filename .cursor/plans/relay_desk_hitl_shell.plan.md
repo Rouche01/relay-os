@@ -32,8 +32,17 @@ todos:
   - id: p5-flowstep-ui
     content: "Implement DESIGN.md + Flowstep Relay Desk UI: Gateway/Watch/Seat/HITL tiles, Settings drawer; stream stays separate WebView; Seat inventory ready for multi-seat later"
     status: completed
+  - id: p3-intent-design
+    content: "Superseded — Spec is its own tab; no Idle intent strip"
+    status: cancelled
+  - id: p3-tabs-design
+    content: "Superseded — primary nav is collapsible sidebar, not header tabs"
+    status: cancelled
+  - id: p3-sidebar-design
+    content: "Flowstep + DESIGN.md — collapsible sidebar (Console|Spec|Settings); expanded + icon-only; Console bento unchanged"
+    status: completed
   - id: p3-intent-stub
-    content: Thin intent entry (text → kick engage / open seat) without owning Spec compile; defer full living-todo to relay_living_todo_shell
+    content: "Implement sidebar + Spec scaffold in Desk (match Flowstep); full Spec compile deferred to intent/living-todo plans"
     status: pending
   - id: p4-thinkpad
     content: Document laptop install + env pointing at desk.hsv / 127.0.0.1 gateway; cross-link computer-with-agent AGENTS.md deploy
@@ -170,10 +179,14 @@ Scaffold UI stays until **Phase 5**.
 
 **Success (adapter):** CE with desk adapter + Desk Probe HITL / Approve path works without Telegram.
 
-### Phase 3 — Intent stub (thin)
+### Phase 3 — Console | Spec via collapsible sidebar
 
-- Text field: “engage” / “open computer seat” that shells out to existing host entrypoints or HTTP hooks — **does not** reimplement Spec compile
-- Full living-todo queue remains [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md)
+**Locked:** Spec is a **separate surface**. Primary nav is a **left sidebar** (expanded labels ↔ icon-only collapse), not header tabs. Console bento stays as shipped.
+
+- Sidebar: brand · Console · Spec · Settings · collapse
+- Main: thin status strip + Console bento **or** Spec scaffold
+- Real Spec compile / living-todo: [`relay_intent_spec_verify_hitl.plan.md`](./relay_intent_spec_verify_hitl.plan.md) + [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md)
+- Design first (Flowstep) → then replace interim header tabs in the app
 
 ### Phase 4 — ThinkPad / laptop docs
 

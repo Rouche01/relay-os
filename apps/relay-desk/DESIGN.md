@@ -1,15 +1,54 @@
 # Relay Desk — concerns & design system
 
-Canonical product/UI structure for `apps/relay-desk`. Visual source of truth in Flowstep: [Relay Desk](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe). Implementation follows in plan **Phase 5**.
+Canonical product/UI structure for `apps/relay-desk`. Visual source of truth in Flowstep: [Relay Desk](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe).
 
 ## Window model (locked)
 
 | Window | Owns |
 |--------|------|
-| **Main — Relay Desk** | Brand, concern tiles, HITL runtime card, Settings drawer |
+| **Main — Relay Desk** | Collapsible sidebar nav, status chrome, Settings drawer, active surface body |
 | **Stream WebView** | noVNC only — title `Relay Desk · Watch` (no claim) or `Relay Desk · Seat` (leased) |
 
 Do **not** embed the live desktop as the main-window hero. Streams open in separate Tauri WebViews (`openSeatWindow`).
+
+## App navigation (locked) — collapsible sidebar
+
+**Console vs Spec** are primary **surfaces**, not top tabs. Nav lives in a **left sidebar** that collapses to **icon-only**.
+
+| Surface | Owns | Does not own |
+|---------|------|----------------|
+| **Console** | Gateway / Watch / Seat / HITL — current Idle bento (title + 7/5 grid) | Intent→Spec compile, living-todo queue |
+| **Spec** | Intent → draft Spec → freeze → run (governance) | Seat lease chrome, live stream controls |
+
+**Why sidebar (not top tabs):** Spec will grow; Console stays dense operator chrome; collapse keeps the bento wide when working seats/HITL. Top tabs were interim only.
+
+**Sidebar (expanded ~12–14rem)**
+- Top: brand mark + “Relay Desk” (serif)
+- Nav: Console · Spec (icon + label; active = ink weight / quiet indicator)
+- Footer: Settings (opens drawer) · collapse control
+- Optional later: more Spec children under Spec — still sidebar, not a third top tab
+
+**Sidebar (collapsed ~3.5rem)**
+- Brand mark only · icon nav · Settings gear · expand control
+- Tooltips on hover for labels
+
+**Main column**
+- Thin top strip: global status only (`desk.hsv · ready` / HITL waiting) — no duplicate Console|Spec
+- Body: Console bento **unchanged**, or Spec scaffold
+
+**Locked:** No Spec compiler strip on Console Idle. No primary nav in the top bar.
+
+Spec implementation follows [`relay_intent_spec_verify_hitl.plan.md`](../../.cursor/plans/relay_intent_spec_verify_hitl.plan.md) / [`relay_living_todo_shell.plan.md`](../../.cursor/plans/relay_living_todo_shell.plan.md). Desk ships Spec as **scaffold** until that work lands.
+
+```text
+┌──────────┬─────────────────────────────┐
+│ Sidebar  │ status                      │
+│ Console  ├─────────────────────────────┤
+│ Spec     │ Console bento  OR  Spec     │
+│ …        │ (collapse → icons only)     │
+│ Settings │                             │
+└──────────┴─────────────────────────────┘
+```
 
 ## Gateway topology (locked)
 
@@ -22,7 +61,7 @@ Desk is a **client** of computer-with-agent. The gateway may be:
 
 Settings (`COMPUTER_GATEWAY_URL` + token) select the profile — no separate Desk builds. Optional guided local install: [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md).
 
-## Separation of concerns
+## Separation of concerns (Console)
 
 | Concern | Role | Owns | Does not own |
 |---------|------|------|----------------|
@@ -56,11 +95,11 @@ Settings ── configures Gateway + HITL bridge endpoints
 
 ## Main-window composition
 
-1. **Header** — Relay Desk brand · **Settings** (quiet gear / label) · global status (idle / watching / claimed / HITL waiting).
-2. **Primary row** — HITL (large when pending; quiet empty otherwise) + **Seat** inventory.
-3. **Secondary row** — **Gateway** | **Watch** (bento tiles, unequal weight OK).
-
-**Settings placement (locked):** header chrome only — typically immediately left of the status cluster. Do **not** leave Settings as a footer orphan under the Gateway/Watch row (breaks the bento grid). Opening it reveals a drawer with Gateway + HITL bridge fields.
+1. **Sidebar** — brand · Console · Spec · Settings · collapse (expanded or icon-only).
+2. **Status strip** — global status only (idle / watching / claimed / HITL waiting).
+3. **Console surface** — title + subtitle → HITL | Seat → Gateway | Watch (current layout; do not regress).
+4. **Spec surface** — scaffold: title “Spec”, Intent→Spec placeholder (no compile yet).
+5. **Settings** — from sidebar → drawer (Gateway + HITL bridge).
 
 Operator console first; bento for **hierarchy**, not marketing-grid density. No mini-VNC previews inside tiles.
 
@@ -88,40 +127,44 @@ Avoid: purple-indigo gradients, soft cream+terracotta, neon multi-glow stacks, I
 
 ### Typography
 
-- **Display / brand:** distinctive geometric or slab (e.g. Space Grotesk / similar) — “Relay Desk” is hero-level.
-- **UI:** clean grotesque for labels and mono for ids/URLs (`ui-monospace`).
+- **Display / brand:** Instrument Serif (or similar) — “Relay Desk” is hero-level.
+- **UI:** Inter / grotesque for labels; mono for ids/URLs.
 - Scale: brand ≫ section title ≫ body ≫ meta.
 
 ### Shape & depth
 
 - Tiles: slight radius (`~0.5–0.75rem`), 1px signal-tint border, no heavy multi-shadow.
-- Expand control on tiles (→ focused concern) optional.
+- Tab active: ink underline or weight; inactive muted — not pill spam.
 - Atmosphere: subtle radial void gradient / fine grid; not illustrative collage.
 
 ### Motion (when implemented)
 
 - Status pulse on live claim / HITL waiting (slow, low amplitude).
 - Focus stream → bring WebView forward.
-- Tile expand: short ease, not bounce.
+- Tab switch: instant or short fade; not bounce.
 
 ### Components
 
+- **Sidebar nav** — Console | Spec (+ collapse); Settings in rail footer.
 - **Tile** — title, one short line, primary actions, optional expand.
 - **Seat row** — mode badge (`Watch` | `Claimed`), id, Focus / Close.
 - **HITL card** — kicker, prompt, Approve (signal) / Abort (ghost|danger).
 - **Settings fields** — labeled inputs; Probe + result line.
+- **Spec scaffold** — title + mono hint; later Intent / Spec panels.
 - **Stream window chrome** — OS title only; no duplicated Desk chrome inside noVNC.
 
 ## Flowstep screens (target)
 
-1. **Idle — console** — brand + Gateway / Watch / Seat (empty) / quiet HITL slot + Settings affordance  
-2. **HITL pending** — large HITL tile + Seat row(s) + offset Watch window  
-3. **Watching** — Watch tile active + Seat inventory + Watch window  
-4. **Leased** — Gateway claim active + Seat inventory + Seat window  
-5. **Settings** — Gateway + HITL bridge fields only  
+1. **Idle — console** — sidebar expanded; Console active; current bento  
+2. **Idle — console (collapsed)** — icon-only sidebar; same bento  
+3. **Spec — scaffold** — sidebar; Spec active; Intent→Spec placeholder  
+4. **Spec — scaffold (collapsed)** — icon-only sidebar  
+5. **HITL pending** / **Watching** / **Leased** / **Parked** / **Settings** — Console modes (unchanged concerns; adopt sidebar)  
 6. **Multi-seat (future)** — Seat list with 2+ rows; still separate OS windows  
+7. Top-tab / Idle intent-strip screens — superseded; archive or delete later  
 
 ## Related
 
 - Plan: [`.cursor/plans/relay_desk_hitl_shell.plan.md`](../../.cursor/plans/relay_desk_hitl_shell.plan.md)  
+- Spec thesis: [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](../../.cursor/plans/relay_intent_spec_verify_hitl.plan.md)  
 - Adapter: `@relay/adapters-desk` (`FEEDBACK_ADAPTER=desk`)  

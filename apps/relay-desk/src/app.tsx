@@ -60,6 +60,7 @@ export function App() {
   const [hitlError, setHitlError] = useState<string | undefined>();
   const [hitlBusy, setHitlBusy] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mainTab, setMainTab] = useState<"console" | "spec">("console");
   const [pool, setPool] = useState<GatewaySeatsResponse | null>(null);
   const [poolError, setPoolError] = useState<string | undefined>();
   const openedHitlWatch = useRef<Set<string>>(new Set());
@@ -613,24 +614,44 @@ export function App() {
   return (
     <div class="desk">
       <header class="topbar">
-        <div class="topbar-brand-wrap">
-          <svg
-            class="topbar-radio"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="2" />
-            <path d="M4.93 4.93a10 10 0 0 0 0 14.14" />
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-            <path d="M7.76 7.76a5.5 5.5 0 0 0 0 8.48" />
-            <path d="M16.24 7.76a5.5 5.5 0 0 1 0 8.48" />
-          </svg>
-          <span class="topbar-brand">Relay Desk</span>
+        <div class="topbar-left">
+          <div class="topbar-brand-wrap">
+            <svg
+              class="topbar-radio"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="2" />
+              <path d="M4.93 4.93a10 10 0 0 0 0 14.14" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+              <path d="M7.76 7.76a5.5 5.5 0 0 0 0 8.48" />
+              <path d="M16.24 7.76a5.5 5.5 0 0 1 0 8.48" />
+            </svg>
+            <span class="topbar-brand">Relay Desk</span>
+          </div>
+          <nav class="topbar-tabs" aria-label="Main">
+            <button
+              type="button"
+              class="topbar-tab"
+              data-active={mainTab === "console" ? "1" : "0"}
+              onClick={() => setMainTab("console")}
+            >
+              Console
+            </button>
+            <button
+              type="button"
+              class="topbar-tab"
+              data-active={mainTab === "spec" ? "1" : "0"}
+              onClick={() => setMainTab("spec")}
+            >
+              Spec
+            </button>
+          </nav>
         </div>
         <div class="topbar-right">
           <button
@@ -664,6 +685,31 @@ export function App() {
       </header>
 
       <main class="desk-main">
+        {mainTab === "spec" ? (
+          <div class="desk-body">
+            <div class="console-head">
+              <h1 class="console-title">Spec</h1>
+              <p class="console-sub">
+                intent → draft → freeze → run · scaffold
+              </p>
+            </div>
+            <section class="tile spec-scaffold">
+              <div class="tile-stack">
+                <p class="tile-label">Placeholder</p>
+                <div class="tile-copy">
+                  <h2 class="tile-title">Spec compiler lives here</h2>
+                  <p class="tile-meta">
+                    Console stays the operator bento. This tab will own Intent,
+                    frozen Spec, and freeze gates — not implemented yet.
+                  </p>
+                  <p class="tile-meta mono">
+                    see relay_intent_spec_verify_hitl · living_todo_shell
+                  </p>
+                </div>
+              </div>
+            </section>
+          </div>
+        ) : (
         <div class="desk-body">
           <div class="console-head">
             <h1 class="console-title">{consoleTitle}</h1>
@@ -1043,6 +1089,7 @@ export function App() {
           </section>
           </div>
         </div>
+        )}
       </main>
 
       {settingsOpen ? (

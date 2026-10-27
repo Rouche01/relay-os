@@ -66,10 +66,52 @@ body {
   box-sizing: border-box;
 }
 
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  min-width: 0;
+}
+
 .topbar-brand-wrap {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.topbar-tabs {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.topbar-tab {
+  appearance: none;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 400;
+  padding: 0.15rem 0;
+  cursor: pointer;
+}
+
+.topbar-tab:hover {
+  color: var(--ink);
+}
+
+.topbar-tab[data-active="1"] {
+  color: var(--ink);
+  font-weight: 500;
+  border-bottom-color: var(--ink);
+}
+
+.tile.spec-scaffold {
+  grid-column: span 12;
+  min-height: 18rem;
+  max-width: none;
 }
 
 .topbar-radio {
