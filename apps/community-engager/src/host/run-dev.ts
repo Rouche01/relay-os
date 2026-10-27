@@ -1,6 +1,10 @@
 import "dotenv/config";
 import { CliFeedbackAdapter } from "@relay/feedback-broker";
 import {
+  createDeskAdapterFromEnv,
+  DeskFeedbackAdapter,
+} from "@relay/adapters-desk";
+import {
   createTelegramAdapterFromEnv,
   TelegramFeedbackAdapter,
 } from "@relay/adapters-telegram";
@@ -90,19 +94,26 @@ function parseSpecGoal(argv: string[]): string | undefined {
   return undefined;
 }
 
-/** `--adapter=cli|telegram` or `--adapter cli` — Intent slot for HITL surface. */
+/** `--adapter=cli|telegram|desk` or `--adapter cli` — Intent slot for HITL surface. */
 function parseAdapterArg(argv: string[]): FeedbackAdapterKind | undefined {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
-    const m = /^--adapter=(cli|telegram|tg|terminal)$/i.exec(arg);
+    const m =
+      /^--adapter=(cli|telegram|tg|terminal|desk|desktop|relay-desk)$/i.exec(
+        arg
+      );
     if (m?.[1]) {
       const v = m[1].toLowerCase();
       if (v === "telegram" || v === "tg") return "telegram";
+      if (v === "desk" || v === "desktop" || v === "relay-desk") return "desk";
       return "cli";
     }
     if (arg === "--adapter") {
       const next = argv[i + 1]?.toLowerCase();
       if (next === "telegram" || next === "tg") return "telegram";
+      if (next === "desk" || next === "desktop" || next === "relay-desk") {
+        return "desk";
+      }
       if (next === "cli" || next === "terminal") return "cli";
     }
   }
@@ -116,12 +127,11 @@ function resolveAdapterKind(
   const fromArg = parseAdapterArg(argv);
   if (fromArg) return fromArg;
   if (fromSpec) return fromSpec;
-  if (
-    process.env.FEEDBACK_ADAPTER === "telegram" ||
-    process.env.COMMUNITY_ADAPTER === "telegram"
-  ) {
-    return "telegram";
-  }
+  const env =
+    process.env.FEEDBACK_ADAPTER?.toLowerCase() ??
+    process.env.COMMUNITY_ADAPTER?.toLowerCase();
+  if (env === "telegram" || env === "tg") return "telegram";
+  if (env === "desk" || env === "desktop" || env === "relay-desk") return "desk";
   return "cli";
 }
 
@@ -200,11 +210,14 @@ async function main(): Promise<void> {
     adapterFromArg ?? adapterFromBundle
   );
   let telegram: TelegramFeedbackAdapter | undefined;
+  let desk: DeskFeedbackAdapter | undefined;
 
   const adapter =
     adapterKind === "telegram"
       ? ((telegram = createTelegramAdapterFromEnv()), telegram)
-      : new CliFeedbackAdapter();
+      : adapterKind === "desk"
+        ? ((desk = createDeskAdapterFromEnv()), desk)
+        : new CliFeedbackAdapter();
 
   const runEntrypoint: CommunityEntrypoint =
     spec?.procedure.entrypoint === "post_watch" ? "post_watch" : entrypoint;
@@ -243,17 +256,24 @@ async function main(): Promise<void> {
     console.log(
       "Spec: (none) — pass --with-spec to compile+freeze+save, or --spec-id=<id> to load\n" +
         `Spec store: ${specStore.path}\n` +
-        "Adapter still selectable via --adapter=cli|telegram or FEEDBACK_ADAPTER\n"
+        "Adapter still selectable via --adapter=cli|telegram|desk or FEEDBACK_ADAPTER\n"
     );
   }
 
   if (telegram) {
     telegram.start();
     console.log("Feedback adapter: telegram (allowlisted user only)\n");
+  } else if (desk) {
+    desk.start();
+    console.log(
+      `Feedback adapter: desk  (Relay Desk → ${desk.listenUrl})\n` +
+        "  Desk polls GET /v1/pending · POST /v1/respond\n" +
+        "  Env: DESK_HITL_HOST / DESK_HITL_PORT / DESK_HITL_TOKEN\n"
+    );
   } else {
     console.log("Feedback adapter: cli  (approve | abort | edit: …)\n");
     console.log(
-      "Telegram HITL: --adapter=telegram, Intent slot adapter=telegram, or FEEDBACK_ADAPTER=telegram\n"
+      "Telegram: --adapter=telegram · Desk: --adapter=desk or FEEDBACK_ADAPTER=desk\n"
     );
   }
 
@@ -269,6 +289,7 @@ async function main(): Promise<void> {
     console.log(`\n=== Run summary ===\n${formatRunSummary(summary)}`);
   } finally {
     if (telegram) await telegram.stop();
+    if (desk) await desk.stop();
   }
 }
 

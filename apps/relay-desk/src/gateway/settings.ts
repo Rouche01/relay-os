@@ -16,6 +16,8 @@ export function loadSettings(): DeskSettings {
       agentId:
         String(parsed.agentId ?? DEFAULT_SETTINGS.agentId).trim() || "relay-desk",
       ttlSec: Number(parsed.ttlSec) > 0 ? Number(parsed.ttlSec) : 600,
+      hitlUrl: String(parsed.hitlUrl ?? DEFAULT_SETTINGS.hitlUrl).trim(),
+      hitlToken: String(parsed.hitlToken ?? DEFAULT_SETTINGS.hitlToken),
     };
   } catch {
     return { ...DEFAULT_SETTINGS };

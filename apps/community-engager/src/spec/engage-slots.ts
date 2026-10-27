@@ -5,7 +5,7 @@ import type { CommunityEntrypoint } from "../manifest.js";
 export const COMMUNITY_ENGAGER_APP_ID = "community-engager";
 
 /** HITL surface for Spec / draft negotiation (host concern; recorded on Spec). */
-export type FeedbackAdapterKind = "cli" | "telegram";
+export type FeedbackAdapterKind = "cli" | "telegram" | "desk";
 
 /** Known Intent.slots keys for engage / post_watch template fill. */
 export type EngageIntentSlotKey =
@@ -91,7 +91,7 @@ export function resolveEntrypoint(
 }
 
 /**
- * Read `adapter` / `feedbackAdapter` slot (`cli` | `telegram`).
+ * Read `adapter` / `feedbackAdapter` slot (`cli` | `telegram` | `desk`).
  * Returns undefined when unset / unknown so the host can fall back to env.
  */
 export function resolveFeedbackAdapterSlot(
@@ -103,5 +103,6 @@ export function resolveFeedbackAdapterSlot(
     slotString(slots, "feedbackAdapter")?.toLowerCase();
   if (raw === "cli" || raw === "terminal" || raw === "stdin") return "cli";
   if (raw === "telegram" || raw === "tg") return "telegram";
+  if (raw === "desk" || raw === "desktop" || raw === "relay-desk") return "desk";
   return fallback;
 }

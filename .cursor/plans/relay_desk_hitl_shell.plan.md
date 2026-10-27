@@ -14,17 +14,23 @@ todos:
   - id: p1.5-watch
     content: "Watch path (no exclusive lease): open stream from known vnc_url / session_id / last park; optional gateway seat list (free/leased/parked + vnc_url); UI separates Watch vs Acquire"
     status: completed
-  - id: p1.5-gateway-list
-    content: "Optional: computer-with-agent seat list API (state + vnc_url per worker) for Desk picker — deferred until discovery is needed"
-    status: pending
   - id: p1.6-flowstep-design
-    content: "Flowstep design for Relay Desk operator shell (Idle / Watching+HITL / Leased) — DESIGN.md + screens; scaffold UI remains until p5"
+    content: "Flowstep design for Relay Desk operator shell — first pass (Idle / Watching+HITL / Leased); scaffold UI remains until p5"
+    status: completed
+  - id: p1.7-flowstep-sync
+    content: "Flowstep sync to current Desk: Idle (+ Watch last park), Settings, Parked, Watching (no HITL); Watching+HITL kept as Phase 2 variant; separate stream window locked"
+    status: completed
+  - id: p1.8-concerns-ds
+    content: "Document concern split (Gateway/Watch/Seat/HITL/Settings) + multi-seat extension in apps/relay-desk/DESIGN.md; futuristic design system; Flowstep screens match bento console"
     status: completed
   - id: p2-feedback-adapter
     content: Desktop Feedback Broker adapter (approval / edit / abort / confirmation) parallel to Telegram/CLI; include vnc_url + job_id + session_id in WAITING_USER payloads from computer/interstitial paths
-    status: pending
+    status: completed
   - id: p2-ce-wire
     content: CommunityEngager computer dry-run + interstitial HITL surface cards in relay-desk; dogfood Approve while watching desk stream
+    status: pending
+  - id: p5-flowstep-ui
+    content: "Implement DESIGN.md + Flowstep Relay Desk UI: Gateway/Watch/Seat/HITL tiles, Settings drawer; stream stays separate WebView; Seat inventory ready for multi-seat later"
     status: pending
   - id: p3-intent-stub
     content: Thin intent entry (text → kick engage / open seat) without owning Spec compile; defer full living-todo to relay_living_todo_shell
@@ -32,11 +38,11 @@ todos:
   - id: p4-thinkpad
     content: Document laptop install + env pointing at desk.hsv / 127.0.0.1 gateway; cross-link computer-with-agent AGENTS.md deploy
     status: pending
-  - id: p5-flowstep-ui
-    content: "Implement Flowstep Relay Desk UI in apps/relay-desk (replace Phase 1 scaffold look): Idle / Watching+HITL / Leased compositions; Settings drawer; keep gateway Watch/Acquire behavior"
+  - id: p1.5-gateway-list
+    content: "Optional: computer-with-agent seat list API (state + vnc_url per worker) for Desk picker — deferred until discovery is needed"
     status: pending
   - id: out-of-scope-v1
-    content: "Explicit non-goals v1: native RFB client, LLM inside the desk app, on-demand K8s sandboxes, merging computer-with-agent into relay-os, multi-tile VNC dashboard"
+    content: "Explicit non-goals v1: native RFB client, LLM inside the desk app, on-demand K8s sandboxes, merging computer-with-agent into relay-os, in-main VNC mosaic (multi separate OS windows OK later via Seat inventory)"
     status: pending
 isProject: true
 ---
@@ -79,17 +85,25 @@ User (Desk app)
 
 ## Product shape (v1)
 
-One composition: **operator console**, not a dashboard of ten widgets.
+**Operator console** with clear concern tiles (bento hierarchy), not a marketing mosaic and not a form dump.
 
-**First viewport (dogfood):**
+Canonical write-up: [`apps/relay-desk/DESIGN.md`](../../apps/relay-desk/DESIGN.md).
 
-- Connection status (gateway reachable / token set)
-- Active or pending HITL card (Approve / Edit / Abort) when wired
-- CTAs: **Open seat** (exclusive lease) and **Watch** (stream only, no claim)
-- Auto-open stream when feedback includes `vnc_url` (prefer Watch; Acquire only when the human must drive)
-- Embedded noVNC for one active stream at a time
+**Concerns**
 
-Defer living-todo full queue UI to the living-todo plan; Desk may show a single “current job” strip only.
+| Concern | Role |
+|---------|------|
+| **Gateway** | Claim path — Probe, Open seat / Park / Acquire / Recycle |
+| **Watch** | Observe path — paste / last park → Watch window (no claim) |
+| **Seat** | Inventory of **active stream windows** (from Gateway or Watch); Focus / close |
+| **HITL** | Runtime Approve/Abort card (setup for the bridge lives in **Settings**) |
+| **Settings** | Gateway + HITL bridge URLs/tokens, job_id, probes |
+
+**Window model:** main Desk = chrome + tiles; noVNC = separate WebView (`Watch` / `Seat`). No embedded stream hero.
+
+**Multi-seat:** v1 ships **one** stream window; Seat UI is a **list** so multiple separate OS windows can be added later without redesigning concerns (still no in-main VNC mosaic).
+
+Defer living-todo full queue UI to the living-todo plan.
 
 ### Watch vs Acquire
 
@@ -137,26 +151,24 @@ Lease-only is too blunt for HITL and multi-worker ops. Add a **Watch** path besi
 
 **Success:** Operator picks desk1/desk2 (or pastes `vnc_url`) and streams without taking a lease; can Acquire later if they need to drive.
 
-### Phase 1.6 — Flowstep design (done; code later)
+### Phase 1.6–1.8 — Flowstep + DESIGN.md (code in Phase 5)
 
-Operator shell designed in Flowstep before replacing the Phase 1 scaffold look.
+- **Repo:** [`apps/relay-desk/DESIGN.md`](../../apps/relay-desk/DESIGN.md) — concerns, multi-seat extension, futuristic design tokens
+- **Flowstep:** [Relay Desk](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe) — DESIGN.md mirrored; bento console screens (Gateway / Watch / Seat / HITL / Settings)
+- Stream remains a **separate** WebView; Seat tile is an inventory list (v1: one row; later: multi)
 
-- **File:** [Relay Desk on Flowstep](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe) (`a7a26c2d-f42b-4309-955c-7f931d81c6fe`)
-- **DESIGN.md** on the file: brand-first composition, Watch vs Acquire, charcoal/graphite + amber accent, Settings off first viewport, one stream
-- **Screens:**
-  1. **Idle — connected** — brand hero, Watch / Open seat, empty stream plane, Settings link only
-  2. **Watching — HITL** — stream dominant + single Approve/Abort card; Acquire secondary
-  3. **Leased — driving** — claimed/heartbeat, Park / Recycle / Focus stream, one-line job strip
+Scaffold UI stays until **Phase 5**.
 
-Scaffold `apps/relay-desk` UI stays functional until **Phase 5**. Do not polish CSS toward a different look in the meantime.
+**Todo order:** p2 (done) → p2-ce-wire → p5 → p3 → p4; optional `p1.5-gateway-list` last.
 
 ### Phase 2 — Feedback Broker desktop adapter
 
-- Implement adapter parallel to Telegram/CLI for feedback types used by CommunityEngager (`approval`, edit path, `abort`, `confirmation`, `credential` as needed)
-- Ensure computer dry-run / interstitial paths attach `vnc_url` (+ `session_id`, `job_id`) on `WAITING_USER`
-- Desk shows the card and opens/focuses the stream automatically when `vnc_url` present
+- **Done:** `@relay/adapters-desk` HTTP bridge (`FEEDBACK_ADAPTER=desk` / `--adapter=desk`); `GET /v1/pending`, `POST /v1/respond`; `cancelPresent` for auto-clear
+- Host wiring: `run-dev` / `run-ops` / `run-scheduler`; env `DESK_HITL_HOST` / `PORT` / `TOKEN`
+- Desk: HITL URL settings, poll, Approve/Abort card, auto-Watch on `meta.vncUrl` (camelCase — already on computer challenge WAITING_USER)
+- **Follow-on (p2-ce-wire):** dogfood CE computer dry-run / interstitial end-to-end in Desk
 
-**Success:** Engage → Approve in Desk while watching `desk1`/`desk2` stream; no Telegram required for that path.
+**Success (adapter):** CE with desk adapter + Desk Probe HITL / Approve path works without Telegram.
 
 ### Phase 3 — Intent stub (thin)
 

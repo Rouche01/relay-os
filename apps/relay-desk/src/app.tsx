@@ -17,12 +17,23 @@ import { loadSettings, saveSettings } from "./gateway/settings.ts";
 import type { DeskSettings, SeatState } from "./gateway/types.ts";
 import { withVncViewerParams } from "./gateway/vnc-url.ts";
 import {
+  fetchPending,
+  probeHitl,
+  respondHitl,
+} from "./hitl/client.ts";
+import {
+  sessionIdFromPending,
+  vncUrlFromPending,
+  type PendingFeedback,
+} from "./hitl/types.ts";
+import {
   closeSeatWindow,
   openSeatInBrowser,
   openSeatWindow,
 } from "./seat/open-seat.ts";
 
 const HEARTBEAT_MS = 45_000;
+const HITL_POLL_MS = 2_000;
 
 /**
  * Relay Desk — HITL operator shell.
@@ -37,6 +48,11 @@ export function App() {
   const [lastPark, setLastPark] = useState<LastParkTarget | null>(() =>
     loadLastPark()
   );
+  const [hitlProbe, setHitlProbe] = useState("not checked");
+  const [hitlPending, setHitlPending] = useState<PendingFeedback[]>([]);
+  const [hitlError, setHitlError] = useState<string | undefined>();
+  const [hitlBusy, setHitlBusy] = useState(false);
+  const openedHitlWatch = useRef<Set<string>>(new Set());
   const seatRef = useRef(seat);
   const settingsRef = useRef(settings);
   seatRef.current = seat;
@@ -70,6 +86,35 @@ export function App() {
       setProbe(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const onProbeHitl = async () => {
+    setBusy(true);
+    setHitlProbe("checking…");
+    try {
+      setHitlProbe(await probeHitl(settings));
+    } catch (err) {
+      setHitlProbe(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onHitlRespond = async (
+    req: PendingFeedback,
+    action: "proceed" | "abort"
+  ) => {
+    setHitlBusy(true);
+    setHitlError(undefined);
+    try {
+      await respondHitl(settings, req.id, action, action === "proceed");
+      setHitlPending((prev) => prev.filter((p) => p.id !== req.id));
+      openedHitlWatch.current.delete(req.id);
+    } catch (err) {
+      setHitlError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setHitlBusy(false);
     }
   };
 
@@ -167,6 +212,19 @@ export function App() {
         onWatchClose();
       },
     });
+  };
+
+  const openWatchForHitl = async (req: PendingFeedback) => {
+    const vnc = vncUrlFromPending(req);
+    if (!vnc || openedHitlWatch.current.has(req.id)) return;
+    openedHitlWatch.current.add(req.id);
+    const sessionId = sessionIdFromPending(req);
+    try {
+      await startWatch(vnc, sessionId);
+    } catch (err) {
+      openedHitlWatch.current.delete(req.id);
+      setHitlError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const onWatchPaste = async () => {
@@ -330,6 +388,40 @@ export function App() {
     return () => window.removeEventListener("pagehide", onUnload);
   }, []);
 
+  // Poll CommunityEngager desk adapter for pending HITL.
+  useEffect(() => {
+    if (!settings.hitlUrl.trim()) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const pending = await fetchPending(settingsRef.current);
+        if (cancelled) return;
+        setHitlPending(pending);
+        setHitlError(undefined);
+        const ids = new Set(pending.map((p) => p.id));
+        for (const id of openedHitlWatch.current) {
+          if (!ids.has(id)) openedHitlWatch.current.delete(id);
+        }
+        for (const req of pending) {
+          if (vncUrlFromPending(req)) {
+            void openWatchForHitl(req);
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setHitlPending([]);
+          setHitlError(err instanceof Error ? err.message : String(err));
+        }
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), HITL_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [settings.hitlUrl, settings.hitlToken]);
+
   const canAcquire =
     (seat.phase === "parked" || seat.phase === "watching") && Boolean(seat.sessionId);
   const watchPasteReady = Boolean((watchUrlDraft || seat.vncUrl || "").trim());
@@ -402,6 +494,95 @@ export function App() {
             </button>
             <span class="hint">{probe}</span>
           </div>
+
+          <h2>HITL bridge</h2>
+          <p class="muted">
+            CommunityEngager with `FEEDBACK_ADAPTER=desk` (default :9100).
+          </p>
+          <label class="field">
+            <span>DESK_HITL_URL</span>
+            <input
+              value={settings.hitlUrl}
+              onInput={(e) =>
+                updateSettings({ hitlUrl: (e.target as HTMLInputElement).value })
+              }
+              spellcheck={false}
+            />
+          </label>
+          <label class="field">
+            <span>DESK_HITL_TOKEN</span>
+            <input
+              type="password"
+              value={settings.hitlToken}
+              placeholder="optional"
+              onInput={(e) =>
+                updateSettings({ hitlToken: (e.target as HTMLInputElement).value })
+              }
+              spellcheck={false}
+            />
+          </label>
+          <div class="cta-row">
+            <button
+              type="button"
+              class="cta ghost"
+              disabled={busy}
+              onClick={() => void onProbeHitl()}
+            >
+              Probe HITL
+            </button>
+            <span class="hint">{hitlProbe}</span>
+          </div>
+
+          {hitlPending[0] ? (
+            <div class="hitl-card" role="region" aria-label="Human input required">
+              <p class="hitl-kicker">Human input required · {hitlPending[0].type}</p>
+              <h3>
+                {hitlPending[0].context?.title?.trim() ||
+                  hitlPending[0].prompt.slice(0, 120)}
+              </h3>
+              {hitlPending[0].context?.body ? (
+                <p class="muted break">{hitlPending[0].context.body}</p>
+              ) : (
+                <p class="muted">{hitlPending[0].prompt}</p>
+              )}
+              {vncUrlFromPending(hitlPending[0]) ? (
+                <p class="mono muted break">
+                  stream · {vncUrlFromPending(hitlPending[0])}
+                </p>
+              ) : null}
+              <div class="cta-row wrap">
+                <button
+                  type="button"
+                  class="cta"
+                  disabled={hitlBusy}
+                  onClick={() => void onHitlRespond(hitlPending[0]!, "proceed")}
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  class="cta ghost"
+                  disabled={hitlBusy}
+                  onClick={() => void onHitlRespond(hitlPending[0]!, "abort")}
+                >
+                  Abort
+                </button>
+                {vncUrlFromPending(hitlPending[0]) ? (
+                  <button
+                    type="button"
+                    class="cta ghost"
+                    disabled={hitlBusy}
+                    onClick={() => void openWatchForHitl(hitlPending[0]!)}
+                  >
+                    Focus Watch
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <p class="muted">No pending HITL — waiting on desk adapter.</p>
+          )}
+          {hitlError ? <p class="error">{hitlError}</p> : null}
 
           <h2>Watch</h2>
           <p class="muted">

@@ -23,6 +23,9 @@ importers:
       '@relay/action-store':
         specifier: workspace:*
         version: link:../../packages/action-store
+      '@relay/adapters-desk':
+        specifier: workspace:*
+        version: link:../../packages/adapters-desk
       '@relay/adapters-telegram':
         specifier: workspace:*
         version: link:../../packages/adapters-telegram
@@ -162,6 +165,22 @@ importers:
       '@relay/admin-shell':
         specifier: workspace:*
         version: link:../admin-shell
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/adapters-desk:
+    dependencies:
+      '@relay/feedback-broker':
+        specifier: workspace:*
+        version: link:../feedback-broker
+      '@relay/protocol':
+        specifier: workspace:*
+        version: link:../protocol
     devDependencies:
       '@types/node':
         specifier: ^22.0.0

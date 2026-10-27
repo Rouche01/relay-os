@@ -1,6 +1,10 @@
 import "dotenv/config";
 import { CliFeedbackAdapter } from "@relay/feedback-broker";
 import {
+  createDeskAdapterFromEnv,
+  DeskFeedbackAdapter,
+} from "@relay/adapters-desk";
+import {
   createTelegramAdapterFromEnv,
   TelegramFeedbackAdapter,
 } from "@relay/adapters-telegram";
@@ -54,14 +58,23 @@ async function main(): Promise<void> {
     cfg
   );
 
-  const useTelegram = process.env.FEEDBACK_ADAPTER === "telegram";
+  const adapterEnv = process.env.FEEDBACK_ADAPTER?.toLowerCase();
   let telegram: TelegramFeedbackAdapter | undefined;
-  const adapter = useTelegram
-    ? ((telegram = createTelegramAdapterFromEnv()), telegram)
-    : new CliFeedbackAdapter();
+  let desk: DeskFeedbackAdapter | undefined;
+  const adapter =
+    adapterEnv === "telegram" || adapterEnv === "tg"
+      ? ((telegram = createTelegramAdapterFromEnv()), telegram)
+      : adapterEnv === "desk" ||
+          adapterEnv === "desktop" ||
+          adapterEnv === "relay-desk"
+        ? ((desk = createDeskAdapterFromEnv()), desk)
+        : new CliFeedbackAdapter();
 
   if (telegram) {
     telegram.start();
+  } else if (desk) {
+    desk.start();
+    console.log(`Feedback adapter: desk → ${desk.listenUrl}`);
   }
 
   let ops!: OpsController;
@@ -120,6 +133,7 @@ async function main(): Promise<void> {
     if (host.isStarted()) host.stop();
   } finally {
     if (telegram) await telegram.stop();
+    if (desk) await desk.stop();
   }
 }
 

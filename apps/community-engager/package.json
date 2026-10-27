@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@relay/action-store": "workspace:*",
+    "@relay/adapters-desk": "workspace:*",
     "@relay/adapters-telegram": "workspace:*",
     "@relay/admin-shell": "workspace:*",
     "@relay/context-engine": "workspace:*",

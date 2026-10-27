@@ -38,6 +38,18 @@ In the app:
 
 Settings + last park target persist in `localStorage`. Gateway seat-list discovery is deferred (see plan Phase 1.5).
 
+## Phase 2 — Desk HITL bridge
+
+CommunityEngager presents feedback over HTTP when `FEEDBACK_ADAPTER=desk` (package `@relay/adapters-desk`).
+
+```bash
+# CE host
+FEEDBACK_ADAPTER=desk DESK_HITL_PORT=9100 pnpm --filter @relay/apps-community-engager start
+# or: --adapter=desk
+```
+
+In Desk: set **DESK_HITL_URL** (`http://127.0.0.1:9100`) + optional token → **Probe HITL**. Pending cards poll every 2s; Approve/Abort; auto-Watch when `meta.vncUrl` (or VNC `context.url`) is present.
+
 ## Layout
 
 | Path | Role |
@@ -52,10 +64,10 @@ Settings + last park target persist in `localStorage`. Gateway seat-list discove
 0. Scaffold  
 1. Gateway client + seat  
 1.5. Watch (stream-only)  
-1.6. Flowstep design — [Relay Desk](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe)  
-2. Feedback Broker desktop adapter + CommunityEngager wire  
+1.6–1.8. Design — [DESIGN.md](./DESIGN.md) (concerns + design system) · [Flowstep](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe)  
+2. Feedback Broker desk adapter + CommunityEngager wire  
+5. Implement DESIGN.md / Flowstep UI (Gateway · Watch · Seat · HITL · Settings)  
 3. Thin intent stub  
 4. ThinkPad / laptop docs  
-5. **Implement Flowstep UI** (replace scaffold look) — deferred  
 
-Runtime stays in `computer-with-agent`; this app embeds `vnc_url` (no native RFB in v1). Current app chrome is a functional scaffold until Phase 5.
+Runtime stays in `computer-with-agent`; streams open in a **separate** WebView (no native RFB in v1). Current app chrome is a functional scaffold until Phase 5.

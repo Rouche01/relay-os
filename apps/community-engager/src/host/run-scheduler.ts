@@ -2,6 +2,10 @@ import "dotenv/config";
 import * as readline from "node:readline";
 import { CliFeedbackAdapter } from "@relay/feedback-broker";
 import {
+  createDeskAdapterFromEnv,
+  DeskFeedbackAdapter,
+} from "@relay/adapters-desk";
+import {
   createTelegramAdapterFromEnv,
   TelegramFeedbackAdapter,
 } from "@relay/adapters-telegram";
@@ -73,11 +77,17 @@ async function main(): Promise<void> {
     `schedules: ${schedules.map((s) => s.id).join(", ") || "(none enabled)"}\n`
   );
 
-  const useTelegram = process.env.FEEDBACK_ADAPTER === "telegram";
+  const adapterEnv = process.env.FEEDBACK_ADAPTER?.toLowerCase();
   let telegram: TelegramFeedbackAdapter | undefined;
-  const adapter = useTelegram
-    ? ((telegram = createTelegramAdapterFromEnv()), telegram)
-    : new CliFeedbackAdapter();
+  let desk: DeskFeedbackAdapter | undefined;
+  const adapter =
+    adapterEnv === "telegram" || adapterEnv === "tg"
+      ? ((telegram = createTelegramAdapterFromEnv()), telegram)
+      : adapterEnv === "desk" ||
+          adapterEnv === "desktop" ||
+          adapterEnv === "relay-desk"
+        ? ((desk = createDeskAdapterFromEnv()), desk)
+        : new CliFeedbackAdapter();
 
   /** Pause stdin ops while HITL / app.run owns the terminal. */
   let opsRl: readline.Interface | undefined;
@@ -165,6 +175,9 @@ async function main(): Promise<void> {
     }
     telegram.start();
     console.log("Feedback adapter: telegram (idle → ops; / commands registered)\n");
+  } else if (desk) {
+    desk.start();
+    console.log(`Feedback adapter: desk → ${desk.listenUrl}\n`);
   } else {
     console.log("Feedback adapter: cli\n");
   }
@@ -206,10 +219,15 @@ async function main(): Promise<void> {
       return;
     }
 
-    if (useTelegram) {
+    if (telegram) {
       console.log(
         "Ops daemon running (Ctrl+C to stop).\n" +
           "Telegram: send status / stop cadence / engage / … when no HITL card is pending.\n"
+      );
+    } else if (desk) {
+      console.log(
+        "Ops daemon running (Ctrl+C to stop).\n" +
+          `Desk HITL: ${desk.listenUrl} — open Relay Desk for Approve / Abort.\n`
       );
     } else {
       console.log(
@@ -256,6 +274,7 @@ async function main(): Promise<void> {
   } finally {
     shutdown();
     if (telegram) await telegram.stop();
+    if (desk) await desk.stop();
   }
 }
 

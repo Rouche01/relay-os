@@ -4,6 +4,9 @@ export interface DeskSettings {
   jobId: string;
   agentId: string;
   ttlSec: number;
+  /** CommunityEngager desk adapter bridge (`FEEDBACK_ADAPTER=desk`). */
+  hitlUrl: string;
+  hitlToken: string;
 }
 
 export interface ComputerLease {
@@ -31,4 +34,6 @@ export const DEFAULT_SETTINGS: DeskSettings = {
   jobId: "relay-desk",
   agentId: "relay-desk",
   ttlSec: 600,
+  hitlUrl: "http://127.0.0.1:9100",
+  hitlToken: "",
 };
