@@ -24,6 +24,8 @@ Use **`https://`** for Caddy-fronted hosts (plain `http://` may 308 in a way cli
 
 Guided local install / Docker-free path: [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md) (deferred).
 
+**Laptop ↔ ThinkPad runbook:** [`LAPTOP.md`](./LAPTOP.md) (install Desk, `/etc/hosts`, Caddy CA, Settings, CE dogfood).
+
 ## Run
 
 From the **monorepo root**:
@@ -72,17 +74,8 @@ In Desk: set **DESK_HITL_URL** (`http://127.0.0.1:9100`) + optional token → **
 | `src/seat/` | Seat / Watch WebView helpers |
 | `src-tauri/` | Tauri 2 + `gateway_http` command (no CORS) |
 | Plan | [`.cursor/plans/relay_desk_hitl_shell.plan.md`](../../.cursor/plans/relay_desk_hitl_shell.plan.md) |
+| Laptop install | [`LAPTOP.md`](./LAPTOP.md) |
 | Local runtime (optional) | [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md) |
+| Design | [`DESIGN.md`](./DESIGN.md) · [Flowstep](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe) |
 
-## Phases
-
-0. Scaffold  
-1. Gateway client + seat  
-1.5. Watch (stream-only)  
-1.6–1.8. Design — [DESIGN.md](./DESIGN.md) (concerns + design system) · [Flowstep](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe)  
-2. Feedback Broker desk adapter + CommunityEngager wire  
-5. **DESIGN.md UI** (Gateway · Watch · Seat · HITL · Settings) — current  
-3. Collapsible sidebar · Console | Spec scaffold  
-4. ThinkPad / laptop docs  
-
-Runtime stays in `computer-with-agent`; streams open in a **separate** WebView (no native RFB in v1). See [DESIGN.md](./DESIGN.md).
+Runtime stays in `computer-with-agent`; streams open in a **separate** WebView (no native RFB in v1). Sidebar: **Console** (operator bento) · **Spec** (scaffold).

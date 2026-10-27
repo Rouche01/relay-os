@@ -45,8 +45,8 @@ todos:
     content: "Implement sidebar + Spec scaffold in Desk (match Flowstep); full Spec compile deferred to intent/living-todo plans"
     status: completed
   - id: p4-thinkpad
-    content: Document laptop install + env pointing at desk.hsv / 127.0.0.1 gateway; cross-link computer-with-agent AGENTS.md deploy
-    status: pending
+    content: Document laptop install + env pointing at cu-gateway.hsv / 127.0.0.1 gateway; cross-link computer-with-agent AGENTS.md deploy
+    status: completed
   - id: p1.5-gateway-list
     content: "computer-with-agent GET /v1/seats + Desk Gateway pool rows (Watch/Acquire/Recycle)"
     status: completed
@@ -188,12 +188,11 @@ Scaffold UI stays until **Phase 5**.
 - Real Spec compile / living-todo: [`relay_intent_spec_verify_hitl.plan.md`](./relay_intent_spec_verify_hitl.plan.md) + [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md)
 - Design first (Flowstep) → then replace interim header tabs in the app
 
-### Phase 4 — ThinkPad / laptop docs
+### Phase 4 — ThinkPad / laptop docs (done)
 
-- Install Desk on the Mac; point at `desk.hsv`
-- Cross-link computer-with-agent deploy (Caddy `desk` / `desk1` / `desk2`)
-- CE env: `COMPUTER_GATEWAY_URL`, matching token, `REDDIT_TRANSPORT=computer` dogfood
-- Local same-machine runtime (optional Compose / future Docker-free): deferred to [`relay_desk_local_runtime.plan.md`](./relay_desk_local_runtime.plan.md)
+- **Done:** [`apps/relay-desk/LAPTOP.md`](../../apps/relay-desk/LAPTOP.md) — Mac install, Remote (`https://cu-gateway.hsv`) vs Local (`127.0.0.1:9000`), hosts + Caddy CA, CE `REDDIT_TRANSPORT=computer` + desk adapter, troubleshooting
+- Cross-links: computer-with-agent [`AGENTS.md`](file:///Users/richardemate/Projects/computer-with-agent/AGENTS.md) / [`BINDING.md`](file:///Users/richardemate/Projects/computer-with-agent/BINDING.md), [`deploy/CADDY.md`](../../deploy/CADDY.md)
+- Local same-machine guided install: deferred to [`relay_desk_local_runtime.plan.md`](./relay_desk_local_runtime.plan.md)
 
 ### Phase 5 — Implement Flowstep UI (done)
 

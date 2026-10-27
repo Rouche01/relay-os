@@ -166,5 +166,6 @@ Avoid: purple-indigo gradients, soft cream+terracotta, neon multi-glow stacks, I
 ## Related
 
 - Plan: [`.cursor/plans/relay_desk_hitl_shell.plan.md`](../../.cursor/plans/relay_desk_hitl_shell.plan.md)  
+- Laptop install: [`LAPTOP.md`](./LAPTOP.md)  
 - Spec thesis: [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](../../.cursor/plans/relay_intent_spec_verify_hitl.plan.md)  
 - Adapter: `@relay/adapters-desk` (`FEEDBACK_ADAPTER=desk`)  
