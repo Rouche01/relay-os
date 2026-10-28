@@ -8,6 +8,7 @@ Human-owned authority for agent computer work. Types live in `@relay/protocol`:
 - [`packages/protocol/src/engine-catalog.ts`](../packages/protocol/src/engine-catalog.ts) — fixed `engine.capability` catalog for Spec v2 `use` fields
 - [`packages/protocol/src/service-descriptor.ts`](../packages/protocol/src/service-descriptor.ts) — OpenAPI-ish service descriptors for `api.request` (`service` + `operation`)
 - [`packages/protocol/services/`](../packages/protocol/services/) — hand-written `reddit-public.yaml` / `reddit-oauth.yaml` (CE-lite schema source)
+- [`packages/spec-validator`](../packages/spec-validator) — Spec v2 validate (`validateSpecV2`): structure, capabilities, dataflow, services, HITL-before-irreversible, rule coverage
 - [`packages/protocol/src/intent.ts`](../packages/protocol/src/intent.ts) — Intent → compiles into a Spec
 
 **Thesis:** Intent → frozen Spec → run → prove acceptance → negotiate before irreversible act.
