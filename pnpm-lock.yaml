@@ -76,6 +76,46 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  apps/engager-gen:
+    dependencies:
+      '@relay/engines-api':
+        specifier: workspace:*
+        version: link:../../packages/engines-api
+      '@relay/engines-data':
+        specifier: workspace:*
+        version: link:../../packages/engines-data
+      '@relay/engines-llm':
+        specifier: workspace:*
+        version: link:../../packages/engines-llm
+      '@relay/llm':
+        specifier: workspace:*
+        version: link:../../packages/llm
+      '@relay/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      '@relay/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@relay/spec-evals':
+        specifier: workspace:*
+        version: link:../../packages/spec-evals
+      '@relay/spec-lower':
+        specifier: workspace:*
+        version: link:../../packages/spec-lower
+      '@relay/spec-validator':
+        specifier: workspace:*
+        version: link:../../packages/spec-validator
+      '@relay/workflow-runtime':
+        specifier: workspace:*
+        version: link:../../packages/workflow-runtime
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   apps/newsletter-migrator:
     dependencies:
       '@relay/engines-browser':

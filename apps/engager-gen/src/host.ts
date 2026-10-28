@@ -1,0 +1,327 @@
+/**
+ * engager-gen host — bootstrap only (no stage handlers).
+ * Pipeline: load Spec → validate → freeze → lower → evals → dry-run HITL.
+ */
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { createApiEngine, type ApiFixture } from "@relay/engines-api";
+import { createDataEngine } from "@relay/engines-data";
+import { createLlmEngine } from "@relay/engines-llm";
+import type { LlmClient, LlmJsonRequest, LlmJsonResult } from "@relay/llm";
+import { messageText } from "@relay/llm";
+import {
+  AgentRuntimeEvent,
+  createDraftSpecV2,
+  freezeSpecV2,
+  parseServiceDescriptorYaml,
+} from "@relay/protocol";
+import {
+  assertEvalsGate,
+  runEvals,
+  type EvalCase,
+} from "@relay/spec-evals";
+import { lowerSpecV2 } from "@relay/spec-lower";
+import { parseSpecV2Yaml, validateSpecV2 } from "@relay/spec-validator";
+import {
+  createWorkflowRuntime,
+  getEvidence,
+} from "@relay/workflow-runtime";
+
+function packageRoot(start: string): string {
+  let dir = start;
+  for (;;) {
+    if (
+      existsSync(join(dir, "spec.yaml")) &&
+      existsSync(join(dir, "package.json"))
+    ) {
+      return dir;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      throw new Error("engager-gen package root not found (spec.yaml)");
+    }
+    dir = parent;
+  }
+}
+
+const ROOT = packageRoot(__dirname);
+
+export type EngagerGenResult = {
+  specId: string;
+  specHash: string;
+  state: string;
+  evidenceCount: number;
+  draftCount: number;
+  evalPassed: boolean;
+};
+
+type FixtureThread = {
+  id: string;
+  subreddit: string;
+  threadTitle: string;
+  opText: string;
+  threadUrl: string;
+};
+
+function loadText(rel: string): string {
+  return readFileSync(join(ROOT, rel), "utf8");
+}
+
+function loadJson<T>(rel: string): T {
+  return JSON.parse(loadText(rel)) as T;
+}
+
+function loadServices() {
+  return [
+    parseServiceDescriptorYaml(loadText("services/reddit-public.yaml")),
+    parseServiceDescriptorYaml(loadText("services/reddit-oauth.yaml")),
+  ];
+}
+
+/** Allowlisted posts only — OUTFITS stays in the file for negative evals. */
+function scoutPosts(threads: FixtureThread[]): FixtureThread[] {
+  const allow = new Set(["malefashionadvice", "femalefashionadvice"]);
+  return threads.filter((t) => allow.has(t.subreddit));
+}
+
+/** Deterministic stub — offline CI; swap for createLlmClient when parity-running. */
+export function createStubLlmClient(): LlmClient {
+  return {
+    provider: "gemini",
+    async completeJson(req: LlmJsonRequest): Promise<LlmJsonResult> {
+      const props =
+        req.schema &&
+        typeof req.schema === "object" &&
+        req.schema.properties &&
+        typeof req.schema.properties === "object"
+          ? (req.schema.properties as Record<string, unknown>)
+          : {};
+
+      if ("threadFit" in props || "soundsHuman" in props) {
+        const scores: Record<string, unknown> = {
+          rationale: "stub judge: solid fixture draft",
+        };
+        for (const key of Object.keys(props)) {
+          if (key === "rationale") continue;
+          scores[key] = 4;
+        }
+        return {
+          text: JSON.stringify(scores),
+          provider: "gemini",
+          model: "engager-gen-stub",
+        };
+      }
+
+      if ("label" in props) {
+        return {
+          text: JSON.stringify({
+            label: "answerable",
+            confidence: 0.9,
+            rationale: "stub",
+          }),
+          provider: "gemini",
+          model: "engager-gen-stub",
+        };
+      }
+
+      const user = req.messages.map((m) => messageText(m.content)).join("\n");
+      let item: Record<string, unknown> = {};
+      const inputIdx = user.lastIndexOf("Input:\n");
+      if (inputIdx >= 0) {
+        try {
+          item = JSON.parse(user.slice(inputIdx + "Input:\n".length)) as Record<
+            string,
+            unknown
+          >;
+        } catch {
+          item = {};
+        }
+      }
+      const rawId = String(item.id ?? "t3_unknown");
+      const thing_id = rawId.startsWith("t3_") ? rawId : `t3_${rawId}`;
+      const title = String(item.threadTitle ?? "the thread");
+      return {
+        text: JSON.stringify({
+          text: `For "${title}": pick one versatile base layer and build two outfits around it before buying more. Skip trends that need three new SKUs.`,
+          thing_id,
+        }),
+        provider: "gemini",
+        model: "engager-gen-stub",
+      };
+    },
+  };
+}
+
+function evalCases(): EvalCase[] {
+  return [
+    {
+      id: "good_draft",
+      stepId: "draft",
+      output: {
+        text: "Pick one versatile base layer and build two outfits around it.",
+        thing_id: "t3_fx_capsule",
+      },
+      scope: {
+        draft: {
+          text: "Pick one versatile base layer and build two outfits around it.",
+        },
+        item: { subreddit: "femalefashionadvice" },
+      },
+      rules: ["no_promo_links", "allowlist_only"],
+    },
+    {
+      id: "bad_promo",
+      description: "Deliberately bad draft with a link must be blocked",
+      stepId: "draft",
+      output: { text: "Buy this https://spam.example/fit", thing_id: "t3_x" },
+      scope: {
+        draft: { text: "Buy this https://spam.example/fit" },
+        item: { subreddit: "malefashionadvice" },
+      },
+      rules: ["no_promo_links"],
+      expect: { rules: { no_promo_links: false } },
+    },
+    {
+      id: "bad_subreddit",
+      output: { text: "nice haul", thing_id: "t3_fx_haul" },
+      scope: {
+        draft: { text: "nice haul" },
+        item: { subreddit: "OUTFITS" },
+      },
+      rules: ["allowlist_only"],
+      expect: { rules: { allowlist_only: false } },
+    },
+  ];
+}
+
+export async function runEngagerGen(options?: {
+  autoApprove?: boolean;
+}): Promise<EngagerGenResult> {
+  const autoApprove = options?.autoApprove ?? true;
+  const intent = loadText("intent.md");
+  const body = parseSpecV2Yaml(loadText("spec.yaml"));
+  const services = loadServices();
+  const threads = loadJson<FixtureThread[]>("fixtures/threads.json");
+  const posts = scoutPosts(threads);
+
+  const validation = validateSpecV2(body, {
+    services,
+    knownConnections: ["reddit:default"],
+  });
+  if (!validation.ok) {
+    throw new Error(
+      `Spec validation failed:\n${validation.errors
+        .map((e) => `- [${e.code}] ${e.message}`)
+        .join("\n")}`
+    );
+  }
+
+  const draft = createDraftSpecV2({
+    ...body,
+    id: "specv2_engager_gen_lite",
+    intentId: "intent_engager_gen_lite",
+  });
+  const frozen = freezeSpecV2(draft, { frozenBy: "engager-gen-host" });
+
+  const lowered = lowerSpecV2(frozen, {
+    name: "engager-gen",
+    specId: frozen.id,
+    specRecord: {
+      id: frozen.id,
+      version: frozen.version,
+      status: frozen.status,
+      intentId: frozen.intentId,
+    },
+  });
+
+  const llm = createLlmEngine({ client: createStubLlmClient() });
+  const data = createDataEngine();
+  const apiFixtures: ApiFixture[] = [
+    {
+      service: "reddit-public",
+      operation: "listNew",
+      body: { posts },
+    },
+  ];
+  const api = createApiEngine({
+    services,
+    dryRun: true,
+    fixtures: apiFixtures,
+    resolveConnection: async () => ({ type: "bearer", token: "dry-run-token" }),
+    fetch: async () => {
+      throw new Error("engager-gen: network disabled (fixtures / dryRun only)");
+    },
+  });
+
+  const evalReport = await runEvals({
+    lowered,
+    softFailClosed: false,
+    llmEngine: llm,
+    fixtures: { cases: evalCases() },
+  });
+  assertEvalsGate(evalReport);
+
+  const { runtime } = createWorkflowRuntime({
+    lowered,
+    engines: { api, llm, data },
+    context: {
+      agentId: "engager-gen-1",
+      userId: "operator",
+      sessionId: `engager-gen-${Date.now()}`,
+      intentPreview: intent.slice(0, 200),
+    },
+    assertRunnable: { validate: false },
+    softFailClosed: true,
+  });
+
+  if (autoApprove) {
+    runtime.on(AgentRuntimeEvent.FEEDBACK_REQUESTED, (req) => {
+      void runtime.provideFeedback({
+        requestId: req.id,
+        agentId: req.agentId,
+        action: "proceed",
+        value: true,
+      });
+    });
+  }
+
+  await runtime.start();
+  const ctx = runtime.getContext();
+  const drafts = (ctx.steps as Record<string, { output?: unknown }> | undefined)
+    ?.draft?.output;
+  const draftCount = Array.isArray(drafts) ? drafts.length : 0;
+
+  return {
+    specId: frozen.id,
+    specHash: lowered.specHash,
+    state: runtime.getState(),
+    evidenceCount: getEvidence(ctx).length,
+    draftCount,
+    evalPassed: evalReport.passed,
+  };
+}
+
+async function main(): Promise<void> {
+  console.log("[engager-gen] validate → freeze → lower → evals → dry-run");
+  const result = await runEngagerGen({ autoApprove: true });
+  console.log(
+    JSON.stringify(
+      {
+        ...result,
+        note: "Hand-written Spec; see PARITY.md for CE comparison hooks",
+      },
+      null,
+      2
+    )
+  );
+  if (result.state !== "COMPLETE") {
+    process.exitCode = 1;
+  }
+}
+
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
+}

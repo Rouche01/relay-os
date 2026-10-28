@@ -150,7 +150,7 @@ export class LlmEngine implements ExecutionEngine {
         : TEXT_SCHEMA;
 
     const result = await this.client.completeJson({
-      messages: asMessages(prompt, system),
+      messages: asMessages(prompt, system, params.input),
       schema,
       temperature: this.temperature,
     });

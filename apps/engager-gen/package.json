@@ -1,0 +1,31 @@
+{
+  "name": "@relay/apps-engager-gen",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/host.js",
+  "types": "dist/host.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json -w",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/test/*.test.js",
+    "clean": "rm -rf dist dist-test",
+    "start": "node dist/host.js"
+  },
+  "dependencies": {
+    "@relay/engines-api": "workspace:*",
+    "@relay/engines-data": "workspace:*",
+    "@relay/engines-llm": "workspace:*",
+    "@relay/llm": "workspace:*",
+    "@relay/protocol": "workspace:*",
+    "@relay/runtime": "workspace:*",
+    "@relay/spec-evals": "workspace:*",
+    "@relay/spec-lower": "workspace:*",
+    "@relay/spec-validator": "workspace:*",
+    "@relay/workflow-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "6.0.3"
+  }
+}

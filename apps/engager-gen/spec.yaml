@@ -1,0 +1,94 @@
+# Hand-written CE-lite Spec v2 (scaffolder comes later).
+# Runtime-shaped: scout output is api.request data → body.posts;
+# draft/post forEach over lists; human.approve before irreversible comment.
+goal: Help people in allowlisted fashion subreddits with genuinely useful replies
+connections:
+  - reddit:default
+services:
+  - reddit-public
+  - reddit-oauth
+budget:
+  maxJobs: 2
+  dryRun: true
+rules:
+  - id: allowlist_only
+    kind: hard
+    check:
+      in: "${item.subreddit}"
+      list:
+        - malefashionadvice
+        - femalefashionadvice
+  - id: no_promo_links
+    kind: hard
+    check:
+      notMatches: "${draft.text}"
+      pattern: "https?://"
+  - id: helpful_reply
+    kind: soft
+    judge:
+      rubric:
+        - threadFit
+        - soundsHuman
+        - specificity
+      minMean: 3.5
+  - id: earns_engagement
+    kind: outcome
+    metric:
+      name: comment_score
+      after: 48h
+      min: 2
+steps:
+  - id: scout
+    use: api.request
+    args:
+      service: reddit-public
+      operation: listNew
+      params:
+        subreddit: malefashionadvice
+        limit: 10
+    outputs:
+      - posts
+  - id: draft
+    use: llm.generate
+    forEach: "${steps.scout.output.body.posts}"
+    args:
+      prompt: >
+        Draft a short, helpful fashion reply. Be concrete. No links or promo.
+        Return JSON with text and thing_id (use the post id, with t3_ prefix if missing).
+      input: "${item}"
+      schema:
+        type: object
+        properties:
+          text:
+            type: string
+          thing_id:
+            type: string
+        required:
+          - text
+          - thing_id
+    enforce:
+      - no_promo_links
+      - allowlist_only
+      - helpful_reply
+  - id: approve
+    use: human.approve
+    args:
+      show: "${steps.draft.output}"
+      prompt: Approve drafts before dry-run post?
+  - id: post
+    use: api.request
+    forEach: "${steps.draft.output}"
+    args:
+      service: reddit-oauth
+      operation: comment
+      connection: reddit:default
+      method: POST
+      params:
+        thing_id: "${item.thing_id}"
+        text: "${item.text}"
+        api_type: json
+  - id: learn
+    use: data.append
+    args:
+      store: outcomes
+      value: "${steps.post.output}"
