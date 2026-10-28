@@ -15,6 +15,7 @@
     "scheduler": "node dist/host/run-scheduler.js",
     "ops": "node dist/host/run-ops.js",
     "e2e": "node dist/host/e2e-hitl.js",
+    "eval:drafts": "npm run build && node dist/host/eval-drafts.js",
     "thesis-demo": "node dist/host/thesis-demo.js",
     "compose-demo": "node dist/host/compose-demo.js",
     "smoke": "node dist/host/e2e-hitl.js",
