@@ -52,6 +52,7 @@ export function createAllowlistCollection(
       list: true,
       get: true,
       patch: true,
+      delete: true,
       actions: ["promote", "reject"],
     },
 
@@ -90,6 +91,10 @@ export function createAllowlistCollection(
     async get(id: string): Promise<GetResult | null> {
       const entry = await store.get(id);
       return entry ? toGet(entry) : null;
+    },
+
+    async delete(id: string): Promise<boolean> {
+      return store.remove(id);
     },
 
     async patch(

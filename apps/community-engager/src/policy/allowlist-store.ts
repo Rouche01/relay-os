@@ -39,10 +39,29 @@ export interface AllowlistEntry {
 interface AllowlistFile {
   version: 1;
   entries: AllowlistEntry[];
+  /**
+   * Subs removed via admin delete. Seeds in this list are not re-merged
+   * as postable; discover also skips them until promote clears the name.
+   */
+  suppressed?: string[];
 }
 
 function normalizeSub(name: string): string {
   return name.replace(/^r\//i, "").trim();
+}
+
+function normalizeSuppressed(names: readonly string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of names) {
+    const name = normalizeSub(raw);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
 }
 
 const MS_PER_DAY = 86_400_000;
@@ -157,17 +176,27 @@ export class AllowlistStore {
 
   async load(): Promise<AllowlistEntry[]> {
     const file = await this.readFile();
-    return this.mergeSeed(file.entries).map(ensurePlaybook);
+    return this.mergeSeed(file.entries, file.suppressed).map(ensurePlaybook);
+  }
+
+  /** Admin-removed sub names (durable; blocks seed revive + discover). */
+  async listSuppressed(): Promise<string[]> {
+    const file = await this.readFile();
+    return normalizeSuppressed(file.suppressed ?? []);
   }
 
   /** name → playbook for scout/draft (postable + seed defaults). */
   async playbookMap(): Promise<Map<string, SubredditPlaybook>> {
     const map = new Map<string, SubredditPlaybook>();
+    const suppressed = new Set(
+      (await this.listSuppressed()).map((n) => n.toLowerCase())
+    );
     for (const e of await this.load()) {
       map.set(e.name.toLowerCase(), resolvePlaybook(e));
     }
     for (const policy of ALLOWLISTED_SUBREDDITS) {
       const key = policy.name.toLowerCase();
+      if (suppressed.has(key)) continue;
       if (!map.has(key)) map.set(key, seedPlaybookFor(policy.name, policy));
     }
     return map;
@@ -182,10 +211,13 @@ export class AllowlistStore {
   /**
    * Names Reddit search should skip: postable, rejected, and proposed
    * still within the re-queue TTL. Stale proposed can reappear.
+   * Admin-suppressed names are always excluded.
    */
   async listDiscoverExclude(requeueDays: number): Promise<string[]> {
     const entries = await this.load();
-    return discoverExcludeNames(entries, { requeueDays });
+    const fromEntries = discoverExcludeNames(entries, { requeueDays });
+    const suppressed = await this.listSuppressed();
+    return [...new Set([...fromEntries, ...suppressed])];
   }
 
   async get(name: string): Promise<AllowlistEntry | undefined> {
@@ -241,12 +273,19 @@ export class AllowlistStore {
 
   /** Human gate: only this promotes a sub to postable for scout/execute. */
   async promote(name: string, note?: string): Promise<AllowlistEntry | null> {
-    const entries = await this.load();
+    const file = await this.readFile();
+    const entries = this.mergeSeed(file.entries, file.suppressed).map(
+      ensurePlaybook
+    );
     const n = normalizeSub(name).toLowerCase();
     const idx = entries.findIndex((e) => e.name.toLowerCase() === n);
     const now = new Date().toISOString();
     // Fresh promotions outrank static seeds (score 10) so the next scout picks them.
     const freshScore = 12;
+    // Recovery after admin delete: clear suppression so the sub can return.
+    const suppressed = normalizeSuppressed(file.suppressed ?? []).filter(
+      (s) => s.toLowerCase() !== n
+    );
     if (idx < 0) {
       const created: AllowlistEntry = {
         name: normalizeSub(name),
@@ -261,7 +300,7 @@ export class AllowlistStore {
         playbook: normalizePlaybook(undefined, note ?? "Human-promoted discovery candidate"),
       };
       entries.push(created);
-      await this.writeFile(entries);
+      await this.writeFile(entries, { suppressed });
       return created;
     }
     const prev = entries[idx]!;
@@ -275,7 +314,7 @@ export class AllowlistStore {
       updatedAt: now,
     };
     entries[idx] = next;
-    await this.writeFile(entries);
+    await this.writeFile(entries, { suppressed });
     return next;
   }
 
@@ -290,6 +329,30 @@ export class AllowlistStore {
       updatedAt: new Date().toISOString(),
     };
     await this.writeFile(entries);
+  }
+
+  /**
+   * Admin delete: drop the row and suppress the name so seed merge cannot
+   * revive it. Returns true when the name was removed and/or newly suppressed.
+   */
+  async remove(name: string): Promise<boolean> {
+    const file = await this.readFile();
+    const n = normalizeSub(name);
+    if (!n) return false;
+    const key = n.toLowerCase();
+    const entries = this.mergeSeed(file.entries, file.suppressed).map(
+      ensurePlaybook
+    );
+    const nextEntries = entries.filter((e) => e.name.toLowerCase() !== key);
+    const prevSuppressed = normalizeSuppressed(file.suppressed ?? []);
+    const already = prevSuppressed.some((s) => s.toLowerCase() === key);
+    const suppressed = already
+      ? prevSuppressed
+      : normalizeSuppressed([...prevSuppressed, n]);
+    const changed = nextEntries.length !== entries.length || !already;
+    if (!changed) return false;
+    await this.writeFile(nextEntries, { suppressed });
+    return true;
   }
 
   /** Admin / tooling: shallow field update (persists merged list including seeds). */
@@ -373,7 +436,12 @@ export class AllowlistStore {
   ): Promise<string[]> {
     const postable = (await this.listPostable()).sort(compareScoutPriority);
     if (postable.length === 0) {
-      return ALLOWLISTED_SUBREDDITS.filter((s) => s.rulesOk).map((s) => s.name);
+      const suppressed = new Set(
+        (await this.listSuppressed()).map((s) => s.toLowerCase())
+      );
+      return ALLOWLISTED_SUBREDDITS.filter(
+        (s) => s.rulesOk && !suppressed.has(s.name.toLowerCase())
+      ).map((s) => s.name);
     }
     const limit = max > 0 ? max : postable.length;
     let picked = postable.slice(0, limit);
@@ -426,12 +494,21 @@ export class AllowlistStore {
     if (changed) await this.writeFile(entries);
   }
 
-  private mergeSeed(existing: AllowlistEntry[]): AllowlistEntry[] {
+  private mergeSeed(
+    existing: AllowlistEntry[],
+    suppressed?: readonly string[]
+  ): AllowlistEntry[] {
+    const blocked = new Set(
+      normalizeSuppressed(suppressed ?? []).map((s) => s.toLowerCase())
+    );
     const byName = new Map(
-      existing.map((e) => [e.name.toLowerCase(), ensurePlaybook(e)] as const)
+      existing
+        .filter((e) => !blocked.has(e.name.toLowerCase()))
+        .map((e) => [e.name.toLowerCase(), ensurePlaybook(e)] as const)
     );
     for (const policy of ALLOWLISTED_SUBREDDITS) {
       const key = policy.name.toLowerCase();
+      if (blocked.has(key)) continue;
       if (!byName.has(key)) {
         byName.set(key, seedEntry(policy));
       }
@@ -446,7 +523,11 @@ export class AllowlistStore {
       if (!parsed || !Array.isArray(parsed.entries)) {
         return { version: 1, entries: [] };
       }
-      return { version: 1, entries: parsed.entries };
+      return {
+        version: 1,
+        entries: parsed.entries,
+        suppressed: normalizeSuppressed(parsed.suppressed ?? []),
+      };
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
       if (code === "ENOENT") return { version: 1, entries: [] };
@@ -455,9 +536,21 @@ export class AllowlistStore {
     }
   }
 
-  private async writeFile(entries: AllowlistEntry[]): Promise<void> {
+  private async writeFile(
+    entries: AllowlistEntry[],
+    opts?: { suppressed?: string[] }
+  ): Promise<void> {
     await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-    const payload: AllowlistFile = { version: 1, entries };
+    const prev =
+      opts?.suppressed !== undefined ? undefined : await this.readFile();
+    const suppressed = normalizeSuppressed(
+      opts?.suppressed ?? prev?.suppressed ?? []
+    );
+    const payload: AllowlistFile = {
+      version: 1,
+      entries,
+      ...(suppressed.length ? { suppressed } : {}),
+    };
     await fs.writeFile(
       this.filePath,
       `${JSON.stringify(payload, null, 2)}\n`,

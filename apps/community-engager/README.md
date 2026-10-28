@@ -285,7 +285,7 @@ Loopback admin (`@relay/admin-shell`) with app-owned adapters:
 | Collection | Source env | Capabilities |
 |------------|------------|--------------|
 | Actions | `ACTION_STORE_PATH` | edit draftText + **postedUrl**, status, **mark_posted** (enrolls post-watch), delete |
-| Allowlist | `ALLOWLIST_PATH` (default `{REDDIT_DATA_DIR}/allowlist/subreddits.json`) | edit, promote, reject |
+| Allowlist | `ALLOWLIST_PATH` (default `{REDDIT_DATA_DIR}/allowlist/subreddits.json`) | edit, promote, reject, delete |
 | Jobs | `JOBS_DIR` | inspect, delete |
 | Runs | `COMMUNITY_RUNS_DIR` (may be outside `.data/`) | inspect, delete, debug charts (timeline, duration×outcome, scout funnel, authority slice) |
 | Authority | `{REDDIT_DATA_DIR}` | north-star score card — promoRatio, visibilityRate, replyRate, attributed activations |
