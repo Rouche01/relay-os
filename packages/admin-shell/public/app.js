@@ -533,7 +533,7 @@ function renderRunDebug(viz) {
 
   const jobsRows =
     jobs.length === 0
-      ? `<tr><td colspan="4" class="muted">No jobs in this run.</td></tr>`
+      ? `<tr><td colspan="5" class="muted">No jobs in this run.</td></tr>`
       : jobs
           .map((j) => {
             const link = j.postedUrl
@@ -547,6 +547,7 @@ function renderRunDebug(viz) {
               <td><span class="badge ${escapeAttr(j.outcome || "")}">${escapeHtml(j.outcome || "?")}</span></td>
               <td>${escapeHtml(j.subreddit || "—")}</td>
               <td>${escapeHtml(title)}${err}</td>
+              <td class="preview">${escapeHtml(j.model || "—")}</td>
               <td>${link}</td>
             </tr>`;
           })
@@ -586,7 +587,7 @@ function renderRunDebug(viz) {
       ${funnelSvg}
       <h3>Jobs</h3>
       <table class="run-table">
-        <thead><tr><th>Outcome</th><th>Sub</th><th>Thread</th><th>Post</th></tr></thead>
+        <thead><tr><th>Outcome</th><th>Sub</th><th>Thread</th><th>Model</th><th>Post</th></tr></thead>
         <tbody>${jobsRows}</tbody>
       </table>
       <h3>Scout</h3>

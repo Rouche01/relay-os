@@ -7,6 +7,18 @@ import type { WarmupStatus } from "../policy/warmup.js";
 import type { PostMode } from "../reddit/config.js";
 import type { SubredditPlaybook } from "../policy/playbook.js";
 
+/** e.g. `gemini / gemini-2.5-flash` or `stub`. */
+export function formatDraftModelLabel(
+  provider?: string,
+  model?: string
+): string | undefined {
+  const p = typeof provider === "string" ? provider.trim() : "";
+  const m = typeof model === "string" ? model.trim() : "";
+  if (!p && !m) return undefined;
+  if (p && m && p !== m) return `${p} / ${m}`;
+  return m || p;
+}
+
 /**
  * Map a community draft into the generic HITL FeedbackContext.
  * Adapters only need subjectId / title / body / url / details.
@@ -35,6 +47,14 @@ export function draftToFeedbackContext(
 
   if (!manual) {
     details.push({ label: "Intensity", value: String(draft.intensity) });
+  }
+
+  const modelLabel = formatDraftModelLabel(
+    draft.draftProvider,
+    draft.draftModel
+  );
+  if (modelLabel) {
+    details.push({ label: "Model", value: modelLabel });
   }
 
   // Guards only when they change what you should post (not full ledgers).
@@ -90,6 +110,8 @@ export function draftToFeedbackContext(
       cadencePromoRemaining: opts?.cadence?.promoRemaining,
       playbookPlugStyle: opts?.playbook?.plugStyle,
       plugsWeekBlocked: Boolean(opts?.plugsWeekBlocked),
+      ...(draft.draftProvider ? { draftProvider: draft.draftProvider } : {}),
+      ...(draft.draftModel ? { draftModel: draft.draftModel } : {}),
     },
   };
 }

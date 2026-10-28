@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { draftToFeedbackContext } from "../src/decide/feedback-map.js";
+import {
+  draftToFeedbackContext,
+  formatDraftModelLabel,
+} from "../src/decide/feedback-map.js";
 import {
   formatManualPostNotify,
   truncateTitle,
@@ -56,6 +59,17 @@ describe("formatManualPostNotify", () => {
   });
 });
 
+describe("formatDraftModelLabel", () => {
+  it("joins provider and model when they differ", () => {
+    assert.equal(
+      formatDraftModelLabel("gemini", "gemini-2.5-flash"),
+      "gemini / gemini-2.5-flash"
+    );
+    assert.equal(formatDraftModelLabel("stub", "stub"), "stub");
+    assert.equal(formatDraftModelLabel(undefined, undefined), undefined);
+  });
+});
+
 describe("draftToFeedbackContext postMode=manual", () => {
   it("marks meta and keeps details short", () => {
     const ctx = draftToFeedbackContext(sampleDraft(), {
@@ -83,5 +97,20 @@ describe("draftToFeedbackContext postMode=manual", () => {
     assert.ok(!ctx.details?.some((d) => d.label === "Rationale"));
     assert.ok(!ctx.details?.some((d) => d.label === "Post mode"));
     assert.ok(!ctx.details?.some((d) => d.label === "Cadence"));
+    assert.ok(!ctx.details?.some((d) => d.label === "Model"));
+  });
+
+  it("adds Model detail when draftProvider/draftModel are set", () => {
+    const ctx = draftToFeedbackContext(
+      sampleDraft({
+        draftProvider: "gemini",
+        draftModel: "gemini-2.5-flash",
+      }),
+      { postMode: "manual" }
+    );
+    const model = ctx.details?.find((d) => d.label === "Model");
+    assert.equal(model?.value, "gemini / gemini-2.5-flash");
+    assert.equal(ctx.meta?.draftProvider, "gemini");
+    assert.equal(ctx.meta?.draftModel, "gemini-2.5-flash");
   });
 });

@@ -10,6 +10,7 @@ import type {
   SeriesPoint,
   SourceConfig,
 } from "@relay/admin-shell";
+import { formatDraftModelLabel } from "../decide/feedback-map.js";
 import { assertFileSource } from "./sources.js";
 
 type RunJob = {
@@ -19,7 +20,11 @@ type RunJob = {
   threadTitle?: string;
   error?: string;
   postedUrl?: string;
-  draft?: { intensity?: number };
+  draft?: {
+    intensity?: number;
+    provider?: string;
+    model?: string;
+  };
   execute?: {
     ok?: boolean;
     postedUrl?: string;
@@ -205,14 +210,18 @@ function buildRunDebugViz(data: RunRecord): RunDebugViz {
 
   return {
     stages,
-    jobs: jobs.map((j, i) => ({
-      id: j.id ?? `job-${i}`,
-      outcome: j.outcome ?? "unknown",
-      subreddit: j.subreddit,
-      title: j.threadTitle,
-      error: j.error ?? j.execute?.error,
-      postedUrl: j.postedUrl ?? j.execute?.postedUrl,
-    })),
+    jobs: jobs.map((j, i) => {
+      const model = formatDraftModelLabel(j.draft?.provider, j.draft?.model);
+      return {
+        id: j.id ?? `job-${i}`,
+        outcome: j.outcome ?? "unknown",
+        subreddit: j.subreddit,
+        title: j.threadTitle,
+        error: j.error ?? j.execute?.error,
+        postedUrl: j.postedUrl ?? j.execute?.postedUrl,
+        ...(model ? { model } : {}),
+      };
+    }),
     scout: {
       blockedCount: scout?.blockedCount ?? 0,
       timedOutCount: scout?.timedOutCount ?? 0,

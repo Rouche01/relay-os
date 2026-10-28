@@ -62,6 +62,8 @@ export interface RunDebugViz {
     title?: string;
     error?: string;
     postedUrl?: string;
+    /** Draft LLM label, e.g. `gemini / gemini-2.5-flash` or `stub`. */
+    model?: string;
   }>;
   scout: {
     blockedCount: number;
