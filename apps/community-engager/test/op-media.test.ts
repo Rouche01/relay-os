@@ -52,7 +52,8 @@ describe("inferOpMedia", () => {
       isSelf: false,
     });
     assert.equal(m.kind, "image");
-    assert.match(m.hint ?? "", /Acknowledge the pic/i);
+    assert.match(m.hint ?? "", /cannot see the pixels/i);
+    assert.doesNotMatch(m.hint ?? "", /—/);
   });
 
   it("uses distinct media url when permalink is the thread", () => {

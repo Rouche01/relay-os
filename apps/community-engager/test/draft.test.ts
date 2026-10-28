@@ -111,8 +111,12 @@ describe("buildDraftPrompt", () => {
     assert.match(prompt, /Intensity rules:/);
     assert.match(prompt, /Soft-CTA pattern/);
     assert.match(prompt, /Voice \(required\)/);
-    assert.match(prompt, /Ban AI\/coach tells/);
-    assert.match(prompt, /Em dashes/);
+    assert.match(prompt, /Ban AI\/coach\/retail tells/);
+    assert.match(prompt, /Em dashes and en dashes: never/);
+    assert.doesNotMatch(prompt, /almost never/);
+    assert.doesNotMatch(prompt, /—/);
+    assert.match(prompt, /From the pic\/pics, yeah/);
+    assert.match(prompt, /check out X or Y/);
     assert.match(prompt, /Do not mention GoStylens/);
     assert.match(prompt, /mention by name only/);
     assert.match(prompt, /founder disclosure/);
@@ -129,7 +133,9 @@ describe("buildDraftPrompt", () => {
     assert.match(prompt, /PHOTO \/ MEDIA CONSTRAINT/);
     assert.match(prompt, /cannot see/i);
     assert.match(prompt, /do not invent colors/i);
-    assert.match(prompt, /Acknowledge the pic/i);
+    assert.match(prompt, /skip stock openers/i);
+    assert.doesNotMatch(prompt, /from the pics…/i);
+    assert.doesNotMatch(prompt, /—/);
     assert.match(prompt, /live taping/);
   });
 });

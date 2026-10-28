@@ -87,8 +87,8 @@ export function inferOpMedia(input: {
     kind,
     hint:
       `OP included ${what} on the thread (or is pointing at garments with words like “these”). ` +
-      `Acknowledge the pic(s) in one short beat so the reply feels grounded, ` +
-      `but you cannot see the pixels — do not invent colors, fabrics, cuts, logos, or brands. ` +
+      `Ground the reply in the title/body; a brief photo nod is fine if it sounds natural, ` +
+      `but you cannot see the pixels, so do not invent colors, fabrics, cuts, logos, or brands. ` +
       `Ask about / suggest around what the title and body actually say.`,
   };
 }
