@@ -1,0 +1,44 @@
+# Read-only redditapis.com subset — schema source for Spec v2 api.request.
+# Secrets never live here; Specs use connection refs (e.g. redditapis:default).
+id: reddit-public
+title: redditapis.com (read-only)
+description: >
+  Third-party read listings and comment fetch. Matches CommunityEngager
+  RedditApisClient (listNew, getComment). No write/vote/DM.
+baseUrl: https://api.redditapis.com
+auth:
+  type: bearer
+  connection: true
+operations:
+  - id: listNew
+    method: GET
+    path: /api/reddit/posts
+    summary: List posts in a subreddit (sort defaults to new)
+    params:
+      - name: subreddit
+        in: query
+        required: true
+        type: string
+        description: Subreddit name without r/
+      - name: sort
+        in: query
+        type: string
+        description: new | hot | top | rising | controversial | best
+      - name: limit
+        in: query
+        type: number
+        description: 1–100 (API default 25)
+      - name: after
+        in: query
+        type: string
+        description: Pagination cursor
+  - id: getComment
+    method: GET
+    path: /api/reddit/comment/{id}
+    summary: Fetch one comment by bare id (t1_ prefix optional)
+    params:
+      - name: id
+        in: path
+        required: true
+        type: string
+        description: Comment id without t1_

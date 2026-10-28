@@ -1,0 +1,31 @@
+# Reddit OAuth API subset — write path for Spec v2 api.request (comment).
+# Specs reference connection reddit:default; never inline tokens.
+id: reddit-oauth
+title: Reddit OAuth API
+description: >
+  Official oauth.reddit.com subset used by CommunityEngager RedditClient.postComment.
+  Irreversible POST — always behind human.approve in Specs.
+baseUrl: https://oauth.reddit.com
+auth:
+  type: bearer
+  connection: true
+operations:
+  - id: comment
+    method: POST
+    path: /api/comment
+    summary: Post a comment on a link or comment thing
+    params:
+      - name: thing_id
+        in: body
+        required: true
+        type: string
+        description: Fullname of parent (e.g. t3_xxx or t1_xxx)
+      - name: text
+        in: body
+        required: true
+        type: string
+        description: Markdown comment body
+      - name: api_type
+        in: body
+        type: string
+        description: Usually "json" (Reddit default for structured errors)

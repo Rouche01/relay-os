@@ -6,6 +6,8 @@ Human-owned authority for agent computer work. Types live in `@relay/protocol`:
 - [`packages/protocol/src/spec-v2.ts`](../packages/protocol/src/spec-v2.ts) — Spec v2: ordered capability steps + goal-derived rules (hard/soft/outcome); YAML/JSON authoring
 - [`packages/protocol/src/spec-v2.schema.json`](../packages/protocol/src/spec-v2.schema.json) — JSON Schema for Spec v2 bodies (`SPEC_V2_JSON_SCHEMA`)
 - [`packages/protocol/src/engine-catalog.ts`](../packages/protocol/src/engine-catalog.ts) — fixed `engine.capability` catalog for Spec v2 `use` fields
+- [`packages/protocol/src/service-descriptor.ts`](../packages/protocol/src/service-descriptor.ts) — OpenAPI-ish service descriptors for `api.request` (`service` + `operation`)
+- [`packages/protocol/services/`](../packages/protocol/services/) — hand-written `reddit-public.yaml` / `reddit-oauth.yaml` (CE-lite schema source)
 - [`packages/protocol/src/intent.ts`](../packages/protocol/src/intent.ts) — Intent → compiles into a Spec
 
 **Thesis:** Intent → frozen Spec → run → prove acceptance → negotiate before irreversible act.

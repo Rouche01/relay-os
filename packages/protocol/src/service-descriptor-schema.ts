@@ -1,0 +1,114 @@
+/**
+ * JSON Schema for service descriptors (YAML/JSON).
+ * Keep in sync with ./service-descriptor.schema.json.
+ */
+
+export type ServiceDescriptorJsonSchema = {
+  $schema?: string;
+  $id?: string;
+  title?: string;
+  description?: string;
+  type?: string;
+  required?: string[];
+  properties?: Record<string, unknown>;
+  $defs?: Record<string, unknown>;
+  additionalProperties?: boolean;
+  [key: string]: unknown;
+};
+
+/** Draft 2020-12 schema for ServiceDescriptor documents. */
+export const SERVICE_DESCRIPTOR_JSON_SCHEMA: ServiceDescriptorJsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://relay.local/schemas/service-descriptor.schema.json",
+  "title": "Relay Service Descriptor",
+  "description": "OpenAPI-ish subset for Spec v2 api.request service + operation ids.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "baseUrl", "operations"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "baseUrl": { "type": "string", "minLength": 1, "format": "uri" },
+    "auth": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": { "type": { "const": "none" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "connection"],
+          "properties": {
+            "type": { "const": "bearer" },
+            "connection": { "const": true }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "header", "connection"],
+          "properties": {
+            "type": { "const": "apiKey" },
+            "header": { "type": "string", "minLength": 1 },
+            "connection": { "const": true }
+          }
+        }
+      ]
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/operation" }
+    }
+  },
+  "$defs": {
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "method", "path"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^/"
+        },
+        "summary": { "type": "string" },
+        "irreversible": { "type": "boolean" },
+        "params": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/param" }
+        }
+      }
+    },
+    "param": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "in"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "in": {
+          "type": "string",
+          "enum": ["path", "query", "header", "body"]
+        },
+        "required": { "type": "boolean" },
+        "type": {
+          "type": "string",
+          "enum": ["string", "number", "boolean", "object", "array"]
+        },
+        "description": { "type": "string" }
+      }
+    }
+  }
+} as ServiceDescriptorJsonSchema;
+
+export const SERVICE_DESCRIPTOR_SCHEMA_ID =
+  "https://relay.local/schemas/service-descriptor.schema.json";

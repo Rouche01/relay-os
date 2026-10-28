@@ -7,6 +7,8 @@ export * from "./decide";
 export * from "./spec";
 export * from "./spec-v2";
 export * from "./spec-v2-schema";
+export * from "./service-descriptor";
+export * from "./service-descriptor-schema";
 export * from "./intent";
 export * from "./evidence";
 export * from "./spec-store";
