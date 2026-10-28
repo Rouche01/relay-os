@@ -10,6 +10,8 @@ Human-owned authority for agent computer work. Types live in `@relay/protocol`:
 - [`packages/protocol/services/`](../packages/protocol/services/) — hand-written `reddit-public.yaml` / `reddit-oauth.yaml` (CE-lite schema source)
 - [`packages/spec-validator`](../packages/spec-validator) — Spec v2 validate (`validateSpecV2`): structure, capabilities, dataflow, services, HITL-before-irreversible, rule coverage
 - [`packages/engines-api`](../packages/engines-api) — generic `api.request` engine (descriptors, connection refs, dryRun simulate, fixtures)
+- [`packages/engines-llm`](../packages/engines-llm) — generic `llm.generate|classify|extract|judge` over `@relay/llm`
+- [`packages/engines-data`](../packages/engines-data) — generic `data.get|put|query|append` over `DataStore` / `MemoryDataStore`
 - [`packages/protocol/src/intent.ts`](../packages/protocol/src/intent.ts) — Intent → compiles into a Spec
 
 **Thesis:** Intent → frozen Spec → run → prove acceptance → negotiate before irreversible act.
