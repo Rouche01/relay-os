@@ -1,6 +1,6 @@
 /**
  * engager-gen host — bootstrap only (no stage handlers).
- * Pipeline: load Spec → validate → freeze → lower → evals → dry-run HITL.
+ * Pipeline: (optional scaffold from intent) → validate → freeze → lower → evals → dry-run HITL.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -14,6 +14,7 @@ import {
   createDraftSpecV2,
   freezeSpecV2,
   parseServiceDescriptorYaml,
+  type SpecV2Body,
 } from "@relay/protocol";
 import {
   assertEvalsGate,
@@ -21,6 +22,7 @@ import {
   type EvalCase,
 } from "@relay/spec-evals";
 import { lowerSpecV2 } from "@relay/spec-lower";
+import { scaffoldSpec } from "@relay/spec-scaffold";
 import { parseSpecV2Yaml, validateSpecV2 } from "@relay/spec-validator";
 import {
   createWorkflowRuntime,
@@ -31,14 +33,14 @@ function packageRoot(start: string): string {
   let dir = start;
   for (;;) {
     if (
-      existsSync(join(dir, "spec.yaml")) &&
-      existsSync(join(dir, "package.json"))
+      existsSync(join(dir, "package.json")) &&
+      (existsSync(join(dir, "spec.yaml")) || existsSync(join(dir, "intent.md")))
     ) {
       return dir;
     }
     const parent = dirname(dir);
     if (parent === dir) {
-      throw new Error("engager-gen package root not found (spec.yaml)");
+      throw new Error("engager-gen package root not found");
     }
     dir = parent;
   }
@@ -53,6 +55,8 @@ export type EngagerGenResult = {
   evidenceCount: number;
   draftCount: number;
   evalPassed: boolean;
+  source: "yaml" | "scaffold";
+  scaffoldAttempts?: number;
 };
 
 type FixtureThread = {
@@ -194,15 +198,82 @@ function evalCases(): EvalCase[] {
   ];
 }
 
+/**
+ * Offline scaffold stub: returns the checked-in Spec as JSON so CI proves
+ * intent → scaffold → validate without a live LLM. Swap for createLlmClient
+ * when dogfooding generation quality.
+ */
+export function createScaffoldStubClient(
+  body: SpecV2Body,
+  options?: { failFirst?: boolean }
+): LlmClient {
+  let calls = 0;
+  return {
+    provider: "gemini",
+    async completeJson(): Promise<LlmJsonResult> {
+      calls += 1;
+      if (options?.failFirst && calls === 1) {
+        const bad = structuredClone(body);
+        bad.steps = bad.steps.map((s, i) =>
+          i === 0 ? { ...s, use: "llm.invent" } : s
+        );
+        return {
+          text: JSON.stringify(bad),
+          provider: "gemini",
+          model: "engager-gen-scaffold-stub",
+        };
+      }
+      return {
+        text: JSON.stringify(body),
+        provider: "gemini",
+        model: "engager-gen-scaffold-stub",
+      };
+    },
+  };
+}
+
 export async function runEngagerGen(options?: {
   autoApprove?: boolean;
+  /**
+   * When true, scaffold Spec from intent.md (stub LLM) instead of reading
+   * spec.yaml. Still uses the hand-written Spec as the stub oracle so the
+   * pipeline is proven offline; live LLM is optional for dogfood.
+   */
+  fromIntent?: boolean;
 }): Promise<EngagerGenResult> {
   const autoApprove = options?.autoApprove ?? true;
+  const fromIntent = options?.fromIntent ?? false;
   const intent = loadText("intent.md");
-  const body = parseSpecV2Yaml(loadText("spec.yaml"));
   const services = loadServices();
   const threads = loadJson<FixtureThread[]>("fixtures/threads.json");
   const posts = scoutPosts(threads);
+  const referenceBody = parseSpecV2Yaml(loadText("spec.yaml"));
+
+  let body: SpecV2Body;
+  let source: "yaml" | "scaffold" = "yaml";
+  let scaffoldAttempts: number | undefined;
+
+  if (fromIntent) {
+    const scaffolded = await scaffoldSpec({
+      intent,
+      client: createScaffoldStubClient(referenceBody, { failFirst: true }),
+      services,
+      knownConnections: ["reddit:default"],
+      maxRepairs: 3,
+    });
+    if (!scaffolded.ok) {
+      throw new Error(
+        `Scaffold failed:\n${scaffolded.message}\n${scaffolded.errors
+          .map((e) => `- [${e.code}] ${e.message}`)
+          .join("\n")}`
+      );
+    }
+    body = scaffolded.body;
+    source = "scaffold";
+    scaffoldAttempts = scaffolded.attempts;
+  } else {
+    body = referenceBody;
+  }
 
   const validation = validateSpecV2(body, {
     services,
@@ -298,17 +369,23 @@ export async function runEngagerGen(options?: {
     evidenceCount: getEvidence(ctx).length,
     draftCount,
     evalPassed: evalReport.passed,
+    source,
+    scaffoldAttempts,
   };
 }
 
 async function main(): Promise<void> {
-  console.log("[engager-gen] validate → freeze → lower → evals → dry-run");
-  const result = await runEngagerGen({ autoApprove: true });
+  const fromIntent =
+    process.argv.includes("--from-intent") || process.env.ENGAGER_GEN_FROM_INTENT === "1";
+  console.log(
+    `[engager-gen] ${fromIntent ? "scaffold → " : ""}validate → freeze → lower → evals → dry-run`
+  );
+  const result = await runEngagerGen({ autoApprove: true, fromIntent });
   console.log(
     JSON.stringify(
       {
         ...result,
-        note: "Hand-written Spec; see PARITY.md for CE comparison hooks",
+        note: "See PARITY.md for CE comparison hooks",
       },
       null,
       2

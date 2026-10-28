@@ -102,6 +102,9 @@ importers:
       '@relay/spec-lower':
         specifier: workspace:*
         version: link:../../packages/spec-lower
+      '@relay/spec-scaffold':
+        specifier: workspace:*
+        version: link:../../packages/spec-scaffold
       '@relay/spec-validator':
         specifier: workspace:*
         version: link:../../packages/spec-validator
@@ -477,6 +480,28 @@ importers:
       '@relay/spec-validator':
         specifier: workspace:*
         version: link:../spec-validator
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/spec-scaffold:
+    dependencies:
+      '@relay/llm':
+        specifier: workspace:*
+        version: link:../llm
+      '@relay/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@relay/spec-validator':
+        specifier: workspace:*
+        version: link:../spec-validator
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
