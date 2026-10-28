@@ -1,5 +1,7 @@
-import type { PromoIntensity } from "../types.js";
+import type { DraftProvider, PromoIntensity } from "../types.js";
 import type { ScoutReport } from "../stages/scout/scout-report.js";
+
+export type { DraftProvider };
 
 /** Parent-run session stage evidence. */
 export interface SessionEvidence {
@@ -34,8 +36,6 @@ export interface DiscoverEvidence {
   memory?: MemoryWriteEvidence;
 }
 
-export type DraftProvider = "gemini" | "anthropic" | "stub";
-
 export interface DraftEvidence {
   id: string;
   subreddit: string;
@@ -45,6 +45,8 @@ export interface DraftEvidence {
   memoryChars: number;
   /** Who wrote draftText. */
   provider: DraftProvider;
+  /** Versioned model id (e.g. gemini-2.5-flash) or "stub". */
+  model?: string;
   draftChars: number;
   /** Single-line excerpt of the proposed reply. */
   preview?: string;

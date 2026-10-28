@@ -2895,13 +2895,22 @@ export class CommunityEngagerController implements AppController {
         throw new Error(result.error ?? "llm draft_reply failed");
       }
       drafted = result.data.draft as CommunityDraft;
-      if (result.data.provider === "gemini" || result.data.provider === "stub") {
-        provider = result.data.provider;
+      const engineProvider = result.data.provider;
+      if (
+        engineProvider === "gemini" ||
+        engineProvider === "anthropic" ||
+        engineProvider === "stub"
+      ) {
+        provider = engineProvider;
       }
     } else {
       const outcome = await draftReply(top, draftOverrides);
       drafted = outcome.draft;
       provider = outcome.provider;
+    }
+    // Prefer fields stamped on the draft payload (source of truth for HITL/store).
+    if (drafted.draftProvider) {
+      provider = drafted.draftProvider;
     }
 
     await this.options.store.put(
@@ -2924,6 +2933,7 @@ export class CommunityEngagerController implements AppController {
       postMode: getCommunityConfig().postMode,
     });
     const preview = draftPreview(drafted.draftText);
+    const draftModel = drafted.draftModel;
     const draftEvidence: DraftEvidence = {
       id: drafted.id,
       subreddit: drafted.subreddit,
@@ -2932,6 +2942,7 @@ export class CommunityEngagerController implements AppController {
       memoryUsed: Boolean(memoryBlock),
       memoryChars: memoryBlock?.length ?? 0,
       provider,
+      ...(draftModel ? { model: draftModel } : {}),
       draftChars: drafted.draftText.length,
       warmupActive: warmup.active,
       ...(warmup.active && warmup.reasons.length
@@ -2949,7 +2960,9 @@ export class CommunityEngagerController implements AppController {
       draft: draftEvidence,
     };
     console.log(
-      `[draft] pending_approval id=${drafted.id} intensity=${drafted.intensity} provider=${provider} chars=${drafted.draftText.length}` +
+      `[draft] pending_approval id=${drafted.id} intensity=${drafted.intensity} provider=${provider}` +
+        (draftModel ? ` model=${draftModel}` : "") +
+        ` chars=${drafted.draftText.length}` +
         (forceIntensity0 ? " helpOnly=1" : "") +
         (promo.warnPromo ? " promoWarn=1" : "")
     );

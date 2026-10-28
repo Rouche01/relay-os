@@ -12,11 +12,14 @@ import {
   type SubredditPlaybook,
 } from "../../policy/playbook.js";
 import { getCommunityConfig } from "../../reddit/config.js";
-import type { DraftProvider } from "../../metrics/run-evidence.js";
 import { isMegathread } from "../../reddit/scout/score.js";
 import { applySoftCta } from "./soft-cta.js";
 import { stripEmDashes } from "./strip-em-dashes.js";
-import type { CommunityDraft, PromoIntensity } from "../../types.js";
+import type {
+  CommunityDraft,
+  DraftProvider,
+  PromoIntensity,
+} from "../../types.js";
 import { FIXTURE_THREADS } from "../../fixtures/threads.js";
 import { buildJobUtm } from "../execute/utm.js";
 
@@ -92,6 +95,10 @@ export async function draftReply(
       });
       const provider: DraftProvider =
         llm.provider === "anthropic" ? "anthropic" : "gemini";
+      const draftModel =
+        typeof llm.model === "string" && llm.model.trim()
+          ? llm.model.trim()
+          : provider;
       return {
         provider,
         draft: finalizeDraft(
@@ -100,6 +107,8 @@ export async function draftReply(
             draftText: llm.draftText,
             intensity: llm.intensity,
             status: "pending_approval",
+            draftProvider: provider,
+            draftModel,
           },
           { forceIntensity0, lpBaseUrl, playbook }
         ),
@@ -133,6 +142,8 @@ export async function draftReply(
         draftText: text,
         intensity: forceIntensity0 ? 0 : intensity,
         status: "pending_approval",
+        draftProvider: "stub",
+        draftModel: "stub",
       },
       { forceIntensity0, lpBaseUrl, playbook }
     ),

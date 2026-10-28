@@ -282,6 +282,8 @@ describe("draftReply stub fallback", () => {
     const outcome = await draftReply(draft());
     assert.equal(outcome.provider, "stub");
     assert.equal(outcome.draft.status, "pending_approval");
+    assert.equal(outcome.draft.draftProvider, "stub");
+    assert.equal(outcome.draft.draftModel, "stub");
     assert.match(outcome.draft.draftText, /I'd lean on what you already called out/);
     assert.doesNotMatch(outcome.draft.draftText, /GoStylens/);
     assert.doesNotMatch(outcome.draft.draftText, /[—–]/);
@@ -294,6 +296,8 @@ describe("draftReply stub fallback", () => {
       text: "Edited by the human — still casual.",
     });
     assert.equal(outcome.provider, "stub");
+    assert.equal(outcome.draft.draftProvider, "stub");
+    assert.equal(outcome.draft.draftModel, "stub");
     assert.equal(outcome.draft.draftText, "Edited by the human, still casual.");
     assert.doesNotMatch(outcome.draft.draftText, /[—–]/);
   });

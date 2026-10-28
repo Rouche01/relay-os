@@ -45,6 +45,9 @@ export const SCORE_MAX = 8;
  */
 export const ACTIONABLE_SCORE_MIN = 5;
 
+/** Who produced draftText (LLM provider or stub fallback). */
+export type DraftProvider = "gemini" | "anthropic" | "stub";
+
 export interface CommunityDraft {
   id: string;
   platform: CommunityPlatform;
@@ -70,6 +73,10 @@ export interface CommunityDraft {
   utmCampaign?: string;
   /** Reddit fullname for the link (t3_…) when scouted live */
   redditThingId?: string;
+  /** Set when draft stage fills draftText (gemini / anthropic / stub). */
+  draftProvider?: DraftProvider;
+  /** Versioned model id (e.g. gemini-2.5-flash) or "stub". */
+  draftModel?: string;
 }
 
 export function scoreTotal(score: OpportunityScore): number {
