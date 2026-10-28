@@ -1,4 +1,5 @@
 export * from "./engines";
+export * from "./engine-catalog";
 export * from "./feedback";
 export * from "./manifest";
 export * from "./events";
