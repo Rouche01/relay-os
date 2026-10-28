@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import { draftReply } from "../src/stages/draft/drafter.js";
+import { draftReply, stripEmDashes } from "../src/stages/draft/drafter.js";
 import type { LlmClient } from "@relay/llm";
 import {
   buildDraftPrompt,
@@ -256,6 +256,24 @@ describe("generateDraftViaLlm", () => {
   });
 });
 
+describe("stripEmDashes", () => {
+  it("turns sentence-like dashes into periods and others into commas", () => {
+    assert.equal(
+      stripEmDashes("pleated trousers styled casually — You'd want mid rise."),
+      "pleated trousers styled casually. You'd want mid rise."
+    );
+    assert.equal(
+      stripEmDashes("the coherent part — just the name, no link"),
+      "the coherent part, just the name, no link"
+    );
+    assert.equal(
+      stripEmDashes("fit–check with space – and more"),
+      "fit, check with space, and more"
+    );
+    assert.doesNotMatch(stripEmDashes("a — b – c"), /[—–]/);
+  });
+});
+
 describe("draftReply stub fallback", () => {
   it("uses the stub when the selected provider has no API key", async () => {
     delete process.env.GEMINI_API_KEY;
@@ -264,16 +282,19 @@ describe("draftReply stub fallback", () => {
     const outcome = await draftReply(draft());
     assert.equal(outcome.provider, "stub");
     assert.equal(outcome.draft.status, "pending_approval");
-    assert.match(outcome.draft.draftText, /I'd start from what you already called out/);
+    assert.match(outcome.draft.draftText, /I'd lean on what you already called out/);
     assert.doesNotMatch(outcome.draft.draftText, /GoStylens/);
-    assert.doesNotMatch(outcome.draft.draftText, /Hey —/);
+    assert.doesNotMatch(outcome.draft.draftText, /[—–]/);
     assert.doesNotMatch(outcome.draft.draftText, /1\)/);
   });
 
-  it("keeps an explicit text override on the stub even if a key is set", async () => {
+  it("strips em dashes from human text overrides too", async () => {
     process.env.GEMINI_API_KEY = "test-key-not-used";
-    const outcome = await draftReply(draft(), { text: "Edited by the human." });
+    const outcome = await draftReply(draft(), {
+      text: "Edited by the human — still casual.",
+    });
     assert.equal(outcome.provider, "stub");
-    assert.equal(outcome.draft.draftText, "Edited by the human.");
+    assert.equal(outcome.draft.draftText, "Edited by the human, still casual.");
+    assert.doesNotMatch(outcome.draft.draftText, /[—–]/);
   });
 });

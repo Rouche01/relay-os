@@ -15,9 +15,12 @@ import { getCommunityConfig } from "../../reddit/config.js";
 import type { DraftProvider } from "../../metrics/run-evidence.js";
 import { isMegathread } from "../../reddit/scout/score.js";
 import { applySoftCta } from "./soft-cta.js";
+import { stripEmDashes } from "./strip-em-dashes.js";
 import type { CommunityDraft, PromoIntensity } from "../../types.js";
 import { FIXTURE_THREADS } from "../../fixtures/threads.js";
 import { buildJobUtm } from "../execute/utm.js";
+
+export { stripEmDashes } from "./strip-em-dashes.js";
 
 export interface DraftReplyOutcome {
   draft: CommunityDraft;
@@ -161,13 +164,17 @@ function finalizeDraft(
       }),
     }
   );
-  return applyWarmupClamp(shaped, opts.forceIntensity0, {
+  const clamped = applyWarmupClamp(shaped, opts.forceIntensity0, {
     title: draft.threadTitle,
     subreddit: draft.subreddit,
     memoryHint: true,
     opText: draft.opText,
     lpBaseUrl: opts.lpBaseUrl,
   });
+  return {
+    ...clamped,
+    draftText: stripEmDashes(clamped.draftText),
+  };
 }
 /**
  * Hard clamp for warmup: intensity 0 and no GoStylens mention.
@@ -223,11 +230,11 @@ function buildStubDraft(input: {
   const helpFirst = input.mediaLed
     ? `For “${input.title}” I can't see the photos, so I won't guess the pieces. ` +
       `What's the dressiest item in the set, and are you aiming polished or more relaxed? ` +
-      `Those two answers usually decide the outfit path.`
+      `Those two usually decide the path.`
     : input.opText.trim().length > 40
-      ? `On “${input.title}” — I'd start from what you already called out in the post and pick one constraint to optimize for (comfort, polish, or repeat wear). ` +
-        `Once that priority is clear, the next piece choice gets a lot easier.`
-      : `On “${input.title}” I'd get specific before buying or rebuilding anything: what's the main constraint (work hours, heat, budget, body change)? ` +
+      ? `On “${input.title}” I'd lean on what you already called out and pick one priority (comfort, polish, or repeat wear). ` +
+        `Once that's clear, the next piece is easier.`
+      : `On “${input.title}” I'd get specific before buying or rebuilding: what's the main constraint (work hours, heat, budget, body change)? ` +
         `Name that and people can actually suggest pieces that fit.`;
 
   const memoryNote = input.memoryHint
@@ -241,12 +248,12 @@ function buildStubDraft(input: {
   if (input.intensity === 1) {
     return (
       helpFirst +
-      ` I've been trying a small styling helper called GoStylens for the “keep it coherent” part — just the name, no link.` +
+      ` I've been trying a small styling helper called GoStylens for the “keep it coherent” part (just the name, no link).` +
       memoryNote
     );
   }
 
-  // Intensity 2 stub — disclosure + LP (soft-cta will normalize UTM).
+  // Intensity 2 stub: disclosure + LP (soft-cta will normalize UTM).
   const lp = input.lpBaseUrl ?? "https://gostylens.app";
   return (
     helpFirst +
