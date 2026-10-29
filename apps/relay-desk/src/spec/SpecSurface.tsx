@@ -1,4 +1,4 @@
-import { useCallback, useState } from "preact/hooks";
+import { useCallback, useEffect, useState } from "preact/hooks";
 import type { DeskSettings } from "../gateway/types.ts";
 import {
   evalSpec,
@@ -26,6 +26,12 @@ type Props = {
   settings: DeskSettings;
 };
 
+function condenseError(message: string, max = 96): string {
+  const one = message.replace(/\s+/g, " ").trim();
+  if (one.length <= max) return one;
+  return `${one.slice(0, max - 1)}…`;
+}
+
 /**
  * Spec governance surface — Intent → scaffold → validate → evals → lower → freeze → run.
  * HITL cards stay on Console.
@@ -35,7 +41,10 @@ export function SpecSurface({ settings }: Props) {
   const [yaml, setYaml] = useState("");
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState<string | undefined>();
+  const [busyStartedAt, setBusyStartedAt] = useState<number | undefined>();
+  const [busyElapsedSec, setBusyElapsedSec] = useState(0);
   const [error, setError] = useState<string | undefined>();
+  const [llmProvider, setLlmProvider] = useState<string | undefined>();
   const [mode, setMode] = useState<string | undefined>();
   const [validation, setValidation] = useState<SpecValidationResult | undefined>();
   const [evals, setEvals] = useState<EvalsResponse | undefined>();
@@ -45,6 +54,31 @@ export function SpecSurface({ settings }: Props) {
   const [runResult, setRunResult] = useState<RunResponse | undefined>();
   /** Bypass evals gate for Lower / Freeze / Run (explicit). */
   const [forcePipeline, setForcePipeline] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchScaffoldProvider(settings).then((p) => {
+      if (!cancelled) setLlmProvider(p);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [settings]);
+
+  useEffect(() => {
+    if (!busy) {
+      setBusyStartedAt(undefined);
+      setBusyElapsedSec(0);
+      return;
+    }
+    const started = Date.now();
+    setBusyStartedAt(started);
+    setBusyElapsedSec(0);
+    const id = window.setInterval(() => {
+      setBusyElapsedSec(Math.floor((Date.now() - started) / 1000));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [busy]);
 
   const rules = (() => {
     try {
@@ -286,6 +320,41 @@ export function SpecSurface({ settings }: Props) {
             ))}
           </ol>
         </nav>
+        <div
+          class="spec-status-rail"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <span class="spec-status-chip mono">
+            llm · {llmProvider ?? "…"}
+            {mode ? ` · mode ${mode}` : ""}
+          </span>
+          {busy ? (
+            <span class="spec-status-chip mono" data-tone="busy">
+              {busyLabel ?? "Working…"}
+              {busyStartedAt != null ? ` · ${busyElapsedSec}s` : ""}
+            </span>
+          ) : (
+            <span class="spec-status-chip mono" data-tone="idle">
+              idle
+            </span>
+          )}
+          {error ? (
+            <span
+              class="spec-status-chip mono"
+              data-tone="error"
+              title={error}
+            >
+              err · {condenseError(error)}
+            </span>
+          ) : null}
+          {forcePipeline && !evalsPassed ? (
+            <span class="spec-status-chip mono" data-tone="warn">
+              force on
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div class="spec-grid">

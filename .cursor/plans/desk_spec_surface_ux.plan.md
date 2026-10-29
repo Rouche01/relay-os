@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: status-rail
     content: "Sticky status strip — llm provider from /api/health, busy label + elapsed, last error; keep aria-live"
-    status: pending
+    status: completed
   - id: dry-run-panel
     content: "Promote Run dry into its own panel/tabs (Steps / Evidence / Summary) using stepOutputs + evidence from /api/v2/run; not buried under Freeze"
     status: pending
