@@ -7,6 +7,8 @@ export interface DeskSettings {
   /** CommunityEngager desk adapter bridge (`FEEDBACK_ADAPTER=desk`). */
   hitlUrl: string;
   hitlToken: string;
+  /** Relay shell Spec v2 API (`pnpm --filter @relay/apps-relay-shell api`). */
+  specApiUrl: string;
 }
 
 export interface ComputerLease {
@@ -60,4 +62,5 @@ export const DEFAULT_SETTINGS: DeskSettings = {
   ttlSec: 600,
   hitlUrl: "http://127.0.0.1:9100",
   hitlToken: "",
+  specApiUrl: "http://127.0.0.1:8790",
 };

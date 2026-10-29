@@ -174,15 +174,45 @@ importers:
 
   apps/relay-shell:
     dependencies:
+      '@relay/engines-api':
+        specifier: workspace:*
+        version: link:../../packages/engines-api
+      '@relay/engines-data':
+        specifier: workspace:*
+        version: link:../../packages/engines-data
       '@relay/engines-decide':
         specifier: workspace:*
         version: link:../../packages/engines-decide
+      '@relay/engines-llm':
+        specifier: workspace:*
+        version: link:../../packages/engines-llm
+      '@relay/llm':
+        specifier: workspace:*
+        version: link:../../packages/llm
       '@relay/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@relay/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@relay/spec-evals':
+        specifier: workspace:*
+        version: link:../../packages/spec-evals
+      '@relay/spec-lower':
+        specifier: workspace:*
+        version: link:../../packages/spec-lower
+      '@relay/spec-scaffold':
+        specifier: workspace:*
+        version: link:../../packages/spec-scaffold
       '@relay/spec-store':
         specifier: workspace:*
         version: link:../../packages/spec-store
+      '@relay/spec-validator':
+        specifier: workspace:*
+        version: link:../../packages/spec-validator
+      '@relay/workflow-runtime':
+        specifier: workspace:*
+        version: link:../../packages/workflow-runtime
       preact:
         specifier: ^10.26.4
         version: 10.29.8

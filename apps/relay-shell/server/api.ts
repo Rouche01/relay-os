@@ -5,9 +5,13 @@
  *   pnpm --filter @relay/apps-relay-shell api
  *   RELAY_SHELL_SERVE_UI=1 pnpm --filter @relay/apps-relay-shell api   # also serve dist/
  */
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
-import path from "node:path";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
+import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createSpecBundle,
@@ -20,8 +24,16 @@ import {
   composeAndBundleSpec,
   type ComposeSpecBody,
 } from "./compose-spec.js";
+import {
+  handleEvals,
+  handleFreeze,
+  handleLower,
+  handleRun,
+  handleScaffold,
+  handleValidate,
+} from "./spec-v2.js";
 
-const shellRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const shellRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body, null, 2);
@@ -42,7 +54,7 @@ async function readBody(req: IncomingMessage): Promise<string> {
 }
 
 function dataDir(): string {
-  return path.resolve(
+  return resolve(
     process.cwd(),
     process.env.RELAY_DATA_DIR?.trim() || ".data"
   );
@@ -51,14 +63,14 @@ function dataDir(): string {
 function distDir(): string | null {
   const override = process.env.RELAY_SHELL_DIST?.trim();
   const dir = override
-    ? path.resolve(override)
-    : path.join(shellRoot, "dist");
-  if (!existsSync(path.join(dir, "index.html"))) return null;
+    ? resolve(override)
+    : join(shellRoot, "dist");
+  if (!existsSync(join(dir, "index.html"))) return null;
   return dir;
 }
 
 function contentType(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
+  const ext = extname(filePath).toLowerCase();
   switch (ext) {
     case ".html":
       return "text/html; charset=utf-8";
@@ -84,12 +96,12 @@ function tryServeStatic(
   dist: string,
   pathname: string
 ): boolean {
-  const safe = path.normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, "");
-  let filePath = path.join(dist, safe === "/" ? "index.html" : safe);
+  const safe = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, "");
+  let filePath = join(dist, safe === "/" ? "index.html" : safe);
   if (!filePath.startsWith(dist)) return false;
 
   if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
-    filePath = path.join(dist, "index.html");
+    filePath = join(dist, "index.html");
   }
   if (!existsSync(filePath)) return false;
 
@@ -135,7 +147,74 @@ async function main(): Promise<void> {
               ? "pack"
               : "primitives",
           decideBackend: process.env.DECIDE_BACKEND?.trim() || "heuristic",
+          specV2: true,
+          endpoints: [
+            "POST /api/v2/scaffold",
+            "POST /api/v2/validate",
+            "POST /api/v2/lower",
+            "POST /api/v2/evals",
+            "POST /api/v2/freeze",
+            "POST /api/v2/run",
+          ],
         });
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/v2/scaffold") {
+        const raw = await readBody(req);
+        const body = raw ? (JSON.parse(raw) as { intent?: string; stub?: boolean }) : {};
+        const out = await handleScaffold(body);
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/v2/validate") {
+        const raw = await readBody(req);
+        const body = raw ? (JSON.parse(raw) as { yaml?: string; body?: unknown }) : {};
+        const out = handleValidate(body as { yaml?: string; body?: never });
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/v2/lower") {
+        const raw = await readBody(req);
+        const body = raw ? (JSON.parse(raw) as { yaml?: string; body?: unknown }) : {};
+        const out = handleLower(body as { yaml?: string; body?: never });
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/v2/evals") {
+        const raw = await readBody(req);
+        const body = raw ? (JSON.parse(raw) as { yaml?: string; body?: unknown }) : {};
+        const out = await handleEvals(body as { yaml?: string; body?: never });
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/v2/freeze") {
+        const raw = await readBody(req);
+        const body = raw ? (JSON.parse(raw) as { yaml?: string; body?: unknown }) : {};
+        const out = handleFreeze(body as { yaml?: string; body?: never });
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/v2/run") {
+        const raw = await readBody(req);
+        const body = raw
+          ? (JSON.parse(raw) as {
+              yaml?: string;
+              body?: unknown;
+              autoApprove?: boolean;
+            })
+          : {};
+        const out = await handleRun(body as {
+          yaml?: string;
+          body?: never;
+          autoApprove?: boolean;
+        });
+        sendJson(res, out.status, out);
         return;
       }
 

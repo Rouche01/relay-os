@@ -98,8 +98,8 @@ Settings ── configures Gateway + HITL bridge endpoints
 1. **Sidebar** — brand · Console · Spec · Settings · collapse (expanded or icon-only).
 2. **Status strip** — global status only (idle / watching / claimed / HITL waiting).
 3. **Console surface** — title + subtitle → HITL | Seat → Gateway | Watch (current layout; do not regress).
-4. **Spec surface** — scaffold: title “Spec”, Intent→Spec placeholder (no compile yet).
-5. **Settings** — from sidebar → drawer (Gateway + HITL bridge).
+4. **Spec surface** — Intent → scaffold YAML → validator / rules / evals → lower → freeze → dry-run (shell `/api/v2/*`). HITL cards stay on Console.
+5. **Settings** — from sidebar → drawer (Gateway + HITL bridge + Spec API URL).
 
 Operator console first; bento for **hierarchy**, not marketing-grid density. No mini-VNC previews inside tiles.
 
@@ -150,15 +150,15 @@ Avoid: purple-indigo gradients, soft cream+terracotta, neon multi-glow stacks, I
 - **Seat row** — mode badge (`Watch` | `Claimed`), id, Focus / Close.
 - **HITL card** — kicker, prompt, Approve (signal) / Abort (ghost|danger).
 - **Settings fields** — labeled inputs; Probe + result line.
-- **Spec scaffold** — title + mono hint; later Intent / Spec panels.
+- **Spec surface** — Intent box, YAML editor, validator/evals/manifest tiles, Freeze + Run dry.
 - **Stream window chrome** — OS title only; no duplicated Desk chrome inside noVNC.
 
 ## Flowstep screens (target)
 
 1. **Idle — console** — sidebar expanded; Console active; current bento  
 2. **Idle — console (collapsed)** — icon-only sidebar; same bento  
-3. **Spec — scaffold** — sidebar; Spec active; Intent→Spec placeholder  
-4. **Spec — scaffold (collapsed)** — icon-only sidebar  
+3. **Spec — surface** — sidebar; Spec active; Intent→YAML→evals→run  
+4. **Spec — surface (collapsed)** — icon-only sidebar  
 5. **HITL pending** / **Watching** / **Leased** / **Parked** / **Settings** — Console modes (unchanged concerns; adopt sidebar)  
 6. **Multi-seat (future)** — Seat list with 2+ rows; still separate OS windows  
 7. Top-tab / Idle intent-strip screens — superseded; archive or delete later  

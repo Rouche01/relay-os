@@ -213,6 +213,68 @@ body {
   width: 100%;
 }
 
+.spec-surface .spec-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 960px) {
+  .spec-surface .spec-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.spec-textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 8rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.spec-textarea.mono {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.spec-pre {
+  margin: 0;
+  padding: 0.75rem;
+  max-height: 12rem;
+  overflow: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--void);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.spec-rule-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--ink);
+  font-size: 0.875rem;
+}
+
+.spec-error {
+  margin: 0;
+}
+
+.tile-meta.warn {
+  color: var(--warn);
+}
+
 /* Flowstep: main px-16 py-12 */
 .desk-main {
   width: 100%;

@@ -18,6 +18,7 @@ export function loadSettings(): DeskSettings {
       ttlSec: Number(parsed.ttlSec) > 0 ? Number(parsed.ttlSec) : 600,
       hitlUrl: String(parsed.hitlUrl ?? DEFAULT_SETTINGS.hitlUrl).trim(),
       hitlToken: String(parsed.hitlToken ?? DEFAULT_SETTINGS.hitlToken),
+      specApiUrl: String(parsed.specApiUrl ?? DEFAULT_SETTINGS.specApiUrl).trim(),
     };
   } catch {
     return { ...DEFAULT_SETTINGS };

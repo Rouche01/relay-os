@@ -37,6 +37,8 @@ import {
   openSeatInBrowser,
   openSeatWindow,
 } from "./seat/open-seat.ts";
+import { probeSpecApi } from "./spec/client.ts";
+import { SpecSurface } from "./spec/SpecSurface.tsx";
 
 const HEARTBEAT_MS = 45_000;
 const HITL_POLL_MS = 2_000;
@@ -56,6 +58,7 @@ export function App() {
     loadLastPark()
   );
   const [hitlProbe, setHitlProbe] = useState("not checked");
+  const [specProbe, setSpecProbe] = useState("not checked");
   const [hitlPending, setHitlPending] = useState<PendingFeedback[]>([]);
   const [hitlError, setHitlError] = useState<string | undefined>();
   const [hitlBusy, setHitlBusy] = useState(false);
@@ -139,6 +142,18 @@ export function App() {
       setHitlProbe(await probeHitl(settings));
     } catch (err) {
       setHitlProbe(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onProbeSpec = async () => {
+    setBusy(true);
+    setSpecProbe("checking…");
+    try {
+      setSpecProbe(await probeSpecApi(settings));
+    } catch (err) {
+      setSpecProbe(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }
@@ -747,29 +762,7 @@ export function App() {
 
         <main class="desk-main">
         {mainTab === "spec" ? (
-          <div class="desk-body">
-            <div class="console-head">
-              <h1 class="console-title">Spec</h1>
-              <p class="console-sub">
-                intent → draft → freeze → run · scaffold
-              </p>
-            </div>
-            <section class="tile spec-scaffold">
-              <div class="tile-stack">
-                <p class="tile-label">Placeholder</p>
-                <div class="tile-copy">
-                  <h2 class="tile-title">Spec compiler lives here</h2>
-                  <p class="tile-meta">
-                    Console stays the operator bento. This surface will own
-                    Intent, frozen Spec, and freeze gates — not implemented yet.
-                  </p>
-                  <p class="tile-meta mono">
-                    see relay_intent_spec_verify_hitl · living_todo_shell
-                  </p>
-                </div>
-              </div>
-            </section>
-          </div>
+          <SpecSurface settings={settings} />
         ) : (
         <div class="desk-body">
           <div class="console-head">
@@ -1256,6 +1249,33 @@ export function App() {
                   Probe HITL
                 </button>
                 <span class="hint">{hitlProbe}</span>
+              </div>
+            </div>
+
+            <div class="drawer-section">
+              <h3>Spec API (shell)</h3>
+              <label class="field">
+                <span>DESK_SPEC_API_URL</span>
+                <input
+                  value={settings.specApiUrl}
+                  onInput={(e) =>
+                    updateSettings({
+                      specApiUrl: (e.target as HTMLInputElement).value,
+                    })
+                  }
+                  spellcheck={false}
+                />
+              </label>
+              <div class="cta-row">
+                <button
+                  type="button"
+                  class="cta ghost"
+                  disabled={busy}
+                  onClick={() => void onProbeSpec()}
+                >
+                  Probe Spec
+                </button>
+                <span class="hint">{specProbe}</span>
               </div>
             </div>
 

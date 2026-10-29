@@ -10,12 +10,22 @@
     "preview": "vite preview",
     "api": "tsx server/api.ts",
     "start": "RELAY_SHELL_SERVE_UI=1 tsx server/api.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p server/tsconfig.json"
   },
   "dependencies": {
+    "@relay/engines-api": "workspace:*",
+    "@relay/engines-data": "workspace:*",
     "@relay/engines-decide": "workspace:*",
+    "@relay/engines-llm": "workspace:*",
+    "@relay/llm": "workspace:*",
     "@relay/protocol": "workspace:*",
+    "@relay/runtime": "workspace:*",
+    "@relay/spec-evals": "workspace:*",
+    "@relay/spec-lower": "workspace:*",
+    "@relay/spec-scaffold": "workspace:*",
     "@relay/spec-store": "workspace:*",
+    "@relay/spec-validator": "workspace:*",
+    "@relay/workflow-runtime": "workspace:*",
     "preact": "^10.26.4"
   },
   "devDependencies": {

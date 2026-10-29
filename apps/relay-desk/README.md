@@ -68,11 +68,23 @@ FEEDBACK_ADAPTER=desk DESK_HITL_PORT=9100 pnpm --filter @relay/apps-community-en
 
 In Desk: set **DESK_HITL_URL** (`http://127.0.0.1:9100`) + optional token → **Probe HITL**. Pending cards poll every 2s; Approve/Abort; auto-Watch when `meta.vncUrl` (or VNC `context.url`) is present.
 
+## Spec surface (v2)
+
+Sidebar **Spec** owns Intent → scaffold → validate → evals → freeze → dry-run. HITL cards stay on Console.
+
+```bash
+# Spec host (default http://127.0.0.1:8790)
+pnpm --filter @relay/apps-relay-shell api
+```
+
+In Desk Settings: **DESK_SPEC_API_URL** → **Probe Spec**. Scaffold uses an offline stub by default (`RELAY_SPEC_SCAFFOLD_STUB=1` or no LLM key); set `LLM_PROVIDER` + API key on the shell for live scaffolding.
+
 ## Layout
 
 | Path | Role |
 |------|------|
 | `src/gateway/` | Settings + HTTP client (lease / park / acquire / recycle / heartbeat) + last-park |
+| `src/spec/` | Spec v2 surface + shell API client |
 | `src/seat/` | Seat / Watch WebView helpers |
 | `src-tauri/` | Tauri 2 + `gateway_http` command (no CORS) |
 | Plan | [`.cursor/plans/relay_desk_hitl_shell.plan.md`](../../.cursor/plans/relay_desk_hitl_shell.plan.md) |
