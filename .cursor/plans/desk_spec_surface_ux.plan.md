@@ -4,7 +4,7 @@ overview: "Make Relay Desk Spec operable as Intent → scaffold → validate →
 todos:
   - id: pipeline-stepper
     content: "Replace static INTENT→…→RUN breadcrumb with stateful stepper (done / current / blocked) driven by yaml, validation, evals, lowered, frozenId, runResult"
-    status: pending
+    status: completed
   - id: gate-actions
     content: "Disable Evals until validate ok; Lower/Freeze/Run until evals pass (optional force bypass with explicit confirm); one-line reason when disabled"
     status: pending

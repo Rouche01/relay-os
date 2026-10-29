@@ -10,6 +10,10 @@ import {
   validateSpec,
 } from "./client.ts";
 import {
+  deriveSpecPipeline,
+  scrollToSpecStep,
+} from "./pipeline.ts";
+import {
   DEFAULT_CE_INTENT,
   type EvalsResponse,
   type LowerResponse,
@@ -48,6 +52,16 @@ export function SpecSurface({ settings }: Props) {
       return [];
     }
   })();
+
+  const pipeline = deriveSpecPipeline({
+    intent,
+    yaml,
+    validation,
+    evals,
+    lowered,
+    frozenId,
+    runResult,
+  });
 
   const onScaffold = useCallback(async () => {
     setBusy(true);
@@ -203,13 +217,48 @@ export function SpecSurface({ settings }: Props) {
       <div class="console-head">
         <h1 class="console-title">Spec</h1>
         <p class="console-sub">
-          intent → scaffold → validate → evals → freeze → run · HITL stays in
-          Console
+          Intent → dry-run · HITL stays in Console
         </p>
+        <nav class="spec-pipeline" aria-label="Spec pipeline">
+          <ol class="spec-pipeline-list">
+            {pipeline.map((step, i) => (
+              <li
+                key={step.id}
+                class="spec-pipeline-item"
+                data-status={step.status}
+              >
+                {i > 0 ? (
+                  <span class="spec-pipeline-sep" aria-hidden="true">
+                    →
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  class="spec-pipeline-step"
+                  data-status={step.status}
+                  disabled={step.status === "blocked"}
+                  aria-current={
+                    step.status === "current" || step.status === "error"
+                      ? "step"
+                      : undefined
+                  }
+                  title={
+                    step.status === "blocked"
+                      ? "Complete earlier steps first"
+                      : `Go to ${step.label}`
+                  }
+                  onClick={() => scrollToSpecStep(step.target)}
+                >
+                  {step.label}
+                </button>
+              </li>
+            ))}
+          </ol>
+        </nav>
       </div>
 
       <div class="spec-grid">
-        <section class="tile">
+        <section class="tile" data-spec-step="intent">
           <div class="tile-stack">
             <p class="tile-label">Intent</p>
             <textarea
@@ -241,7 +290,7 @@ export function SpecSurface({ settings }: Props) {
           </div>
         </section>
 
-        <section class="tile">
+        <section class="tile" data-spec-step="yaml">
           <div class="tile-stack">
             <p class="tile-label">Spec YAML</p>
             <textarea
@@ -281,7 +330,7 @@ export function SpecSurface({ settings }: Props) {
           </div>
         </section>
 
-        <section class="tile">
+        <section class="tile" data-spec-step="validate">
           <div class="tile-stack">
             <p class="tile-label">Validator</p>
             {validation ? (
@@ -311,7 +360,7 @@ export function SpecSurface({ settings }: Props) {
           </div>
         </section>
 
-        <section class="tile">
+        <section class="tile" data-spec-step="evals">
           <div class="tile-stack">
             <p class="tile-label">Rules / evals</p>
             {rules.length ? (
@@ -376,6 +425,7 @@ export function SpecSurface({ settings }: Props) {
 
         <section
           class={`tile${manifestExpanded && lowered?.ok ? " spec-tile-wide" : ""}`}
+          data-spec-step="lower"
         >
           <div class="tile-stack">
             <div class="tile-head">
@@ -447,7 +497,7 @@ export function SpecSurface({ settings }: Props) {
           </div>
         </section>
 
-        <section class="tile">
+        <section class="tile" data-spec-step="freeze">
           <div class="tile-stack">
             <p class="tile-label">Freeze / run</p>
             <div class="cta-row">
