@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: dry-run-panel
     content: "Promote Run dry into its own panel/tabs (Steps / Evidence / Summary) using stepOutputs + evidence from /api/v2/run; not buried under Freeze"
-    status: pending
+    status: completed
   - id: scaffold-modes
     content: "Scaffold chips for mode llm|stub|needs edits, attempts, Retry; treat partial YAML + validation errors as first-class"
     status: pending

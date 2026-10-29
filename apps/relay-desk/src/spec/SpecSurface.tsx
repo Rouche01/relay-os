@@ -54,6 +54,9 @@ export function SpecSurface({ settings }: Props) {
   const [runResult, setRunResult] = useState<RunResponse | undefined>();
   /** Bypass evals gate for Lower / Freeze / Run (explicit). */
   const [forcePipeline, setForcePipeline] = useState(false);
+  const [runTab, setRunTab] = useState<"steps" | "evidence" | "summary">(
+    "steps"
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -622,7 +625,7 @@ export function SpecSurface({ settings }: Props) {
 
         <section class="tile" data-spec-step="freeze">
           <div class="tile-stack">
-            <p class="tile-label">Freeze / run</p>
+            <p class="tile-label">Freeze</p>
             <div class="cta-row">
               <button
                 type="button"
@@ -632,15 +635,6 @@ export function SpecSurface({ settings }: Props) {
                 onClick={() => void onFreeze()}
               >
                 Freeze
-              </button>
-              <button
-                type="button"
-                class="cta"
-                disabled={!runGate.enabled}
-                title={runGate.reason}
-                onClick={() => void onRun()}
-              >
-                Run dry
               </button>
               {!evalsPassed ? (
                 <button
@@ -654,51 +648,148 @@ export function SpecSurface({ settings }: Props) {
                 </button>
               ) : null}
             </div>
-            {freezeGateHint ? (
-              <p class="tile-meta mono spec-gate-hint">{freezeGateHint}</p>
+            {freezeGate.reason && !freezeGate.enabled ? (
+              <p class="tile-meta mono spec-gate-hint">{freezeGate.reason}</p>
+            ) : forcePipeline && !evalsPassed ? (
+              <p class="tile-meta mono spec-gate-hint">
+                force · freeze unlocked
+              </p>
             ) : null}
             {frozenId ? (
               <p class="tile-meta mono">frozen · {frozenId}</p>
+            ) : (
+              <p class="tile-meta">
+                Optional before dry-run — Run also freezes a throwaway copy.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section class="tile spec-tile-wide" data-spec-step="run">
+          <div class="tile-stack">
+            <div class="tile-head">
+              <p class="tile-label">Dry-run</p>
+              {runResult ? (
+                <p class="tile-meta mono">
+                  {runResult.state ?? (runResult.ok ? "COMPLETE" : "FAILED")}
+                  {runResult.evidenceCount != null
+                    ? ` · evidence ${runResult.evidenceCount}`
+                    : ""}
+                </p>
+              ) : null}
+            </div>
+            <div class="cta-row">
+              <button
+                type="button"
+                class="cta"
+                disabled={!runGate.enabled}
+                title={runGate.reason}
+                onClick={() => {
+                  setRunTab("steps");
+                  void onRun();
+                }}
+              >
+                {busy && busyLabel?.startsWith("Running")
+                  ? "Running…"
+                  : "Run dry"}
+              </button>
+              {!evalsPassed ? (
+                <button
+                  type="button"
+                  class="cta linkish"
+                  disabled={busy || !yaml.trim()}
+                  aria-pressed={forcePipeline}
+                  onClick={() => setForcePipeline((v) => !v)}
+                >
+                  {forcePipeline ? "Force on" : "Force"}
+                </button>
+              ) : null}
+            </div>
+            {runGate.reason && !runGate.enabled ? (
+              <p class="tile-meta mono spec-gate-hint">{runGate.reason}</p>
+            ) : freezeGateHint && forcePipeline ? (
+              <p class="tile-meta mono spec-gate-hint">{freezeGateHint}</p>
             ) : null}
-            {runResult ? (
+
+            <div class="spec-run-tabs" role="tablist" aria-label="Dry-run views">
+              {(
+                [
+                  ["steps", "Steps"],
+                  ["evidence", "Evidence"],
+                  ["summary", "Summary"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  class="spec-run-tab"
+                  aria-selected={runTab === id}
+                  data-active={runTab === id ? "1" : "0"}
+                  onClick={() => setRunTab(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {!runResult ? (
+              <p class="tile-meta">
+                Run dry to populate fixtures + stub LLM trail. HITL is
+                auto-approved here; live cards stay on Console.
+              </p>
+            ) : runTab === "steps" ? (
+              Object.keys(runResult.stepOutputs ?? {}).length ? (
+                <pre class="spec-pre spec-pre-expanded">
+                  {JSON.stringify(runResult.stepOutputs, null, 2)}
+                </pre>
+              ) : (
+                <p class="tile-meta">No step outputs in this run.</p>
+              )
+            ) : runTab === "evidence" ? (
+              runResult.evidence?.length ? (
+                <pre class="spec-pre spec-pre-expanded">
+                  {JSON.stringify(
+                    runResult.evidence.map((e) => ({
+                      step: e.stepId,
+                      kind: e.kind,
+                      detail: e.detail,
+                    })),
+                    null,
+                    2
+                  )}
+                </pre>
+              ) : (
+                <p class="tile-meta">
+                  No evidence entries
+                  {runResult.evidenceCount
+                    ? ` (count ${runResult.evidenceCount})`
+                    : ""}
+                  .
+                </p>
+              )
+            ) : (
               <div class="tile-copy">
                 <h2 class="tile-title">
                   {runResult.state ?? (runResult.ok ? "COMPLETE" : "FAILED")}
                 </h2>
                 <p class="tile-meta mono">
                   evidence · {runResult.evidenceCount ?? 0}
-                  {runResult.specHash
-                    ? ` · ${runResult.specHash.slice(0, 12)}…`
-                    : ""}
+                  {runResult.specId ? ` · id ${runResult.specId}` : ""}
                 </p>
+                {runResult.specHash ? (
+                  <p class="tile-meta mono">hash · {runResult.specHash}</p>
+                ) : null}
                 {runResult.note ? (
                   <p class="tile-meta">{runResult.note}</p>
                 ) : null}
-                {runResult.stepOutputs &&
-                Object.keys(runResult.stepOutputs).length ? (
-                  <pre class="spec-pre spec-pre-expanded">
-                    {JSON.stringify(runResult.stepOutputs, null, 2)}
-                  </pre>
-                ) : null}
-                {runResult.evidence?.length ? (
+                {runResult.stageResults &&
+                Object.keys(runResult.stageResults).length ? (
                   <pre class="spec-pre">
-                    {JSON.stringify(
-                      runResult.evidence.map((e) => ({
-                        step: e.stepId,
-                        kind: e.kind,
-                        detail: e.detail,
-                      })),
-                      null,
-                      2
-                    )}
+                    {JSON.stringify(runResult.stageResults, null, 2)}
                   </pre>
                 ) : null}
               </div>
-            ) : (
-              <p class="tile-meta">
-                Dry-run auto-approves HITL and shows step outputs here. Live
-                negotiate cards stay on Console.
-              </p>
             )}
           </div>
         </section>

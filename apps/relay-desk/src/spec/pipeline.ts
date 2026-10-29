@@ -41,7 +41,7 @@ const STEPS: Array<{
   { id: "evals", label: "Evals", target: "evals" },
   { id: "lower", label: "Lower", target: "lower" },
   { id: "freeze", label: "Freeze", target: "freeze" },
-  { id: "run", label: "Run", target: "freeze" },
+  { id: "run", label: "Run", target: "run" },
 ];
 
 function isDone(id: SpecPipelineStepId, s: SpecPipelineInput): boolean {

@@ -418,6 +418,37 @@ body {
   margin: 0.15rem 0 0;
 }
 
+.spec-run-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.spec-run-tab {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.spec-run-tab:hover {
+  color: var(--ink);
+}
+
+.spec-run-tab[data-active="1"] {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--ink) 35%, var(--line));
+  background: color-mix(in srgb, var(--panel-2) 80%, var(--void));
+}
+
 .spec-error {
   margin: 0;
 }
