@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import type { DeskSettings } from "../gateway/types.ts";
 import {
   evalSpec,
@@ -19,6 +19,7 @@ import {
   type EvalsResponse,
   type LowerResponse,
   type RunResponse,
+  type SpecValidationIssue,
   type SpecValidationResult,
 } from "./types.ts";
 
@@ -26,10 +27,84 @@ type Props = {
   settings: DeskSettings;
 };
 
+/** Chip after a scaffold attempt — distinct from raw API `mode`. */
+type ScaffoldOutcome = "llm" | "stub" | "needs_edits";
+
 function condenseError(message: string, max = 96): string {
   const one = message.replace(/\s+/g, " ").trim();
   if (one.length <= max) return one;
   return `${one.slice(0, max - 1)}…`;
+}
+
+function resolveScaffoldOutcome(res: {
+  ok: boolean;
+  mode?: string;
+  yaml?: string;
+  validation?: SpecValidationResult;
+}): ScaffoldOutcome | undefined {
+  if (!res.yaml?.trim()) return undefined;
+  if (!res.ok || res.validation?.ok === false) return "needs_edits";
+  if (res.mode === "stub") return "stub";
+  return "llm";
+}
+
+/** 0-based line index for a validator hint, or -1. */
+function findYamlIssueLine(
+  yaml: string,
+  issue: Pick<SpecValidationIssue, "path" | "stepId" | "ruleId">
+): number {
+  const lines = yaml.split("\n");
+  if (issue.stepId) {
+    const needle = issue.stepId;
+    for (let i = 0; i < lines.length; i++) {
+      if (new RegExp(`^\\s+-\\s+id:\\s*["']?${escapeRegExp(needle)}\\b`).test(lines[i]!)) {
+        return i;
+      }
+    }
+  }
+  if (issue.ruleId) {
+    const needle = issue.ruleId;
+    for (let i = 0; i < lines.length; i++) {
+      if (new RegExp(`^\\s+-\\s+id:\\s*["']?${escapeRegExp(needle)}\\b`).test(lines[i]!)) {
+        return i;
+      }
+    }
+  }
+  if (issue.path) {
+    const leaf = issue.path.split("/").filter(Boolean).pop();
+    if (leaf && !/^\d+$/.test(leaf)) {
+      for (let i = 0; i < lines.length; i++) {
+        if (new RegExp(`^\\s*${escapeRegExp(leaf)}\\s*:`).test(lines[i]!)) {
+          return i;
+        }
+      }
+    }
+  }
+  return -1;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function focusYamlLine(
+  textarea: HTMLTextAreaElement | null,
+  yaml: string,
+  lineIndex: number
+): void {
+  if (!textarea || lineIndex < 0) return;
+  const lines = yaml.split("\n");
+  let start = 0;
+  for (let i = 0; i < lineIndex; i++) {
+    start += (lines[i]?.length ?? 0) + 1;
+  }
+  const end = start + (lines[lineIndex]?.length ?? 0);
+  scrollToSpecStep("yaml");
+  textarea.focus();
+  textarea.setSelectionRange(start, end);
+  const lineHeight =
+    Number.parseFloat(getComputedStyle(textarea).lineHeight) || 18;
+  textarea.scrollTop = Math.max(0, lineIndex * lineHeight - textarea.clientHeight / 3);
 }
 
 /**
@@ -46,6 +121,11 @@ export function SpecSurface({ settings }: Props) {
   const [error, setError] = useState<string | undefined>();
   const [llmProvider, setLlmProvider] = useState<string | undefined>();
   const [mode, setMode] = useState<string | undefined>();
+  const [scaffoldOutcome, setScaffoldOutcome] = useState<
+    ScaffoldOutcome | undefined
+  >();
+  const [scaffoldAttempts, setScaffoldAttempts] = useState<number | undefined>();
+  const [scaffoldNote, setScaffoldNote] = useState<string | undefined>();
   const [validation, setValidation] = useState<SpecValidationResult | undefined>();
   const [evals, setEvals] = useState<EvalsResponse | undefined>();
   const [lowered, setLowered] = useState<LowerResponse | undefined>();
@@ -56,6 +136,15 @@ export function SpecSurface({ settings }: Props) {
   const [forcePipeline, setForcePipeline] = useState(false);
   const [runTab, setRunTab] = useState<"steps" | "evidence" | "summary">(
     "steps"
+  );
+  const yamlRef = useRef<HTMLTextAreaElement>(null);
+
+  const jumpToIssue = useCallback(
+    (issue: Pick<SpecValidationIssue, "path" | "stepId" | "ruleId">) => {
+      const line = findYamlIssueLine(yaml, issue);
+      focusYamlLine(yamlRef.current, yaml, line);
+    },
+    [yaml]
   );
 
   useEffect(() => {
@@ -136,6 +225,7 @@ export function SpecSurface({ settings }: Props) {
     setError(undefined);
     setRunResult(undefined);
     setFrozenId(undefined);
+    setScaffoldNote(undefined);
     try {
       const provider = await fetchScaffoldProvider(settings);
       setBusyLabel(`Scaffolding with ${provider}… often 30–90s`);
@@ -143,6 +233,7 @@ export function SpecSurface({ settings }: Props) {
       const res = await scaffoldSpec(settings, intent);
       if (res.yaml) setYaml(res.yaml);
       setMode(res.mode);
+      setScaffoldAttempts(res.attempts);
       setEvals(undefined);
       setLowered(undefined);
       setForcePipeline(false);
@@ -155,6 +246,23 @@ export function SpecSurface({ settings }: Props) {
           errors: res.errors,
           warnings: [],
         });
+      } else if (res.ok) {
+        setValidation(undefined);
+      }
+      const outcome = resolveScaffoldOutcome({
+        ok: res.ok,
+        mode: res.mode,
+        yaml: res.yaml,
+        validation: res.validation
+          ? res.validation
+          : res.errors?.length
+            ? { ok: false, errors: res.errors, warnings: [] }
+            : undefined,
+      });
+      setScaffoldOutcome(outcome);
+      if (outcome === "needs_edits") {
+        setScaffoldNote(res.note);
+        scrollToSpecStep("validate");
       }
       if (!res.ok || !res.yaml) {
         const detail =
@@ -331,7 +439,11 @@ export function SpecSurface({ settings }: Props) {
         >
           <span class="spec-status-chip mono">
             llm · {llmProvider ?? "…"}
-            {mode ? ` · mode ${mode}` : ""}
+            {scaffoldOutcome
+              ? ` · ${scaffoldOutcome.replace("_", " ")}`
+              : mode
+                ? ` · mode ${mode}`
+                : ""}
           </span>
           {busy ? (
             <span class="spec-status-chip mono" data-tone="busy">
@@ -380,16 +492,43 @@ export function SpecSurface({ settings }: Props) {
               >
                 {busy && busyLabel?.startsWith("Scaffold")
                   ? "Scaffolding…"
-                  : "Scaffold"}
+                  : scaffoldOutcome
+                    ? "Retry scaffold"
+                    : "Scaffold"}
               </button>
               {busy && busyLabel ? (
                 <span class="hint mono" aria-live="polite">
                   {busyLabel}
                 </span>
-              ) : mode ? (
-                <span class="hint mono">mode · {mode}</span>
               ) : scaffoldGate.reason ? (
                 <span class="hint mono">{scaffoldGate.reason}</span>
+              ) : null}
+            </div>
+            <div class="spec-scaffold-meta" aria-live="polite">
+              <div class="spec-outcome-chips" role="list">
+                {(
+                  [
+                    ["llm", "llm"],
+                    ["stub", "stub"],
+                    ["needs_edits", "needs edits"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <span
+                    key={id}
+                    role="listitem"
+                    class="spec-outcome-chip"
+                    data-active={scaffoldOutcome === id ? "1" : "0"}
+                    data-tone={id === "needs_edits" ? "warn" : "neutral"}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+              {scaffoldAttempts != null ? (
+                <span class="hint mono">attempts · {scaffoldAttempts}</span>
+              ) : null}
+              {scaffoldNote ? (
+                <p class="tile-meta mono spec-scaffold-note">{scaffoldNote}</p>
               ) : null}
             </div>
           </div>
@@ -399,6 +538,7 @@ export function SpecSurface({ settings }: Props) {
           <div class="tile-stack">
             <p class="tile-label">Spec YAML</p>
             <textarea
+              ref={yamlRef}
               class="spec-textarea mono"
               rows={14}
               value={yaml}
@@ -471,11 +611,68 @@ export function SpecSurface({ settings }: Props) {
                     ? ` · ${validation.durationMs.toFixed(1)}ms`
                     : ""}
                 </p>
-                {validation.errors.slice(0, 8).map((e) => (
-                  <p class="tile-meta error" key={`${e.code}-${e.message}`}>
-                    [{e.code}] {e.message}
-                  </p>
-                ))}
+                {validation.errors.length || validation.warnings?.length ? (
+                  <div class="spec-diag-scroll">
+                    <table class="spec-diag-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Sev</th>
+                          <th scope="col">Code</th>
+                          <th scope="col">Where</th>
+                          <th scope="col">Message</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {validation.errors.map((e, i) => (
+                          <tr key={`e-${e.code}-${i}`}>
+                            <td class="mono">err</td>
+                            <td class="mono">{e.code}</td>
+                            <td class="mono">
+                              <button
+                                type="button"
+                                class="spec-diag-jump"
+                                disabled={
+                                  findYamlIssueLine(yaml, e) < 0
+                                }
+                                title="Jump to YAML"
+                                onClick={() => jumpToIssue(e)}
+                              >
+                                {[e.stepId, e.path, e.ruleId]
+                                  .filter(Boolean)
+                                  .join(" · ") || "—"}
+                              </button>
+                            </td>
+                            <td>{e.message}</td>
+                          </tr>
+                        ))}
+                        {(validation.warnings ?? []).map((e, i) => (
+                          <tr key={`w-${e.code}-${i}`} data-sev="warn">
+                            <td class="mono">warn</td>
+                            <td class="mono">{e.code}</td>
+                            <td class="mono">
+                              <button
+                                type="button"
+                                class="spec-diag-jump"
+                                disabled={
+                                  findYamlIssueLine(yaml, e) < 0
+                                }
+                                title="Jump to YAML"
+                                onClick={() => jumpToIssue(e)}
+                              >
+                                {[e.stepId, e.path, e.ruleId]
+                                  .filter(Boolean)
+                                  .join(" · ") || "—"}
+                              </button>
+                            </td>
+                            <td>{e.message}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p class="tile-meta">No issues</p>
+                )}
               </div>
             ) : (
               <div class="tile-copy">
@@ -510,29 +707,47 @@ export function SpecSurface({ settings }: Props) {
                     : ""}
                 </p>
                 {evals.report.cases.length ? (
-                  <ul class="spec-rule-list">
-                    {evals.report.cases.map((c) => (
-                      <li key={c.caseId}>
-                        <span class="mono">{c.caseId}</span>
-                        <span class="muted">
-                          {" "}
-                          · {c.passed ? "pass" : "fail"}
-                          {!c.passed && c.results?.length
-                            ? ` · ${c.results
-                                .filter((r) => !r.ok)
-                                .map(
-                                  (r) =>
-                                    `${r.ruleId} got=${r.passed} want=${
-                                      r.expected ?? "pass"
-                                    }`
-                                )
-                                .join("; ")}`
-                            : ""}
-                          {c.error ? ` · ${c.error}` : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div class="spec-diag-scroll">
+                    <table class="spec-diag-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Case</th>
+                          <th scope="col">Result</th>
+                          <th scope="col">Detail</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {evals.report.cases.map((c) => {
+                          const failing = (c.results ?? []).filter(
+                            (r) => !r.ok
+                          );
+                          const detail =
+                            c.error ||
+                            failing
+                              .map(
+                                (r) =>
+                                  `${r.ruleId} got=${r.passed} want=${
+                                    r.expected ?? "pass"
+                                  }`
+                              )
+                              .join("; ") ||
+                            (c.passed ? "—" : "failed");
+                          return (
+                            <tr
+                              key={c.caseId}
+                              data-sev={c.passed ? "ok" : "err"}
+                            >
+                              <td class="mono">{c.caseId}</td>
+                              <td class="mono">
+                                {c.passed ? "pass" : "fail"}
+                              </td>
+                              <td>{detail}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : null}
                 {!evals.report.passed && evals.report.errors?.length ? (
                   <p class="tile-meta error mono">

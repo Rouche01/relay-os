@@ -16,10 +16,10 @@ todos:
     status: completed
   - id: scaffold-modes
     content: "Scaffold chips for mode llm|stub|needs edits, attempts, Retry; treat partial YAML + validation errors as first-class"
-    status: pending
+    status: completed
   - id: inline-diagnostics
     content: "Validator issues + eval case table inline (path/stepId, case·pass/fail·rule); jump/highlight YAML when cheap"
-    status: pending
+    status: completed
   - id: intent-presets
     content: "Intent library presets (CE fashion, freight wedge, blank) instead of single DEFAULT_CE_INTENT only"
     status: pending

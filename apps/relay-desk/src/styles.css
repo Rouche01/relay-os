@@ -418,6 +418,46 @@ body {
   margin: 0.15rem 0 0;
 }
 
+.spec-scaffold-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.spec-outcome-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.spec-outcome-chip {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.spec-outcome-chip[data-active="1"] {
+  opacity: 1;
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--ink) 35%, var(--line));
+}
+
+.spec-outcome-chip[data-active="1"][data-tone="warn"] {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+}
+
+.spec-scaffold-note {
+  margin: 0;
+}
+
 .spec-run-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -447,6 +487,73 @@ body {
   color: var(--ink);
   border-color: color-mix(in srgb, var(--ink) 35%, var(--line));
   background: color-mix(in srgb, var(--panel-2) 80%, var(--void));
+}
+
+.spec-diag-scroll {
+  max-height: 14rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.spec-diag-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.spec-diag-table th,
+.spec-diag-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.4rem 0.55rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.spec-diag-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.spec-diag-table tr[data-sev="warn"] td {
+  color: var(--warn);
+}
+
+.spec-diag-table tr[data-sev="err"] td:nth-child(2) {
+  color: var(--danger);
+}
+
+.spec-diag-jump {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line);
+}
+
+.spec-diag-jump:hover:not(:disabled) {
+  color: var(--ink);
+  text-decoration-color: var(--ink);
+}
+
+.spec-diag-jump:disabled {
+  cursor: default;
+  text-decoration: none;
+  opacity: 0.7;
 }
 
 .spec-error {
