@@ -32,10 +32,12 @@ async function specHttp(
   settings: DeskSettings,
   method: string,
   path: string,
-  body?: unknown
+  body?: unknown,
+  opts?: { timeoutMs?: number }
 ): Promise<HttpResult> {
   const base = normalizeBase(settings.specApiUrl);
   const urlPath = path.startsWith("/") ? path : `/${path}`;
+  const timeoutMs = opts?.timeoutMs;
 
   if (await isTauri()) {
     return invoke<HttpResult>("gateway_http", {
@@ -53,12 +55,27 @@ async function specHttp(
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
-  const res = await fetch(`${base}${urlPath}`, {
-    method,
-    headers,
-    body: payload,
-  });
-  return { status: res.status, body: await res.text() };
+  const signal =
+    timeoutMs && timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined;
+  try {
+    const res = await fetch(`${base}${urlPath}`, {
+      method,
+      headers,
+      body: payload,
+      signal,
+    });
+    return { status: res.status, body: await res.text() };
+  } catch (err) {
+    if (
+      err instanceof DOMException &&
+      (err.name === "TimeoutError" || err.name === "AbortError")
+    ) {
+      throw new Error(
+        `Spec API timed out after ${Math.round((timeoutMs ?? 0) / 1000)}s — check LLM key / network, or retry`
+      );
+    }
+    throw err;
+  }
 }
 
 function parseJson<T>(raw: string): T {
@@ -70,21 +87,43 @@ export async function probeSpecApi(settings: DeskSettings): Promise<string> {
   if (res.status < 200 || res.status >= 300) {
     throw new Error(`Spec API probe failed (${res.status}): ${res.body.slice(0, 200)}`);
   }
-  const data = parseJson<{ ok?: boolean; specV2?: boolean }>(res.body);
+  const data = parseJson<{
+    ok?: boolean;
+    specV2?: boolean;
+    llmProvider?: string;
+  }>(res.body);
   if (!data.specV2) {
     throw new Error("Spec API reachable but Spec v2 routes not advertised — update relay-shell");
   }
-  return `reachable · Spec v2 (HTTP ${res.status})`;
+  const llm = data.llmProvider ? ` · llm ${data.llmProvider}` : "";
+  return `reachable · Spec v2${llm} (HTTP ${res.status})`;
 }
+
+/** Provider advertised by Spec API health (`anthropic` | `gemini` | `stub` | …). */
+export async function fetchScaffoldProvider(
+  settings: DeskSettings
+): Promise<string> {
+  try {
+    const res = await specHttp(settings, "GET", "/api/health");
+    const data = parseJson<{ llmProvider?: string }>(res.body);
+    return (data.llmProvider || "llm").trim() || "llm";
+  } catch {
+    return "llm";
+  }
+}
+
+/** Live LLM scaffold often takes 30–90s (draft + repair loop). */
+const SCAFFOLD_TIMEOUT_MS = 120_000;
 
 export async function scaffoldSpec(
   settings: DeskSettings,
   intent: string,
   opts?: { stub?: boolean }
 ): Promise<ScaffoldResponse> {
-  const res = await specHttp(settings, "POST", "/api/v2/scaffold", {
-    intent,
-    stub: opts?.stub,
+  const payload: { intent: string; stub?: boolean } = { intent };
+  if (opts?.stub !== undefined) payload.stub = opts.stub;
+  const res = await specHttp(settings, "POST", "/api/v2/scaffold", payload, {
+    timeoutMs: SCAFFOLD_TIMEOUT_MS,
   });
   return { ...parseJson<ScaffoldResponse>(res.body), status: res.status };
 }

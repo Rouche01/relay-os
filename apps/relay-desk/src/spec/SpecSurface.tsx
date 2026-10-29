@@ -2,6 +2,7 @@ import { useCallback, useState } from "preact/hooks";
 import type { DeskSettings } from "../gateway/types.ts";
 import {
   evalSpec,
+  fetchScaffoldProvider,
   freezeSpec,
   lowerSpec,
   runSpec,
@@ -28,11 +29,13 @@ export function SpecSurface({ settings }: Props) {
   const [intent, setIntent] = useState(DEFAULT_CE_INTENT);
   const [yaml, setYaml] = useState("");
   const [busy, setBusy] = useState(false);
+  const [busyLabel, setBusyLabel] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [mode, setMode] = useState<string | undefined>();
   const [validation, setValidation] = useState<SpecValidationResult | undefined>();
   const [evals, setEvals] = useState<EvalsResponse | undefined>();
   const [lowered, setLowered] = useState<LowerResponse | undefined>();
+  const [manifestExpanded, setManifestExpanded] = useState(false);
   const [frozenId, setFrozenId] = useState<string | undefined>();
   const [runResult, setRunResult] = useState<RunResponse | undefined>();
 
@@ -48,33 +51,54 @@ export function SpecSurface({ settings }: Props) {
 
   const onScaffold = useCallback(async () => {
     setBusy(true);
+    setBusyLabel("Scaffolding… often 30–90s");
     setError(undefined);
     setRunResult(undefined);
     setFrozenId(undefined);
     try {
-      const res = await scaffoldSpec(settings, intent, { stub: true });
-      if (!res.ok || !res.yaml) {
-        throw new Error(
-          res.error ||
-            res.errors?.map((e) => e.message).join("; ") ||
-            "Scaffold failed"
-        );
-      }
-      setYaml(res.yaml);
+      const provider = await fetchScaffoldProvider(settings);
+      setBusyLabel(`Scaffolding with ${provider}… often 30–90s`);
+      // Prefer live LLM on the shell when a key is present; shell falls back to stub.
+      const res = await scaffoldSpec(settings, intent);
+      if (res.yaml) setYaml(res.yaml);
       setMode(res.mode);
-      setValidation(res.validation);
       setEvals(undefined);
       setLowered(undefined);
+      setManifestExpanded(false);
+      if (res.validation) {
+        setValidation(res.validation);
+      } else if (res.errors?.length) {
+        setValidation({
+          ok: false,
+          errors: res.errors,
+          warnings: [],
+        });
+      }
+      if (!res.ok || !res.yaml) {
+        const detail =
+          res.note ||
+          res.errors
+            ?.slice(0, 4)
+            .map((e) => e.message)
+            .join(" · ") ||
+          res.error ||
+          "Scaffold failed";
+        throw new Error(
+          res.yaml ? `Scaffold needs edits — ${detail}` : detail
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
+      setBusyLabel(undefined);
     }
   }, [intent, settings]);
 
   const onValidate = useCallback(async () => {
     if (!yaml.trim()) return;
     setBusy(true);
+    setBusyLabel("Validating…");
     setError(undefined);
     try {
       const res = await validateSpec(settings, yaml);
@@ -84,49 +108,59 @@ export function SpecSurface({ settings }: Props) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
+      setBusyLabel(undefined);
     }
   }, [settings, yaml]);
 
   const onEvals = useCallback(async () => {
     if (!yaml.trim()) return;
     setBusy(true);
+    setBusyLabel("Running evals…");
     setError(undefined);
     try {
       const res = await evalSpec(settings, yaml);
       setEvals(res);
       if (!res.ok) {
         setError(
-          res.report?.errors?.join("; ") || "Evals failed — live run gated"
+          res.report?.errors?.join("; ") ||
+            res.error ||
+            "Evals failed — fix rules or fixtures before freeze/run"
         );
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
+      setBusyLabel(undefined);
     }
   }, [settings, yaml]);
 
   const onLower = useCallback(async () => {
     if (!yaml.trim()) return;
     setBusy(true);
+    setBusyLabel("Lowering…");
     setError(undefined);
     try {
       const res = await lowerSpec(settings, yaml);
       setLowered(res);
       if (!res.ok) {
         setValidation(res.validation);
+        setManifestExpanded(false);
         throw new Error(res.error || "Lower failed");
       }
+      setManifestExpanded(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
+      setBusyLabel(undefined);
     }
   }, [settings, yaml]);
 
   const onFreeze = useCallback(async () => {
     if (!yaml.trim()) return;
     setBusy(true);
+    setBusyLabel("Freezing…");
     setError(undefined);
     try {
       const res = await freezeSpec(settings, yaml);
@@ -140,12 +174,14 @@ export function SpecSurface({ settings }: Props) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
+      setBusyLabel(undefined);
     }
   }, [settings, yaml]);
 
   const onRun = useCallback(async () => {
     if (!yaml.trim()) return;
     setBusy(true);
+    setBusyLabel("Running (dry-run)…");
     setError(undefined);
     try {
       const res = await runSpec(settings, yaml, { autoApprove: true });
@@ -158,6 +194,7 @@ export function SpecSurface({ settings }: Props) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
+      setBusyLabel(undefined);
     }
   }, [settings, yaml]);
 
@@ -189,9 +226,17 @@ export function SpecSurface({ settings }: Props) {
                 disabled={busy || !intent.trim()}
                 onClick={() => void onScaffold()}
               >
-                Scaffold
+                {busy && busyLabel?.startsWith("Scaffold")
+                  ? "Scaffolding…"
+                  : "Scaffold"}
               </button>
-              {mode ? <span class="hint mono">mode · {mode}</span> : null}
+              {busy && busyLabel ? (
+                <span class="hint mono" aria-live="polite">
+                  {busyLabel}
+                </span>
+              ) : mode ? (
+                <span class="hint mono">mode · {mode}</span>
+              ) : null}
             </div>
           </div>
         </section>
@@ -284,9 +329,41 @@ export function SpecSurface({ settings }: Props) {
             {evals?.report ? (
               <div class="tile-copy">
                 <p class="tile-meta mono">
-                  evals · {evals.report.passed ? "pass" : "fail"} ·{" "}
-                  {evals.report.cases.map((c) => c.caseId).join(", ")}
+                  evals · {evals.report.passed ? "pass" : "fail"}
+                  {evals.report.cases.length
+                    ? ` · ${evals.report.cases.length} case(s)`
+                    : ""}
                 </p>
+                {evals.report.cases.length ? (
+                  <ul class="spec-rule-list">
+                    {evals.report.cases.map((c) => (
+                      <li key={c.caseId}>
+                        <span class="mono">{c.caseId}</span>
+                        <span class="muted">
+                          {" "}
+                          · {c.passed ? "pass" : "fail"}
+                          {!c.passed && c.results?.length
+                            ? ` · ${c.results
+                                .filter((r) => !r.ok)
+                                .map(
+                                  (r) =>
+                                    `${r.ruleId} got=${r.passed} want=${
+                                      r.expected ?? "pass"
+                                    }`
+                                )
+                                .join("; ")}`
+                            : ""}
+                          {c.error ? ` · ${c.error}` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {!evals.report.passed && evals.report.errors?.length ? (
+                  <p class="tile-meta error mono">
+                    {evals.report.errors.slice(0, 3).join(" · ")}
+                  </p>
+                ) : null}
               </div>
             ) : null}
             {evals?.compiled?.uncovered?.length ? (
@@ -297,26 +374,65 @@ export function SpecSurface({ settings }: Props) {
           </div>
         </section>
 
-        <section class="tile">
+        <section
+          class={`tile${manifestExpanded && lowered?.ok ? " spec-tile-wide" : ""}`}
+        >
           <div class="tile-stack">
-            <p class="tile-label">Manifest</p>
+            <div class="tile-head">
+              <p class="tile-label">Manifest</p>
+              {lowered?.ok ? (
+                <button
+                  type="button"
+                  class="cta linkish"
+                  onClick={() => setManifestExpanded((v) => !v)}
+                >
+                  {manifestExpanded ? "Collapse" : "Expand full"}
+                </button>
+              ) : null}
+            </div>
             {lowered?.ok ? (
               <div class="tile-copy">
-                <h2 class="tile-title">{String(lowered.manifest?.name ?? "workflow")}</h2>
+                <h2 class="tile-title">
+                  {String(lowered.manifest?.name ?? "workflow")}
+                </h2>
                 <p class="tile-meta mono">
-                  hash · {lowered.specHash?.slice(0, 16)}…
+                  hash · {lowered.specHash}
                 </p>
-                <pre class="spec-pre">
+                <p class="tile-meta mono">
+                  stages ·{" "}
+                  {(lowered.manifest?.stages as unknown[] | undefined)
+                    ?.map((s) =>
+                      typeof s === "object" && s && "name" in s
+                        ? (s as { name: string }).name
+                        : String(s)
+                    )
+                    .join(" → ") ?? "—"}
+                  {" · "}
+                  engines ·{" "}
+                  {Array.isArray(lowered.manifest?.engines_required)
+                    ? (lowered.manifest.engines_required as string[]).join(", ")
+                    : "—"}
+                </p>
+                <pre
+                  class={`spec-pre${manifestExpanded ? " spec-pre-expanded" : ""}`}
+                >
                   {JSON.stringify(
-                    {
-                      stages: (lowered.manifest?.stages as unknown[])?.map(
-                        (s) =>
-                          typeof s === "object" && s && "name" in s
-                            ? (s as { name: string }).name
-                            : s
-                      ),
-                      engines: lowered.manifest?.engines_required,
-                    },
+                    manifestExpanded
+                      ? {
+                          specHash: lowered.specHash,
+                          manifest: lowered.manifest,
+                          relay: lowered.relay,
+                        }
+                      : {
+                          stages: (
+                            lowered.manifest?.stages as unknown[] | undefined
+                          )?.map((s) =>
+                            typeof s === "object" && s && "name" in s
+                              ? (s as { name: string }).name
+                              : s
+                          ),
+                          engines: lowered.manifest?.engines_required,
+                        },
                     null,
                     2
                   )}
@@ -369,10 +485,30 @@ export function SpecSurface({ settings }: Props) {
                 {runResult.note ? (
                   <p class="tile-meta">{runResult.note}</p>
                 ) : null}
+                {runResult.stepOutputs &&
+                Object.keys(runResult.stepOutputs).length ? (
+                  <pre class="spec-pre spec-pre-expanded">
+                    {JSON.stringify(runResult.stepOutputs, null, 2)}
+                  </pre>
+                ) : null}
+                {runResult.evidence?.length ? (
+                  <pre class="spec-pre">
+                    {JSON.stringify(
+                      runResult.evidence.map((e) => ({
+                        step: e.stepId,
+                        kind: e.kind,
+                        detail: e.detail,
+                      })),
+                      null,
+                      2
+                    )}
+                  </pre>
+                ) : null}
               </div>
             ) : (
               <p class="tile-meta">
-                Dry-run auto-approves HITL. Live negotiate cards stay on Console.
+                Dry-run auto-approves HITL and shows step outputs here. Live
+                negotiate cards stay on Console.
               </p>
             )}
           </div>

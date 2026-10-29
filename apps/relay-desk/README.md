@@ -77,7 +77,7 @@ Sidebar **Spec** owns Intent → scaffold → validate → evals → freeze → 
 pnpm --filter @relay/apps-relay-shell api
 ```
 
-In Desk Settings: **DESK_SPEC_API_URL** → **Probe Spec**. Scaffold uses an offline stub by default (`RELAY_SPEC_SCAFFOLD_STUB=1` or no LLM key); set `LLM_PROVIDER` + API key on the shell for live scaffolding.
+In Desk Settings: **DESK_SPEC_API_URL** → **Probe Spec**. Scaffold uses the shell LLM when `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` is set in `apps/relay-shell/.env`; otherwise (or with `RELAY_SPEC_SCAFFOLD_STUB=1`) it falls back to an offline stub.
 
 ## Layout
 

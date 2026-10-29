@@ -14,7 +14,9 @@ import {
   createDraftSpecV2,
   freezeSpecV2,
   parseServiceDescriptorYaml,
+  parseSpecV2Ref,
   type SpecV2Body,
+  type SpecV2HardRule,
 } from "@relay/protocol";
 import { assertEvalsGate, compileEvals, runEvals } from "@relay/spec-evals";
 import { lowerSpecV2 } from "@relay/spec-lower";
@@ -250,6 +252,10 @@ export async function handleScaffold(input: {
     };
   }
 
+  const t0 = Date.now();
+  console.log(
+    `[scaffold] llm start intentChars=${intent.length} (expect 30–90s)`
+  );
   const result = await scaffoldSpec({
     intent,
     client: live,
@@ -257,15 +263,38 @@ export async function handleScaffold(input: {
     knownConnections: ["reddit:default"],
     maxRepairs: 3,
   });
+  console.log(
+    `[scaffold] llm done ok=${result.ok} attempts=${result.attempts} ms=${
+      Date.now() - t0
+    }`
+  );
   if (!result.ok) {
+    // Keep Desk usable: prefer last LLM draft, else deterministic stub for this Intent.
+    const fallbackBody = result.lastBody ?? stubSpecFromIntent(intent);
+    const fallbackYaml = result.yaml ?? specBodyToYaml(fallbackBody);
+    const fallbackValidation = validateSpecV2(fallbackBody, {
+      services,
+      knownConnections: ["reddit:default"],
+    });
     return {
       ok: false as const,
       status: 422,
-      mode: "llm" as const,
+      mode: result.lastBody ? ("llm" as const) : ("stub" as const),
       error: result.message,
       errors: result.errors,
-      yaml: result.yaml,
+      yaml: fallbackYaml,
+      body: fallbackBody,
       attempts: result.attempts,
+      validation: fallbackValidation.ok
+        ? {
+            ok: false as const,
+            errors: result.errors,
+            warnings: fallbackValidation.warnings,
+          }
+        : fallbackValidation,
+      note: result.lastBody
+        ? "Partial LLM draft loaded — fix validation errors or retry Scaffold"
+        : "LLM scaffold failed; loaded deterministic stub — edit or retry",
     };
   }
   return {
@@ -319,40 +348,150 @@ export function handleLower(input: { yaml?: string; body?: SpecV2Body }) {
   };
 }
 
+/** Assign `value` at a dotted path, creating intermediate objects. */
+function assignPath(
+  root: Record<string, unknown>,
+  path: string,
+  value: unknown
+): void {
+  const parts = path.split(".").filter(Boolean);
+  if (!parts.length) return;
+  let cur: Record<string, unknown> = root;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i]!;
+    const next = cur[key];
+    if (next === null || typeof next !== "object" || Array.isArray(next)) {
+      cur[key] = {};
+    }
+    cur = cur[key] as Record<string, unknown>;
+  }
+  cur[parts[parts.length - 1]!] = value;
+}
+
+/**
+ * Seed fixture scope so hard-rule `${…}` refs resolve — mirrors common
+ * draft/output/steps.<id>.output aliases plus the exact paths from the Spec.
+ */
+function deskEvalFixtures(body: SpecV2Body) {
+  const rules = body.rules ?? [];
+  const hard = rules.filter((r): r is SpecV2HardRule => r.kind === "hard");
+  const promo =
+    hard.find((r) => "notMatches" in r.check && "pattern" in r.check) ??
+    hard.find((r) => /promo|link|url|http/i.test(r.id));
+  const allow =
+    hard.find((r) => "in" in r.check && "list" in r.check) ??
+    hard.find((r) => /allow|subreddit|allowlist/i.test(r.id));
+  const draftStep =
+    body.steps.find((s) => s.use === "llm.generate")?.id ??
+    body.steps.find((s) => /draft|reply|generate|compose/i.test(s.id))?.id ??
+    "draft";
+
+  const goodText = "Pick one versatile base layer.";
+  const badText = "see https://spam.example/fit";
+  const goodSub = "malefashionadvice";
+  const badSub = "OUTFITS";
+
+  function scopeFor(opts: { text: string; subreddit: string }) {
+    const draft = { text: opts.text };
+    const scope: Record<string, unknown> = {
+      draft,
+      output: draft,
+      item: { subreddit: opts.subreddit },
+      steps: { [draftStep]: { output: draft } },
+      [draftStep]: draft,
+    };
+
+    // Exact paths from this Spec's hard checks (LLM often invents new refs).
+    for (const rule of hard) {
+      const check = rule.check;
+      if ("notMatches" in check) {
+        const path = parseSpecV2Ref(String(check.notMatches ?? ""));
+        if (path) {
+          if (path.endsWith(".text") || path === "text") {
+            assignPath(scope, path, opts.text);
+          } else {
+            assignPath(scope, path, draft);
+          }
+        }
+      }
+      if ("matches" in check) {
+        const path = parseSpecV2Ref(String(check.matches ?? ""));
+        if (path) {
+          if (path.endsWith(".text") || path === "text") {
+            assignPath(scope, path, opts.text);
+          } else {
+            assignPath(scope, path, draft);
+          }
+        }
+      }
+      if ("in" in check) {
+        const path = parseSpecV2Ref(String(check.in ?? ""));
+        if (path) assignPath(scope, path, opts.subreddit);
+      }
+    }
+    return scope;
+  }
+
+  const cases = [];
+  const goodRules = [promo?.id, allow?.id].filter(
+    (id): id is string => typeof id === "string"
+  );
+  if (goodRules.length) {
+    cases.push({
+      id: "good_draft",
+      rules: goodRules,
+      output: { text: goodText },
+      scope: scopeFor({ text: goodText, subreddit: goodSub }),
+    });
+  }
+  if (promo && "notMatches" in promo.check) {
+    cases.push({
+      id: "bad_promo",
+      description: "Promo link must fail the notMatches hard rule",
+      rules: [promo.id],
+      output: { text: badText },
+      scope: scopeFor({ text: badText, subreddit: goodSub }),
+      expect: { rules: { [promo.id]: false } },
+    });
+  }
+  if (allow && "in" in allow.check) {
+    cases.push({
+      id: "bad_subreddit",
+      description: "Off-allowlist subreddit must fail the in/list hard rule",
+      rules: [allow.id],
+      output: { text: goodText },
+      scope: scopeFor({ text: goodText, subreddit: badSub }),
+      expect: { rules: { [allow.id]: false } },
+    });
+  }
+  return cases;
+}
+
 export async function handleEvals(input: { yaml?: string; body?: SpecV2Body }) {
   const body = resolveBody(input);
   const compiled = compileEvals(body);
+  const cases = deskEvalFixtures(body);
+  if (!cases.length) {
+    return {
+      ok: false as const,
+      status: 422,
+      compiled,
+      report: {
+        compiled,
+        cases: [],
+        passed: false,
+        errors: [
+          "No hard rules with in/list or notMatches/pattern — add them before evals",
+        ],
+      },
+      error: "No evaluable hard-rule fixtures for this Spec",
+    };
+  }
   const report = await runEvals({
     spec: body,
     softFailClosed: false,
     llmEngine: createLlmEngine({ client: runtimeStubLlm() }),
-    fixtures: {
-      cases: [
-        {
-          id: "good_draft",
-          rules: ["no_promo_links", "allowlist_only"].filter((id) =>
-            (body.rules ?? []).some((r) => r.id === id)
-          ),
-          output: { text: "Pick one versatile base layer." },
-          scope: {
-            draft: { text: "Pick one versatile base layer." },
-            item: { subreddit: "malefashionadvice" },
-          },
-        },
-        {
-          id: "bad_promo",
-          rules: ["no_promo_links"].filter((id) =>
-            (body.rules ?? []).some((r) => r.id === id)
-          ),
-          output: { text: "see https://spam.example" },
-          scope: {
-            draft: { text: "see https://spam.example" },
-            item: { subreddit: "malefashionadvice" },
-          },
-          expect: { rules: { no_promo_links: false } },
-        },
-      ].filter((c) => (c.rules?.length ?? 0) > 0),
-    },
+    fixtures: { cases },
   });
   return {
     ok: report.passed,
@@ -422,60 +561,55 @@ export async function handleRun(input: {
     },
   });
 
-  const evalReport = await runEvals({
-    lowered,
-    softFailClosed: false,
-    fixtures: {
-      cases: [
-        {
-          id: "gate_promo",
-          rules: (body.rules ?? [])
-            .filter((r) => r.id === "no_promo_links")
-            .map((r) => r.id),
-          scope: { draft: { text: "https://bad" } },
-          expect: { rules: { no_promo_links: false } },
-        },
-      ].filter((c) => (c.rules?.length ?? 0) > 0),
-    },
-  });
-  try {
-    assertEvalsGate(evalReport);
-  } catch (err) {
-    return {
-      ok: false as const,
-      status: 422,
-      error: err instanceof Error ? err.message : String(err),
-      evalReport,
-    };
+  const gateCases = deskEvalFixtures(body);
+  if (gateCases.length) {
+    const evalReport = await runEvals({
+      lowered,
+      softFailClosed: false,
+      llmEngine: createLlmEngine({ client: runtimeStubLlm() }),
+      fixtures: { cases: gateCases },
+    });
+    try {
+      assertEvalsGate(evalReport);
+    } catch (err) {
+      return {
+        ok: false as const,
+        status: 422,
+        error: err instanceof Error ? err.message : String(err),
+        evalReport,
+      };
+    }
   }
+
+  const fixturePosts = [
+    {
+      id: "t3_desk_1",
+      subreddit: "malefashionadvice",
+      threadTitle: "Capsule wardrobe basics?",
+      opText: "Need a simple system.",
+    },
+    {
+      id: "t3_desk_2",
+      subreddit: "femalefashionadvice",
+      threadTitle: "Work shoes that last?",
+      opText: "Looking for durable options, not brands.",
+    },
+  ];
+  const publicOps = services
+    .find((s) => s.id === "reddit-public")
+    ?.operations.map((o) => o.id) ?? ["listNew"];
+  const apiFixtures = publicOps.map((operation) => ({
+    service: "reddit-public",
+    operation,
+    body: { posts: fixturePosts },
+  }));
 
   const llm = createLlmEngine({ client: runtimeStubLlm() });
   const data = createDataEngine();
   const api = createApiEngine({
     services,
     dryRun: true,
-    fixtures: [
-      {
-        service: "reddit-public",
-        operation: "listNew",
-        body: {
-          posts: [
-            {
-              id: "t3_desk_1",
-              subreddit: "malefashionadvice",
-              threadTitle: "Capsule wardrobe basics?",
-              opText: "Need a simple system.",
-            },
-            {
-              id: "t3_desk_2",
-              subreddit: "femalefashionadvice",
-              threadTitle: "Work shoes that last?",
-              opText: "Looking for durable options, not brands.",
-            },
-          ],
-        },
-      },
-    ],
+    fixtures: apiFixtures,
     resolveConnection: async () => ({ type: "bearer", token: "desk-dry-run" }),
     fetch: async () => {
       throw new Error("desk run: network disabled");
@@ -508,16 +642,24 @@ export async function handleRun(input: {
 
   await runtime.start();
   const ctx = runtime.getContext();
+  const evidence = getEvidence(ctx);
+  const steps = (ctx.steps ?? {}) as Record<string, { output?: unknown }>;
+  const stepOutputs: Record<string, unknown> = {};
+  for (const [id, bag] of Object.entries(steps)) {
+    stepOutputs[id] = bag?.output;
+  }
   return {
     ok: runtime.getState() === "COMPLETE",
     status: 200,
     state: runtime.getState(),
     specId: frozen.id,
     specHash: lowered.specHash,
-    evidenceCount: getEvidence(ctx).length,
+    evidenceCount: evidence.length,
+    evidence,
     stageResults: ctx.stageResults ?? {},
+    stepOutputs,
     note: autoApprove
-      ? "Dry-run auto-approved HITL. For live HITL cards use Console + FEEDBACK_ADAPTER=desk."
+      ? "Dry-run auto-approved HITL. Network off — reddit-public fixtures + stub LLM. Live HITL cards stay on Console."
       : "Waiting for HITL — wire Feedback Broker / Desk Console.",
   };
 }

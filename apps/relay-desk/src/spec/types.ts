@@ -25,6 +25,7 @@ export type ScaffoldResponse = {
   attempts?: number;
   error?: string;
   errors?: SpecValidationIssue[];
+  note?: string;
 };
 
 export type ValidateResponse = {
@@ -46,6 +47,7 @@ export type LowerResponse = {
 
 export type EvalsResponse = {
   ok: boolean;
+  error?: string;
   compiled?: {
     goal: string;
     evals: Array<{ ruleId: string; kind: string; enforcedBy: string[] }>;
@@ -55,7 +57,17 @@ export type EvalsResponse = {
   report?: {
     passed: boolean;
     errors: string[];
-    cases: Array<{ caseId: string; passed: boolean }>;
+    cases: Array<{
+      caseId: string;
+      passed: boolean;
+      error?: string;
+      results?: Array<{
+        ruleId: string;
+        passed: boolean;
+        expected?: boolean;
+        ok: boolean;
+      }>;
+    }>;
   };
 };
 
@@ -76,6 +88,15 @@ export type RunResponse = {
   evidenceCount?: number;
   note?: string;
   validation?: SpecValidationResult;
+  /** Dry-run step outputs keyed by Spec step id. */
+  stepOutputs?: Record<string, unknown>;
+  stageResults?: Record<string, unknown>;
+  evidence?: Array<{
+    at?: string;
+    stepId?: string;
+    kind?: string;
+    detail?: unknown;
+  }>;
 };
 
 export const DEFAULT_CE_INTENT = `Help people in allowlisted fashion subreddits (r/malefashionadvice, r/femalefashionadvice) with genuinely useful replies.

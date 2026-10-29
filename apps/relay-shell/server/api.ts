@@ -4,6 +4,8 @@
  *
  *   pnpm --filter @relay/apps-relay-shell api
  *   RELAY_SHELL_SERVE_UI=1 pnpm --filter @relay/apps-relay-shell api   # also serve dist/
+ *
+ * Env: copy `.env.example` → `.env` in this package (loaded below).
  */
 import { createReadStream, existsSync, statSync } from "node:fs";
 import {
@@ -13,6 +15,7 @@ import {
 } from "node:http";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { config as loadEnv } from "dotenv";
 import {
   createSpecBundle,
   freezeSpec,
@@ -34,6 +37,7 @@ import {
 } from "./spec-v2.js";
 
 const shellRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+loadEnv({ path: join(shellRoot, ".env") });
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body, null, 2);
@@ -138,6 +142,14 @@ async function main(): Promise<void> {
       const method = req.method ?? "GET";
 
       if (method === "GET" && url.pathname === "/api/health") {
+        const forceStub =
+          process.env.RELAY_SPEC_SCAFFOLD_STUB === "1" ||
+          process.env.RELAY_SPEC_SCAFFOLD_STUB === "true";
+        const llmProvider = (
+          process.env.LLM_PROVIDER || "gemini"
+        )
+          .trim()
+          .toLowerCase();
         sendJson(res, 200, {
           ok: true,
           store: store.path,
@@ -148,6 +160,7 @@ async function main(): Promise<void> {
               : "primitives",
           decideBackend: process.env.DECIDE_BACKEND?.trim() || "heuristic",
           specV2: true,
+          llmProvider: forceStub ? "stub" : llmProvider,
           endpoints: [
             "POST /api/v2/scaffold",
             "POST /api/v2/validate",

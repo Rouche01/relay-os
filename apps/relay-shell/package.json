@@ -26,6 +26,7 @@
     "@relay/spec-store": "workspace:*",
     "@relay/spec-validator": "workspace:*",
     "@relay/workflow-runtime": "workspace:*",
+    "dotenv": "^16.4.5",
     "preact": "^10.26.4"
   },
   "devDependencies": {

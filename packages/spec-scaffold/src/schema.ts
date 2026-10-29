@@ -77,7 +77,11 @@ export const SCAFFOLD_SPEC_JSON_SCHEMA: Record<string, unknown> = {
             type: "string",
             description: "Catalog capability id (engine.verb)",
           },
-          args: { type: "object" },
+          args: {
+            type: "object",
+            description:
+              "Capability args — never empty. api.request: service, operation, params?; llm.generate: prompt, input?; human.approve|edit: show, prompt?",
+          },
           forEach: {
             type: "string",
             description: "Whole-string ref to a list, e.g. ${steps.scout.output.body.posts}",

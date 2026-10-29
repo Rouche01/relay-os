@@ -213,6 +213,9 @@ importers:
       '@relay/workflow-runtime':
         specifier: workspace:*
         version: link:../../packages/workflow-runtime
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
       preact:
         specifier: ^10.26.4
         version: 10.29.8
@@ -423,7 +426,7 @@ importers:
     dependencies:
       '@google/genai':
         specifier: latest
-        version: 2.31.0
+        version: 2.32.0
       '@relay/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -1020,8 +1023,8 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
 
-  '@google/genai@2.31.0':
-    resolution: {integrity: sha512-u1fw0qEiuWwNcjZixJFRfQF0awQnHb/rBBQUeiYGF+nmTXQCvcgpR2UMhKU9KNdnZdYhahY5jwS6nJ2V2tGtDA==}
+  '@google/genai@2.32.0':
+    resolution: {integrity: sha512-60c79uXpR0a47bmGqDxbXEBuQUalNmwo5mx5kqb91jIW4FoqpsLSt86DeVhRhtH5+s/16Wqxt3sXzFQn2U1OHQ==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
@@ -2253,7 +2256,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@google/genai@2.31.0':
+  '@google/genai@2.32.0':
     dependencies:
       google-auth-library: 10.6.2
       p-retry: 4.6.2

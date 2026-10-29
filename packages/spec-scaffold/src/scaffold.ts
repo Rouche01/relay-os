@@ -97,6 +97,7 @@ export async function scaffoldSpec(
         ok: false,
         attempts: attempt,
         lastBody,
+        yaml: lastBody ? specBodyToYaml(lastBody) : undefined,
         errors: lastErrors.length
           ? lastErrors
           : [

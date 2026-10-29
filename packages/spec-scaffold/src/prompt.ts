@@ -67,6 +67,7 @@ export function buildSystemPrompt(options: {
     "- Derive hard/soft/outcome rules from the goal; every hard/soft rule must appear in some step.enforce.",
     "- budget.dryRun defaults to true; set maxJobs when any step uses forEach.",
     "- Every irreversible path (api POST/PUT/PATCH/DELETE, etc.) must pass through a human.approve|edit|choose step first.",
+    "- NEVER emit empty args {}. Fill every required capability arg (api.request needs service+operation; llm.generate needs prompt; human.approve|edit need show).",
     "- Refs are whole-string only: \"${steps.scout.output.body.posts}\", \"${item.subreddit}\", \"${draft.text}\".",
     "- api.request results are under steps.<id>.output with HTTP payload at .body (e.g. posts list → ${steps.scout.output.body.posts}).",
     "- Connection refs never contain secrets.",
@@ -82,6 +83,58 @@ export function buildDraftUserPrompt(intent: string): string {
   return [
     "Write a Spec v2 JSON body for this intent.",
     "Prefer a short linear pipeline with HITL before any write.",
+    "Populate args fully — empty {} fails validation.",
+    "",
+    "## Shape example (adapt; do not copy blindly)",
+    JSON.stringify(
+      {
+        goal: "…",
+        connections: ["reddit:default"],
+        services: ["reddit-public", "reddit-oauth"],
+        budget: { maxJobs: 2, dryRun: true },
+        rules: [
+          {
+            id: "allowlist_only",
+            kind: "hard",
+            check: {
+              in: "${item.subreddit}",
+              list: ["malefashionadvice"],
+            },
+          },
+        ],
+        steps: [
+          {
+            id: "scout",
+            use: "api.request",
+            args: {
+              service: "reddit-public",
+              operation: "listNew",
+              params: { subreddit: "malefashionadvice", limit: 10 },
+            },
+          },
+          {
+            id: "draft",
+            use: "llm.generate",
+            forEach: "${steps.scout.output.body.posts}",
+            args: {
+              prompt: "Draft a helpful reply. No links.",
+              input: "${item}",
+            },
+            enforce: ["allowlist_only"],
+          },
+          {
+            id: "approve",
+            use: "human.approve",
+            args: {
+              show: "${steps.draft.output}",
+              prompt: "Approve before post?",
+            },
+          },
+        ],
+      },
+      null,
+      2
+    ),
     "",
     "## Intent",
     intent.trim(),
