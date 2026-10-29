@@ -373,6 +373,10 @@ body {
   color: var(--ink);
 }
 
+.spec-gate-hint {
+  margin: 0.15rem 0 0;
+}
+
 .spec-error {
   margin: 0;
 }

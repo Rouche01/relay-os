@@ -112,3 +112,65 @@ export function scrollToSpecStep(target: string): void {
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
+
+export type SpecActionId =
+  | "scaffold"
+  | "validate"
+  | "evals"
+  | "lower"
+  | "freeze"
+  | "run";
+
+export type SpecActionGate = {
+  enabled: boolean;
+  /** Shown when disabled (or when force is the only unlock). */
+  reason?: string;
+};
+
+/**
+ * Action enablement for Spec CTAs.
+ * `force` unlocks lower / freeze / run when evals have not passed.
+ */
+export function gateSpecAction(
+  action: SpecActionId,
+  input: SpecPipelineInput & { busy: boolean; force?: boolean }
+): SpecActionGate {
+  if (input.busy) {
+    return { enabled: false, reason: "blocked · busy" };
+  }
+
+  const hasIntent = input.intent.trim().length > 0;
+  const hasYaml = input.yaml.trim().length > 0;
+  const validated = input.validation?.ok === true;
+  const evalsPassed =
+    input.evals?.ok === true || input.evals?.report?.passed === true;
+  const force = input.force === true;
+
+  switch (action) {
+    case "scaffold":
+      if (!hasIntent) return { enabled: false, reason: "blocked · intent empty" };
+      return { enabled: true };
+    case "validate":
+      if (!hasYaml) return { enabled: false, reason: "blocked · scaffold YAML first" };
+      return { enabled: true };
+    case "evals":
+      if (!hasYaml) return { enabled: false, reason: "blocked · scaffold YAML first" };
+      if (!validated) {
+        return { enabled: false, reason: "blocked · validate must pass" };
+      }
+      return { enabled: true };
+    case "lower":
+    case "freeze":
+    case "run": {
+      if (!hasYaml) return { enabled: false, reason: "blocked · scaffold YAML first" };
+      if (evalsPassed) return { enabled: true };
+      if (force) {
+        return {
+          enabled: true,
+          reason: "force · evals not passed",
+        };
+      }
+      return { enabled: false, reason: "blocked · evals not passed" };
+    }
+  }
+}

@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: gate-actions
     content: "Disable Evals until validate ok; Lower/Freeze/Run until evals pass (optional force bypass with explicit confirm); one-line reason when disabled"
-    status: pending
+    status: completed
   - id: status-rail
     content: "Sticky status strip — llm provider from /api/health, busy label + elapsed, last error; keep aria-live"
     status: pending

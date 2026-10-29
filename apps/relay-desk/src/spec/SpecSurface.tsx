@@ -11,6 +11,7 @@ import {
 } from "./client.ts";
 import {
   deriveSpecPipeline,
+  gateSpecAction,
   scrollToSpecStep,
 } from "./pipeline.ts";
 import {
@@ -42,6 +43,8 @@ export function SpecSurface({ settings }: Props) {
   const [manifestExpanded, setManifestExpanded] = useState(false);
   const [frozenId, setFrozenId] = useState<string | undefined>();
   const [runResult, setRunResult] = useState<RunResponse | undefined>();
+  /** Bypass evals gate for Lower / Freeze / Run (explicit). */
+  const [forcePipeline, setForcePipeline] = useState(false);
 
   const rules = (() => {
     try {
@@ -63,6 +66,33 @@ export function SpecSurface({ settings }: Props) {
     runResult,
   });
 
+  const gateInput = {
+    intent,
+    yaml,
+    validation,
+    evals,
+    lowered,
+    frozenId,
+    runResult,
+    busy,
+    force: forcePipeline,
+  };
+  const scaffoldGate = gateSpecAction("scaffold", gateInput);
+  const validateGate = gateSpecAction("validate", gateInput);
+  const evalsGate = gateSpecAction("evals", gateInput);
+  const lowerGate = gateSpecAction("lower", gateInput);
+  const freezeGate = gateSpecAction("freeze", gateInput);
+  const runGate = gateSpecAction("run", gateInput);
+  const evalsPassed =
+    evals?.ok === true || evals?.report?.passed === true;
+  const yamlGateHint =
+    [validateGate, evalsGate, lowerGate]
+      .map((g) => g.reason)
+      .find((r) => r && r.startsWith("blocked"));
+  const freezeGateHint =
+    [freezeGate, runGate].map((g) => g.reason).find(Boolean) ??
+    (forcePipeline && !evalsPassed ? "force · evals not passed" : undefined);
+
   const onScaffold = useCallback(async () => {
     setBusy(true);
     setBusyLabel("Scaffolding… often 30–90s");
@@ -78,6 +108,7 @@ export function SpecSurface({ settings }: Props) {
       setMode(res.mode);
       setEvals(undefined);
       setLowered(undefined);
+      setForcePipeline(false);
       setManifestExpanded(false);
       if (res.validation) {
         setValidation(res.validation);
@@ -272,7 +303,7 @@ export function SpecSurface({ settings }: Props) {
               <button
                 type="button"
                 class="cta"
-                disabled={busy || !intent.trim()}
+                disabled={!scaffoldGate.enabled}
                 onClick={() => void onScaffold()}
               >
                 {busy && busyLabel?.startsWith("Scaffold")
@@ -285,6 +316,8 @@ export function SpecSurface({ settings }: Props) {
                 </span>
               ) : mode ? (
                 <span class="hint mono">mode · {mode}</span>
+              ) : scaffoldGate.reason ? (
+                <span class="hint mono">{scaffoldGate.reason}</span>
               ) : null}
             </div>
           </div>
@@ -305,7 +338,8 @@ export function SpecSurface({ settings }: Props) {
               <button
                 type="button"
                 class="cta ghost"
-                disabled={busy || !yaml.trim()}
+                disabled={!validateGate.enabled}
+                title={validateGate.reason}
                 onClick={() => void onValidate()}
               >
                 Validate
@@ -313,7 +347,8 @@ export function SpecSurface({ settings }: Props) {
               <button
                 type="button"
                 class="cta ghost"
-                disabled={busy || !yaml.trim()}
+                disabled={!evalsGate.enabled}
+                title={evalsGate.reason}
                 onClick={() => void onEvals()}
               >
                 Evals
@@ -321,12 +356,31 @@ export function SpecSurface({ settings }: Props) {
               <button
                 type="button"
                 class="cta ghost"
-                disabled={busy || !yaml.trim()}
+                disabled={!lowerGate.enabled}
+                title={lowerGate.reason}
                 onClick={() => void onLower()}
               >
                 Lower
               </button>
+              {!evalsPassed ? (
+                <button
+                  type="button"
+                  class="cta linkish"
+                  disabled={busy || !yaml.trim()}
+                  aria-pressed={forcePipeline}
+                  onClick={() => setForcePipeline((v) => !v)}
+                >
+                  {forcePipeline ? "Force on" : "Force"}
+                </button>
+              ) : null}
             </div>
+            {yamlGateHint || (forcePipeline && !evalsPassed) ? (
+              <p class="tile-meta mono spec-gate-hint">
+                {forcePipeline && !evalsPassed
+                  ? "force · lower / freeze / run unlocked"
+                  : yamlGateHint}
+              </p>
+            ) : null}
           </div>
         </section>
 
@@ -504,7 +558,8 @@ export function SpecSurface({ settings }: Props) {
               <button
                 type="button"
                 class="cta"
-                disabled={busy || !yaml.trim()}
+                disabled={!freezeGate.enabled}
+                title={freezeGate.reason}
                 onClick={() => void onFreeze()}
               >
                 Freeze
@@ -512,12 +567,27 @@ export function SpecSurface({ settings }: Props) {
               <button
                 type="button"
                 class="cta"
-                disabled={busy || !yaml.trim()}
+                disabled={!runGate.enabled}
+                title={runGate.reason}
                 onClick={() => void onRun()}
               >
                 Run dry
               </button>
+              {!evalsPassed ? (
+                <button
+                  type="button"
+                  class="cta linkish"
+                  disabled={busy || !yaml.trim()}
+                  aria-pressed={forcePipeline}
+                  onClick={() => setForcePipeline((v) => !v)}
+                >
+                  {forcePipeline ? "Force on" : "Force"}
+                </button>
+              ) : null}
             </div>
+            {freezeGateHint ? (
+              <p class="tile-meta mono spec-gate-hint">{freezeGateHint}</p>
+            ) : null}
             {frozenId ? (
               <p class="tile-meta mono">frozen · {frozenId}</p>
             ) : null}
