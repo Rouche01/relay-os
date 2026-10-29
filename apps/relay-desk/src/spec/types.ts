@@ -102,3 +102,32 @@ export type RunResponse = {
 export const DEFAULT_CE_INTENT = `Help people in allowlisted fashion subreddits (r/malefashionadvice, r/femalefashionadvice) with genuinely useful replies.
 
 No promo links. Human approval before any comment. Prefer dry-run. Bound fan-out with a small maxJobs budget.`;
+
+export type IntentPresetId = "ce-fashion" | "freight-wedge" | "blank";
+
+export type IntentPreset = {
+  id: IntentPresetId;
+  label: string;
+  intent: string;
+};
+
+/** Desk Intent library — presets only set text; they do not auto-scaffold. */
+export const INTENT_PRESETS: readonly IntentPreset[] = [
+  {
+    id: "ce-fashion",
+    label: "CE fashion",
+    intent: DEFAULT_CE_INTENT,
+  },
+  {
+    id: "freight-wedge",
+    label: "Freight wedge",
+    intent: `Help a freight broker work carrier-facing portals: find matching loads, draft outreach, and never commit capacity without a human.
+
+Hard rules: only allowlisted brokers/shippers; no fake MC/DOT claims; human approve before any irreversible portal write or email send. Prefer dry-run. Bound fan-out with a small maxJobs budget.`,
+  },
+  {
+    id: "blank",
+    label: "Blank",
+    intent: "",
+  },
+];

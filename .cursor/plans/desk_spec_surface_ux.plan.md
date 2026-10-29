@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: intent-presets
     content: "Intent library presets (CE fashion, freight wedge, blank) instead of single DEFAULT_CE_INTENT only"
-    status: pending
+    status: completed
   - id: export-copy
     content: "Copy/download YAML, last dry-run JSON, specHash from Freeze/run panel"
     status: pending

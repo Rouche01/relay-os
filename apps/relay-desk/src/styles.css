@@ -418,6 +418,41 @@ body {
   margin: 0.15rem 0 0;
 }
 
+.spec-intent-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.spec-intent-preset {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.spec-intent-preset:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.spec-intent-preset:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.spec-intent-preset[data-active="1"] {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--ink) 35%, var(--line));
+  background: color-mix(in srgb, var(--panel-2) 80%, var(--void));
+}
+
 .spec-scaffold-meta {
   display: flex;
   flex-direction: column;

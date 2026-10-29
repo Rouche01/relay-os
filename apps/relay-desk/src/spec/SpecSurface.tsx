@@ -16,7 +16,9 @@ import {
 } from "./pipeline.ts";
 import {
   DEFAULT_CE_INTENT,
+  INTENT_PRESETS,
   type EvalsResponse,
+  type IntentPresetId,
   type LowerResponse,
   type RunResponse,
   type SpecValidationIssue,
@@ -113,6 +115,9 @@ function focusYamlLine(
  */
 export function SpecSurface({ settings }: Props) {
   const [intent, setIntent] = useState(DEFAULT_CE_INTENT);
+  const [intentPreset, setIntentPreset] = useState<IntentPresetId | "custom">(
+    "ce-fashion"
+  );
   const [yaml, setYaml] = useState("");
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState<string | undefined>();
@@ -475,12 +480,39 @@ export function SpecSurface({ settings }: Props) {
       <div class="spec-grid">
         <section class="tile" data-spec-step="intent">
           <div class="tile-stack">
-            <p class="tile-label">Intent</p>
+            <div class="tile-head">
+              <p class="tile-label">Intent</p>
+              <p class="tile-meta mono">presets set text only</p>
+            </div>
+            <div
+              class="spec-intent-presets"
+              role="group"
+              aria-label="Intent presets"
+            >
+              {INTENT_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  class="spec-intent-preset"
+                  data-active={intentPreset === p.id ? "1" : "0"}
+                  disabled={busy}
+                  onClick={() => {
+                    setIntentPreset(p.id);
+                    setIntent(p.intent);
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
             <textarea
               class="spec-textarea"
               rows={8}
               value={intent}
-              onInput={(e) => setIntent((e.target as HTMLTextAreaElement).value)}
+              onInput={(e) => {
+                setIntentPreset("custom");
+                setIntent((e.target as HTMLTextAreaElement).value);
+              }}
               spellcheck={false}
             />
             <div class="cta-row">
