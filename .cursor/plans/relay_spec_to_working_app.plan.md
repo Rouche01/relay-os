@@ -46,7 +46,7 @@ todos:
     status: completed
   - id: s5-output-schema
     content: Enforce step output schema — llm.generate `schema` and declared `outputs` validated at runtime; mismatch = step failure with evidence (fail closed)
-    status: pending
+    status: completed
   - id: v1-generated-evals
     content: Scaffolder emits eval fixtures + acceptance cases alongside the Spec (not deskEvalFixtures heuristics); spec-evals runs them as the pre-freeze gate
     status: pending
@@ -209,7 +209,7 @@ Each addition: protocol type + JSON schema + validator rule + lowerer + runtime 
 - [x] A run paused at `human.*` resumes after approve/edit/abort, including across a process restart (`pauseAndReturn` + `resumeSpec` + `RunStateStore`)
 - [x] GitHub descriptor generated from OpenAPI (not hand-written) and used by the triage Spec
 - [x] Scaffolder returns capability gaps instead of looping on unknown services
-- [ ] Spec v2.1 `trigger`, `when`, `once`, `retry`/`onError` validated, lowered, and enforced at runtime
+- [x] Spec v2.1 `trigger`, `when`, `once`, `retry`/`onError`, output schema validated, lowered, and enforced at runtime
 - [ ] Enabling a schedule requires an approved shadow run
 - [ ] Outcome rules measured by scheduled follow-ups
 - [ ] Relay App bundle exportable/importable; Desk install → shadow → enable → pause works
@@ -268,3 +268,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`s3-once-idempotency` completed** — Spec v2.1 `once` on steps; validator `once_required` / `once_not_ref` (`inv_once_idempotency`); runtime skip+evidence via data store `relay.once` (commit only when not `dryRunSimulated`); `FileJsonDataStore` + `runSpec({ dataStore })`; scaffolder prompt/schema; docs `ONCE.md`.
 - **`s2-when` completed** — Spec v2.1 `when` (whole-ref \| eq/ne/in/exists); validator `when_invalid`; runtime `evaluateWhen` → skip evidence before HITL/once; scaffolder prompt/schema; docs `WHEN.md`.
 - **`s4-retry-onerror` completed** — Spec v2.1 `retry`/`onError`; validator `retry_without_once` / shape codes; runtime attempt loop + skip_item / escalate_human HITL; lowerer injects escalate feedback (skipped unless pending); scaffolder + `RETRY.md`.
+- **`s5-output-schema` completed** — runtime validates `llm.generate`/`extract` `args.schema` + step `outputs` (JSON Schema subset, fail closed, participates in retry/onError); scaffolder note; docs `OUTPUT.md`.

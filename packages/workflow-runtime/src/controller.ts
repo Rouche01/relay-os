@@ -28,6 +28,10 @@ import {
 } from "./once.js";
 import { buildRefScope, lookupRef, resolveRefs } from "./refs.js";
 import {
+  formatOutputSchemaIssues,
+  validateStepOutput,
+} from "./output-schema.js";
+import {
   backoffMsForAttempt,
   resolveAttemptBudget,
   resolveOnError,
@@ -219,6 +223,28 @@ export class WorkflowController implements AppController {
         context: ctx,
       });
       if (result.success) {
+        const schemaIssues = validateStepOutput({
+          use: step.use,
+          args,
+          outputs: step.outputs,
+          output: result.data,
+        });
+        if (schemaIssues.length) {
+          lastError = `output_schema: ${formatOutputSchemaIssues(schemaIssues)}`;
+          recordEvidence(ctx, {
+            stepId: step.id,
+            kind: "error",
+            detail: {
+              error: lastError,
+              use: step.use,
+              attempt,
+              attempts,
+              willRetry: attempt < attempts,
+              schemaIssues,
+            },
+          });
+          continue;
+        }
         output = result.data;
         succeeded = true;
         if (attempt > 1) {

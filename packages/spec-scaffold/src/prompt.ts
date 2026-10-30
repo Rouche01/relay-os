@@ -79,6 +79,7 @@ export function buildSystemPrompt(options: {
     "- Spec v2.1 once: \"${item.id}\" (or similar) on steps that must not re-run for the same key across schedule ticks. REQUIRED on irreversible forEach steps when trigger is schedule/poll.",
     "- Spec v2.1 when: whole-string \"${...}\" ref (truthy) or { eq|ne|in|exists } — false skips the step with evidence. No general expressions.",
     "- Spec v2.1 retry: { max } total attempts, optional backoffMs. onError: fail | skip_item | escalate_human. Irreversible steps with retry.max > 1 REQUIRE once.",
+    "- Spec v2.1 output schema: llm.generate/extract args.schema and step.outputs are enforced at runtime (mismatch fails closed).",
     "",
     formatCatalogForPrompt(),
     "",

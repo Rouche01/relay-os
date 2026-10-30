@@ -24,6 +24,15 @@ export {
   sleep,
 } from "./retry.js";
 export {
+  formatOutputSchemaIssues,
+  stripLlmMeta,
+  validateAgainstJsonSchema,
+  validateDeclaredOutputs,
+  validateStepOutput,
+  type OutputSchemaIssue,
+  type ValidateStepOutputOptions,
+} from "./output-schema.js";
+export {
   buildRefScope,
   getByPath,
   lookupRef,
