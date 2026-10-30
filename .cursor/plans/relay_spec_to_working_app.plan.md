@@ -37,7 +37,7 @@ todos:
     status: completed
   - id: s2-when
     content: Spec v2.1 `when:` on steps — whole-ref or simple comparison (eq/ne/in/exists); false → step skipped with evidence; no general expression language
-    status: pending
+    status: completed
   - id: s3-once-idempotency
     content: "Spec v2.1 `once: \"${item.id}\"` — idempotency key per step persisted via data engine across runs; duplicates skipped with evidence; required by validator on irreversible forEach steps under a schedule trigger"
     status: completed
@@ -266,3 +266,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`r4-browser-computer-engines` completed** — `buildSpecEngines` installs fixture `browser` + `computer` by default (`createFixtureBrowserEngine` / `createFixtureComputerEngine`); irreversible submit/act simulate under dryRun with evidence; HITL pause/resume covered; live engines via `extraEngines`; docs `FALLBACK.md`.
 - **`s1-trigger` completed** — Spec v2.1 `trigger` (`manual` | `schedule.cron` | `poll.everyMs+sourceStep`) in protocol types/JSON schema; validator `trigger_*` codes; `schedulesFromTrigger` → manifest `schedules` id `spec` / entrypoint `default`; `schedulerHostFromSpec` + `createRunSpecInvoker` in `@relay/spec-host`; scaffolder prompt/schema; docs `TRIGGER.md`.
 - **`s3-once-idempotency` completed** — Spec v2.1 `once` on steps; validator `once_required` / `once_not_ref` (`inv_once_idempotency`); runtime skip+evidence via data store `relay.once` (commit only when not `dryRunSimulated`); `FileJsonDataStore` + `runSpec({ dataStore })`; scaffolder prompt/schema; docs `ONCE.md`.
+- **`s2-when` completed** — Spec v2.1 `when` (whole-ref \| eq/ne/in/exists); validator `when_invalid`; runtime `evaluateWhen` → skip evidence before HITL/once; scaffolder prompt/schema; docs `WHEN.md`.

@@ -30,6 +30,7 @@ import type {
   WorkflowControllerOptions,
   WorkflowStepsBag,
 } from "./types.js";
+import { evaluateWhen } from "./when.js";
 
 /**
  * Generic AppController that interprets lowered Spec v2 steps on AgentRuntime.
@@ -89,6 +90,26 @@ export class WorkflowController implements AppController {
         detail: { from: refPath, count: list.length, contextKey: key },
       });
       return;
+    }
+
+    // Spec v2.1 when — skip before HITL / once / execute (per fanout child).
+    if (step.when !== undefined) {
+      const gate = evaluateWhen(step.when, scope);
+      if (!gate.ok) {
+        const skipped = {
+          skipped: true,
+          reason: "when" as const,
+          when: step.when,
+          detail: gate.detail,
+        };
+        this.writeStepOutput(ctx, step.id, skipped);
+        recordEvidence(ctx, {
+          stepId: step.id,
+          kind: "skip",
+          detail: { reason: "when", ...gate.detail },
+        });
+        return;
+      }
     }
 
     const parsed = parseCapabilityUse(step.use);

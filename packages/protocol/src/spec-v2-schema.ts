@@ -267,6 +267,7 @@ export const SPEC_V2_JSON_SCHEMA: SpecV2JsonSchema = {
           "minLength": 1,
           "description": "Spec v2.1 idempotency key ref, e.g. ${item.id}. Duplicates skipped across runs."
         },
+        "when": { "$ref": "#/$defs/when" },
         "enforce": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
@@ -314,6 +315,40 @@ export const SPEC_V2_JSON_SCHEMA: SpecV2JsonSchema = {
           }
         }
       }
+    },
+    "when": {
+      "description": "Spec v2.1 step gate — whole-string ${...} ref or eq/ne/in/exists (no general expressions)",
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\$\\{[a-zA-Z_][\\w.]*\\}$"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["eq", "value"],
+          "properties": { "eq": true, "value": true }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ne", "value"],
+          "properties": { "ne": true, "value": true }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["in", "list"],
+          "properties": { "in": true, "list": true }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exists"],
+          "properties": { "exists": true }
+        }
+      ]
     }
   }
 } as SpecV2JsonSchema;

@@ -142,6 +142,10 @@ export const SCAFFOLD_SPEC_JSON_SCHEMA: Record<string, unknown> = {
             description:
               "Spec v2.1 idempotency key ref, e.g. ${item.id}. Required on irreversible forEach under schedule/poll.",
           },
+          when: {
+            description:
+              "Spec v2.1 gate: ${...} ref or { eq|ne|in|exists }. False → skip step.",
+          },
           enforce: {
             type: "array",
             items: { type: "string" },

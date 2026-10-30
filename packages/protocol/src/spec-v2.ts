@@ -125,6 +125,18 @@ export type ClassifiedSpecV2Trigger =
   | { kind: "poll"; everyMs: number; sourceStep: string };
 
 /**
+ * Spec v2.1 — step gate. No general expression language.
+ * - Whole-string `${...}` ref → truthy check after resolve
+ * - `{ eq | ne | in | exists }` simple comparisons
+ */
+export type SpecV2When =
+  | SpecV2Ref
+  | { eq: unknown; value: unknown }
+  | { ne: unknown; value: unknown }
+  | { in: unknown; list: unknown }
+  | { exists: unknown };
+
+/**
  * One ordered step. `use` must be a catalog capability id (`engine.verb`).
  * `forEach` fans out over a list ref (bounded by budget.maxJobs at runtime).
  * `enforce` lists rule ids checked against this step's output (fail closed).
@@ -134,6 +146,11 @@ export type SpecV2Step = {
   use: CapabilityUseId | string;
   args?: Record<string, unknown>;
   forEach?: string;
+  /**
+   * Spec v2.1 — skip step when false (whole-ref or eq/ne/in/exists).
+   * Evaluated per fanout child (after parent list bind); before HITL / once.
+   */
+  when?: SpecV2When;
   /**
    * Spec v2.1 — idempotency key (whole-string `${...}` ref).
    * Runtime skips the step when the key was already committed in the data
@@ -150,6 +167,60 @@ export type SpecV2Step = {
   outputs?: string[];
   sideEffectDowngrade?: SpecV2SideEffectDowngrade;
 };
+
+/** Shape-check Spec v2.1 `when`. Empty = ok. */
+export function checkSpecV2WhenShape(value: unknown): string[] {
+  if (typeof value === "string") {
+    if (!SPEC_V2_REF_PATTERN.test(value)) {
+      return [
+        `when string must be a whole-string \${...} ref (got ${JSON.stringify(value)})`,
+      ];
+    }
+    return [];
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return ["when must be a \${...} ref string or { eq|ne|in|exists } object"];
+  }
+  const o = value as Record<string, unknown>;
+  const keys = Object.keys(o);
+  const kinds = ["eq", "ne", "in", "exists"].filter((k) => k in o);
+  if (kinds.length !== 1) {
+    return [
+      `when must set exactly one of eq | ne | in | exists (got ${keys.join(", ") || "none"})`,
+    ];
+  }
+  const kind = kinds[0]!;
+  if (kind === "eq") {
+    if (!("value" in o)) return ["when.eq requires value"];
+    const extra = keys.filter((k) => k !== "eq" && k !== "value");
+    if (extra.length) {
+      return [`when.eq has unknown field ${JSON.stringify(extra[0])}`];
+    }
+    return [];
+  }
+  if (kind === "ne") {
+    if (!("value" in o)) return ["when.ne requires value"];
+    const extra = keys.filter((k) => k !== "ne" && k !== "value");
+    if (extra.length) {
+      return [`when.ne has unknown field ${JSON.stringify(extra[0])}`];
+    }
+    return [];
+  }
+  if (kind === "in") {
+    if (!("list" in o)) return ["when.in requires list"];
+    const extra = keys.filter((k) => k !== "in" && k !== "list");
+    if (extra.length) {
+      return [`when.in has unknown field ${JSON.stringify(extra[0])}`];
+    }
+    return [];
+  }
+  // exists
+  const extra = keys.filter((k) => k !== "exists");
+  if (extra.length) {
+    return [`when.exists has unknown field ${JSON.stringify(extra[0])}`];
+  }
+  return [];
+}
 
 /**
  * YAML / authoring body — no lifecycle metadata.

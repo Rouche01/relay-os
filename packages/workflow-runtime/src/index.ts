@@ -16,6 +16,7 @@ export {
   stringifyOnceKey,
   type OnceRecord,
 } from "./once.js";
+export { evaluateWhen, type WhenEvalResult } from "./when.js";
 export {
   buildRefScope,
   getByPath,

@@ -7,6 +7,7 @@ import {
   SPEC_V2_SCHEMA_ID,
   checkSpecV2BodyShape,
   checkSpecV2TriggerShape,
+  checkSpecV2WhenShape,
   classifySpecV2Trigger,
   collectSpecV2Refs,
   createDraftSpecV2,
@@ -186,6 +187,16 @@ describe("Spec v2", () => {
     assert.equal(body.goal, engageLiteBody.goal);
     assert.equal(body.steps.length, engageLiteBody.steps.length);
     assert.deepEqual(body.connections, ["reddit:default"]);
+  });
+
+  it("shape-checks Spec v2.1 when gates", () => {
+    assert.deepEqual(checkSpecV2WhenShape("${item.ok}"), []);
+    assert.deepEqual(checkSpecV2WhenShape({ eq: 1, value: 1 }), []);
+    assert.deepEqual(checkSpecV2WhenShape({ ne: "a", value: "b" }), []);
+    assert.deepEqual(checkSpecV2WhenShape({ in: "x", list: ["x"] }), []);
+    assert.deepEqual(checkSpecV2WhenShape({ exists: "${item.id}" }), []);
+    assert.ok(checkSpecV2WhenShape("not-a-ref").length);
+    assert.ok(checkSpecV2WhenShape({ eq: 1, ne: 2 }).length);
   });
 
   it("classifies Spec v2.1 trigger shapes", () => {

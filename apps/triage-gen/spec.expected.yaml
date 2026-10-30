@@ -1,8 +1,8 @@
 # Expected Spec sketch for apps/triage-gen (forcing-function acceptance shape).
 #
 # Status: AUTHORING TARGET — not yet fully runnable as Spec v2.
-# Fields marked "# v2.1" — trigger (s1) + once (s3) implemented; retry still planned.
-# Validate goal/connections/services/budget/rules/steps/trigger/once against
+# Fields marked "# v2.1" — trigger (s1), once (s3), when (s2) implemented; retry still planned.
+# Validate goal/connections/services/budget/rules/steps/trigger/once/when against
 # @relay/spec-validator + @relay/services github descriptor.
 #
 # Placeholders: owner=acme, repo=widgets (see intent.md slots).

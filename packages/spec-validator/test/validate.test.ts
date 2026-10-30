@@ -194,6 +194,33 @@ describe("validateSpecV2", () => {
     assert.ok(result.errors.some((e) => e.code === "budget_max_jobs_required"));
   });
 
+  it("accepts when gates and rejects invalid when shapes", () => {
+    const body = goodEngageLite();
+    body.steps = body.steps.map((s) =>
+      s.id === "draft"
+        ? { ...s, when: { eq: "${item.label}", value: "answerable" } }
+        : s
+    );
+    const ok = validateSpecV2(body, {
+      services,
+      knownConnections: ["reddit:default"],
+    });
+    assert.equal(ok.ok, true, JSON.stringify(ok.errors, null, 2));
+
+    const bad = goodEngageLite();
+    bad.steps = bad.steps.map((s) =>
+      s.id === "draft"
+        ? ({ ...s, when: { eq: 1, ne: 2 } } as unknown as (typeof bad.steps)[0])
+        : s
+    );
+    const invalid = validateSpecV2(bad, {
+      services,
+      knownConnections: ["reddit:default"],
+    });
+    assert.equal(invalid.ok, false);
+    assert.ok(invalid.errors.some((e) => e.code === "when_invalid"));
+  });
+
   it("requires once on irreversible forEach under schedule trigger", () => {
     const body = goodEngageLite();
     body.trigger = { schedule: { cron: "0 9 * * 1-5" } };

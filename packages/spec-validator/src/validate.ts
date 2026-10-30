@@ -9,6 +9,7 @@ import {
   checkOperationParams,
   checkSpecV2BodyShape,
   checkSpecV2TriggerShape,
+  checkSpecV2WhenShape,
   classifySpecV2Trigger,
   collectSpecV2Refs,
   getCapability,
@@ -100,6 +101,17 @@ function checkStructure(ctx: Ctx): void {
         stepId: step.id,
         invariant: "inv_once_idempotency",
       });
+    }
+    if (step.when !== undefined) {
+      for (const message of checkSpecV2WhenShape(step.when)) {
+        err(ctx, {
+          code: "when_invalid",
+          message,
+          path: `steps/${i}/when`,
+          stepId: step.id,
+          invariant: "inv_structure",
+        });
+      }
     }
   });
 
@@ -210,6 +222,7 @@ function checkDataflow(ctx: Ctx): void {
       ...collectSpecV2Refs(step.args),
       ...(step.forEach ? collectSpecV2Refs(step.forEach) : []),
       ...(step.once ? collectSpecV2Refs(step.once) : []),
+      ...(step.when !== undefined ? collectSpecV2Refs(step.when) : []),
     ];
     for (const path of refs) {
       validateRef(ctx, path, step, i);
