@@ -79,7 +79,8 @@ export const SERVICE_DESCRIPTOR_JSON_SCHEMA: ServiceDescriptorJsonSchema = {
         "path": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^/"
+          "description": "Path under baseUrl (starts with /), or single {param} for absolute http(s) URL",
+          "pattern": "^(/.*|\\{[a-zA-Z_][\\w]*\\})$"
         },
         "summary": { "type": "string" },
         "irreversible": { "type": "boolean" },

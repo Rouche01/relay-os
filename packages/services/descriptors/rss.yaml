@@ -1,0 +1,21 @@
+# RSS / Atom feed fetch — GET absolute feed URL (body is feed XML/JSON as returned).
+# Parsing into items is a later Spec/llm step; this descriptor only reaches the feed.
+id: rss
+title: RSS / Atom feed fetch
+description: >
+  Fetch a public RSS or Atom feed by absolute URL. Response body is the raw feed
+  document; Specs may pass it to llm.generate for item extraction.
+baseUrl: https://relay.invalid
+auth:
+  type: none
+operations:
+  - id: fetchFeed
+    method: GET
+    path: "{url}"
+    summary: Fetch an RSS/Atom feed document
+    params:
+      - name: url
+        in: path
+        required: true
+        type: string
+        description: Absolute feed URL (https)

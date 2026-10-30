@@ -17,6 +17,7 @@
     "@relay/engines-api": "workspace:*",
     "@relay/llm": "workspace:*",
     "@relay/protocol": "workspace:*",
+    "@relay/services": "workspace:*",
     "@relay/spec-evals": "workspace:*",
     "@relay/spec-host": "workspace:*",
     "@relay/spec-scaffold": "workspace:*",

@@ -59,6 +59,32 @@ describe("buildApiRequest", () => {
     });
     assert.ok("error" in built);
   });
+
+  it("keeps absolute http(s) path params unencoded (http-fetch / rss)", () => {
+    const httpFetch = {
+      id: "http-fetch",
+      baseUrl: "https://relay.invalid",
+      auth: { type: "none" as const },
+      operations: [
+        {
+          id: "get",
+          method: "GET" as const,
+          path: "{url}",
+          params: [
+            { name: "url", in: "path" as const, required: true, type: "string" as const },
+          ],
+        },
+      ],
+    };
+    const built = buildApiRequest(httpFetch, {
+      service: "http-fetch",
+      operation: "get",
+      params: { url: "https://example.com/feed.xml?x=1" },
+    });
+    assert.ok(!("error" in built));
+    if ("error" in built) return;
+    assert.equal(built.url, "https://example.com/feed.xml?x=1");
+  });
 });
 
 describe("ApiEngine", () => {

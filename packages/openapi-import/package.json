@@ -14,7 +14,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsc -p tsconfig.test.json && node --test dist-test/test/*.test.js",
     "clean": "rm -rf dist dist-test",
-    "gen:github-triage": "node dist/cli.js --input fixtures/github-issues.openapi.json --id github --operations issuesListForRepo,issuesCreateComment --out ../../apps/triage-gen/services/github.yaml --title \"GitHub REST (issues triage subset)\""
+    "gen:github-triage": "node dist/cli.js --input fixtures/github-issues.openapi.json --id github --operations issuesListForRepo,issuesCreateComment --out ../services/descriptors/github.yaml --title \"GitHub REST (issues triage subset)\""
   },
   "dependencies": {
     "@relay/protocol": "workspace:*",

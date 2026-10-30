@@ -223,8 +223,15 @@ export function checkServiceDescriptorShape(
       }
       if (typeof op.path !== "string" || !op.path.trim()) {
         errors.push(`operations[${i}].path must be a non-empty string`);
-      } else if (!op.path.startsWith("/")) {
-        errors.push(`operations[${i}].path must start with /`);
+      } else if (
+        !op.path.startsWith("/") &&
+        !/^\{[a-zA-Z_][\w]*\}$/.test(op.path)
+      ) {
+        // "/" paths join baseUrl; "{url}" templates allow absolute http(s) targets
+        // (http-fetch / rss curated descriptors).
+        errors.push(
+          `operations[${i}].path must start with / or be a single {param} absolute-URL template`
+        );
       }
       if (op.params !== undefined) {
         if (!Array.isArray(op.params)) {

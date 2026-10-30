@@ -2,15 +2,12 @@
  * Spec v2 host API for Relay Desk — scaffold / validate / lower / evals / freeze / run.
  * No compiler inside Tauri; Desk calls these HTTP endpoints.
  */
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { createLlmEngine } from "@relay/engines-llm";
 import { createLlmClient, parseLlmProviderId, type LlmClient } from "@relay/llm";
 import {
   createDraftSpecV2,
   freezeSpecV2,
-  parseServiceDescriptorYaml,
   parseSpecV2Ref,
   type SpecV2Body,
   type SpecV2HardRule,
@@ -28,6 +25,10 @@ import {
   type RunStateStore,
   type SpecRunStatus,
 } from "@relay/spec-host";
+import {
+  curatedKnownConnections,
+  loadCuratedServices,
+} from "@relay/services";
 import { lowerSpecV2 } from "@relay/spec-lower";
 import { scaffoldSpec, specBodyToYaml } from "@relay/spec-scaffold";
 import {
@@ -35,9 +36,6 @@ import {
   parseSpecV2Yaml,
   validateSpecV2,
 } from "@relay/spec-validator";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, "../../..");
 
 /** Override for unit tests; production uses `.data/spec-runs`. */
 let runStoreOverride: RunStateStore | undefined;
@@ -111,24 +109,18 @@ function mapHostError(err: unknown) {
   throw err;
 }
 
-function loadProtocolService(name: string) {
-  const p = join(repoRoot, "packages/protocol/services", name);
-  if (!existsSync(p)) {
-    throw new Error(`Missing service descriptor: ${p}`);
-  }
-  return parseServiceDescriptorYaml(readFileSync(p, "utf8"));
-}
+let cachedServices: ReturnType<typeof loadCuratedServices> | null = null;
 
-let cachedServices: ReturnType<typeof loadProtocolService>[] | null = null;
-
+/** Curated catalog from `@relay/services` (reddit + github + slack + http-fetch + rss + notion). */
 export function loadV2Services() {
   if (!cachedServices) {
-    cachedServices = [
-      loadProtocolService("reddit-public.yaml"),
-      loadProtocolService("reddit-oauth.yaml"),
-    ];
+    cachedServices = loadCuratedServices();
   }
   return cachedServices;
+}
+
+export function deskKnownConnections(): string[] {
+  return curatedKnownConnections();
 }
 
 /** CE-lite template used when no LLM key (offline Desk demo). */
@@ -322,7 +314,7 @@ export async function handleScaffold(input: {
     const body = stubSpecFromIntent(intent);
     const validation = validateSpecV2(body, {
       services,
-      knownConnections: ["reddit:default"],
+      knownConnections: deskKnownConnections(),
     });
     return {
       ok: true as const,
@@ -343,7 +335,7 @@ export async function handleScaffold(input: {
     intent,
     client: live,
     services,
-    knownConnections: ["reddit:default"],
+    knownConnections: deskKnownConnections(),
     maxRepairs: 3,
   });
   console.log(
@@ -357,7 +349,7 @@ export async function handleScaffold(input: {
     const fallbackYaml = result.yaml ?? specBodyToYaml(fallbackBody);
     const fallbackValidation = validateSpecV2(fallbackBody, {
       services,
-      knownConnections: ["reddit:default"],
+      knownConnections: deskKnownConnections(),
     });
     return {
       ok: false as const,
@@ -395,7 +387,7 @@ export function handleValidate(input: { yaml?: string; body?: SpecV2Body }) {
   const body = resolveBody(input);
   const validation = validateSpecV2(body, {
     services: loadV2Services(),
-    knownConnections: ["reddit:default"],
+    knownConnections: deskKnownConnections(),
   });
   return {
     ok: validation.ok,
@@ -410,7 +402,7 @@ export function handleLower(input: { yaml?: string; body?: SpecV2Body }) {
   const body = resolveBody(input);
   const validation = validateSpecV2(body, {
     services: loadV2Services(),
-    knownConnections: ["reddit:default"],
+    knownConnections: deskKnownConnections(),
   });
   if (!validation.ok) {
     return {
@@ -588,7 +580,7 @@ export function handleFreeze(input: { yaml?: string; body?: SpecV2Body }) {
   const body = resolveBody(input);
   const validation = validateSpecV2(body, {
     services: loadV2Services(),
-    knownConnections: ["reddit:default"],
+    knownConnections: deskKnownConnections(),
   });
   if (!validation.ok) {
     return {

@@ -1,0 +1,22 @@
+# Generic HTTP GET — absolute target URL via path param `{url}`.
+# engines-api treats paths starting with http(s) as absolute (no baseUrl join).
+# Auth none — use when the target is public; otherwise prefer a real service descriptor.
+id: http-fetch
+title: Generic HTTP fetch
+description: >
+  Read-only GET of an absolute URL. Use for one-off public endpoints that do not
+  yet have a curated descriptor. Prefer service-specific descriptors when available.
+baseUrl: https://relay.invalid
+auth:
+  type: none
+operations:
+  - id: get
+    method: GET
+    path: "{url}"
+    summary: GET an absolute URL
+    params:
+      - name: url
+        in: path
+        required: true
+        type: string
+        description: Absolute https URL to fetch

@@ -18,6 +18,7 @@
     "@relay/feedback-broker": "workspace:*",
     "@relay/llm": "workspace:*",
     "@relay/protocol": "workspace:*",
+    "@relay/services": "workspace:*",
     "@relay/runtime": "workspace:*",
     "@relay/spec-evals": "workspace:*",
     "@relay/spec-lower": "workspace:*",

@@ -1,0 +1,52 @@
+# Curated Slack Web API subset — chat + conversations.
+# Specs use connection ref slack:default (bot token). Secrets never live here.
+id: slack
+title: Slack Web API (message subset)
+description: >
+  Post a channel message and list conversation history. Enough for notify /
+  digest Specs; not the full Slack surface.
+baseUrl: https://slack.com/api
+auth:
+  type: bearer
+  connection: true
+operations:
+  - id: chatPostMessage
+    method: POST
+    path: /chat.postMessage
+    summary: Post a message to a channel (irreversible)
+    irreversible: true
+    params:
+      - name: channel
+        in: body
+        required: true
+        type: string
+        description: Channel id (e.g. C01234567) or name
+      - name: text
+        in: body
+        required: true
+        type: string
+        description: Message text (mrkdwn)
+      - name: thread_ts
+        in: body
+        type: string
+        description: Parent message ts for replies
+  - id: conversationsHistory
+    method: GET
+    path: /conversations.history
+    summary: Fetch recent messages in a conversation
+    params:
+      - name: channel
+        in: query
+        required: true
+        type: string
+      - name: limit
+        in: query
+        type: number
+        description: 1–1000
+      - name: cursor
+        in: query
+        type: string
+      - name: oldest
+        in: query
+        type: string
+        description: Only messages after this ts

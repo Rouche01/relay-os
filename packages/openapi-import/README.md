@@ -15,7 +15,7 @@ pnpm --filter @relay/openapi-import exec relay-openapi-import \
   --input ./fixtures/github-issues.openapi.json \
   --id github \
   --operations issuesListForRepo,issuesCreateComment \
-  --out ../../apps/triage-gen/services/github.yaml
+  --out ../services/descriptors/github.yaml
 
 # List operationIds without converting
 pnpm --filter @relay/openapi-import exec relay-openapi-import \

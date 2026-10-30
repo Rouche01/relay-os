@@ -11,6 +11,17 @@ export {
   tryCreateLiveLlmClient,
 } from "./llm-client.js";
 export { selectServicesForSpec } from "./services.js";
+/** Curated descriptor pack — re-exported for Desk / hosts. */
+export {
+  CURATED_SERVICE_IDS,
+  CURATED_CONNECTION_HINTS,
+  curatedKnownConnections,
+  isCuratedServiceId,
+  loadCuratedService,
+  loadCuratedServices,
+  listCuratedServiceIds,
+} from "@relay/services";
+export type { CuratedServiceId } from "@relay/services";
 export { runSpec } from "./run.js";
 export { resumeSpec } from "./resume.js";
 export { replaySpecRun } from "./replay.js";

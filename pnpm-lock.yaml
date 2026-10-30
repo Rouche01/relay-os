@@ -87,6 +87,9 @@ importers:
       '@relay/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@relay/services':
+        specifier: workspace:*
+        version: link:../../packages/services
       '@relay/spec-evals':
         specifier: workspace:*
         version: link:../../packages/spec-evals
@@ -177,6 +180,9 @@ importers:
       '@relay/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
+      '@relay/services':
+        specifier: workspace:*
+        version: link:../../packages/services
       '@relay/spec-evals':
         specifier: workspace:*
         version: link:../../packages/spec-evals
@@ -486,6 +492,19 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/services:
+    dependencies:
+      '@relay/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   packages/spec-evals:
     dependencies:
       '@relay/protocol':
@@ -531,6 +550,9 @@ importers:
       '@relay/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@relay/services':
+        specifier: workspace:*
+        version: link:../services
       '@relay/spec-evals':
         specifier: workspace:*
         version: link:../spec-evals

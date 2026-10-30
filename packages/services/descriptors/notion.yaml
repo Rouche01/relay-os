@@ -1,0 +1,49 @@
+# Curated Notion API subset — search + create comment on a page/block.
+# Specs use connection ref notion:default (integration token). Secrets never live here.
+id: notion
+title: Notion API (pages subset)
+description: >
+  Search the workspace and create a comment. Enough for “find page → draft note →
+  HITL → comment” Specs; not the full Notion surface.
+baseUrl: https://api.notion.com
+auth:
+  type: bearer
+  connection: true
+operations:
+  - id: search
+    method: POST
+    path: /v1/search
+    summary: Search pages and databases
+    params:
+      - name: Notion-Version
+        in: header
+        required: true
+        type: string
+        description: API version header (e.g. 2022-06-28)
+      - name: query
+        in: body
+        type: string
+        description: Text query
+      - name: page_size
+        in: body
+        type: number
+  - id: createComment
+    method: POST
+    path: /v1/comments
+    summary: Create a comment on a page or block (irreversible)
+    irreversible: true
+    params:
+      - name: Notion-Version
+        in: header
+        required: true
+        type: string
+      - name: parent
+        in: body
+        required: true
+        type: object
+        description: '{ "page_id": "..." } or { "block_id": "..." }'
+      - name: rich_text
+        in: body
+        required: true
+        type: array
+        description: Notion rich_text array

@@ -18,7 +18,7 @@ Full text + slots: [`intent.md`](./intent.md). Success bar: [`SUCCESS.md`](./SUC
 
 | Need | How triage exercises it |
 |------|-------------------------|
-| Non-Reddit reach | GitHub REST via `services/github.yaml` |
+| Non-Reddit reach | GitHub REST via `@relay/services` (`github`) |
 | Real connection | `github:default` (secrets outside Spec) |
 | Schedule | `trigger.schedule.cron: "0 9 * * 1-5"` (Spec v2.1) |
 | Idempotency | `once` on issue number (Spec v2.1) |
@@ -31,7 +31,7 @@ Full text + slots: [`intent.md`](./intent.md). Success bar: [`SUCCESS.md`](./SUC
 intent.md              Locked NL intent + slots
 SUCCESS.md             Acceptance bar + E2E checklist (later)
 spec.expected.yaml     Target Spec (v2.1 fields annotated)
-services/github.yaml   OpenAPI-imported descriptor (regen via @relay/openapi-import)
+services/README.md     Points at packages/services/descriptors/github.yaml
 fixtures/issues.json   Offline scout payload
 ```
 
@@ -45,7 +45,9 @@ fixtures/issues.json   Offline scout payload
    when connection + host modes exist (`h3`).
 4. **E2E** — plan todo `e2e-triage-demo`.
 
-## Regenerate `services/github.yaml`
+## Regenerate GitHub descriptor
+
+Canonical file: [`packages/services/descriptors/github.yaml`](../../packages/services/descriptors/github.yaml).
 
 ```bash
 pnpm --filter @relay/openapi-import build

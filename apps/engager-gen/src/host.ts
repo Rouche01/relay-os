@@ -8,14 +8,15 @@ import { dirname, join } from "node:path";
 import type { ApiFixture } from "@relay/engines-api";
 import type { LlmClient, LlmJsonRequest, LlmJsonResult } from "@relay/llm";
 import { messageText } from "@relay/llm";
-import {
-  parseServiceDescriptorYaml,
-  type SpecV2Body,
-} from "@relay/protocol";
+import type { SpecV2Body } from "@relay/protocol";
 import type { EvalCase } from "@relay/spec-evals";
 import { createMemoryConnectionStore, runSpec } from "@relay/spec-host";
 import { scaffoldSpec } from "@relay/spec-scaffold";
 import { parseSpecV2Yaml, validateSpecV2 } from "@relay/spec-validator";
+import {
+  curatedKnownConnections,
+  loadCuratedServices,
+} from "@relay/services";
 
 function packageRoot(start: string): string {
   let dir = start;
@@ -63,11 +64,9 @@ function loadJson<T>(rel: string): T {
   return JSON.parse(loadText(rel)) as T;
 }
 
+/** Curated catalog — CE Spec still selects reddit-* via Spec.services. */
 function loadServices() {
-  return [
-    parseServiceDescriptorYaml(loadText("services/reddit-public.yaml")),
-    parseServiceDescriptorYaml(loadText("services/reddit-oauth.yaml")),
-  ];
+  return loadCuratedServices();
 }
 
 /** Allowlisted posts only — OUTFITS stays in the file for negative evals. */
@@ -246,7 +245,7 @@ export async function runEngagerGen(options?: {
       intent,
       client: createScaffoldStubClient(referenceBody, { failFirst: true }),
       services,
-      knownConnections: ["reddit:default"],
+      knownConnections: curatedKnownConnections(),
       maxRepairs: 3,
     });
     if (!scaffolded.ok) {
@@ -265,7 +264,7 @@ export async function runEngagerGen(options?: {
 
   const validation = validateSpecV2(body, {
     services,
-    knownConnections: ["reddit:default"],
+    knownConnections: curatedKnownConnections(),
   });
   if (!validation.ok) {
     throw new Error(

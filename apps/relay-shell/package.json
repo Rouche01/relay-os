@@ -21,6 +21,7 @@
     "@relay/spec-evals": "workspace:*",
     "@relay/spec-host": "workspace:*",
     "@relay/spec-lower": "workspace:*",
+    "@relay/services": "workspace:*",
     "@relay/spec-scaffold": "workspace:*",
     "@relay/spec-store": "workspace:*",
     "@relay/spec-validator": "workspace:*",

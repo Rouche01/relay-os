@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: r2-curated-descriptors
     content: Curated descriptor pack — github, slack, http.fetch / rss (generic read), plus one of gmail|notion|sheets; live in packages/services (not app-local); loadable by spec-host + scaffolder
-    status: pending
+    status: completed
   - id: r3-capability-gaps
     content: "Scaffolder capability-gap result — when intent needs an unknown service/connection, return `needs: [{service|connection, reason}]` instead of burning repair attempts; Desk renders ‘add connection / import descriptor’"
     status: pending
@@ -261,3 +261,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`h4-real-hitl-resume` completed** — `AgentRuntime` `pauseOnHitl` / `restoreWaitingUser` / `resumeWithFeedback`; `runSpec` pauseAndReturn + checkpoint; `resumeSpec`; Memory/File `RunStateStore`; optional FeedbackBroker `adapter`; docs `HITL.md`. Auto-approve only default in fixture; shadow/live pause or adapter by default.
 - **`h5-run-store` completed** — checkpoints carry evidence/stepOutputs/HITL decisions + `createdAt`/`updatedAt`; `listRuns`/`listRunSummaries` by `specId`/`specHash`/`status`; `replaySpecRun` from frozen Spec; Desk persists under `.data/spec-runs` and exposes `GET /api/v2/runs`, `GET /api/v2/runs/:id`, `POST .../replay`, `POST .../resume`; docs `RUNS.md`.
 - **`r1-openapi-import` completed** — new [`packages/openapi-import`](../../packages/openapi-import): OpenAPI 3 → `ServiceDescriptor` (`openApiToServiceDescriptor` + `relay-openapi-import` CLI); operation selection required (refuse full dump); auth → `connection: true`; writes get `irreversible: true`; triage `apps/triage-gen/services/github.yaml` regenerated from `fixtures/github-issues.openapi.json`.
+- **`r2-curated-descriptors` completed** — new [`packages/services`](../../packages/services) (`@relay/services`): curated YAML for reddit-public/oauth, github, slack, http-fetch, rss, notion; `loadCuratedServices` / `curatedKnownConnections`; Desk + engager-gen + spec-host re-exports; absolute `{url}` path support in engines-api for http-fetch/rss.

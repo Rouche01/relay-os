@@ -57,10 +57,10 @@ function substitutePath(
     if (pathParams[name] === undefined || pathParams[name] === null) {
       return { error: `Missing path param ${JSON.stringify(name)}` };
     }
-    path = path.replace(
-      new RegExp(`\\{${name}\\}`, "g"),
-      encodeURIComponent(String(pathParams[name]))
-    );
+    const raw = String(pathParams[name]);
+    // Absolute URLs (http-fetch / rss curated descriptors) must not be encoded.
+    const encoded = /^https?:\/\//i.test(raw) ? raw : encodeURIComponent(raw);
+    path = path.replace(new RegExp(`\\{${name}\\}`, "g"), encoded);
   }
   return path;
 }
