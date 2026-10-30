@@ -503,6 +503,9 @@ importers:
       '@relay/engines-llm':
         specifier: workspace:*
         version: link:../engines-llm
+      '@relay/feedback-broker':
+        specifier: workspace:*
+        version: link:../feedback-broker
       '@relay/llm':
         specifier: workspace:*
         version: link:../llm

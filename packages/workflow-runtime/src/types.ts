@@ -3,6 +3,7 @@ import type {
   ExecutionEngine,
   FeedbackResponse,
 } from "@relay/protocol";
+import type { AgentRuntimeOptions } from "@relay/runtime";
 import type { LoweredWorkflow } from "@relay/spec-lower";
 
 /** One evidence trail entry recorded during a Spec v2 run. */
@@ -43,4 +44,6 @@ export type CreateWorkflowRuntimeOptions = {
    */
   assertRunnable?: boolean | { validate?: boolean };
   softFailClosed?: boolean;
+  /** Forwarded to AgentRuntime (pauseOnHitl, startAtStageIndex, …). */
+  runtimeOptions?: AgentRuntimeOptions;
 };

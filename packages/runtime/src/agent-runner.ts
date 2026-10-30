@@ -34,6 +34,17 @@ class AgentAbortError extends Error {
   }
 }
 
+/**
+ * Thrown when `pauseOnHitl` is set: start() returns while state stays
+ * WAITING_USER so the host can persist a checkpoint and resume later.
+ */
+export class AgentPauseError extends Error {
+  constructor(public readonly request: FeedbackRequest) {
+    super("Agent paused for human feedback");
+    this.name = "AgentPauseError";
+  }
+}
+
 /** Optional AgentRuntime knobs (additive — positional args stay stable). */
 export interface AgentRuntimeOptions {
   /**
@@ -41,6 +52,18 @@ export interface AgentRuntimeOptions {
    * Omit (or `"default"`) to run root `stages`.
    */
   entrypoint?: string;
+  /**
+   * Skip stages `[0, startAtStageIndex)` — caller already populated context
+   * (e.g. resume after a persisted HITL pause).
+   */
+  startAtStageIndex?: number;
+  /**
+   * When true, required HITL emits FEEDBACK_REQUESTED then pauses start()
+   * (WAITING_USER) without blocking on provideFeedback. Host persists + resumes.
+   */
+  pauseOnHitl?: boolean;
+  /** Restore a stable pending request id when recreating a paused runtime. */
+  pendingRequestId?: string;
 }
 
 export interface AgentRuntime {
@@ -57,8 +80,12 @@ export class AgentRuntime extends EventEmitter {
   private context: AgentContext;
   private pendingFeedbackResolver: ((response: FeedbackResponse) => void) | null = null;
   private pendingRequestId: string | null = null;
+  private pausedFeedbackRequest: FeedbackRequest | null = null;
+  private currentStageIndex = 0;
   private readonly entrypointName: string;
   private readonly activeStages: StageDefinition[];
+  private readonly startAtStageIndex: number;
+  private readonly pauseOnHitl: boolean;
 
   constructor(
     private manifest: AgenticAppManifest,
@@ -74,6 +101,11 @@ export class AgentRuntime extends EventEmitter {
     const resolved = resolveEntrypoint(manifest, options?.entrypoint);
     this.entrypointName = resolved.name;
     this.activeStages = resolved.stages;
+    this.startAtStageIndex = Math.max(0, options?.startAtStageIndex ?? 0);
+    this.pauseOnHitl = options?.pauseOnHitl === true;
+    if (options?.pendingRequestId) {
+      this.pendingRequestId = options.pendingRequestId;
+    }
     this.context = {
       ...initialContext,
       stageResults: { ...(initialContext.stageResults ?? {}) },
@@ -100,6 +132,21 @@ export class AgentRuntime extends EventEmitter {
   /** Stages that `start()` will execute for the selected entrypoint. */
   public getActiveStages(): StageDefinition[] {
     return this.activeStages;
+  }
+
+  /** Index of the stage currently executing / paused. */
+  public getCurrentStageIndex(): number {
+    return this.currentStageIndex;
+  }
+
+  /** Pending HITL request when state is WAITING_USER (pause or block). */
+  public getPendingRequestId(): string | null {
+    return this.pendingRequestId;
+  }
+
+  /** Feedback request captured when pauseOnHitl fired. */
+  public getPausedFeedbackRequest(): FeedbackRequest | null {
+    return this.pausedFeedbackRequest;
   }
 
   /** Read a value previously stored for a stage (e.g. approved draft). */
@@ -138,11 +185,178 @@ export class AgentRuntime extends EventEmitter {
     this.updateState("RUNNING");
 
     try {
-      for (const stage of this.activeStages) {
-        await this.executeStage(stage);
+      for (let i = this.startAtStageIndex; i < this.activeStages.length; i++) {
+        this.currentStageIndex = i;
+        await this.executeStage(this.activeStages[i]!);
       }
       this.updateState("COMPLETE");
     } catch (error) {
+      if (error instanceof AgentPauseError) {
+        // WAITING_USER already set; host persists checkpoint / resumes later.
+        return;
+      }
+      if (error instanceof AgentAbortError) {
+        this.updateState("ABORTED");
+        return;
+      }
+      this.updateState("FAILED");
+      this.emit(AgentRuntimeEvent.ERROR, error);
+    }
+  }
+
+  /**
+   * After process restart: restore WAITING_USER from a persisted HITL request
+   * without re-running the paused stage's onStageStart.
+   */
+  public restoreWaitingUser(
+    request: FeedbackRequest,
+    stageIndex: number
+  ): void {
+    if (this.state !== "PENDING") {
+      throw new Error(
+        `Cannot restoreWaitingUser from state: ${this.state} (expected PENDING)`
+      );
+    }
+    if (stageIndex < 0 || stageIndex >= this.activeStages.length) {
+      throw new Error(
+        `restoreWaitingUser stageIndex ${stageIndex} out of range`
+      );
+    }
+    this.currentStageIndex = stageIndex;
+    this.pendingRequestId = request.id;
+    this.pausedFeedbackRequest = request;
+    this.updateState("WAITING_USER");
+  }
+
+  /**
+   * Continue after a pauseOnHitl pause (same process) or a restored WAITING_USER
+   * runtime. Applies feedback to the current stage, then runs remaining stages.
+   */
+  public async resumeWithFeedback(response: FeedbackResponse): Promise<void> {
+    if (this.state !== "WAITING_USER") {
+      throw new Error(
+        `Cannot resumeWithFeedback from state: ${this.state} (expected WAITING_USER)`
+      );
+    }
+    if (this.pendingRequestId && response.requestId !== this.pendingRequestId) {
+      throw new Error(
+        `Feedback requestId mismatch. Expected ${this.pendingRequestId}, got ${response.requestId}`
+      );
+    }
+
+    const stage = this.activeStages[this.currentStageIndex];
+    if (!stage) {
+      throw new Error(`No stage at index ${this.currentStageIndex}`);
+    }
+    const engine = this.resolveEngine(stage);
+
+    this.emit(AgentRuntimeEvent.FEEDBACK_RECEIVED, response);
+
+    if (isAbortResponse(response)) {
+      this.setStageResult(stage.name, {
+        feedback: response,
+        aborted: true,
+      });
+      this.emit(AgentRuntimeEvent.FEEDBACK_APPLIED, {
+        stage: stage.name,
+        response,
+      });
+      let hardAbort = true;
+      if (this.controller?.onFeedbackApplied) {
+        const cont = await this.controller.onFeedbackApplied(
+          stage,
+          response,
+          engine
+        );
+        if (cont === false) hardAbort = false;
+      }
+      this.pendingRequestId = null;
+      this.pausedFeedbackRequest = null;
+      if (hardAbort) {
+        this.updateState("ABORTED");
+        return;
+      }
+      this.updateState("RUNNING");
+    } else {
+      const context = this.pausedFeedbackRequest?.context;
+      const fps = stage.feedback_points ?? [];
+      const fp = fps[0];
+      if (
+        fp &&
+        isEditResponse(response) &&
+        (fp.type === "approval" || fp.type === "freeform")
+      ) {
+        this.applyEditToContext(stage, response, context);
+      }
+      this.setStageResult(stage.name, {
+        feedback:
+          fp?.type === "credential"
+            ? {
+                requestId: response.requestId,
+                agentId: response.agentId,
+                action: response.action ?? "proceed",
+                redacted: true,
+              }
+            : response,
+        ...(isEditResponse(response) &&
+        fp &&
+        (fp.type === "approval" || fp.type === "freeform")
+          ? { editedBody: response.value }
+          : {}),
+      });
+      this.emit(AgentRuntimeEvent.FEEDBACK_APPLIED, {
+        stage: stage.name,
+        response,
+      });
+      if (this.controller?.onFeedbackApplied) {
+        await this.controller.onFeedbackApplied(stage, response, engine);
+      }
+      this.pendingRequestId = null;
+      this.pausedFeedbackRequest = null;
+      this.updateState("RUNNING");
+    }
+
+    try {
+      for (let i = this.currentStageIndex + 1; i < this.activeStages.length; i++) {
+        this.currentStageIndex = i;
+        await this.executeStage(this.activeStages[i]!);
+      }
+      // getState() — private `state` stays narrowed to WAITING_USER after the guard above.
+      if (this.getState() === "RUNNING") {
+        this.updateState("COMPLETE");
+      }
+    } catch (error) {
+      if (error instanceof AgentPauseError) {
+        return;
+      }
+      if (error instanceof AgentAbortError) {
+        this.updateState("ABORTED");
+        return;
+      }
+      this.updateState("FAILED");
+      this.emit(AgentRuntimeEvent.ERROR, error);
+    }
+  }
+
+  /**
+   * Run stages starting at `fromIndex` (context must already hold prior outputs).
+   * Used after cross-process resume once feedback was applied into context.
+   */
+  public async runFromStage(fromIndex: number): Promise<void> {
+    if (this.state !== "PENDING" && this.state !== "RUNNING") {
+      throw new Error(`Cannot runFromStage from state: ${this.state}`);
+    }
+    this.updateState("RUNNING");
+    try {
+      for (let i = Math.max(0, fromIndex); i < this.activeStages.length; i++) {
+        this.currentStageIndex = i;
+        await this.executeStage(this.activeStages[i]!);
+      }
+      this.updateState("COMPLETE");
+    } catch (error) {
+      if (error instanceof AgentPauseError) {
+        return;
+      }
       if (error instanceof AgentAbortError) {
         this.updateState("ABORTED");
         return;
@@ -160,6 +374,12 @@ export class AgentRuntime extends EventEmitter {
       throw new Error(
         `Feedback requestId mismatch. Expected ${this.pendingRequestId}, got ${response.requestId}`
       );
+    }
+
+    // Paused (no in-flight waiter) — treat as resumeWithFeedback.
+    if (!this.pendingFeedbackResolver) {
+      await this.resumeWithFeedback(response);
+      return;
     }
 
     this.emit(AgentRuntimeEvent.FEEDBACK_RECEIVED, response);
@@ -423,14 +643,23 @@ export class AgentRuntime extends EventEmitter {
 
     this.updateState("WAITING_USER");
     this.pendingRequestId = requestId;
+    this.pausedFeedbackRequest = req;
 
+    if (this.pauseOnHitl) {
+      // Emit after marking pause so hosts can persist; no in-process waiter.
+      this.emit(AgentRuntimeEvent.FEEDBACK_REQUESTED, req);
+      throw new AgentPauseError(req);
+    }
+
+    // Register waiter BEFORE emit so auto-approve / broker provideFeedback
+    // resolves the promise (does not fall through to resumeWithFeedback).
     const feedbackPromise = new Promise<FeedbackResponse>((resolve) => {
       this.pendingFeedbackResolver = resolve;
     });
-
     this.emit(AgentRuntimeEvent.FEEDBACK_REQUESTED, req);
 
     const response = await this.awaitFeedback(feedbackPromise, req.timeout_ms);
+    this.pausedFeedbackRequest = null;
 
     if (isAbortResponse(response)) {
       this.setStageResult(stage.name, {

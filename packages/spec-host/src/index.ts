@@ -12,11 +12,29 @@ export {
 } from "./llm-client.js";
 export { selectServicesForSpec } from "./services.js";
 export { runSpec } from "./run.js";
+export { resumeSpec } from "./resume.js";
+export {
+  MemoryRunStateStore,
+  FileRunStateStore,
+  createMemoryRunStateStore,
+  createFileRunStateStore,
+} from "./run-state-store.js";
+export {
+  SPEC_RUN_CHECKPOINT_VERSION,
+  newRunId,
+  cloneContext,
+} from "./checkpoint.js";
+export type {
+  SpecRunCheckpoint,
+  SpecRunStatus,
+  RunStateStore,
+} from "./checkpoint.js";
 export type { BuildSpecEnginesOptions } from "./engines.js";
 export type { ResolvedHostMode } from "./modes.js";
 export type {
   RunSpecOptions,
   RunSpecResult,
+  ResumeSpecOptions,
   SelectServicesResult,
   SpecHostHitlOptions,
   SpecHostHitlRespond,

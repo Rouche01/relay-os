@@ -15,6 +15,7 @@
     "@relay/engines-api": "workspace:*",
     "@relay/engines-data": "workspace:*",
     "@relay/engines-llm": "workspace:*",
+    "@relay/feedback-broker": "workspace:*",
     "@relay/llm": "workspace:*",
     "@relay/protocol": "workspace:*",
     "@relay/runtime": "workspace:*",

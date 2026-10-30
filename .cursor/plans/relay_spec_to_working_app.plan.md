@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: h4-real-hitl-resume
     content: Real HITL — remove auto-approve default; human.* steps surface via Feedback Broker / Desk Console / Telegram; persist run state (context.steps, evidence, cursor) so a paused run resumes after approve/edit/abort, across process restarts
-    status: pending
+    status: completed
   - id: h5-run-store
     content: "Run store — runs keyed by specId+specHash: status, timestamps, evidence pack, step outputs, HITL decisions; list/get API for Desk; replay a run from its frozen Spec"
     status: pending
@@ -206,7 +206,7 @@ Each addition: protocol type + JSON schema + validator rule + lowerer + runtime 
 - [ ] Desk run path no longer *requires* Reddit fixture posts for non-Reddit Specs (catalog reach / Desk UI mode switch)
 - [x] Connections resolve from a secrets store; missing connection is a structured, actionable error (`SpecHostError` `missing_connection`)
 - [x] `shadow` mode performs live reads and records simulated writes as evidence (`shadowWrite` / `simulatedWriteCount`)
-- [ ] A run paused at `human.*` resumes after approve/edit/abort, including across a process restart
+- [x] A run paused at `human.*` resumes after approve/edit/abort, including across a process restart (`pauseAndReturn` + `resumeSpec` + `RunStateStore`)
 - [ ] GitHub descriptor generated from OpenAPI (not hand-written) and used by the triage Spec
 - [ ] Scaffolder returns capability gaps instead of looping on unknown services
 - [ ] Spec v2.1 `trigger`, `when`, `once`, `retry`/`onError` validated, lowered, and enforced at runtime
@@ -258,3 +258,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`h1-spec-host-package` completed** — added [`packages/spec-host`](../../packages/spec-host): `runSpec` / `selectServicesForSpec` / `buildSpecEngines`; modes `fixture|shadow|live` (defaults); optional `extraEngines` for browser/computer. Desk `handleRun` + engager-gen call it; fixtures/stub LLM stay caller-supplied. Tests pass (GitHub-shaped fixture Spec).
 - **`h2-connections-secrets` completed** — pluggable `ConnectionStore` (memory / file JSON / env / macOS keychain / composite); `runSpec({ connectionStore })` derives `knownConnections`, asserts refs present, builds resolver; `env:VAR` secret refs; docs in `packages/spec-host/CONNECTIONS.md`. Desk + engager-gen use memory store for fixture tokens.
 - **`h3-live-read-dry-write` completed** — `fixture`/`shadow`/`live` semantics in `modes.ts`; shadow forces dryRun + live reads; live requires `budget.dryRun: false`; evidence tags `shadowWrite`; `tryCreateLiveLlmClient` / `resolveRunLlmClient`; HITL auto-approve only default in fixture; docs `MODES.md`.
+- **`h4-real-hitl-resume` completed** — `AgentRuntime` `pauseOnHitl` / `restoreWaitingUser` / `resumeWithFeedback`; `runSpec` pauseAndReturn + checkpoint; `resumeSpec`; Memory/File `RunStateStore`; optional FeedbackBroker `adapter`; docs `HITL.md`. Auto-approve only default in fixture; shadow/live pause or adapter by default.

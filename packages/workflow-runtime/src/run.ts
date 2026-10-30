@@ -61,7 +61,8 @@ export function createWorkflowRuntime(
     engines,
     ensureStepsBag(context),
     controller,
-    fanoutHost
+    fanoutHost,
+    options.runtimeOptions
   );
   ref.runtime = runtime;
 

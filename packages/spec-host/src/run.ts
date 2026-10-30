@@ -1,57 +1,26 @@
-import {
-  AgentRuntimeEvent,
-  createDraftSpecV2,
-  freezeSpecV2,
-  type SpecV2,
-  type SpecV2Body,
-} from "@relay/protocol";
-import {
-  assertEvalsGate,
-  runEvals,
-  type EvalReport,
-} from "@relay/spec-evals";
-import { lowerSpecV2 } from "@relay/spec-lower";
-import { validateSpecV2 } from "@relay/spec-validator";
+import { FeedbackBroker } from "@relay/feedback-broker";
+import { AgentRuntimeEvent } from "@relay/protocol";
 import {
   createWorkflowRuntime,
   getEvidence,
 } from "@relay/workflow-runtime";
 import {
-  assertConnectionsAvailable,
-  connectionResolverFromStore,
-} from "./connections/resolver.js";
+  cloneContext,
+  newRunId,
+  type SpecRunCheckpoint,
+} from "./checkpoint.js";
 import { SpecHostError } from "./errors.js";
-import { buildSpecEngines } from "./engines.js";
-import { resolveRunLlmClient } from "./llm-client.js";
-import {
-  assertModeAllowed,
-  countSimulatedWrites,
-  resolveHostDefaults,
-} from "./modes.js";
-import { selectServicesForSpec } from "./services.js";
+import { countSimulatedWrites } from "./modes.js";
+import { prepareSpecRun } from "./prepare.js";
 import type { RunSpecOptions, RunSpecResult } from "./types.js";
 
-function bodyFromOptions(options: RunSpecOptions): SpecV2Body {
-  if (options.frozen) {
-    const {
-      id: _id,
-      version: _version,
-      status: _status,
-      intentId: _intentId,
-      createdAt: _createdAt,
-      frozenAt: _frozenAt,
-      frozenBy: _frozenBy,
-      contentHash: _contentHash,
-      procedure: _procedure,
-      ...body
-    } = options.frozen;
-    return body;
+function stepOutputsFromContext(ctx: Record<string, unknown>): Record<string, unknown> {
+  const steps = (ctx.steps ?? {}) as Record<string, { output?: unknown }>;
+  const stepOutputs: Record<string, unknown> = {};
+  for (const [id, bag] of Object.entries(steps)) {
+    stepOutputs[id] = bag?.output;
   }
-  if (options.body) return options.body;
-  throw new SpecHostError(
-    "missing_spec",
-    "runSpec requires body or frozen Spec"
-  );
+  return stepOutputs;
 }
 
 /**
@@ -62,117 +31,24 @@ function bodyFromOptions(options: RunSpecOptions): SpecV2Body {
 export async function runSpec(
   options: RunSpecOptions
 ): Promise<RunSpecResult> {
-  const body = bodyFromOptions(options);
-  const selected = selectServicesForSpec(body, options.services);
-  if (!selected.ok) {
+  const prepared = await prepareSpecRun(options);
+  const { frozen, lowered, engines, mode, dryRun, blockNetwork, evalReport } =
+    prepared;
+
+  const hitl = options.hitl ?? {};
+  const autoApprove = hitl.autoApprove ?? mode === "fixture";
+  const pauseAndReturn =
+    hitl.pauseAndReturn ??
+    (!autoApprove && !hitl.adapter && !hitl.onFeedbackRequested);
+
+  if (pauseAndReturn && !hitl.runStateStore) {
     throw new SpecHostError(
-      "missing_services",
-      `Spec references unknown services: ${selected.missing.join(", ")}`,
-      { missing: selected.missing }
+      "missing_run_store",
+      "pauseAndReturn requires hitl.runStateStore (MemoryRunStateStore or FileRunStateStore)"
     );
   }
 
-  let knownConnections = options.knownConnections;
-  let resolveConnection = options.resolveConnection;
-
-  if (options.connectionStore) {
-    const fromStore = await assertConnectionsAvailable(
-      body,
-      options.connectionStore
-    );
-    if (!knownConnections) knownConnections = fromStore;
-    if (!resolveConnection) {
-      resolveConnection = connectionResolverFromStore(options.connectionStore);
-    }
-  }
-
-  if (!options.skipValidate) {
-    const validation = validateSpecV2(body, {
-      services: options.services,
-      knownConnections,
-    });
-    if (!validation.ok) {
-      throw new SpecHostError(
-        "invalid_spec",
-        `Spec validation failed (${validation.errors.length} error(s))`,
-        { validation }
-      );
-    }
-  }
-
-  const frozen: SpecV2 =
-    options.frozen ??
-    freezeSpecV2(
-      createDraftSpecV2({
-        ...body,
-        id: options.draftId,
-        intentId: options.intentId,
-      }),
-      { frozenBy: options.frozenBy ?? "spec-host" }
-    );
-
-  const lowered = lowerSpecV2(frozen, {
-    name: options.name ?? "spec-host-run",
-    specId: frozen.id,
-    specRecord: {
-      id: frozen.id,
-      version: frozen.version,
-      status: frozen.status,
-      intentId: frozen.intentId,
-    },
-  });
-
-  const resolved = resolveHostDefaults({
-    mode: options.mode,
-    dryRun: options.dryRun,
-    blockNetwork: options.blockNetwork,
-    budgetDryRun: body.budget?.dryRun,
-  });
-  const { mode, dryRun, blockNetwork } = resolved;
-  assertModeAllowed(mode, body, resolved);
-
-  if (mode !== "fixture" && !options.connectionStore && !resolveConnection) {
-    throw new SpecHostError(
-      "missing_connection_resolver",
-      `${mode} mode requires connectionStore (or resolveConnection) for live API auth`
-    );
-  }
-
-  const llmClient = resolveRunLlmClient({
-    mode,
-    llmClient: options.llmClient,
-  });
-
-  const engines = buildSpecEngines({
-    services: selected.services,
-    llmClient,
-    resolveConnection,
-    apiFixtures: options.apiFixtures,
-    dryRun,
-    blockNetwork,
-    fetch: options.fetch,
-    extraEngines: options.extraEngines,
-  });
-
-  let evalReport: EvalReport | undefined;
-  if (options.evals?.cases.length) {
-    evalReport = await runEvals({
-      lowered,
-      softFailClosed: options.evals.softFailClosed ?? false,
-      llmEngine: engines.llm,
-      fixtures: { cases: [...options.evals.cases] },
-    });
-    try {
-      assertEvalsGate(evalReport);
-    } catch (err) {
-      throw new SpecHostError(
-        "evals_gate",
-        err instanceof Error ? err.message : String(err),
-        { evalReport }
-      );
-    }
-  }
-
+  const runId = hitl.runId ?? newRunId();
   const context = {
     agentId: options.context?.agentId ?? "spec-host-1",
     userId: options.context?.userId ?? "operator",
@@ -186,11 +62,17 @@ export async function runSpec(
     context,
     assertRunnable: options.assertRunnable ?? false,
     softFailClosed: options.softFailClosed ?? true,
+    runtimeOptions: {
+      pauseOnHitl: pauseAndReturn,
+    },
   });
 
-  const hitl = options.hitl ?? {};
-  // Fixture CI auto-approves; shadow/live expect real HITL unless overridden.
-  const autoApprove = hitl.autoApprove ?? mode === "fixture";
+  let broker: FeedbackBroker | undefined;
+  if (hitl.adapter) {
+    broker = new FeedbackBroker(runtime, { adapter: hitl.adapter });
+    broker.attach();
+  }
+
   if (hitl.onFeedbackRequested) {
     runtime.on(AgentRuntimeEvent.FEEDBACK_REQUESTED, (req) => {
       void hitl.onFeedbackRequested?.(req, async (partial) => {
@@ -214,17 +96,40 @@ export async function runSpec(
   }
 
   await runtime.start();
+  broker?.detach();
+
   const ctx = runtime.getContext();
   const evidence = getEvidence(ctx);
-  const steps = (ctx.steps ?? {}) as Record<string, { output?: unknown }>;
-  const stepOutputs: Record<string, unknown> = {};
-  for (const [id, bag] of Object.entries(steps)) {
-    stepOutputs[id] = bag?.output;
+  const stepOutputs = stepOutputsFromContext(ctx as Record<string, unknown>);
+  const state = runtime.getState();
+
+  let checkpoint: SpecRunCheckpoint | undefined;
+  if (state === "WAITING_USER" && pauseAndReturn && hitl.runStateStore) {
+    const pending = runtime.getPausedFeedbackRequest() ?? undefined;
+    checkpoint = {
+      version: 1,
+      runId,
+      specId: frozen.id,
+      specHash: lowered.specHash,
+      mode,
+      status: "waiting_you",
+      stageIndex: runtime.getCurrentStageIndex(),
+      stageName:
+        runtime.getActiveStages()[runtime.getCurrentStageIndex()]?.name ?? "",
+      pendingFeedback: pending,
+      context: cloneContext(ctx),
+      frozen,
+      body: prepared.body,
+      dryRun,
+      blockNetwork,
+      savedAt: new Date().toISOString(),
+    };
+    await hitl.runStateStore.save(checkpoint);
   }
 
   return {
-    ok: runtime.getState() === "COMPLETE",
-    state: runtime.getState(),
+    ok: state === "COMPLETE",
+    state,
     specId: frozen.id,
     specHash: lowered.specHash,
     frozen,
@@ -238,6 +143,9 @@ export async function runSpec(
     dryRun,
     blockNetwork,
     simulatedWriteCount: countSimulatedWrites(stepOutputs),
+    runId: checkpoint ? runId : pauseAndReturn ? runId : undefined,
+    checkpoint,
+    pendingFeedback: checkpoint?.pendingFeedback,
     runtime,
   };
 }
