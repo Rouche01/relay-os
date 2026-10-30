@@ -2,10 +2,10 @@
 
 Acceptance fixture for [`relay_spec_to_working_app.plan.md`](../../.cursor/plans/relay_spec_to_working_app.plan.md) todo **`h0-forcing-intent`**.
 
-**Not a runnable Spec host.** There is no `host.ts` here on purpose — the plan’s
-north star is one generic `@relay/spec-host`, not another per-app runner.
-This package locks the **intent**, **success bar**, **expected Spec shape**, and
-a **minimal GitHub service descriptor** so later phases have a concrete target.
+**Not a per-app runner.** There is no `host.ts` here on purpose — execution goes
+through generic [`@relay/spec-host`](../../packages/spec-host) once connections
+and GitHub reach land (h2+). This package locks the **intent**, **success bar**,
+**expected Spec shape**, and a **minimal GitHub service descriptor**.
 
 ## Intent (one line)
 

@@ -81,36 +81,24 @@ importers:
       '@relay/engines-api':
         specifier: workspace:*
         version: link:../../packages/engines-api
-      '@relay/engines-data':
-        specifier: workspace:*
-        version: link:../../packages/engines-data
-      '@relay/engines-llm':
-        specifier: workspace:*
-        version: link:../../packages/engines-llm
       '@relay/llm':
         specifier: workspace:*
         version: link:../../packages/llm
       '@relay/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@relay/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
       '@relay/spec-evals':
         specifier: workspace:*
         version: link:../../packages/spec-evals
-      '@relay/spec-lower':
+      '@relay/spec-host':
         specifier: workspace:*
-        version: link:../../packages/spec-lower
+        version: link:../../packages/spec-host
       '@relay/spec-scaffold':
         specifier: workspace:*
         version: link:../../packages/spec-scaffold
       '@relay/spec-validator':
         specifier: workspace:*
         version: link:../../packages/spec-validator
-      '@relay/workflow-runtime':
-        specifier: workspace:*
-        version: link:../../packages/workflow-runtime
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -174,12 +162,6 @@ importers:
 
   apps/relay-shell:
     dependencies:
-      '@relay/engines-api':
-        specifier: workspace:*
-        version: link:../../packages/engines-api
-      '@relay/engines-data':
-        specifier: workspace:*
-        version: link:../../packages/engines-data
       '@relay/engines-decide':
         specifier: workspace:*
         version: link:../../packages/engines-decide
@@ -198,6 +180,9 @@ importers:
       '@relay/spec-evals':
         specifier: workspace:*
         version: link:../../packages/spec-evals
+      '@relay/spec-host':
+        specifier: workspace:*
+        version: link:../../packages/spec-host
       '@relay/spec-lower':
         specifier: workspace:*
         version: link:../../packages/spec-lower
@@ -235,6 +220,8 @@ importers:
       vite:
         specifier: ^6.2.2
         version: 6.4.5(@types/node@22.20.4)(tsx@4.23.15)(yaml@2.9.1)
+
+  apps/triage-gen: {}
 
   packages/action-store:
     dependencies:
@@ -498,6 +485,46 @@ importers:
       '@relay/engines-data':
         specifier: workspace:*
         version: link:../engines-data
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/spec-host:
+    dependencies:
+      '@relay/engines-api':
+        specifier: workspace:*
+        version: link:../engines-api
+      '@relay/engines-data':
+        specifier: workspace:*
+        version: link:../engines-data
+      '@relay/engines-llm':
+        specifier: workspace:*
+        version: link:../engines-llm
+      '@relay/llm':
+        specifier: workspace:*
+        version: link:../llm
+      '@relay/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@relay/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@relay/spec-evals':
+        specifier: workspace:*
+        version: link:../spec-evals
+      '@relay/spec-lower':
+        specifier: workspace:*
+        version: link:../spec-lower
+      '@relay/spec-validator':
+        specifier: workspace:*
+        version: link:../spec-validator
+      '@relay/workflow-runtime':
+        specifier: workspace:*
+        version: link:../workflow-runtime
+    devDependencies:
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.4

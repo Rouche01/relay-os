@@ -13,14 +13,13 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p server/tsconfig.json"
   },
   "dependencies": {
-    "@relay/engines-api": "workspace:*",
-    "@relay/engines-data": "workspace:*",
     "@relay/engines-decide": "workspace:*",
     "@relay/engines-llm": "workspace:*",
     "@relay/llm": "workspace:*",
     "@relay/protocol": "workspace:*",
     "@relay/runtime": "workspace:*",
     "@relay/spec-evals": "workspace:*",
+    "@relay/spec-host": "workspace:*",
     "@relay/spec-lower": "workspace:*",
     "@relay/spec-scaffold": "workspace:*",
     "@relay/spec-store": "workspace:*",

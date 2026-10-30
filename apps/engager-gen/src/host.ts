@@ -1,33 +1,21 @@
 /**
  * engager-gen host — bootstrap only (no stage handlers).
- * Pipeline: (optional scaffold from intent) → validate → freeze → lower → evals → dry-run HITL.
+ * Pipeline: (optional scaffold from intent) → @relay/spec-host runSpec
+ * (validate → freeze → lower → evals → dry-run HITL).
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { createApiEngine, type ApiFixture } from "@relay/engines-api";
-import { createDataEngine } from "@relay/engines-data";
-import { createLlmEngine } from "@relay/engines-llm";
+import type { ApiFixture } from "@relay/engines-api";
 import type { LlmClient, LlmJsonRequest, LlmJsonResult } from "@relay/llm";
 import { messageText } from "@relay/llm";
 import {
-  AgentRuntimeEvent,
-  createDraftSpecV2,
-  freezeSpecV2,
   parseServiceDescriptorYaml,
   type SpecV2Body,
 } from "@relay/protocol";
-import {
-  assertEvalsGate,
-  runEvals,
-  type EvalCase,
-} from "@relay/spec-evals";
-import { lowerSpecV2 } from "@relay/spec-lower";
+import type { EvalCase } from "@relay/spec-evals";
+import { runSpec } from "@relay/spec-host";
 import { scaffoldSpec } from "@relay/spec-scaffold";
 import { parseSpecV2Yaml, validateSpecV2 } from "@relay/spec-validator";
-import {
-  createWorkflowRuntime,
-  getEvidence,
-} from "@relay/workflow-runtime";
 
 function packageRoot(start: string): string {
   let dir = start;
@@ -287,26 +275,6 @@ export async function runEngagerGen(options?: {
     );
   }
 
-  const draft = createDraftSpecV2({
-    ...body,
-    id: "specv2_engager_gen_lite",
-    intentId: "intent_engager_gen_lite",
-  });
-  const frozen = freezeSpecV2(draft, { frozenBy: "engager-gen-host" });
-
-  const lowered = lowerSpecV2(frozen, {
-    name: "engager-gen",
-    specId: frozen.id,
-    specRecord: {
-      id: frozen.id,
-      version: frozen.version,
-      status: frozen.status,
-      intentId: frozen.intentId,
-    },
-  });
-
-  const llm = createLlmEngine({ client: createStubLlmClient() });
-  const data = createDataEngine();
   const apiFixtures: ApiFixture[] = [
     {
       service: "reddit-public",
@@ -314,27 +282,26 @@ export async function runEngagerGen(options?: {
       body: { posts },
     },
   ];
-  const api = createApiEngine({
+
+  const result = await runSpec({
+    body,
     services,
+    knownConnections: ["reddit:default"],
+    llmClient: createStubLlmClient(),
+    mode: "fixture",
     dryRun: true,
-    fixtures: apiFixtures,
-    resolveConnection: async () => ({ type: "bearer", token: "dry-run-token" }),
-    fetch: async () => {
-      throw new Error("engager-gen: network disabled (fixtures / dryRun only)");
-    },
-  });
-
-  const evalReport = await runEvals({
-    lowered,
-    softFailClosed: false,
-    llmEngine: llm,
-    fixtures: { cases: evalCases() },
-  });
-  assertEvalsGate(evalReport);
-
-  const { runtime } = createWorkflowRuntime({
-    lowered,
-    engines: { api, llm, data },
+    blockNetwork: true,
+    resolveConnection: async () => ({
+      type: "bearer",
+      token: "dry-run-token",
+    }),
+    apiFixtures,
+    hitl: { autoApprove },
+    evals: { cases: evalCases(), softFailClosed: false },
+    name: "engager-gen",
+    frozenBy: "engager-gen-host",
+    draftId: "specv2_engager_gen_lite",
+    intentId: "intent_engager_gen_lite",
     context: {
       agentId: "engager-gen-1",
       userId: "operator",
@@ -345,30 +312,16 @@ export async function runEngagerGen(options?: {
     softFailClosed: true,
   });
 
-  if (autoApprove) {
-    runtime.on(AgentRuntimeEvent.FEEDBACK_REQUESTED, (req) => {
-      void runtime.provideFeedback({
-        requestId: req.id,
-        agentId: req.agentId,
-        action: "proceed",
-        value: true,
-      });
-    });
-  }
-
-  await runtime.start();
-  const ctx = runtime.getContext();
-  const drafts = (ctx.steps as Record<string, { output?: unknown }> | undefined)
-    ?.draft?.output;
+  const drafts = result.stepOutputs.draft;
   const draftCount = Array.isArray(drafts) ? drafts.length : 0;
 
   return {
-    specId: frozen.id,
-    specHash: lowered.specHash,
-    state: runtime.getState(),
-    evidenceCount: getEvidence(ctx).length,
+    specId: result.specId,
+    specHash: result.specHash,
+    state: result.state,
+    evidenceCount: result.evidenceCount,
     draftCount,
-    evalPassed: evalReport.passed,
+    evalPassed: result.evalReport?.passed ?? false,
     source,
     scaffoldAttempts,
   };
@@ -376,9 +329,10 @@ export async function runEngagerGen(options?: {
 
 async function main(): Promise<void> {
   const fromIntent =
-    process.argv.includes("--from-intent") || process.env.ENGAGER_GEN_FROM_INTENT === "1";
+    process.argv.includes("--from-intent") ||
+    process.env.ENGAGER_GEN_FROM_INTENT === "1";
   console.log(
-    `[engager-gen] ${fromIntent ? "scaffold → " : ""}validate → freeze → lower → evals → dry-run`
+    `[engager-gen] ${fromIntent ? "scaffold → " : ""}spec-host runSpec (fixture)`
   );
   const result = await runEngagerGen({ autoApprove: true, fromIntent });
   console.log(

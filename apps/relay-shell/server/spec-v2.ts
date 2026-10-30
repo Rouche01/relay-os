@@ -5,12 +5,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createApiEngine } from "@relay/engines-api";
-import { createDataEngine } from "@relay/engines-data";
 import { createLlmEngine } from "@relay/engines-llm";
 import { createLlmClient, parseLlmProviderId, type LlmClient } from "@relay/llm";
 import {
-  AgentRuntimeEvent,
   createDraftSpecV2,
   freezeSpecV2,
   parseServiceDescriptorYaml,
@@ -18,7 +15,8 @@ import {
   type SpecV2Body,
   type SpecV2HardRule,
 } from "@relay/protocol";
-import { assertEvalsGate, compileEvals, runEvals } from "@relay/spec-evals";
+import { compileEvals, runEvals } from "@relay/spec-evals";
+import { isSpecHostError, runSpec } from "@relay/spec-host";
 import { lowerSpecV2 } from "@relay/spec-lower";
 import { scaffoldSpec, specBodyToYaml } from "@relay/spec-scaffold";
 import {
@@ -26,10 +24,6 @@ import {
   parseSpecV2Yaml,
   validateSpecV2,
 } from "@relay/spec-validator";
-import {
-  createWorkflowRuntime,
-  getEvidence,
-} from "@relay/workflow-runtime";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../../..");
@@ -541,52 +535,10 @@ export async function handleRun(input: {
 }) {
   const body = resolveBody(input);
   const services = loadV2Services();
-  const validation = validateSpecV2(body, {
-    services,
-    knownConnections: ["reddit:default"],
-  });
-  if (!validation.ok) {
-    return {
-      ok: false as const,
-      status: 422,
-      error: "Cannot run invalid Spec",
-      validation,
-    };
-  }
+  const autoApprove = input.autoApprove !== false;
 
-  const draft = createDraftSpecV2({ ...body });
-  const frozen = freezeSpecV2(draft, { frozenBy: "relay-desk-run" });
-  const lowered = lowerSpecV2(frozen, {
-    name: "desk-run",
-    specId: frozen.id,
-    specRecord: {
-      id: frozen.id,
-      version: frozen.version,
-      status: frozen.status,
-      intentId: frozen.intentId,
-    },
-  });
-
-  const gateCases = deskEvalFixtures(body);
-  if (gateCases.length) {
-    const evalReport = await runEvals({
-      lowered,
-      softFailClosed: false,
-      llmEngine: createLlmEngine({ client: runtimeStubLlm() }),
-      fixtures: { cases: gateCases },
-    });
-    try {
-      assertEvalsGate(evalReport);
-    } catch (err) {
-      return {
-        ok: false as const,
-        status: 422,
-        error: err instanceof Error ? err.message : String(err),
-        evalReport,
-      };
-    }
-  }
-
+  // Desk still supplies fixture posts + stub LLM for offline demo (h3 moves
+  // shadow/live into the host). Engines/run path is generic via @relay/spec-host.
   const fixturePosts = [
     {
       id: "t3_desk_1",
@@ -610,62 +562,66 @@ export async function handleRun(input: {
     body: { posts: fixturePosts },
   }));
 
-  const llm = createLlmEngine({ client: runtimeStubLlm() });
-  const data = createDataEngine();
-  const api = createApiEngine({
-    services,
-    dryRun: true,
-    fixtures: apiFixtures,
-    resolveConnection: async () => ({ type: "bearer", token: "desk-dry-run" }),
-    fetch: async () => {
-      throw new Error("desk run: network disabled");
-    },
-  });
+  const gateCases = deskEvalFixtures(body);
 
-  const { runtime } = createWorkflowRuntime({
-    lowered,
-    engines: { api, llm, data },
-    context: {
-      agentId: "desk-1",
-      userId: "operator",
-      sessionId: `desk-${Date.now()}`,
-    },
-    assertRunnable: false,
-    softFailClosed: true,
-  });
-
-  const autoApprove = input.autoApprove !== false;
-  if (autoApprove) {
-    runtime.on(AgentRuntimeEvent.FEEDBACK_REQUESTED, (req) => {
-      void runtime.provideFeedback({
-        requestId: req.id,
-        agentId: req.agentId,
-        action: "proceed",
-        value: true,
-      });
+  try {
+    const result = await runSpec({
+      body,
+      services,
+      knownConnections: ["reddit:default"],
+      llmClient: runtimeStubLlm(),
+      mode: "fixture",
+      dryRun: true,
+      blockNetwork: true,
+      resolveConnection: async () => ({
+        type: "bearer",
+        token: "desk-dry-run",
+      }),
+      apiFixtures,
+      hitl: { autoApprove },
+      evals: gateCases.length
+        ? { cases: gateCases, softFailClosed: false }
+        : undefined,
+      name: "desk-run",
+      frozenBy: "relay-desk-run",
+      context: {
+        agentId: "desk-1",
+        userId: "operator",
+        sessionId: `desk-${Date.now()}`,
+      },
+      assertRunnable: false,
+      softFailClosed: true,
     });
-  }
 
-  await runtime.start();
-  const ctx = runtime.getContext();
-  const evidence = getEvidence(ctx);
-  const steps = (ctx.steps ?? {}) as Record<string, { output?: unknown }>;
-  const stepOutputs: Record<string, unknown> = {};
-  for (const [id, bag] of Object.entries(steps)) {
-    stepOutputs[id] = bag?.output;
+    return {
+      ok: result.ok,
+      status: 200,
+      state: result.state,
+      specId: result.specId,
+      specHash: result.specHash,
+      evidenceCount: result.evidenceCount,
+      evidence: result.evidence,
+      stageResults: result.stageResults,
+      stepOutputs: result.stepOutputs,
+      note: autoApprove
+        ? "Dry-run via @relay/spec-host. Network off — caller fixtures + stub LLM. Live HITL cards stay on Console."
+        : "Waiting for HITL — wire Feedback Broker / Desk Console.",
+    };
+  } catch (err) {
+    if (isSpecHostError(err)) {
+      const status = err.code === "evals_gate" || err.code === "invalid_spec"
+        ? 422
+        : 400;
+      return {
+        ok: false as const,
+        status,
+        error: err.message,
+        code: err.code,
+        ...(typeof err.details === "object" && err.details
+          ? (err.details as Record<string, unknown>)
+          : {}),
+      };
+    }
+    throw err;
   }
-  return {
-    ok: runtime.getState() === "COMPLETE",
-    status: 200,
-    state: runtime.getState(),
-    specId: frozen.id,
-    specHash: lowered.specHash,
-    evidenceCount: evidence.length,
-    evidence,
-    stageResults: ctx.stageResults ?? {},
-    stepOutputs,
-    note: autoApprove
-      ? "Dry-run auto-approved HITL. Network off — reddit-public fixtures + stub LLM. Live HITL cards stay on Console."
-      : "Waiting for HITL — wire Feedback Broker / Desk Console.",
-  };
 }

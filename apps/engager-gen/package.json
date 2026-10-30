@@ -15,16 +15,12 @@
   },
   "dependencies": {
     "@relay/engines-api": "workspace:*",
-    "@relay/engines-data": "workspace:*",
-    "@relay/engines-llm": "workspace:*",
     "@relay/llm": "workspace:*",
     "@relay/protocol": "workspace:*",
-    "@relay/runtime": "workspace:*",
     "@relay/spec-evals": "workspace:*",
-    "@relay/spec-lower": "workspace:*",
+    "@relay/spec-host": "workspace:*",
     "@relay/spec-scaffold": "workspace:*",
-    "@relay/spec-validator": "workspace:*",
-    "@relay/workflow-runtime": "workspace:*"
+    "@relay/spec-validator": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -3,70 +3,70 @@ name: Relay Spec → working agentic app
 overview: "Close the gap between a validated Spec v2 and a truly working agentic app. Compile side exists (scaffold → validate → lower → workflow-runtime → evals); run side is a demo harness (fixtures, stub LLM, network off, fake token, auto-approve). Build a generic Spec host, widen service reach, add app-shaped Spec features (trigger/when/once/retry), real verification (shadow run, generated evals, outcome follow-ups), and package as an installable Relay App. Forcing function: one non-Reddit intent (GitHub bug triage) end-to-end with zero GitHub-specific code outside its descriptor."
 todos:
   - id: h0-forcing-intent
-    content: "Lock forcing-function intent + success bar — GitHub bug triage (weekday 9am, labeled `bug`, draft triage comment, HITL before post, never twice per issue); write intent.md + expected Spec sketch under apps/ (e.g. apps/triage-gen) as the acceptance fixture"
+    content: Lock forcing-function intent + success bar — GitHub bug triage (weekday 9am, labeled `bug`, draft triage comment, HITL before post, never twice per issue); write intent.md + expected Spec sketch under apps/ (e.g. apps/triage-gen) as the acceptance fixture
     status: completed
   - id: h1-spec-host-package
     content: "New @relay/spec-host — extract run logic from relay-shell handleRun + engager-gen host into one generic host: engines built from spec.services/connections (api, llm, data; browser/computer optional), no hardcoded fixtures/services; Desk + engager-gen call it"
-    status: pending
+    status: completed
   - id: h2-connections-secrets
-    content: "Connection resolver — resolve refs like github:default from a secrets store (macOS keychain / .env / file, pluggable); Spec still never holds secrets; validator knownConnections comes from the store; missing connection = structured error"
+    content: Connection resolver — resolve refs like github:default from a secrets store (macOS keychain / .env / file, pluggable); Spec still never holds secrets; validator knownConnections comes from the store; missing connection = structured error
     status: pending
   - id: h3-live-read-dry-write
-    content: "Run modes — `shadow` (live reads, irreversible writes simulated + recorded as evidence), `live` (writes allowed only when budget.dryRun=false AND preceding human.* approved), `fixture` (today’s offline path for CI). Real LLM client in shadow/live"
+    content: Run modes — `shadow` (live reads, irreversible writes simulated + recorded as evidence), `live` (writes allowed only when budget.dryRun=false AND preceding human.* approved), `fixture` (today’s offline path for CI). Real LLM client in shadow/live
     status: pending
   - id: h4-real-hitl-resume
-    content: "Real HITL — remove auto-approve default; human.* steps surface via Feedback Broker / Desk Console / Telegram; persist run state (context.steps, evidence, cursor) so a paused run resumes after approve/edit/abort, across process restarts"
+    content: Real HITL — remove auto-approve default; human.* steps surface via Feedback Broker / Desk Console / Telegram; persist run state (context.steps, evidence, cursor) so a paused run resumes after approve/edit/abort, across process restarts
     status: pending
   - id: h5-run-store
     content: "Run store — runs keyed by specId+specHash: status, timestamps, evidence pack, step outputs, HITL decisions; list/get API for Desk; replay a run from its frozen Spec"
     status: pending
   - id: r1-openapi-import
-    content: "OpenAPI → ServiceDescriptor generator (CLI) — select operations, map params/auth, emit YAML that passes service-descriptor schema; mark write methods irreversible by default"
+    content: OpenAPI → ServiceDescriptor generator (CLI) — select operations, map params/auth, emit YAML that passes service-descriptor schema; mark write methods irreversible by default
     status: pending
   - id: r2-curated-descriptors
-    content: "Curated descriptor pack — github, slack, http.fetch / rss (generic read), plus one of gmail|notion|sheets; live in packages/services (not app-local); loadable by spec-host + scaffolder"
+    content: Curated descriptor pack — github, slack, http.fetch / rss (generic read), plus one of gmail|notion|sheets; live in packages/services (not app-local); loadable by spec-host + scaffolder
     status: pending
   - id: r3-capability-gaps
     content: "Scaffolder capability-gap result — when intent needs an unknown service/connection, return `needs: [{service|connection, reason}]` instead of burning repair attempts; Desk renders ‘add connection / import descriptor’"
     status: pending
   - id: r4-browser-computer-engines
-    content: "Wire browser.* / computer.* engines into workflow-runtime via spec-host (fallback path); same HITL + evidence gating; at least one fixture test per verb family"
+    content: Wire browser.* / computer.* engines into workflow-runtime via spec-host (fallback path); same HITL + evidence gating; at least one fixture test per verb family
     status: pending
   - id: s1-trigger
-    content: "Spec v2.1 `trigger` — manual | schedule (cron) | poll (interval + source step); lower onto manifest entrypoints + schedules; @relay/scheduler invokes spec-host; validator + JSON schema + scaffolder prompt updated"
+    content: Spec v2.1 `trigger` — manual | schedule (cron) | poll (interval + source step); lower onto manifest entrypoints + schedules; @relay/scheduler invokes spec-host; validator + JSON schema + scaffolder prompt updated
     status: pending
   - id: s2-when
-    content: "Spec v2.1 `when:` on steps — whole-ref or simple comparison (eq/ne/in/exists); false → step skipped with evidence; no general expression language"
+    content: Spec v2.1 `when:` on steps — whole-ref or simple comparison (eq/ne/in/exists); false → step skipped with evidence; no general expression language
     status: pending
   - id: s3-once-idempotency
     content: "Spec v2.1 `once: \"${item.id}\"` — idempotency key per step persisted via data engine across runs; duplicates skipped with evidence; required by validator on irreversible forEach steps under a schedule trigger"
     status: pending
   - id: s4-retry-onerror
-    content: "Spec v2.1 `retry` (max, backoff) + `onError` (fail | skip_item | escalate_human); irreversible steps never auto-retry without idempotency key"
+    content: Spec v2.1 `retry` (max, backoff) + `onError` (fail | skip_item | escalate_human); irreversible steps never auto-retry without idempotency key
     status: pending
   - id: s5-output-schema
-    content: "Enforce step output schema — llm.generate `schema` and declared `outputs` validated at runtime; mismatch = step failure with evidence (fail closed)"
+    content: Enforce step output schema — llm.generate `schema` and declared `outputs` validated at runtime; mismatch = step failure with evidence (fail closed)
     status: pending
   - id: v1-generated-evals
-    content: "Scaffolder emits eval fixtures + acceptance cases alongside the Spec (not deskEvalFixtures heuristics); spec-evals runs them as the pre-freeze gate"
+    content: Scaffolder emits eval fixtures + acceptance cases alongside the Spec (not deskEvalFixtures heuristics); spec-evals runs them as the pre-freeze gate
     status: pending
   - id: v2-shadow-gate
-    content: "Shadow-run gate — enabling a scheduled Spec requires ≥1 shadow run whose evidence pack a human approved; Desk shows evidence + simulated writes side by side"
+    content: Shadow-run gate — enabling a scheduled Spec requires ≥1 shadow run whose evidence pack a human approved; Desk shows evidence + simulated writes side by side
     status: pending
   - id: v3-outcome-followups
-    content: "Outcome rules become scheduled follow-up entrypoints (e.g. metric after 48h) that record results to the run store / VoltMem; surfaced per app"
+    content: Outcome rules become scheduled follow-up entrypoints (e.g. metric after 48h) that record results to the run store / VoltMem; surfaced per app
     status: pending
   - id: v4-live-llm-parity
     content: "Live-LLM scaffold + draft parity vs CommunityEngager (PARITY.md): mean draft-judge within 0.5 on shared fixtures; record scaffold success rate over N intents"
     status: pending
   - id: p1-relay-app-bundle
-    content: "Relay App bundle format — frozen Spec + lowered manifest + specHash + descriptors + required connections + evals + trigger; content-addressed; export/import"
+    content: Relay App bundle format — frozen Spec + lowered manifest + specHash + descriptors + required connections + evals + trigger; content-addressed; export/import
     status: pending
   - id: p2-desk-app-lifecycle
-    content: "Desk app lifecycle — install bundle → connect → shadow run → enable → pause/disable → view runs/outcomes; thaw-to-edit re-requires evals + shadow gate"
+    content: Desk app lifecycle — install bundle → connect → shadow run → enable → pause/disable → view runs/outcomes; thaw-to-edit re-requires evals + shadow gate
     status: pending
   - id: e2e-triage-demo
-    content: "E2E cold demo — plain-text triage intent → scaffold → freeze → shadow run against real GitHub → approve → enable schedule → next tick posts after HITL; no duplicate comments on re-run; checklist in docs/"
+    content: E2E cold demo — plain-text triage intent → scaffold → freeze → shadow run against real GitHub → approve → enable schedule → next tick posts after HITL; no duplicate comments on re-run; checklist in docs/
     status: pending
 isProject: true
 ---
@@ -162,27 +162,27 @@ Intent ──scaffold──► Spec v2.1 + evals (+ capability gaps → add conn
 
 ### Phase H — Generic Spec host (make the run real)
 
-1. **`h0-forcing-intent`** — lock the triage intent + success bar first so every phase has a concrete target.
-2. **`h1-spec-host-package`** — `@relay/spec-host`: `runSpec({ frozen, mode, connections, hitl, store })`. Desk `handleRun` and `engager-gen` become thin callers.
-3. **`h2-connections-secrets`** — pluggable secrets resolver; Spec refs only.
-4. **`h3-live-read-dry-write`** — `fixture` | `shadow` | `live` modes; fixtures stay for CI.
-5. **`h4-real-hitl-resume`** — persisted pause/resume through Feedback Broker; auto-approve only in `fixture` mode.
-6. **`h5-run-store`** — runs + evidence addressable by id; Desk lists them.
+1. `**h0-forcing-intent**` — lock the triage intent + success bar first so every phase has a concrete target.
+2. `**h1-spec-host-package**` — `@relay/spec-host`: `runSpec({ frozen, mode, connections, hitl, store })`. Desk `handleRun` and `engager-gen` become thin callers.
+3. `**h2-connections-secrets**` — pluggable secrets resolver; Spec refs only.
+4. `**h3-live-read-dry-write**` — `fixture` | `shadow` | `live` modes; fixtures stay for CI.
+5. `**h4-real-hitl-resume**` — persisted pause/resume through Feedback Broker; auto-approve only in `fixture` mode.
+6. `**h5-run-store**` — runs + evidence addressable by id; Desk lists them.
 
 **Exit:** the existing CE-lite `spec.yaml` runs in `shadow` mode against live `reddit-public` with a real LLM and a real Desk approval, and resumes after a restart.
 
 ### Phase R — Reach (services + engines)
 
-7. **`r1-openapi-import`** — highest leverage; GitHub is the first import.
-8. **`r2-curated-descriptors`** — shared `packages/services`.
-9. **`r3-capability-gaps`** — scaffolder says what's missing instead of failing three repairs.
-10. **`r4-browser-computer-engines`** — fallback path wired, same gating.
+7. `**r1-openapi-import**` — highest leverage; GitHub is the first import.
+8. `**r2-curated-descriptors**` — shared `packages/services`.
+9. `**r3-capability-gaps**` — scaffolder says what's missing instead of failing three repairs.
+10. `**r4-browser-computer-engines**` — fallback path wired, same gating.
 
 **Exit:** the triage intent scaffolds to a valid Spec (or a precise `needs:` list that, once satisfied, validates).
 
 ### Phase S — Spec v2.1 (app-shaped language)
 
-11. **`s1-trigger`** → 12. **`s3-once-idempotency`** → 13. **`s2-when`** → 14. **`s4-retry-onerror`** → 15. **`s5-output-schema`**
+11. `**s1-trigger**` → 12. `**s3-once-idempotency**` → 13. `**s2-when**` → 14. `**s4-retry-onerror**` → 15. `**s5-output-schema**`
 
 Each addition: protocol type + JSON schema + validator rule + lowerer + runtime + scaffolder prompt + test. Keep additive (v2 Specs remain valid).
 
@@ -190,19 +190,20 @@ Each addition: protocol type + JSON schema + validator rule + lowerer + runtime 
 
 ### Phase V — Verification that matters
 
-16. **`v1-generated-evals`** → 17. **`v2-shadow-gate`** → 18. **`v3-outcome-followups`** → 19. **`v4-live-llm-parity`**
+16. `**v1-generated-evals**` → 17. `**v2-shadow-gate**` → 18. `**v3-outcome-followups**` → 19. `**v4-live-llm-parity**`
 
 **Exit:** a scheduled Spec cannot go live without a human-approved shadow evidence pack; outcome rule results appear per run.
 
 ### Phase P — Package + lifecycle
 
-20. **`p1-relay-app-bundle`** → 21. **`p2-desk-app-lifecycle`** → 22. **`e2e-triage-demo`**
+20. `**p1-relay-app-bundle**` → 21. `**p2-desk-app-lifecycle**` → 22. `**e2e-triage-demo**`
 
 **Exit:** cold demo below passes.
 
 ## Acceptance criteria (plan done)
 
-- [ ] No hardcoded services, fixtures, or tokens in Desk’s run path; Desk + engager-gen both use `@relay/spec-host`
+- [x] No hardcoded services, fixtures, or tokens **inside** `@relay/spec-host`; Desk + engager-gen both call `runSpec` (callers may still pass fixture posts / stub LLM until h3)
+- [ ] Desk run path no longer *requires* Reddit fixture posts for non-Reddit Specs (h3 / catalog reach)
 - [ ] Connections resolve from a secrets store; missing connection is a structured, actionable error
 - [ ] `shadow` mode performs live reads and records simulated writes as evidence
 - [ ] A run paused at `human.*` resumes after approve/edit/abort, including across a process restart
@@ -254,3 +255,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 
 - Opened plan from gap review: compile side done; run side is a fixture/stub/auto-approve harness in `relay-shell` `handleRun`. Agreed direction: generic spec-host → reach (OpenAPI import, capability gaps) → Spec v2.1 (trigger/when/once/retry) → shadow-gated verification → Relay App bundle. Forcing function: GitHub bug triage intent.
 - **`h0-forcing-intent` completed** — added [`apps/triage-gen/`](../../apps/triage-gen/): locked `intent.md` (slots `acme/widgets`, `bug`, weekday 09:00), `SUCCESS.md` bar, `spec.expected.yaml` (v2.1 annotated), hand `services/github.yaml` (list + comment), `fixtures/issues.json`. Explicitly no host package — waits on `h1-spec-host-package`.
+- **`h1-spec-host-package` completed** — added [`packages/spec-host`](../../packages/spec-host): `runSpec` / `selectServicesForSpec` / `buildSpecEngines`; modes `fixture|shadow|live` (defaults); optional `extraEngines` for browser/computer. Desk `handleRun` + engager-gen call it; fixtures/stub LLM stay caller-supplied. Tests pass (GitHub-shaped fixture Spec).
