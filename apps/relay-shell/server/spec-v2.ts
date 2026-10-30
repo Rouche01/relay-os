@@ -8,11 +8,14 @@ import { createLlmClient, parseLlmProviderId, type LlmClient } from "@relay/llm"
 import {
   createDraftSpecV2,
   freezeSpecV2,
-  parseSpecV2Ref,
   type SpecV2Body,
-  type SpecV2HardRule,
 } from "@relay/protocol";
-import { compileEvals, runEvals } from "@relay/spec-evals";
+import {
+  compileEvals,
+  generateEvalFixtures,
+  hasEvaluableFixtures,
+  runEvals,
+} from "@relay/spec-evals";
 import {
   createFileRunStateStore,
   createMemoryConnectionStore,
@@ -336,6 +339,7 @@ export async function handleScaffold(input: {
       services,
       knownConnections: known,
     });
+    const evals = generateEvalFixtures(body);
     return {
       ok: true as const,
       status: 200,
@@ -344,6 +348,7 @@ export async function handleScaffold(input: {
       yaml: specBodyToYaml(body),
       validation,
       attempts: 1,
+      evals,
     };
   }
 
@@ -415,6 +420,7 @@ export async function handleScaffold(input: {
     yaml: result.yaml,
     validation: result.validation,
     attempts: result.attempts,
+    evals: result.evals,
   };
 }
 
@@ -458,130 +464,12 @@ export function handleLower(input: { yaml?: string; body?: SpecV2Body }) {
   };
 }
 
-/** Assign `value` at a dotted path, creating intermediate objects. */
-function assignPath(
-  root: Record<string, unknown>,
-  path: string,
-  value: unknown
-): void {
-  const parts = path.split(".").filter(Boolean);
-  if (!parts.length) return;
-  let cur: Record<string, unknown> = root;
-  for (let i = 0; i < parts.length - 1; i++) {
-    const key = parts[i]!;
-    const next = cur[key];
-    if (next === null || typeof next !== "object" || Array.isArray(next)) {
-      cur[key] = {};
-    }
-    cur = cur[key] as Record<string, unknown>;
-  }
-  cur[parts[parts.length - 1]!] = value;
-}
-
-/**
- * Seed fixture scope so hard-rule `${…}` refs resolve — mirrors common
- * draft/output/steps.<id>.output aliases plus the exact paths from the Spec.
- */
-function deskEvalFixtures(body: SpecV2Body) {
-  const rules = body.rules ?? [];
-  const hard = rules.filter((r): r is SpecV2HardRule => r.kind === "hard");
-  const promo =
-    hard.find((r) => "notMatches" in r.check && "pattern" in r.check) ??
-    hard.find((r) => /promo|link|url|http/i.test(r.id));
-  const allow =
-    hard.find((r) => "in" in r.check && "list" in r.check) ??
-    hard.find((r) => /allow|subreddit|allowlist/i.test(r.id));
-  const draftStep =
-    body.steps.find((s) => s.use === "llm.generate")?.id ??
-    body.steps.find((s) => /draft|reply|generate|compose/i.test(s.id))?.id ??
-    "draft";
-
-  const goodText = "Pick one versatile base layer.";
-  const badText = "see https://spam.example/fit";
-  const goodSub = "malefashionadvice";
-  const badSub = "OUTFITS";
-
-  function scopeFor(opts: { text: string; subreddit: string }) {
-    const draft = { text: opts.text };
-    const scope: Record<string, unknown> = {
-      draft,
-      output: draft,
-      item: { subreddit: opts.subreddit },
-      steps: { [draftStep]: { output: draft } },
-      [draftStep]: draft,
-    };
-
-    // Exact paths from this Spec's hard checks (LLM often invents new refs).
-    for (const rule of hard) {
-      const check = rule.check;
-      if ("notMatches" in check) {
-        const path = parseSpecV2Ref(String(check.notMatches ?? ""));
-        if (path) {
-          if (path.endsWith(".text") || path === "text") {
-            assignPath(scope, path, opts.text);
-          } else {
-            assignPath(scope, path, draft);
-          }
-        }
-      }
-      if ("matches" in check) {
-        const path = parseSpecV2Ref(String(check.matches ?? ""));
-        if (path) {
-          if (path.endsWith(".text") || path === "text") {
-            assignPath(scope, path, opts.text);
-          } else {
-            assignPath(scope, path, draft);
-          }
-        }
-      }
-      if ("in" in check) {
-        const path = parseSpecV2Ref(String(check.in ?? ""));
-        if (path) assignPath(scope, path, opts.subreddit);
-      }
-    }
-    return scope;
-  }
-
-  const cases = [];
-  const goodRules = [promo?.id, allow?.id].filter(
-    (id): id is string => typeof id === "string"
-  );
-  if (goodRules.length) {
-    cases.push({
-      id: "good_draft",
-      rules: goodRules,
-      output: { text: goodText },
-      scope: scopeFor({ text: goodText, subreddit: goodSub }),
-    });
-  }
-  if (promo && "notMatches" in promo.check) {
-    cases.push({
-      id: "bad_promo",
-      description: "Promo link must fail the notMatches hard rule",
-      rules: [promo.id],
-      output: { text: badText },
-      scope: scopeFor({ text: badText, subreddit: goodSub }),
-      expect: { rules: { [promo.id]: false } },
-    });
-  }
-  if (allow && "in" in allow.check) {
-    cases.push({
-      id: "bad_subreddit",
-      description: "Off-allowlist subreddit must fail the in/list hard rule",
-      rules: [allow.id],
-      output: { text: goodText },
-      scope: scopeFor({ text: goodText, subreddit: badSub }),
-      expect: { rules: { [allow.id]: false } },
-    });
-  }
-  return cases;
-}
-
 export async function handleEvals(input: { yaml?: string; body?: SpecV2Body }) {
   const body = resolveBody(input);
   const compiled = compileEvals(body);
-  const cases = deskEvalFixtures(body);
-  if (!cases.length) {
+  const pack = generateEvalFixtures(body);
+  const cases = pack.cases;
+  if (!hasEvaluableFixtures(pack)) {
     return {
       ok: false as const,
       status: 422,
@@ -591,7 +479,7 @@ export async function handleEvals(input: { yaml?: string; body?: SpecV2Body }) {
         cases: [],
         passed: false,
         errors: [
-          "No hard rules with in/list or notMatches/pattern — add them before evals",
+          "No hard rules with in/list, notMatches/pattern, or eq/neq — add them before evals",
         ],
       },
       error: "No evaluable hard-rule fixtures for this Spec",
@@ -611,7 +499,12 @@ export async function handleEvals(input: { yaml?: string; body?: SpecV2Body }) {
   };
 }
 
-export function handleFreeze(input: { yaml?: string; body?: SpecV2Body }) {
+export async function handleFreeze(input: {
+  yaml?: string;
+  body?: SpecV2Body;
+  /** Skip generated-eval gate (default false — fail closed). */
+  skipEvalsGate?: boolean;
+}) {
   const body = resolveBody(input);
   const validation = validateSpecV2(body, {
     services: loadV2Services(),
@@ -625,6 +518,38 @@ export function handleFreeze(input: { yaml?: string; body?: SpecV2Body }) {
       validation,
     };
   }
+
+  const evals = generateEvalFixtures(body);
+  let evalReport: Awaited<ReturnType<typeof runEvals>> | undefined;
+  if (!input.skipEvalsGate) {
+    if (!hasEvaluableFixtures(evals)) {
+      return {
+        ok: false as const,
+        status: 422,
+        error:
+          "Cannot freeze without evaluable hard-rule fixtures (add in/list, notMatches, or eq/neq)",
+        validation,
+        evals,
+      };
+    }
+    evalReport = await runEvals({
+      spec: body,
+      softFailClosed: false,
+      llmEngine: createLlmEngine({ client: runtimeStubLlm() }),
+      fixtures: evals,
+    });
+    if (!evalReport.passed) {
+      return {
+        ok: false as const,
+        status: 422,
+        error: "Evals gate failed — fix Spec or fixtures before freeze",
+        validation,
+        evals,
+        evalReport,
+      };
+    }
+  }
+
   const draft = createDraftSpecV2({
     ...body,
     id: `specv2_desk_${Date.now().toString(36)}`,
@@ -635,6 +560,8 @@ export function handleFreeze(input: { yaml?: string; body?: SpecV2Body }) {
     status: 200,
     spec: frozen,
     yaml: specBodyToYaml(body),
+    evals,
+    evalReport,
   };
 }
 
@@ -679,7 +606,7 @@ export async function handleRun(input: {
   const body = resolveBody(input);
   const autoApprove = input.autoApprove !== false;
   const { services, connectionStore, apiFixtures } = deskFixtureApi();
-  const gateCases = deskEvalFixtures(body);
+  const evals = generateEvalFixtures(body);
   const runStateStore = deskRunStateStore();
 
   try {
@@ -697,8 +624,8 @@ export async function handleRun(input: {
         pauseAndReturn: !autoApprove,
         runStateStore,
       },
-      evals: gateCases.length
-        ? { cases: gateCases, softFailClosed: false }
+      evals: hasEvaluableFixtures(evals)
+        ? { cases: evals.cases, softFailClosed: false }
         : undefined,
       name: "desk-run",
       frozenBy: "relay-desk-run",

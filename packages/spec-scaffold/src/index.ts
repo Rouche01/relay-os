@@ -15,6 +15,11 @@ export {
 } from "./needs.js";
 export { SCAFFOLD_SPEC_JSON_SCHEMA } from "./schema.js";
 export { scaffoldSpec, specBodyToYaml } from "./scaffold.js";
+/** Re-export fixture generator for Desk / hosts that skip scaffoldSpec. */
+export {
+  generateEvalFixtures,
+  hasEvaluableFixtures,
+} from "@relay/spec-evals";
 export type {
   ScaffoldAttempt,
   ScaffoldResult,

@@ -1,5 +1,6 @@
 import type { LlmClient } from "@relay/llm";
 import type { ServiceDescriptor, SpecV2Body } from "@relay/protocol";
+import type { EvalFixturePack } from "@relay/spec-evals";
 import type {
   SpecV2ValidationIssue,
   SpecV2ValidationResult,
@@ -50,6 +51,11 @@ export type ScaffoldResult =
       attempts: number;
       validation: SpecV2ValidationResult;
       history: ScaffoldAttempt[];
+      /**
+       * Offline eval fixtures + acceptance cases derived from the Spec
+       * (pass to `runSpec({ evals })` / `runEvals` as the pre-freeze gate).
+       */
+      evals: EvalFixturePack;
     }
   | {
       ok: false;
@@ -64,4 +70,6 @@ export type ScaffoldResult =
        * When set, repair loop was skipped or aborted.
        */
       needs?: ScaffoldNeed[];
+      /** Present when lastBody was set — partial fixtures for repair UX. */
+      evals?: EvalFixturePack;
     };

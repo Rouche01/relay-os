@@ -3,6 +3,7 @@ import {
   checkSpecV2BodyShape,
   type SpecV2Body,
 } from "@relay/protocol";
+import { generateEvalFixtures } from "@relay/spec-evals";
 import {
   normalizeSpecV2HardChecks,
   validateSpecV2,
@@ -174,6 +175,7 @@ export async function scaffoldSpec(
     history.push({ attempt, kind, body, validation });
 
     if (validation.ok) {
+      const evals = generateEvalFixtures(body);
       return {
         ok: true,
         body,
@@ -181,6 +183,7 @@ export async function scaffoldSpec(
         attempts: attempt,
         validation,
         history,
+        evals,
       };
     }
 

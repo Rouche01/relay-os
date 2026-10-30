@@ -1,5 +1,10 @@
 export { compileEvals, evaluableRules } from "./compile.js";
 export { assertEvalsGate, EvalGateError, evalsAllowLive } from "./gate.js";
+export {
+  generateEvalFixtures,
+  hasEvaluableFixtures,
+  type GenerateEvalFixturesOptions,
+} from "./generate.js";
 export { runEvals } from "./run.js";
 export type {
   CaseEvalResult,

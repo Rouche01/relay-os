@@ -600,6 +600,9 @@ importers:
       '@relay/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@relay/spec-evals':
+        specifier: workspace:*
+        version: link:../spec-evals
       '@relay/spec-validator':
         specifier: workspace:*
         version: link:../spec-validator

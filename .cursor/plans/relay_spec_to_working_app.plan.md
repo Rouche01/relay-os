@@ -49,7 +49,7 @@ todos:
     status: completed
   - id: v1-generated-evals
     content: Scaffolder emits eval fixtures + acceptance cases alongside the Spec (not deskEvalFixtures heuristics); spec-evals runs them as the pre-freeze gate
-    status: pending
+    status: completed
   - id: v2-shadow-gate
     content: Shadow-run gate — enabling a scheduled Spec requires ≥1 shadow run whose evidence pack a human approved; Desk shows evidence + simulated writes side by side
     status: pending
@@ -269,3 +269,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`s2-when` completed** — Spec v2.1 `when` (whole-ref \| eq/ne/in/exists); validator `when_invalid`; runtime `evaluateWhen` → skip evidence before HITL/once; scaffolder prompt/schema; docs `WHEN.md`.
 - **`s4-retry-onerror` completed** — Spec v2.1 `retry`/`onError`; validator `retry_without_once` / shape codes; runtime attempt loop + skip_item / escalate_human HITL; lowerer injects escalate feedback (skipped unless pending); scaffolder + `RETRY.md`.
 - **`s5-output-schema` completed** — runtime validates `llm.generate`/`extract` `args.schema` + step `outputs` (JSON Schema subset, fail closed, participates in retry/onError); scaffolder note; docs `OUTPUT.md`.
+- **`v1-generated-evals` completed** — `generateEvalFixtures` in `@relay/spec-evals` (acceptance + counterexamples); scaffolder returns `evals`; Desk freeze/run/evals use generator (removed `deskEvalFixtures`); freeze fails closed on evals gate; docs `EVALS.md`.

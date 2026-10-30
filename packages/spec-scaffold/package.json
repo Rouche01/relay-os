@@ -14,6 +14,7 @@
   "dependencies": {
     "@relay/llm": "workspace:*",
     "@relay/protocol": "workspace:*",
+    "@relay/spec-evals": "workspace:*",
     "@relay/spec-validator": "workspace:*",
     "yaml": "^2.9.1"
   },

@@ -216,7 +216,7 @@ async function main(): Promise<void> {
       if (method === "POST" && url.pathname === "/api/v2/freeze") {
         const raw = await readBody(req);
         const body = raw ? (JSON.parse(raw) as { yaml?: string; body?: unknown }) : {};
-        const out = handleFreeze(body as { yaml?: string; body?: never });
+        const out = await handleFreeze(body as { yaml?: string; body?: never });
         sendJson(res, out.status, out);
         return;
       }
