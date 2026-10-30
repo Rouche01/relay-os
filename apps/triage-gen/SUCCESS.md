@@ -1,0 +1,49 @@
+# Success bar — GitHub bug triage forcing function
+
+This fixture is **done for `h0`** when the artifacts below exist and the bar is
+locked. The **plan** is done when the E2E checklist passes (see
+[`relay_spec_to_working_app.plan.md`](../../.cursor/plans/relay_spec_to_working_app.plan.md)).
+
+## Locked acceptance bar
+
+A Relay App derived from [`intent.md`](./intent.md) is “truly working” when:
+
+1. **Plain text → Spec** — scaffolder (or hand Spec matching `spec.expected.yaml`)
+   produces a Spec that validates against the closed catalog + `github` descriptor.
+2. **No GitHub-specific host code** — only `services/github.yaml` (later OpenAPI-imported)
+   and connection `github:default`; zero custom stages in a triage host.
+3. **Scheduled** — weekday 09:00 trigger lowers onto `@relay/scheduler` / manifest schedules.
+4. **Shadow first** — live list of `bug` issues; comment POSTs simulated + recorded as evidence.
+5. **Real HITL** — run pauses at `human.approve`; Desk / Telegram / Feedback Broker can
+   approve, edit, or abort; resume works after process restart.
+6. **Idempotent** — re-running the same tick (or next day with same open issues) posts
+   **zero** duplicate comments (`once` on issue number).
+7. **Live gated** — schedule enable requires ≥1 human-approved shadow evidence pack;
+   live writes only with `dryRun: false` + prior HITL approve.
+8. **Survives restart** — paused or mid-run state reloads from the run store.
+
+## Non-goals for this fixture
+
+- Formal verification of drafts
+- Multi-repo / multi-org routing
+- Browser or computer engines (API path only)
+- Outcome metric automation (tracked as plan `v3`; not required for bar items 1–8)
+
+## Artifacts in this package
+
+| File | Role |
+|------|------|
+| [`intent.md`](./intent.md) | Locked natural-language intent + slots |
+| [`spec.expected.yaml`](./spec.expected.yaml) | Target Spec v2.1 sketch (acceptance shape) |
+| [`services/github.yaml`](./services/github.yaml) | Minimal hand descriptor until OpenAPI import (`r1`) |
+| [`fixtures/issues.json`](./fixtures/issues.json) | Offline scout payload for fixture/CI runs |
+| [`README.md`](./README.md) | How this fixture is used |
+
+## Checklist (plan E2E — later)
+
+- [ ] Scaffold from `intent.md` (or load `spec.expected.yaml`)
+- [ ] Validate + freeze
+- [ ] Shadow run against real GitHub with `github:default`
+- [ ] Approve evidence pack → enable schedule
+- [ ] Next tick: HITL → post; second tick: no duplicates
+- [ ] Cold demo doc checked off under `docs/`

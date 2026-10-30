@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1001,
+    "number": 42,
+    "title": "Crash when saving empty form",
+    "state": "open",
+    "labels": [{ "name": "bug" }],
+    "body": "Steps: open Settings, clear all fields, hit Save. App exits.",
+    "user": { "login": "reporter-a" },
+    "html_url": "https://github.com/acme/widgets/issues/42"
+  },
+  {
+    "id": 1002,
+    "number": 43,
+    "title": "Wrong timezone on weekday digest",
+    "state": "open",
+    "labels": [{ "name": "bug" }, { "name": "p2" }],
+    "body": "Digest fires at UTC midnight instead of host local 09:00.",
+    "user": { "login": "reporter-b" },
+    "html_url": "https://github.com/acme/widgets/issues/43"
+  }
+]

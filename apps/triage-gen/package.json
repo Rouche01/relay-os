@@ -1,0 +1,6 @@
+{
+  "name": "@relay/apps-triage-gen",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Forcing-function acceptance fixture: GitHub bug triage Intent → Spec (no host — see @relay/spec-host plan)"
+}

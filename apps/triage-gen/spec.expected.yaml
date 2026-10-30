@@ -1,0 +1,115 @@
+# Expected Spec sketch for apps/triage-gen (forcing-function acceptance shape).
+#
+# Status: AUTHORING TARGET — not yet fully runnable as Spec v2.
+# Fields marked "# v2.1" are planned in relay_spec_to_working_app (s1/s3/s4).
+# Until then: validate the v2-compatible subset (goal/connections/services/
+# budget/rules/steps) against @relay/spec-validator + services/github.yaml;
+# treat trigger/once/retry as documentation of the exit shape.
+#
+# Placeholders: owner=acme, repo=widgets (see intent.md slots).
+
+goal: Triage new bug issues in acme/widgets with a helpful first comment
+connections:
+  - github:default
+services:
+  - github
+# v2.1 — s1-trigger
+trigger:
+  schedule:
+    cron: "0 9 * * 1-5"
+budget:
+  maxJobs: 10
+  # Shadow / fixture runs force dryRun true in the host; live enable flips this
+  # only after an approved shadow evidence pack.
+  dryRun: true
+rules:
+  - id: no_promo_links
+    kind: hard
+    check:
+      notMatches: "${draft.text}"
+      pattern: "https?://"
+  - id: triage_quality
+    kind: soft
+    judge:
+      rubric:
+        - acknowledgesBug
+        - asksForReproOrLogs
+        - suggestsNextStep
+      minMean: 3.5
+  - id: maintainer_ack
+    kind: outcome
+    metric:
+      name: issue_reaction_or_reply
+      after: 72h
+      min: 1
+steps:
+  - id: scout
+    use: api.request
+    args:
+      service: github
+      operation: issuesListForRepo
+      connection: github:default
+      params:
+        owner: acme
+        repo: widgets
+        labels: bug
+        state: open
+        per_page: 20
+    outputs:
+      - body
+
+  - id: draft
+    use: llm.generate
+    forEach: "${steps.scout.output.body}"
+    # v2.1 — s3-once-idempotency (dedupe drafts per issue across ticks)
+    once: "${item.number}"
+    args:
+      prompt: >
+        Draft a short GitHub triage comment for this bug issue. Acknowledge the
+        report, ask for repro steps or logs if missing, and suggest one concrete
+        next step. No URLs. Return JSON with text and issue_number.
+      input: "${item}"
+      schema:
+        type: object
+        properties:
+          text:
+            type: string
+          issue_number:
+            type: number
+        required:
+          - text
+          - issue_number
+    enforce:
+      - no_promo_links
+      - triage_quality
+
+  - id: approve
+    use: human.approve
+    args:
+      show: "${steps.draft.output}"
+      prompt: Approve triage comments before post?
+
+  - id: post
+    use: api.request
+    forEach: "${steps.draft.output}"
+    # v2.1 — s3-once-idempotency (never double-comment)
+    once: "${item.issue_number}"
+    # v2.1 — s4-retry-onerror
+    retry:
+      max: 2
+    args:
+      service: github
+      operation: issuesCreateComment
+      connection: github:default
+      method: POST
+      params:
+        owner: acme
+        repo: widgets
+        issue_number: "${item.issue_number}"
+        body: "${item.text}"
+
+  - id: learn
+    use: data.append
+    args:
+      store: triage_outcomes
+      value: "${steps.post.output}"
