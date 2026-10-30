@@ -137,6 +137,27 @@ export type SpecV2When =
   | { exists: unknown };
 
 /**
+ * Spec v2.1 — retry policy. `max` = total attempts including the first
+ * (max: 2 → try twice). Optional fixed backoff between attempts.
+ */
+export type SpecV2Retry = {
+  max: number;
+  /** Milliseconds to wait between attempts (default 0). */
+  backoffMs?: number;
+};
+
+/**
+ * Spec v2.1 — what to do after retries are exhausted.
+ * - `fail` — throw (default); fanout child → failed
+ * - `skip_item` — record skip evidence and continue
+ * - `escalate_human` — pause for HITL (proceed = skip, abort = fail)
+ */
+export type SpecV2OnError = "fail" | "skip_item" | "escalate_human";
+
+/** Marker description for lowerer-injected escalate feedback points. */
+export const SPEC_V2_ESCALATE_FEEDBACK_PREFIX = "[onError:escalate_human]";
+
+/**
  * One ordered step. `use` must be a catalog capability id (`engine.verb`).
  * `forEach` fans out over a list ref (bounded by budget.maxJobs at runtime).
  * `enforce` lists rule ids checked against this step's output (fail closed).
@@ -158,6 +179,13 @@ export type SpecV2Step = {
    * steps under a schedule/poll trigger.
    */
   once?: string;
+  /** Spec v2.1 — retry failed executes (max attempts + optional backoffMs). */
+  retry?: SpecV2Retry;
+  /**
+   * Spec v2.1 — after retries exhausted: fail | skip_item | escalate_human.
+   * Default fail. Irreversible steps with retry require `once`.
+   */
+  onError?: SpecV2OnError;
   enforce?: string[];
   /**
    * Declared output field names this step produces (documentation /
@@ -167,6 +195,52 @@ export type SpecV2Step = {
   outputs?: string[];
   sideEffectDowngrade?: SpecV2SideEffectDowngrade;
 };
+
+/** Shape-check Spec v2.1 `retry`. Empty = ok. */
+export function checkSpecV2RetryShape(value: unknown): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return ["retry must be an object when present"];
+  }
+  const o = value as Record<string, unknown>;
+  const errors: string[] = [];
+  if (
+    typeof o.max !== "number" ||
+    !Number.isInteger(o.max) ||
+    o.max < 1
+  ) {
+    errors.push("retry.max must be an integer ≥ 1 (total attempts)");
+  }
+  if (o.backoffMs !== undefined) {
+    if (
+      typeof o.backoffMs !== "number" ||
+      !Number.isFinite(o.backoffMs) ||
+      o.backoffMs < 0
+    ) {
+      errors.push("retry.backoffMs must be a number ≥ 0 when set");
+    }
+  }
+  const allowed = new Set(["max", "backoffMs"]);
+  for (const key of Object.keys(o)) {
+    if (!allowed.has(key)) {
+      errors.push(`retry has unknown field ${JSON.stringify(key)}`);
+    }
+  }
+  return errors;
+}
+
+/** Shape-check Spec v2.1 `onError`. Empty = ok. */
+export function checkSpecV2OnErrorShape(value: unknown): string[] {
+  if (
+    value !== "fail" &&
+    value !== "skip_item" &&
+    value !== "escalate_human"
+  ) {
+    return [
+      `onError must be fail | skip_item | escalate_human (got ${JSON.stringify(value)})`,
+    ];
+  }
+  return [];
+}
 
 /** Shape-check Spec v2.1 `when`. Empty = ok. */
 export function checkSpecV2WhenShape(value: unknown): string[] {

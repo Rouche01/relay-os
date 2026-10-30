@@ -194,6 +194,30 @@ describe("validateSpecV2", () => {
     assert.ok(result.errors.some((e) => e.code === "budget_max_jobs_required"));
   });
 
+  it("rejects irreversible retry without once", () => {
+    const body = goodEngageLite();
+    body.steps = body.steps.map((s) =>
+      s.id === "post"
+        ? { ...s, retry: { max: 2 }, once: undefined }
+        : s
+    );
+    const result = validateSpecV2(body, {
+      services,
+      knownConnections: ["reddit:default"],
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.code === "retry_without_once"));
+
+    body.steps = body.steps.map((s) =>
+      s.id === "post" ? { ...s, once: "${steps.draft.output.thing_id}" } : s
+    );
+    const ok = validateSpecV2(body, {
+      services,
+      knownConnections: ["reddit:default"],
+    });
+    assert.equal(ok.ok, true, JSON.stringify(ok.errors, null, 2));
+  });
+
   it("accepts when gates and rejects invalid when shapes", () => {
     const body = goodEngageLite();
     body.steps = body.steps.map((s) =>

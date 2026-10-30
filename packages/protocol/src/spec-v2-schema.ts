@@ -268,6 +268,12 @@ export const SPEC_V2_JSON_SCHEMA: SpecV2JsonSchema = {
           "description": "Spec v2.1 idempotency key ref, e.g. ${item.id}. Duplicates skipped across runs."
         },
         "when": { "$ref": "#/$defs/when" },
+        "retry": { "$ref": "#/$defs/retry" },
+        "onError": {
+          "type": "string",
+          "enum": ["fail", "skip_item", "escalate_human"],
+          "description": "Spec v2.1 — after retries exhausted (default fail)."
+        },
         "enforce": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
@@ -349,6 +355,16 @@ export const SPEC_V2_JSON_SCHEMA: SpecV2JsonSchema = {
           "properties": { "exists": true }
         }
       ]
+    },
+    "retry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max"],
+      "description": "Spec v2.1 — max = total attempts; optional backoffMs between tries",
+      "properties": {
+        "max": { "type": "integer", "minimum": 1 },
+        "backoffMs": { "type": "number", "minimum": 0 }
+      }
     }
   }
 } as SpecV2JsonSchema;

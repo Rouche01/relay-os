@@ -10,6 +10,7 @@ import {
   isAbortResponse,
   isEditResponse,
   parseCapabilityUse,
+  SPEC_V2_ESCALATE_FEEDBACK_PREFIX,
 } from "@relay/protocol";
 import {
   foreachContextKey,
@@ -26,6 +27,12 @@ import {
   stringifyOnceKey,
 } from "./once.js";
 import { buildRefScope, lookupRef, resolveRefs } from "./refs.js";
+import {
+  backoffMsForAttempt,
+  resolveAttemptBudget,
+  resolveOnError,
+  sleep,
+} from "./retry.js";
 import type {
   WorkflowControllerOptions,
   WorkflowStepsBag,
@@ -195,24 +202,110 @@ export class WorkflowController implements AppController {
       unknown
     >;
     const actionType = parsed.capability.verb;
-    const result = await engine.execute({
-      type: actionType,
-      params: args,
-      context: ctx,
-    });
+    const attempts = resolveAttemptBudget(step.retry);
+    const onError = resolveOnError(step.onError);
+    let lastError = "execute_failed";
+    let output: unknown;
+    let succeeded = false;
 
-    if (!result.success) {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      if (attempt > 1) {
+        const wait = backoffMsForAttempt(step.retry, attempt - 1);
+        if (wait > 0) await sleep(wait);
+      }
+      const result = await engine.execute({
+        type: actionType,
+        params: args,
+        context: ctx,
+      });
+      if (result.success) {
+        output = result.data;
+        succeeded = true;
+        if (attempt > 1) {
+          recordEvidence(ctx, {
+            stepId: step.id,
+            kind: "execute",
+            detail: {
+              use: step.use,
+              retried: true,
+              attempt,
+              attempts,
+              success: true,
+            },
+          });
+        }
+        break;
+      }
+      lastError = result.error ?? "execute_failed";
       recordEvidence(ctx, {
         stepId: step.id,
         kind: "error",
-        detail: { error: result.error ?? "execute_failed", use: step.use },
+        detail: {
+          error: lastError,
+          use: step.use,
+          attempt,
+          attempts,
+          willRetry: attempt < attempts,
+        },
       });
+    }
+
+    if (!succeeded) {
+      if (onError === "skip_item") {
+        const skipped = {
+          skipped: true,
+          reason: "onError" as const,
+          onError: "skip_item" as const,
+          error: lastError,
+        };
+        this.writeStepOutput(ctx, step.id, skipped);
+        recordEvidence(ctx, {
+          stepId: step.id,
+          kind: "skip",
+          detail: {
+            reason: "onError",
+            onError: "skip_item",
+            error: lastError,
+            attempts,
+          },
+        });
+        return;
+      }
+      if (onError === "escalate_human") {
+        this.writeStepOutput(ctx, step.id, {
+          pending: true,
+          escalate: true,
+          error: lastError,
+          show: {
+            title: `Step ${step.id} failed`,
+            body: lastError,
+            attempts,
+          },
+          prompt: `Step ${step.id} failed after ${attempts} attempt(s): ${lastError}. Approve to skip, Abort to fail.`,
+        });
+        ctx.feedbackContext = {
+          subjectId: step.id,
+          title: `Escalate: ${step.id}`,
+          body: lastError,
+        };
+        recordEvidence(ctx, {
+          stepId: step.id,
+          kind: "hitl",
+          detail: {
+            escalate: true,
+            onError: "escalate_human",
+            error: lastError,
+            attempts,
+            pending: true,
+          },
+        });
+        return;
+      }
       throw new Error(
-        `Step ${JSON.stringify(step.id)} (${step.use}) failed: ${result.error ?? "unknown"}`
+        `Step ${JSON.stringify(step.id)} (${step.use}) failed: ${lastError}`
       );
     }
 
-    const output = result.data;
     this.writeStepOutput(ctx, step.id, output);
     const detail: Record<string, unknown> = {
       use: step.use,
@@ -248,6 +341,20 @@ export class WorkflowController implements AppController {
     }
   }
 
+  async shouldSkipFeedbackPoint(
+    stage: StageDefinition,
+    fp: FeedbackPoint,
+    context: AgentContext
+  ): Promise<boolean> {
+    if (!fp.description.startsWith(SPEC_V2_ESCALATE_FEEDBACK_PREFIX)) {
+      return false;
+    }
+    const bag = (context.steps as WorkflowStepsBag | undefined)?.[stage.name]
+      ?.output as { escalate?: boolean; pending?: boolean } | undefined;
+    // Only pause when execute left an escalate pending.
+    return !(bag?.escalate === true && bag?.pending === true);
+  }
+
   async onFeedbackApplied(
     stage: StageDefinition,
     feedback: FeedbackResponse,
@@ -256,6 +363,47 @@ export class WorkflowController implements AppController {
     const ctx = this.getContext();
     const step = this.lowered.relay.steps.find((s) => s.id === stage.name);
     if (!step) return;
+
+    const priorBag = (ctx.steps as WorkflowStepsBag | undefined)?.[step.id]
+      ?.output as
+      | { show?: unknown; escalate?: boolean; error?: string; pending?: boolean }
+      | undefined;
+
+    if (priorBag?.escalate === true) {
+      if (isAbortResponse(feedback)) {
+        this.writeStepOutput(ctx, step.id, {
+          aborted: true,
+          escalate: true,
+          error: priorBag.error,
+          feedback,
+        });
+        recordEvidence(ctx, {
+          stepId: step.id,
+          kind: "hitl",
+          detail: { escalate: true, aborted: true, error: priorBag.error },
+        });
+        return; // hard abort
+      }
+      // Proceed / edit → skip item after human acknowledgment
+      this.writeStepOutput(ctx, step.id, {
+        skipped: true,
+        reason: "onError",
+        onError: "escalate_human",
+        error: priorBag.error,
+        feedback,
+      });
+      recordEvidence(ctx, {
+        stepId: step.id,
+        kind: "skip",
+        detail: {
+          reason: "onError",
+          onError: "escalate_human",
+          error: priorBag.error,
+          humanProceed: true,
+        },
+      });
+      return;
+    }
 
     if (isAbortResponse(feedback)) {
       this.writeStepOutput(ctx, step.id, {
@@ -270,8 +418,7 @@ export class WorkflowController implements AppController {
       return; // hard abort (default)
     }
 
-    const prior = (ctx.steps as WorkflowStepsBag | undefined)?.[step.id]
-      ?.output as { show?: unknown } | undefined;
+    const prior = priorBag;
     const show = prior?.show;
 
     let output: unknown;

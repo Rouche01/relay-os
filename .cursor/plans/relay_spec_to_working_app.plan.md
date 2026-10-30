@@ -43,7 +43,7 @@ todos:
     status: completed
   - id: s4-retry-onerror
     content: Spec v2.1 `retry` (max, backoff) + `onError` (fail | skip_item | escalate_human); irreversible steps never auto-retry without idempotency key
-    status: pending
+    status: completed
   - id: s5-output-schema
     content: Enforce step output schema — llm.generate `schema` and declared `outputs` validated at runtime; mismatch = step failure with evidence (fail closed)
     status: pending
@@ -267,3 +267,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`s1-trigger` completed** — Spec v2.1 `trigger` (`manual` | `schedule.cron` | `poll.everyMs+sourceStep`) in protocol types/JSON schema; validator `trigger_*` codes; `schedulesFromTrigger` → manifest `schedules` id `spec` / entrypoint `default`; `schedulerHostFromSpec` + `createRunSpecInvoker` in `@relay/spec-host`; scaffolder prompt/schema; docs `TRIGGER.md`.
 - **`s3-once-idempotency` completed** — Spec v2.1 `once` on steps; validator `once_required` / `once_not_ref` (`inv_once_idempotency`); runtime skip+evidence via data store `relay.once` (commit only when not `dryRunSimulated`); `FileJsonDataStore` + `runSpec({ dataStore })`; scaffolder prompt/schema; docs `ONCE.md`.
 - **`s2-when` completed** — Spec v2.1 `when` (whole-ref \| eq/ne/in/exists); validator `when_invalid`; runtime `evaluateWhen` → skip evidence before HITL/once; scaffolder prompt/schema; docs `WHEN.md`.
+- **`s4-retry-onerror` completed** — Spec v2.1 `retry`/`onError`; validator `retry_without_once` / shape codes; runtime attempt loop + skip_item / escalate_human HITL; lowerer injects escalate feedback (skipped unless pending); scaffolder + `RETRY.md`.

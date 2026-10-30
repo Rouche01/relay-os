@@ -8,6 +8,8 @@ import {
   capabilityNeedsHitl,
   checkOperationParams,
   checkSpecV2BodyShape,
+  checkSpecV2OnErrorShape,
+  checkSpecV2RetryShape,
   checkSpecV2TriggerShape,
   checkSpecV2WhenShape,
   classifySpecV2Trigger,
@@ -110,6 +112,28 @@ function checkStructure(ctx: Ctx): void {
           path: `steps/${i}/when`,
           stepId: step.id,
           invariant: "inv_structure",
+        });
+      }
+    }
+    if (step.retry !== undefined) {
+      for (const message of checkSpecV2RetryShape(step.retry)) {
+        err(ctx, {
+          code: "retry_invalid",
+          message,
+          path: `steps/${i}/retry`,
+          stepId: step.id,
+          invariant: "inv_retry_safe",
+        });
+      }
+    }
+    if (step.onError !== undefined) {
+      for (const message of checkSpecV2OnErrorShape(step.onError)) {
+        err(ctx, {
+          code: "on_error_invalid",
+          message,
+          path: `steps/${i}/onError`,
+          stepId: step.id,
+          invariant: "inv_retry_safe",
         });
       }
     }
@@ -552,6 +576,38 @@ function checkSafety(ctx: Ctx): void {
         invariant: "inv_once_idempotency",
       });
     }
+
+    // Irreversible + retry requires once (never auto-retry without idempotency)
+    const retryMax =
+      step.retry &&
+      typeof step.retry.max === "number" &&
+      Number.isInteger(step.retry.max)
+        ? step.retry.max
+        : undefined;
+    if (
+      sideEffect === "irreversible" &&
+      retryMax !== undefined &&
+      retryMax > 1 &&
+      !step.once
+    ) {
+      err(ctx, {
+        code: "retry_without_once",
+        message: `Irreversible step ${JSON.stringify(step.id)} with retry.max > 1 requires once: "\${...}" (no auto-retry without idempotency key)`,
+        path: `steps/${i}/retry`,
+        stepId: step.id,
+        invariant: "inv_retry_safe",
+      });
+    }
+
+    if (step.onError === "escalate_human" && cap.engine === "human") {
+      err(ctx, {
+        code: "on_error_on_human",
+        message: `Step ${JSON.stringify(step.id)} is human.* — onError escalate_human is redundant`,
+        path: `steps/${i}/onError`,
+        stepId: step.id,
+        invariant: "inv_retry_safe",
+      });
+    }
   });
 }
 
@@ -785,4 +841,6 @@ export const SPEC_V2_VALIDATOR_INVARIANTS: Record<
   inv_structure: "Spec v2 body is well-formed (goal, unique steps/rules, forEach refs)",
   inv_once_idempotency:
     "Irreversible forEach steps under schedule/poll declare once; once is a ${...} ref",
+  inv_retry_safe:
+    "Irreversible steps never auto-retry (retry.max > 1) without once; retry/onError shapes are valid",
 };

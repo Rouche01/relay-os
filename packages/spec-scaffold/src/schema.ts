@@ -146,6 +146,16 @@ export const SCAFFOLD_SPEC_JSON_SCHEMA: Record<string, unknown> = {
             description:
               "Spec v2.1 gate: ${...} ref or { eq|ne|in|exists }. False → skip step.",
           },
+          retry: {
+            type: "object",
+            description:
+              "Spec v2.1 — { max: totalAttempts, backoffMs? }. Irreversible + max>1 requires once.",
+          },
+          onError: {
+            type: "string",
+            enum: ["fail", "skip_item", "escalate_human"],
+            description: "After retries exhausted (default fail).",
+          },
           enforce: {
             type: "array",
             items: { type: "string" },

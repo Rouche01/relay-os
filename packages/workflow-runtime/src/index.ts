@@ -18,6 +18,12 @@ export {
 } from "./once.js";
 export { evaluateWhen, type WhenEvalResult } from "./when.js";
 export {
+  backoffMsForAttempt,
+  resolveAttemptBudget,
+  resolveOnError,
+  sleep,
+} from "./retry.js";
+export {
   buildRefScope,
   getByPath,
   lookupRef,

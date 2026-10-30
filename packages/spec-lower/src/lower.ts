@@ -5,6 +5,7 @@ import {
   getCapability,
   parseCapabilityUse,
   parseSpecV2Ref,
+  SPEC_V2_ESCALATE_FEEDBACK_PREFIX,
   SPEC_V2_SCHEDULE_ID,
   type AgenticAppManifest,
   type EngineType,
@@ -149,7 +150,7 @@ function lowerStep(
     engines.add(engineType);
   }
 
-  const feedback = humanFeedback(step, feedbackPatterns);
+  const feedback = mergeStepFeedback(step, feedbackPatterns);
   const description =
     capability?.description ??
     step.use + (step.forEach ? ` (forEach)` : "");
@@ -201,6 +202,34 @@ function lowerStep(
     engine: engineType,
     feedback_points: feedback,
   };
+}
+
+/** Human.* feedback plus optional onError escalate confirmation. */
+function mergeStepFeedback(
+  step: SpecV2Step,
+  patterns: Set<FeedbackType>
+): FeedbackPoint[] | undefined {
+  const human = humanFeedback(step, patterns) ?? [];
+  const escalate =
+    step.onError === "escalate_human"
+      ? escalateFeedback(step, patterns)
+      : [];
+  const merged = [...human, ...escalate];
+  return merged.length ? merged : undefined;
+}
+
+function escalateFeedback(
+  step: SpecV2Step,
+  patterns: Set<FeedbackType>
+): FeedbackPoint[] {
+  patterns.add("confirmation");
+  return [
+    {
+      type: "confirmation",
+      description: `${SPEC_V2_ESCALATE_FEEDBACK_PREFIX} Step ${step.id} failed — Approve to skip, Abort to fail`,
+      required: true,
+    },
+  ];
 }
 
 /** Context key the workflow runtime fills before running a forEach stage. */

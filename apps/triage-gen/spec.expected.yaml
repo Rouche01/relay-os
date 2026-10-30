@@ -1,9 +1,8 @@
 # Expected Spec sketch for apps/triage-gen (forcing-function acceptance shape).
 #
 # Status: AUTHORING TARGET — not yet fully runnable as Spec v2.
-# Fields marked "# v2.1" — trigger (s1), once (s3), when (s2) implemented; retry still planned.
-# Validate goal/connections/services/budget/rules/steps/trigger/once/when against
-# @relay/spec-validator + @relay/services github descriptor.
+# Fields marked "# v2.1" — trigger/once/when/retry (s1–s4) implemented; output schema (s5) still planned.
+# Validate against @relay/spec-validator + @relay/services github descriptor.
 #
 # Placeholders: owner=acme, repo=widgets (see intent.md slots).
 
@@ -93,9 +92,10 @@ steps:
     forEach: "${steps.draft.output}"
     # v2.1 — s3-once-idempotency (implemented; never double-comment)
     once: "${item.issue_number}"
-    # v2.1 — s4-retry-onerror
+    # v2.1 — s4-retry-onerror (implemented)
     retry:
       max: 2
+    onError: fail
     args:
       service: github
       operation: issuesCreateComment
