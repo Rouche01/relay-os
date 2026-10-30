@@ -50,7 +50,33 @@ export const SCAFFOLD_SPEC_JSON_SCHEMA: Record<string, unknown> = {
           check: {
             type: "object",
             description:
-              "Hard rule: one of in/list, notIn/list, matches/pattern, notMatches/pattern, eq/value, neq/value, gt|gte|lt|lte/value",
+              "Hard rule object with BOTH subject and companion. " +
+              "notMatches/matches MUST be { notMatches|matches: \"${draft.text}\", pattern: \"https?://\" } — " +
+              "never put the regex alone in notMatches. " +
+              "Also: in/list, notIn/list, eq/value, neq/value, gt|gte|lt|lte/value.",
+            properties: {
+              in: {},
+              notIn: {},
+              list: {},
+              matches: {
+                description: 'Subject to match, usually "${draft.text}"',
+              },
+              notMatches: {
+                description: 'Subject that must NOT match, usually "${draft.text}"',
+              },
+              pattern: {
+                type: "string",
+                description:
+                  'Regex for matches/notMatches, e.g. "https?://". Required with matches/notMatches.',
+              },
+              eq: {},
+              neq: {},
+              value: {},
+              gt: {},
+              gte: {},
+              lt: {},
+              lte: {},
+            },
           },
           judge: {
             type: "object",

@@ -3,9 +3,11 @@ import {
   checkSpecV2BodyShape,
   type SpecV2Body,
 } from "@relay/protocol";
+import { normalizeSpecV2HardChecks } from "./normalize.js";
 
 /**
  * Parse Spec v2 YAML into a body object (shape-checked, not fully validated).
+ * Also repairs collapsed hard checks (`notMatches` used as the pattern).
  * Full checks: {@link validateSpecV2}.
  */
 export function parseSpecV2Yaml(text: string): SpecV2Body {
@@ -21,5 +23,5 @@ export function parseSpecV2Yaml(text: string): SpecV2Body {
   if (!checked.ok) {
     throw new Error(`Invalid Spec v2 body:\n- ${checked.errors.join("\n- ")}`);
   }
-  return checked.body;
+  return normalizeSpecV2HardChecks(checked.body);
 }

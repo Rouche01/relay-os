@@ -762,7 +762,10 @@ export function App() {
 
         <main class="desk-main">
         {mainTab === "spec" ? (
-          <SpecSurface settings={settings} />
+          <SpecSurface
+            settings={settings}
+            onOpenConsole={() => setMainTab("console")}
+          />
         ) : (
         <div class="desk-body">
           <div class="console-head">

@@ -418,6 +418,70 @@ body {
   margin: 0.15rem 0 0;
 }
 
+.spec-export-row {
+  gap: 0.75rem;
+}
+
+.spec-export-flash {
+  margin: 0;
+  color: var(--ink);
+}
+
+.spec-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.spec-check input {
+  accent-color: var(--ink);
+}
+
+.spec-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.spec-diff-pre {
+  font-size: 0.68rem;
+}
+
+.spec-diff-line[data-kind="del"] {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.spec-diff-line[data-kind="add"] {
+  color: var(--signal, #6ecf8e);
+  background: color-mix(in srgb, var(--signal, #6ecf8e) 12%, transparent);
+}
+
+.spec-history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.spec-history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.spec-history-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+}
+
 .spec-intent-presets {
   display: flex;
   flex-wrap: wrap;

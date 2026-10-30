@@ -10,3 +10,8 @@ export {
   type ValidateSpecV2Options,
 } from "./validate.js";
 export { parseSpecV2Yaml } from "./parse.js";
+export {
+  DEFAULT_HARD_MATCH_SUBJECT,
+  looksLikeCollapsedRegexPattern,
+  normalizeSpecV2HardChecks,
+} from "./normalize.js";

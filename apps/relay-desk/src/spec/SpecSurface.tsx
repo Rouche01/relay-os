@@ -10,6 +10,13 @@ import {
   validateSpec,
 } from "./client.ts";
 import {
+  lineDiff,
+  loadSpecHistory,
+  pushSpecHistory,
+  scaffoldPhaseLabel,
+  type SpecHistoryEntry,
+} from "./history.ts";
+import {
   deriveSpecPipeline,
   gateSpecAction,
   scrollToSpecStep,
@@ -27,6 +34,8 @@ import {
 
 type Props = {
   settings: DeskSettings;
+  /** Switch Desk main tab to Console (HITL cards). */
+  onOpenConsole?: () => void;
 };
 
 /** Chip after a scaffold attempt — distinct from raw API `mode`. */
@@ -109,11 +118,30 @@ function focusYamlLine(
   textarea.scrollTop = Math.max(0, lineIndex * lineHeight - textarea.clientHeight / 3);
 }
 
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function downloadText(filename: string, text: string, mime: string): void {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /**
  * Spec governance surface — Intent → scaffold → validate → evals → lower → freeze → run.
  * HITL cards stay on Console.
  */
-export function SpecSurface({ settings }: Props) {
+export function SpecSurface({ settings, onOpenConsole }: Props) {
   const [intent, setIntent] = useState(DEFAULT_CE_INTENT);
   const [intentPreset, setIntentPreset] = useState<IntentPresetId | "custom">(
     "ce-fashion"
@@ -142,7 +170,56 @@ export function SpecSurface({ settings }: Props) {
   const [runTab, setRunTab] = useState<"steps" | "evidence" | "summary">(
     "steps"
   );
+  const [exportFlash, setExportFlash] = useState<string | undefined>();
+  const [autoApprove, setAutoApprove] = useState(true);
+  const [history, setHistory] = useState<SpecHistoryEntry[]>(() =>
+    typeof localStorage !== "undefined" ? loadSpecHistory() : []
+  );
+  const [stubDiff, setStubDiff] = useState<
+    Array<{ kind: "same" | "del" | "add"; text: string }> | undefined
+  >();
+  const [compareBusy, setCompareBusy] = useState(false);
   const yamlRef = useRef<HTMLTextAreaElement>(null);
+
+  const flashExport = useCallback((msg: string) => {
+    setExportFlash(msg);
+    window.setTimeout(() => setExportFlash(undefined), 1600);
+  }, []);
+
+  const onCopyYaml = useCallback(async () => {
+    if (!yaml.trim()) return;
+    const ok = await copyText(yaml);
+    flashExport(ok ? "copied YAML" : "copy failed");
+  }, [yaml, flashExport]);
+
+  const onDownloadYaml = useCallback(() => {
+    if (!yaml.trim()) return;
+    downloadText("spec.yaml", yaml, "text/yaml;charset=utf-8");
+    flashExport("downloaded spec.yaml");
+  }, [yaml, flashExport]);
+
+  const onCopyDryRun = useCallback(async () => {
+    if (!runResult) return;
+    const ok = await copyText(JSON.stringify(runResult, null, 2));
+    flashExport(ok ? "copied dry-run JSON" : "copy failed");
+  }, [runResult, flashExport]);
+
+  const onDownloadDryRun = useCallback(() => {
+    if (!runResult) return;
+    downloadText(
+      "spec-dry-run.json",
+      JSON.stringify(runResult, null, 2),
+      "application/json;charset=utf-8"
+    );
+    flashExport("downloaded spec-dry-run.json");
+  }, [runResult, flashExport]);
+
+  const onCopyHash = useCallback(async () => {
+    const hash = runResult?.specHash ?? lowered?.specHash;
+    if (!hash) return;
+    const ok = await copyText(hash);
+    flashExport(ok ? "copied specHash" : "copy failed");
+  }, [runResult, lowered, flashExport]);
 
   const jumpToIssue = useCallback(
     (issue: Pick<SpecValidationIssue, "path" | "stepId" | "ruleId">) => {
@@ -172,7 +249,16 @@ export function SpecSurface({ settings }: Props) {
     setBusyStartedAt(started);
     setBusyElapsedSec(0);
     const id = window.setInterval(() => {
-      setBusyElapsedSec(Math.floor((Date.now() - started) / 1000));
+      const sec = Math.floor((Date.now() - started) / 1000);
+      setBusyElapsedSec(sec);
+      setBusyLabel((prev) => {
+        if (!prev || !prev.toLowerCase().includes("scaffold")) return prev;
+        const provider = prev.match(/with (\S+)/)?.[1];
+        const phase = scaffoldPhaseLabel(sec);
+        return provider
+          ? `Scaffolding with ${provider} · ${phase}`
+          : `Scaffolding · ${phase}`;
+      });
     }, 1000);
     return () => window.clearInterval(id);
   }, [busy]);
@@ -269,6 +355,16 @@ export function SpecSurface({ settings }: Props) {
         setScaffoldNote(res.note);
         scrollToSpecStep("validate");
       }
+      if (res.yaml?.trim()) {
+        setHistory(
+          pushSpecHistory({
+            mode: res.mode,
+            intentPreview: intent.trim().slice(0, 120),
+            yaml: res.yaml,
+          })
+        );
+        setStubDiff(undefined);
+      }
       if (!res.ok || !res.yaml) {
         const detail =
           res.note ||
@@ -289,6 +385,37 @@ export function SpecSurface({ settings }: Props) {
       setBusyLabel(undefined);
     }
   }, [intent, settings]);
+
+  const onCompareStub = useCallback(async () => {
+    if (!yaml.trim() || !intent.trim()) return;
+    setCompareBusy(true);
+    setError(undefined);
+    try {
+      const stub = await scaffoldSpec(settings, intent, { stub: true });
+      if (!stub.yaml) throw new Error("Stub scaffold returned no YAML");
+      setStubDiff(lineDiff(stub.yaml, yaml));
+      scrollToSpecStep("yaml");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCompareBusy(false);
+    }
+  }, [intent, settings, yaml]);
+
+  const onLoadHistory = useCallback((entry: SpecHistoryEntry) => {
+    setYaml(entry.yaml);
+    setMode(entry.mode);
+    setScaffoldOutcome(
+      entry.mode === "stub" ? "stub" : entry.mode === "llm" ? "llm" : undefined
+    );
+    setStubDiff(undefined);
+    setEvals(undefined);
+    setLowered(undefined);
+    setRunResult(undefined);
+    setFrozenId(undefined);
+    setForcePipeline(false);
+    scrollToSpecStep("yaml");
+  }, []);
 
   const onValidate = useCallback(async () => {
     if (!yaml.trim()) return;
@@ -379,11 +506,14 @@ export function SpecSurface({ settings }: Props) {
     setBusyLabel("Running (dry-run)…");
     setError(undefined);
     try {
-      const res = await runSpec(settings, yaml, { autoApprove: true });
+      const res = await runSpec(settings, yaml, { autoApprove });
       setRunResult(res);
       if (!res.ok) {
         setValidation(res.validation);
         throw new Error(res.error || `Run ended ${res.state ?? "failed"}`);
+      }
+      if (!autoApprove && onOpenConsole) {
+        flashExport("HITL may be waiting — open Console");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -391,7 +521,7 @@ export function SpecSurface({ settings }: Props) {
       setBusy(false);
       setBusyLabel(undefined);
     }
-  }, [settings, yaml]);
+  }, [settings, yaml, autoApprove, onOpenConsole, flashExport]);
 
   return (
     <div class="desk-body spec-surface">
@@ -568,7 +698,42 @@ export function SpecSurface({ settings }: Props) {
 
         <section class="tile" data-spec-step="yaml">
           <div class="tile-stack">
-            <p class="tile-label">Spec YAML</p>
+            <div class="tile-head">
+              <p class="tile-label">Spec YAML</p>
+              <div class="cta-row spec-export-row">
+                <button
+                  type="button"
+                  class="cta linkish"
+                  disabled={!yaml.trim()}
+                  onClick={() => void onCopyYaml()}
+                >
+                  Copy YAML
+                </button>
+                <button
+                  type="button"
+                  class="cta linkish"
+                  disabled={!yaml.trim()}
+                  onClick={onDownloadYaml}
+                >
+                  Download .yaml
+                </button>
+                <button
+                  type="button"
+                  class="cta linkish"
+                  disabled={
+                    !yaml.trim() ||
+                    !intent.trim() ||
+                    compareBusy ||
+                    busy ||
+                    scaffoldOutcome === "stub"
+                  }
+                  title="Diff current YAML against deterministic stub scaffold"
+                  onClick={() => void onCompareStub()}
+                >
+                  {compareBusy ? "Comparing…" : "Diff vs stub"}
+                </button>
+              </div>
+            </div>
             <textarea
               ref={yamlRef}
               class="spec-textarea mono"
@@ -578,6 +743,60 @@ export function SpecSurface({ settings }: Props) {
               onInput={(e) => setYaml((e.target as HTMLTextAreaElement).value)}
               spellcheck={false}
             />
+            {stubDiff ? (
+              <div class="spec-diff">
+                <div class="tile-head">
+                  <p class="tile-meta mono">diff · stub (−) vs current (+)</p>
+                  <button
+                    type="button"
+                    class="cta linkish"
+                    onClick={() => setStubDiff(undefined)}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <pre class="spec-pre spec-pre-expanded spec-diff-pre">
+                  {stubDiff.map((line, i) => (
+                    <span
+                      key={`${line.kind}-${i}`}
+                      class="spec-diff-line"
+                      data-kind={line.kind}
+                    >
+                      {line.kind === "del"
+                        ? `− ${line.text}`
+                        : line.kind === "add"
+                          ? `+ ${line.text}`
+                          : `  ${line.text}`}
+                      {"\n"}
+                    </span>
+                  ))}
+                </pre>
+              </div>
+            ) : null}
+            {history.length ? (
+              <div class="spec-history">
+                <p class="tile-meta mono">recent scaffolds</p>
+                <ul class="spec-history-list">
+                  {history.map((h) => (
+                    <li key={h.id}>
+                      <button
+                        type="button"
+                        class="cta linkish"
+                        disabled={busy}
+                        onClick={() => onLoadHistory(h)}
+                      >
+                        load
+                      </button>
+                      <span class="mono muted">
+                        {h.mode ?? "?"} · {h.at.slice(0, 19).replace("T", " ")} ·{" "}
+                        {h.intentPreview.slice(0, 48)}
+                        {h.intentPreview.length > 48 ? "…" : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <div class="cta-row">
               <button
                 type="button"
@@ -940,6 +1159,26 @@ export function SpecSurface({ settings }: Props) {
                   ? "Running…"
                   : "Run dry"}
               </button>
+              <label class="spec-check mono">
+                <input
+                  type="checkbox"
+                  checked={autoApprove}
+                  disabled={busy}
+                  onChange={(e) =>
+                    setAutoApprove((e.target as HTMLInputElement).checked)
+                  }
+                />
+                auto-approve HITL
+              </label>
+              {!autoApprove && onOpenConsole ? (
+                <button
+                  type="button"
+                  class="cta linkish"
+                  onClick={onOpenConsole}
+                >
+                  Open Console
+                </button>
+              ) : null}
               {!evalsPassed ? (
                 <button
                   type="button"
@@ -951,7 +1190,42 @@ export function SpecSurface({ settings }: Props) {
                   {forcePipeline ? "Force on" : "Force"}
                 </button>
               ) : null}
+              <button
+                type="button"
+                class="cta linkish"
+                disabled={!runResult}
+                onClick={() => void onCopyDryRun()}
+              >
+                Copy JSON
+              </button>
+              <button
+                type="button"
+                class="cta linkish"
+                disabled={!runResult}
+                onClick={onDownloadDryRun}
+              >
+                Download .json
+              </button>
+              <button
+                type="button"
+                class="cta linkish"
+                disabled={!(runResult?.specHash ?? lowered?.specHash)}
+                onClick={() => void onCopyHash()}
+              >
+                Copy hash
+              </button>
             </div>
+            {exportFlash ? (
+              <p class="tile-meta mono spec-export-flash" aria-live="polite">
+                {exportFlash}
+              </p>
+            ) : null}
+            {!autoApprove ? (
+              <p class="tile-meta">
+                Auto-approve off — dry-run may wait on HITL; use Console cards
+                when FEEDBACK_ADAPTER=desk.
+              </p>
+            ) : null}
             {runGate.reason && !runGate.enabled ? (
               <p class="tile-meta mono spec-gate-hint">{runGate.reason}</p>
             ) : freezeGateHint && forcePipeline ? (

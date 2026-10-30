@@ -69,6 +69,8 @@ export function buildSystemPrompt(options: {
     "- Every irreversible path (api POST/PUT/PATCH/DELETE, etc.) must pass through a human.approve|edit|choose step first.",
     "- NEVER emit empty args {}. Fill every required capability arg (api.request needs service+operation; llm.generate needs prompt; human.approve|edit need show).",
     "- Refs are whole-string only: \"${steps.scout.output.body.posts}\", \"${item.subreddit}\", \"${draft.text}\".",
+    "- Hard matches/notMatches ALWAYS need TWO fields: subject ref + pattern. NEVER put the regex alone in notMatches.",
+    '  Correct: { "notMatches": "${draft.text}", "pattern": "https?://" }. Wrong: { "notMatches": "https?://" }.',
     "- api.request results are under steps.<id>.output with HTTP payload at .body (e.g. posts list → ${steps.scout.output.body.posts}).",
     "- Connection refs never contain secrets.",
     `- Known connections: ${connections}`,
@@ -101,6 +103,14 @@ export function buildDraftUserPrompt(intent: string): string {
               list: ["malefashionadvice"],
             },
           },
+          {
+            id: "no_promo_links",
+            kind: "hard",
+            check: {
+              notMatches: "${draft.text}",
+              pattern: "https?://",
+            },
+          },
         ],
         steps: [
           {
@@ -120,7 +130,7 @@ export function buildDraftUserPrompt(intent: string): string {
               prompt: "Draft a helpful reply. No links.",
               input: "${item}",
             },
-            enforce: ["allowlist_only"],
+            enforce: ["allowlist_only", "no_promo_links"],
           },
           {
             id: "approve",

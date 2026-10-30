@@ -21,7 +21,11 @@ import {
 import { assertEvalsGate, compileEvals, runEvals } from "@relay/spec-evals";
 import { lowerSpecV2 } from "@relay/spec-lower";
 import { scaffoldSpec, specBodyToYaml } from "@relay/spec-scaffold";
-import { parseSpecV2Yaml, validateSpecV2 } from "@relay/spec-validator";
+import {
+  normalizeSpecV2HardChecks,
+  parseSpecV2Yaml,
+  validateSpecV2,
+} from "@relay/spec-validator";
 import {
   createWorkflowRuntime,
   getEvidence,
@@ -159,7 +163,9 @@ function resolveBody(input: {
   yaml?: string;
   body?: SpecV2Body;
 }): SpecV2Body {
-  if (input.body) return input.body;
+  // parseSpecV2Yaml already normalizes; body path needs an explicit pass
+  // so LLM-collapsed notMatches/pattern still repair on Validate/Evals.
+  if (input.body) return normalizeSpecV2HardChecks(input.body);
   if (input.yaml?.trim()) return parseSpecV2Yaml(input.yaml);
   throw new Error("Provide yaml or body");
 }

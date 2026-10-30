@@ -4,6 +4,7 @@ import {
   type SpecV2Body,
 } from "@relay/protocol";
 import {
+  normalizeSpecV2HardChecks,
   validateSpecV2,
   type SpecV2ValidationIssue,
 } from "@relay/spec-validator";
@@ -138,7 +139,7 @@ export async function scaffoldSpec(
       continue;
     }
 
-    const body = shape.body;
+    const body = normalizeSpecV2HardChecks(shape.body);
     lastBody = body;
     const validation = validateSpecV2(body, validateOpts);
     history.push({ attempt, kind, body, validation });

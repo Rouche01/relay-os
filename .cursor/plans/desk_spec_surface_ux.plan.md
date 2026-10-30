@@ -3,32 +3,32 @@ name: Desk Spec surface UX
 overview: "Make Relay Desk Spec operable as Intent → scaffold → validate → evals → lower → freeze → dry-run: real pipeline state, gated actions, visible progress/errors, and a first-class dry-run panel. HITL cards stay on Console."
 todos:
   - id: pipeline-stepper
-    content: "Replace static INTENT→…→RUN breadcrumb with stateful stepper (done / current / blocked) driven by yaml, validation, evals, lowered, frozenId, runResult"
+    content: Replace static INTENT→…→RUN breadcrumb with stateful stepper (done / current / blocked) driven by yaml, validation, evals, lowered, frozenId, runResult
     status: completed
   - id: gate-actions
-    content: "Disable Evals until validate ok; Lower/Freeze/Run until evals pass (optional force bypass with explicit confirm); one-line reason when disabled"
+    content: Disable Evals until validate ok; Lower/Freeze/Run until evals pass (optional force bypass with explicit confirm); one-line reason when disabled
     status: completed
   - id: status-rail
-    content: "Sticky status strip — llm provider from /api/health, busy label + elapsed, last error; keep aria-live"
+    content: Sticky status strip — llm provider from /api/health, busy label + elapsed, last error; keep aria-live
     status: completed
   - id: dry-run-panel
-    content: "Promote Run dry into its own panel/tabs (Steps / Evidence / Summary) using stepOutputs + evidence from /api/v2/run; not buried under Freeze"
+    content: Promote Run dry into its own panel/tabs (Steps / Evidence / Summary) using stepOutputs + evidence from /api/v2/run; not buried under Freeze
     status: completed
   - id: scaffold-modes
-    content: "Scaffold chips for mode llm|stub|needs edits, attempts, Retry; treat partial YAML + validation errors as first-class"
+    content: Scaffold chips for mode llm|stub|needs edits, attempts, Retry; treat partial YAML + validation errors as first-class
     status: completed
   - id: inline-diagnostics
-    content: "Validator issues + eval case table inline (path/stepId, case·pass/fail·rule); jump/highlight YAML when cheap"
+    content: Validator issues + eval case table inline (path/stepId, case·pass/fail·rule); jump/highlight YAML when cheap
     status: completed
   - id: intent-presets
-    content: "Intent library presets (CE fashion, freight wedge, blank) instead of single DEFAULT_CE_INTENT only"
+    content: Intent library presets (CE fashion, freight wedge, blank) instead of single DEFAULT_CE_INTENT only
     status: completed
   - id: export-copy
-    content: "Copy/download YAML, last dry-run JSON, specHash from Freeze/run panel"
-    status: pending
+    content: Copy/download YAML, last dry-run JSON, specHash from Freeze/run panel
+    status: completed
   - id: polish-later
-    content: "Later — stub vs LLM diff, streaming scaffold progress, Open HITL on Console deep-link, Spec history from shell .data/specs.json"
-    status: pending
+    content: Later — stub vs LLM diff, streaming scaffold progress, Open HITL on Console deep-link, Spec history from shell .data/specs.json
+    status: completed
 isProject: true
 ---
 

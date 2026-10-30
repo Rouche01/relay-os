@@ -517,6 +517,9 @@ function checkRuleCoverage(ctx: Ctx): void {
         invariant: "inv_rule_coverage",
       });
     }
+    if (rule.kind === "hard" && raw.check !== undefined) {
+      checkHardCheckShape(ctx, rule.id, raw.check);
+    }
     if (rule.kind === "soft" && raw.judge === undefined) {
       err(ctx, {
         code: "rule_missing_evaluator",
@@ -544,6 +547,41 @@ function checkRuleCoverage(ctx: Ctx): void {
           invariant: "inv_rule_coverage",
         });
       }
+    }
+  }
+}
+
+/**
+ * Reject hard checks where matches/notMatches lack a non-empty pattern
+ * (LLM often collapses the regex into the subject field).
+ */
+function checkHardCheckShape(
+  ctx: Ctx,
+  ruleId: string,
+  check: unknown
+): void {
+  if (check === null || typeof check !== "object" || Array.isArray(check)) {
+    err(ctx, {
+      code: "hard_check_invalid",
+      message: `Hard rule ${JSON.stringify(ruleId)} check must be an object`,
+      ruleId,
+      path: `rules/${ruleId}/check`,
+    });
+    return;
+  }
+  const c = check as Record<string, unknown>;
+  for (const key of ["notMatches", "matches"] as const) {
+    if (!(key in c)) continue;
+    const pattern = c.pattern;
+    if (typeof pattern !== "string" || pattern.length === 0) {
+      err(ctx, {
+        code: "hard_check_missing_pattern",
+        message:
+          `Hard rule ${JSON.stringify(ruleId)} ${key} requires a non-empty pattern ` +
+          `(e.g. { ${key}: "\${draft.text}", pattern: "https?://" } — do not put the regex in ${key})`,
+        ruleId,
+        path: `rules/${ruleId}/check`,
+      });
     }
   }
 }
