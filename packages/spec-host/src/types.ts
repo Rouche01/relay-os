@@ -1,4 +1,5 @@
 import type { ApiFixture, ConnectionResolver } from "@relay/engines-api";
+import type { DataStore } from "@relay/engines-data";
 import type { FeedbackAdapter } from "@relay/feedback-broker";
 import type { LlmClient } from "@relay/llm";
 import type {
@@ -131,6 +132,11 @@ export type RunSpecOptions = {
    * Default true. Set false to require explicit engines for those verbs.
    */
   fallbackEngines?: boolean;
+  /**
+   * Durable {@link DataStore} for data.* and Spec v2.1 `once` keys across runs.
+   * Default: in-memory. Use `createFileJsonDataStore` for schedule/poll apps.
+   */
+  dataStore?: DataStore;
   /** Agent context overrides (agentId / userId / sessionId required via defaults). */
   context?: Partial<AgentContext> &
     Pick<AgentContext, "agentId" | "userId" | "sessionId">;

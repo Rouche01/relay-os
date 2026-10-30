@@ -32,6 +32,13 @@ export {
   listCuratedServiceIds,
 } from "@relay/services";
 export type { CuratedServiceId } from "@relay/services";
+/** Durable data store helpers for `once` / data.* across runs. */
+export {
+  MemoryDataStore,
+  FileJsonDataStore,
+  createFileJsonDataStore,
+} from "@relay/engines-data";
+export type { DataStore, FileJsonDataStoreOptions } from "@relay/engines-data";
 export { runSpec } from "./run.js";
 export { resumeSpec } from "./resume.js";
 export { replaySpecRun } from "./replay.js";

@@ -40,7 +40,7 @@ todos:
     status: pending
   - id: s3-once-idempotency
     content: "Spec v2.1 `once: \"${item.id}\"` — idempotency key per step persisted via data engine across runs; duplicates skipped with evidence; required by validator on irreversible forEach steps under a schedule trigger"
-    status: pending
+    status: completed
   - id: s4-retry-onerror
     content: Spec v2.1 `retry` (max, backoff) + `onError` (fail | skip_item | escalate_human); irreversible steps never auto-retry without idempotency key
     status: pending
@@ -265,3 +265,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`r3-capability-gaps` completed** — `@relay/spec-scaffold` returns `needs[]` (service/connection/operation + action) on intent preflight or first draft with catalog gaps; skips repair loop; Desk `mode: "needs"` panel lists import descriptor / add connection; shell `handleScaffold` surfaces the same.
 - **`r4-browser-computer-engines` completed** — `buildSpecEngines` installs fixture `browser` + `computer` by default (`createFixtureBrowserEngine` / `createFixtureComputerEngine`); irreversible submit/act simulate under dryRun with evidence; HITL pause/resume covered; live engines via `extraEngines`; docs `FALLBACK.md`.
 - **`s1-trigger` completed** — Spec v2.1 `trigger` (`manual` | `schedule.cron` | `poll.everyMs+sourceStep`) in protocol types/JSON schema; validator `trigger_*` codes; `schedulesFromTrigger` → manifest `schedules` id `spec` / entrypoint `default`; `schedulerHostFromSpec` + `createRunSpecInvoker` in `@relay/spec-host`; scaffolder prompt/schema; docs `TRIGGER.md`.
+- **`s3-once-idempotency` completed** — Spec v2.1 `once` on steps; validator `once_required` / `once_not_ref` (`inv_once_idempotency`); runtime skip+evidence via data store `relay.once` (commit only when not `dryRunSimulated`); `FileJsonDataStore` + `runSpec({ dataStore })`; scaffolder prompt/schema; docs `ONCE.md`.

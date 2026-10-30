@@ -18,6 +18,13 @@ import {
 import type { AppController } from "@relay/runtime";
 import { EnforceError, enforceRules } from "./enforce.js";
 import { recordEvidence } from "./evidence.js";
+import {
+  commitOnce,
+  isDryRunSimulated,
+  lookupOnce,
+  onceStorageKey,
+  stringifyOnceKey,
+} from "./once.js";
 import { buildRefScope, lookupRef, resolveRefs } from "./refs.js";
 import type {
   WorkflowControllerOptions,
@@ -117,6 +124,51 @@ export class WorkflowController implements AppController {
       );
     }
 
+    const dataEngine = this.engines.data;
+    let onceKey: string | undefined;
+    let onceStorage: string | undefined;
+    if (step.once) {
+      if (!dataEngine) {
+        throw new Error(
+          `Step ${JSON.stringify(step.id)} declares once but no data engine is wired`
+        );
+      }
+      const resolved = resolveRefs(step.once, scope);
+      const keyStr = stringifyOnceKey(resolved);
+      if (!keyStr) {
+        throw new Error(
+          `Step ${JSON.stringify(step.id)} once ${JSON.stringify(step.once)} resolved to empty`
+        );
+      }
+      onceKey = keyStr;
+      onceStorage = onceStorageKey(
+        this.lowered.specHash,
+        step.id,
+        resolved
+      );
+      const prior = await lookupOnce(dataEngine, onceStorage);
+      if (prior) {
+        const skipped = {
+          skipped: true,
+          reason: "once" as const,
+          onceKey,
+          prior,
+        };
+        this.writeStepOutput(ctx, step.id, skipped);
+        recordEvidence(ctx, {
+          stepId: step.id,
+          kind: "skip",
+          detail: {
+            reason: "once",
+            onceKey,
+            storageKey: onceStorage,
+            prior,
+          },
+        });
+        return;
+      }
+    }
+
     const args = (resolveRefs(step.args ?? {}, scope) ?? {}) as Record<
       string,
       unknown
@@ -146,19 +198,29 @@ export class WorkflowController implements AppController {
       success: true,
     };
     // engines-api dry-run irreversible → simulated write (shadow / fixture)
-    if (
-      output &&
-      typeof output === "object" &&
-      (output as { dryRunSimulated?: boolean }).dryRunSimulated === true
-    ) {
+    if (isDryRunSimulated(output)) {
       detail.dryRunSimulated = true;
       detail.shadowWrite = true;
+    }
+    if (onceKey) {
+      detail.onceKey = onceKey;
     }
     recordEvidence(ctx, {
       stepId: step.id,
       kind: "execute",
       detail,
     });
+
+    // Commit idempotency only for non-simulated writes (live / non-dry).
+    if (onceStorage && onceKey && !isDryRunSimulated(output)) {
+      await commitOnce(dataEngine, onceStorage, {
+        at: new Date().toISOString(),
+        stepId: step.id,
+        use: step.use,
+        onceKey,
+        committed: true,
+      });
+    }
 
     if (step.enforce?.length) {
       await this.runEnforce(ctx, step.id, step.enforce, output, engine);

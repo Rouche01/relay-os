@@ -15,7 +15,8 @@ export type SpecV2InvariantId =
   | "inv_rule_coverage"
   | "inv_service_operation_bound"
   | "inv_dataflow_refs"
-  | "inv_structure";
+  | "inv_structure"
+  | "inv_once_idempotency";
 
 export type SpecV2ValidationIssue = {
   severity: SpecV2ValidationSeverity;

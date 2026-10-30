@@ -1,4 +1,5 @@
-import type { ConnectionResolver } from "@relay/engines-api";
+import type { ApiFixture, ConnectionResolver } from "@relay/engines-api";
+import type { DataStore } from "@relay/engines-data";
 import type { LlmClient } from "@relay/llm";
 import {
   createDraftSpecV2,
@@ -6,6 +7,7 @@ import {
   type SpecV2,
   type SpecV2Body,
   type ServiceDescriptor,
+  type ExecutionEngine,
 } from "@relay/protocol";
 import { assertEvalsGate, runEvals, type EvalReport } from "@relay/spec-evals";
 import { lowerSpecV2, type LoweredWorkflow } from "@relay/spec-lower";
@@ -25,8 +27,6 @@ import {
 } from "./modes.js";
 import { selectServicesForSpec } from "./services.js";
 import type { SpecHostMode } from "./types.js";
-import type { ExecutionEngine } from "@relay/protocol";
-import type { ApiFixture } from "@relay/engines-api";
 import type { EvalCase } from "@relay/spec-evals";
 
 export type PreparedSpecRun = {
@@ -85,6 +85,8 @@ export async function prepareSpecRun(options: {
   mode?: SpecHostMode;
   extraEngines?: Record<string, ExecutionEngine>;
   fallbackEngines?: boolean;
+  /** Durable store for data.* / Spec v2.1 once keys across runs. */
+  dataStore?: DataStore;
   evals?: { cases: readonly EvalCase[]; softFailClosed?: boolean };
   skipValidate?: boolean;
   draftId?: string;
@@ -186,6 +188,7 @@ export async function prepareSpecRun(options: {
     fetch: options.fetch,
     extraEngines: options.extraEngines,
     fallbackEngines: options.fallbackEngines,
+    dataStore: options.dataStore,
   });
 
   let evalReport: EvalReport | undefined;

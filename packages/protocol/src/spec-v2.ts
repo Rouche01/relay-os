@@ -134,6 +134,13 @@ export type SpecV2Step = {
   use: CapabilityUseId | string;
   args?: Record<string, unknown>;
   forEach?: string;
+  /**
+   * Spec v2.1 — idempotency key (whole-string `${...}` ref).
+   * Runtime skips the step when the key was already committed in the data
+   * store (across runs). Required by the validator on irreversible forEach
+   * steps under a schedule/poll trigger.
+   */
+  once?: string;
   enforce?: string[];
   /**
    * Declared output field names this step produces (documentation /

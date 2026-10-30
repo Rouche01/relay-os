@@ -10,7 +10,7 @@ import type { LoweredWorkflow } from "@relay/spec-lower";
 export type WorkflowEvidenceEntry = {
   at: string;
   stepId: string;
-  kind: "execute" | "enforce" | "hitl" | "fanout" | "error";
+  kind: "execute" | "enforce" | "hitl" | "fanout" | "error" | "skip";
   detail: Record<string, unknown>;
 };
 

@@ -262,6 +262,11 @@ export const SPEC_V2_JSON_SCHEMA: SpecV2JsonSchema = {
           "type": "string",
           "description": "List ref to fan out over, e.g. ${steps.scout.output.posts}."
         },
+        "once": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Spec v2.1 idempotency key ref, e.g. ${item.id}. Duplicates skipped across runs."
+        },
         "enforce": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 },

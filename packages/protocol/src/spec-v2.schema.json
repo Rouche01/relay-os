@@ -5,7 +5,10 @@
   "description": "Ordered capability steps + goal-derived rules (YAML/JSON authoring body).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["goal", "steps"],
+  "required": [
+    "goal",
+    "steps"
+  ],
   "properties": {
     "goal": {
       "type": "string",
@@ -30,24 +33,38 @@
       },
       "uniqueItems": true
     },
-    "trigger": { "$ref": "#/$defs/trigger" },
+    "trigger": {
+      "$ref": "#/$defs/trigger"
+    },
     "budget": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "maxJobs": { "type": "integer", "minimum": 1 },
-        "dryRun": { "type": "boolean" },
-        "timeoutMs": { "type": "integer", "minimum": 1 }
+        "maxJobs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "dryRun": {
+          "type": "boolean"
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
     "rules": {
       "type": "array",
-      "items": { "$ref": "#/$defs/rule" }
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
     },
     "steps": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/step" }
+      "items": {
+        "$ref": "#/$defs/step"
+      }
     }
   },
   "$defs": {
@@ -59,7 +76,10 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["in", "list"],
+          "required": [
+            "in",
+            "list"
+          ],
           "properties": {
             "in": true,
             "list": true
@@ -68,7 +88,10 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["notIn", "list"],
+          "required": [
+            "notIn",
+            "list"
+          ],
           "properties": {
             "notIn": true,
             "list": true
@@ -77,25 +100,40 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["matches", "pattern"],
+          "required": [
+            "matches",
+            "pattern"
+          ],
           "properties": {
             "matches": true,
-            "pattern": { "type": "string", "minLength": 1 }
+            "pattern": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["notMatches", "pattern"],
+          "required": [
+            "notMatches",
+            "pattern"
+          ],
           "properties": {
             "notMatches": true,
-            "pattern": { "type": "string", "minLength": 1 }
+            "pattern": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["eq", "value"],
+          "required": [
+            "eq",
+            "value"
+          ],
           "properties": {
             "eq": true,
             "value": true
@@ -104,7 +142,10 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["neq", "value"],
+          "required": [
+            "neq",
+            "value"
+          ],
           "properties": {
             "neq": true,
             "value": true
@@ -113,81 +154,141 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["gt", "value"],
+          "required": [
+            "gt",
+            "value"
+          ],
           "properties": {
             "gt": true,
-            "value": { "type": "number" }
+            "value": {
+              "type": "number"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["gte", "value"],
+          "required": [
+            "gte",
+            "value"
+          ],
           "properties": {
             "gte": true,
-            "value": { "type": "number" }
+            "value": {
+              "type": "number"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["lt", "value"],
+          "required": [
+            "lt",
+            "value"
+          ],
           "properties": {
             "lt": true,
-            "value": { "type": "number" }
+            "value": {
+              "type": "number"
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["lte", "value"],
+          "required": [
+            "lte",
+            "value"
+          ],
           "properties": {
             "lte": true,
-            "value": { "type": "number" }
+            "value": {
+              "type": "number"
+            }
           }
         }
       ]
     },
     "rule": {
       "type": "object",
-      "required": ["id", "kind"],
+      "required": [
+        "id",
+        "kind"
+      ],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "description": { "type": "string" },
-        "kind": { "type": "string", "enum": ["hard", "soft", "outcome"] }
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "hard",
+            "soft",
+            "outcome"
+          ]
+        }
       },
       "allOf": [
         {
           "if": {
-            "properties": { "kind": { "const": "hard" } },
-            "required": ["kind"]
+            "properties": {
+              "kind": {
+                "const": "hard"
+              }
+            },
+            "required": [
+              "kind"
+            ]
           },
           "then": {
-            "required": ["check"],
+            "required": [
+              "check"
+            ],
             "properties": {
-              "check": { "$ref": "#/$defs/hardCheck" }
+              "check": {
+                "$ref": "#/$defs/hardCheck"
+              }
             }
           }
         },
         {
           "if": {
-            "properties": { "kind": { "const": "soft" } },
-            "required": ["kind"]
+            "properties": {
+              "kind": {
+                "const": "soft"
+              }
+            },
+            "required": [
+              "kind"
+            ]
           },
           "then": {
-            "required": ["judge"],
+            "required": [
+              "judge"
+            ],
             "properties": {
               "judge": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["rubric"],
+                "required": [
+                  "rubric"
+                ],
                 "properties": {
                   "rubric": {
                     "type": "array",
                     "minItems": 1,
-                    "items": { "type": "string", "minLength": 1 }
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
                   },
-                  "minMean": { "type": "number" }
+                  "minMean": {
+                    "type": "number"
+                  }
                 }
               }
             }
@@ -195,21 +296,42 @@
         },
         {
           "if": {
-            "properties": { "kind": { "const": "outcome" } },
-            "required": ["kind"]
+            "properties": {
+              "kind": {
+                "const": "outcome"
+              }
+            },
+            "required": [
+              "kind"
+            ]
           },
           "then": {
-            "required": ["metric"],
+            "required": [
+              "metric"
+            ],
             "properties": {
               "metric": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["name", "after"],
+                "required": [
+                  "name",
+                  "after"
+                ],
                 "properties": {
-                  "name": { "type": "string", "minLength": 1 },
-                  "after": { "type": "string", "minLength": 1 },
-                  "min": { "type": "number" },
-                  "max": { "type": "number" }
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "after": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "min": {
+                    "type": "number"
+                  },
+                  "max": {
+                    "type": "number"
+                  }
                 }
               }
             }
@@ -220,7 +342,10 @@
     "step": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "use"],
+      "required": [
+        "id",
+        "use"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -241,24 +366,47 @@
           "type": "string",
           "description": "List ref to fan out over, e.g. ${steps.scout.output.posts}."
         },
+        "once": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Spec v2.1 idempotency key ref, e.g. ${item.id}. Duplicates skipped across runs."
+        },
         "enforce": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 },
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
           "uniqueItems": true,
           "description": "Rule ids checked against this step's output."
         },
         "outputs": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 },
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
           "uniqueItems": true
         },
         "sideEffectDowngrade": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["to", "reason"],
+          "required": [
+            "to",
+            "reason"
+          ],
           "properties": {
-            "to": { "type": "string", "enum": ["none", "reversible"] },
-            "reason": { "type": "string", "minLength": 1 }
+            "to": {
+              "type": "string",
+              "enum": [
+                "none",
+                "reversible"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       }
@@ -266,25 +414,44 @@
     "trigger": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Spec v2.1 — exactly one of manual | schedule | poll",
+      "description": "Spec v2.1 \u2014 exactly one of manual | schedule | poll",
       "properties": {
-        "manual": { "const": true },
+        "manual": {
+          "const": true
+        },
         "schedule": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["cron"],
+          "required": [
+            "cron"
+          ],
           "properties": {
-            "cron": { "type": "string", "minLength": 1 },
-            "timezone": { "type": "string", "minLength": 1 }
+            "cron": {
+              "type": "string",
+              "minLength": 1
+            },
+            "timezone": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "poll": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["everyMs", "sourceStep"],
+          "required": [
+            "everyMs",
+            "sourceStep"
+          ],
           "properties": {
-            "everyMs": { "type": "number", "exclusiveMinimum": 0 },
-            "sourceStep": { "type": "string", "minLength": 1 }
+            "everyMs": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "sourceStep": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       }

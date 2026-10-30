@@ -137,6 +137,11 @@ export const SCAFFOLD_SPEC_JSON_SCHEMA: Record<string, unknown> = {
             type: "string",
             description: "Whole-string ref to a list, e.g. ${steps.scout.output.body.posts}",
           },
+          once: {
+            type: "string",
+            description:
+              "Spec v2.1 idempotency key ref, e.g. ${item.id}. Required on irreversible forEach under schedule/poll.",
+          },
           enforce: {
             type: "array",
             items: { type: "string" },

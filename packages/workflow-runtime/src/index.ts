@@ -8,6 +8,15 @@ export {
 export { getEvidence, recordEvidence } from "./evidence.js";
 export { WorkflowFanoutHost } from "./fanout-host.js";
 export {
+  RELAY_ONCE_STORE,
+  commitOnce,
+  isDryRunSimulated,
+  lookupOnce,
+  onceStorageKey,
+  stringifyOnceKey,
+  type OnceRecord,
+} from "./once.js";
+export {
   buildRefScope,
   getByPath,
   lookupRef,

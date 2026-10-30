@@ -194,6 +194,70 @@ describe("validateSpecV2", () => {
     assert.ok(result.errors.some((e) => e.code === "budget_max_jobs_required"));
   });
 
+  it("requires once on irreversible forEach under schedule trigger", () => {
+    const body = goodEngageLite();
+    body.trigger = { schedule: { cron: "0 9 * * 1-5" } };
+    body.steps = body.steps.map((s) =>
+      s.id === "post"
+        ? {
+            ...s,
+            forEach: "${steps.draft.output}",
+            args: {
+              ...s.args,
+              params: {
+                thing_id: "${item.thing_id}",
+                text: "${item.text}",
+              },
+            },
+          }
+        : s
+    );
+    const missing = validateSpecV2(body, {
+      services,
+      knownConnections: ["reddit:default"],
+    });
+    assert.equal(missing.ok, false);
+    assert.ok(missing.errors.some((e) => e.code === "once_required"));
+
+    body.steps = body.steps.map((s) =>
+      s.id === "post" ? { ...s, once: "${item.thing_id}" } : s
+    );
+    const withOnce = validateSpecV2(body, {
+      services,
+      knownConnections: ["reddit:default"],
+    });
+    assert.equal(
+      withOnce.ok,
+      true,
+      JSON.stringify(withOnce.errors, null, 2)
+    );
+
+    const badOnce = goodEngageLite();
+    badOnce.trigger = { schedule: { cron: "0 9 * * *" } };
+    badOnce.steps = badOnce.steps.map((s) =>
+      s.id === "post"
+        ? {
+            ...s,
+            forEach: "${steps.draft.output}",
+            once: "not-a-ref",
+            args: {
+              ...s.args,
+              params: {
+                thing_id: "${item.thing_id}",
+                text: "${item.text}",
+              },
+            },
+          }
+        : s
+    );
+    const bad = validateSpecV2(badOnce, {
+      services,
+      knownConnections: ["reddit:default"],
+    });
+    assert.equal(bad.ok, false);
+    assert.ok(bad.errors.some((e) => e.code === "once_not_ref"));
+  });
+
   it("accepts schedule trigger and rejects poll unknown sourceStep", () => {
     const scheduled = goodEngageLite();
     scheduled.trigger = { schedule: { cron: "0 9 * * 1-5" } };

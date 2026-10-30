@@ -81,16 +81,24 @@ function checkStructure(ctx: Ctx): void {
     return;
   }
 
-  // forEach must look like a list-producing ref (whole-string ${...})
+  // forEach / once must look like whole-string ${...} refs
   ctx.body.steps.forEach((step, i) => {
-    if (step.forEach === undefined) return;
-    if (!isSpecV2Ref(step.forEach)) {
+    if (step.forEach !== undefined && !isSpecV2Ref(step.forEach)) {
       err(ctx, {
         code: "foreach_not_ref",
         message: `steps[${i}].forEach must be a \${...} ref (got ${JSON.stringify(step.forEach)})`,
         path: `steps/${i}/forEach`,
         stepId: step.id,
         invariant: "inv_structure",
+      });
+    }
+    if (step.once !== undefined && !isSpecV2Ref(step.once)) {
+      err(ctx, {
+        code: "once_not_ref",
+        message: `steps[${i}].once must be a \${...} ref (got ${JSON.stringify(step.once)})`,
+        path: `steps/${i}/once`,
+        stepId: step.id,
+        invariant: "inv_once_idempotency",
       });
     }
   });
@@ -201,6 +209,7 @@ function checkDataflow(ctx: Ctx): void {
     const refs = [
       ...collectSpecV2Refs(step.args),
       ...(step.forEach ? collectSpecV2Refs(step.forEach) : []),
+      ...(step.once ? collectSpecV2Refs(step.once) : []),
     ];
     for (const path of refs) {
       validateRef(ctx, path, step, i);
@@ -455,6 +464,7 @@ function checkServices(ctx: Ctx): void {
 
 function checkSafety(ctx: Ctx): void {
   let sawHuman = false;
+  const recurringTrigger = recurringTriggerKind(ctx);
 
   ctx.body.steps.forEach((step, i) => {
     const cap = getCapability(step.use);
@@ -513,7 +523,35 @@ function checkSafety(ctx: Ctx): void {
         invariant: "inv_hitl_before_irreversible",
       });
     }
+
+    // Schedule/poll re-runs: irreversible forEach must declare once
+    if (
+      recurringTrigger &&
+      step.forEach &&
+      sideEffect === "irreversible" &&
+      !step.once
+    ) {
+      err(ctx, {
+        code: "once_required",
+        message: `Irreversible forEach step ${JSON.stringify(step.id)} under a ${recurringTrigger} trigger requires once: "\${...}" (idempotency across runs)`,
+        path: `steps/${i}/once`,
+        stepId: step.id,
+        invariant: "inv_once_idempotency",
+      });
+    }
   });
+}
+
+function recurringTriggerKind(ctx: Ctx): "schedule" | "poll" | undefined {
+  const trigger = ctx.body.trigger;
+  if (!trigger) return undefined;
+  const shape = checkSpecV2TriggerShape(trigger);
+  if (shape.length) return undefined;
+  const classified = classifySpecV2Trigger(trigger);
+  if (classified.kind === "schedule" || classified.kind === "poll") {
+    return classified.kind;
+  }
+  return undefined;
 }
 
 function checkRuleCoverage(ctx: Ctx): void {
@@ -732,4 +770,6 @@ export const SPEC_V2_VALIDATOR_INVARIANTS: Record<
   inv_dataflow_refs:
     "Every ${...} ref resolves to an earlier step output, rule, item, or draft alias",
   inv_structure: "Spec v2 body is well-formed (goal, unique steps/rules, forEach refs)",
+  inv_once_idempotency:
+    "Irreversible forEach steps under schedule/poll declare once; once is a ${...} ref",
 };

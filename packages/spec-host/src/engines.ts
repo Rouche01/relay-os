@@ -3,7 +3,10 @@ import {
   type ApiFixture,
   type ConnectionResolver,
 } from "@relay/engines-api";
-import { createDataEngine } from "@relay/engines-data";
+import {
+  createDataEngine,
+  type DataStore,
+} from "@relay/engines-data";
 import { createLlmEngine } from "@relay/engines-llm";
 import type { LlmClient } from "@relay/llm";
 import type { ExecutionEngine, ServiceDescriptor } from "@relay/protocol";
@@ -28,6 +31,12 @@ export type BuildSpecEnginesOptions = {
    * real Playwright / ComputerEngine via extraEngines for shadow/live.
    */
   fallbackEngines?: boolean;
+  /**
+   * Durable data store for `data.*` and Spec v2.1 `once` keys.
+   * Default: in-memory (run-local). Pass FileJsonDataStore for across-run
+   * idempotency under schedule/poll.
+   */
+  dataStore?: DataStore;
 };
 
 /**
@@ -56,7 +65,9 @@ export function buildSpecEngines(
     : options.fetch ?? fetch;
 
   const llm = createLlmEngine({ client: options.llmClient });
-  const data = createDataEngine();
+  const data = createDataEngine(
+    options.dataStore ? { store: options.dataStore } : undefined
+  );
   const engines: Record<string, ExecutionEngine> = {
     llm,
     data,

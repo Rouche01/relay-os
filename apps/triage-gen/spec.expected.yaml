@@ -1,8 +1,8 @@
 # Expected Spec sketch for apps/triage-gen (forcing-function acceptance shape).
 #
 # Status: AUTHORING TARGET — not yet fully runnable as Spec v2.
-# Fields marked "# v2.1" — trigger (s1) is implemented; once/retry still planned.
-# Validate goal/connections/services/budget/rules/steps/trigger against
+# Fields marked "# v2.1" — trigger (s1) + once (s3) implemented; retry still planned.
+# Validate goal/connections/services/budget/rules/steps/trigger/once against
 # @relay/spec-validator + @relay/services github descriptor.
 #
 # Placeholders: owner=acme, repo=widgets (see intent.md slots).
@@ -60,7 +60,7 @@ steps:
   - id: draft
     use: llm.generate
     forEach: "${steps.scout.output.body}"
-    # v2.1 — s3-once-idempotency (dedupe drafts per issue across ticks)
+    # v2.1 — s3-once-idempotency (implemented; dedupe drafts per issue)
     once: "${item.number}"
     args:
       prompt: >
@@ -91,7 +91,7 @@ steps:
   - id: post
     use: api.request
     forEach: "${steps.draft.output}"
-    # v2.1 — s3-once-idempotency (never double-comment)
+    # v2.1 — s3-once-idempotency (implemented; never double-comment)
     once: "${item.issue_number}"
     # v2.1 — s4-retry-onerror
     retry:
