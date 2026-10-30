@@ -55,7 +55,10 @@ export type SpecHostHitlOptions = {
    * Default: true when !autoApprove && !adapter && !onFeedbackRequested.
    */
   pauseAndReturn?: boolean;
-  /** Where to save/load checkpoints (required for pauseAndReturn / resume). */
+  /**
+   * Where to save/load run records (pause, terminal complete/abort, Desk list).
+   * Required for pauseAndReturn / resume; optional otherwise to persist history.
+   */
   runStateStore?: RunStateStore;
   /** Stable run id (generated when omitted). */
   runId?: string;

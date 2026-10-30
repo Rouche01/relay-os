@@ -30,7 +30,11 @@ import {
 import {
   handleEvals,
   handleFreeze,
+  handleGetRun,
+  handleListRuns,
   handleLower,
+  handleReplayRun,
+  handleResumeRun,
   handleRun,
   handleScaffold,
   handleValidate,
@@ -168,6 +172,10 @@ async function main(): Promise<void> {
             "POST /api/v2/evals",
             "POST /api/v2/freeze",
             "POST /api/v2/run",
+            "GET /api/v2/runs",
+            "GET /api/v2/runs/:runId",
+            "POST /api/v2/runs/:runId/replay",
+            "POST /api/v2/runs/:runId/resume",
           ],
         });
         return;
@@ -227,6 +235,49 @@ async function main(): Promise<void> {
           body?: never;
           autoApprove?: boolean;
         });
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/v2/runs") {
+        const out = await handleListRuns({
+          specId: url.searchParams.get("specId") ?? undefined,
+          specHash: url.searchParams.get("specHash") ?? undefined,
+          status: url.searchParams.get("status") ?? undefined,
+          limit: url.searchParams.get("limit") ?? undefined,
+        });
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      const runOne = /^\/api\/v2\/runs\/([^/]+)$/.exec(url.pathname);
+      if (method === "GET" && runOne?.[1]) {
+        const out = await handleGetRun(decodeURIComponent(runOne[1]));
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      const runReplay = /^\/api\/v2\/runs\/([^/]+)\/replay$/.exec(url.pathname);
+      if (method === "POST" && runReplay?.[1]) {
+        const out = await handleReplayRun(decodeURIComponent(runReplay[1]));
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      const runResume = /^\/api\/v2\/runs\/([^/]+)\/resume$/.exec(url.pathname);
+      if (method === "POST" && runResume?.[1]) {
+        const raw = await readBody(req);
+        const body = raw
+          ? (JSON.parse(raw) as {
+              action?: "proceed" | "abort" | "retry";
+              value?: unknown;
+              agentId?: string;
+            })
+          : {};
+        const out = await handleResumeRun(
+          decodeURIComponent(runResume[1]),
+          body
+        );
         sendJson(res, out.status, out);
         return;
       }

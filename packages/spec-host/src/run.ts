@@ -4,14 +4,11 @@ import {
   createWorkflowRuntime,
   getEvidence,
 } from "@relay/workflow-runtime";
-import {
-  cloneContext,
-  newRunId,
-  type SpecRunCheckpoint,
-} from "./checkpoint.js";
+import { newRunId, type SpecRunCheckpoint } from "./checkpoint.js";
 import { SpecHostError } from "./errors.js";
 import { countSimulatedWrites } from "./modes.js";
 import { prepareSpecRun } from "./prepare.js";
+import { buildRunRecord, statusFromRuntimeState } from "./run-record.js";
 import type { RunSpecOptions, RunSpecResult } from "./types.js";
 
 function stepOutputsFromContext(ctx: Record<string, unknown>): Record<string, unknown> {
@@ -49,6 +46,7 @@ export async function runSpec(
   }
 
   const runId = hitl.runId ?? newRunId();
+  const persistStore = hitl.runStateStore;
   const context = {
     agentId: options.context?.agentId ?? "spec-host-1",
     userId: options.context?.userId ?? "operator",
@@ -104,27 +102,30 @@ export async function runSpec(
   const state = runtime.getState();
 
   let checkpoint: SpecRunCheckpoint | undefined;
-  if (state === "WAITING_USER" && pauseAndReturn && hitl.runStateStore) {
-    const pending = runtime.getPausedFeedbackRequest() ?? undefined;
-    checkpoint = {
-      version: 1,
+  if (persistStore) {
+    const previous = await Promise.resolve(persistStore.get(runId));
+    checkpoint = buildRunRecord({
       runId,
       specId: frozen.id,
       specHash: lowered.specHash,
       mode,
-      status: "waiting_you",
+      status: statusFromRuntimeState(state),
       stageIndex: runtime.getCurrentStageIndex(),
       stageName:
         runtime.getActiveStages()[runtime.getCurrentStageIndex()]?.name ?? "",
-      pendingFeedback: pending,
-      context: cloneContext(ctx),
+      context: ctx,
       frozen,
       body: prepared.body,
       dryRun,
       blockNetwork,
-      savedAt: new Date().toISOString(),
-    };
-    await hitl.runStateStore.save(checkpoint);
+      stepOutputs,
+      pendingFeedback:
+        state === "WAITING_USER"
+          ? runtime.getPausedFeedbackRequest() ?? undefined
+          : undefined,
+      previous: previous ?? undefined,
+    });
+    await persistStore.save(checkpoint);
   }
 
   return {
@@ -143,7 +144,7 @@ export async function runSpec(
     dryRun,
     blockNetwork,
     simulatedWriteCount: countSimulatedWrites(stepOutputs),
-    runId: checkpoint ? runId : pauseAndReturn ? runId : undefined,
+    runId: persistStore ? runId : undefined,
     checkpoint,
     pendingFeedback: checkpoint?.pendingFeedback,
     runtime,

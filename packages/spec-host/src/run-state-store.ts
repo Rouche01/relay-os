@@ -1,8 +1,15 @@
 import { mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { SpecHostError } from "./errors.js";
-import type { RunStateStore, SpecRunCheckpoint } from "./checkpoint.js";
-import { SPEC_RUN_CHECKPOINT_VERSION } from "./checkpoint.js";
+import {
+  filterCheckpoints,
+  SPEC_RUN_CHECKPOINT_VERSION,
+  toRunSummary,
+  type ListRunsQuery,
+  type RunStateStore,
+  type SpecRunCheckpoint,
+  type SpecRunSummary,
+} from "./checkpoint.js";
 
 /** In-memory run store — tests and single-process Desk. */
 export class MemoryRunStateStore implements RunStateStore {
@@ -24,6 +31,14 @@ export class MemoryRunStateStore implements RunStateStore {
   async delete(runId: string): Promise<void> {
     this.map.delete(runId);
   }
+
+  async listBySpec(query: ListRunsQuery = {}): Promise<SpecRunCheckpoint[]> {
+    return filterCheckpoints(await this.list(), query);
+  }
+
+  async listSummaries(query: ListRunsQuery = {}): Promise<SpecRunSummary[]> {
+    return (await this.listBySpec(query)).map(toRunSummary);
+  }
 }
 
 export function createMemoryRunStateStore(): MemoryRunStateStore {
@@ -34,6 +49,10 @@ export function createMemoryRunStateStore(): MemoryRunStateStore {
 export class FileRunStateStore implements RunStateStore {
   constructor(private readonly dir: string) {
     mkdirSync(dir, { recursive: true });
+  }
+
+  get directory(): string {
+    return this.dir;
   }
 
   private pathFor(runId: string): string {
@@ -59,6 +78,9 @@ export class FileRunStateStore implements RunStateStore {
           `Unsupported checkpoint version ${String(parsed.version)}`
         );
       }
+      // Normalize older checkpoints missing createdAt/updatedAt.
+      if (!parsed.updatedAt && parsed.savedAt) parsed.updatedAt = parsed.savedAt;
+      if (!parsed.createdAt && parsed.savedAt) parsed.createdAt = parsed.savedAt;
       return parsed;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
@@ -90,8 +112,38 @@ export class FileRunStateStore implements RunStateStore {
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
     }
   }
+
+  async listBySpec(query: ListRunsQuery = {}): Promise<SpecRunCheckpoint[]> {
+    return filterCheckpoints(await this.list(), query);
+  }
+
+  async listSummaries(query: ListRunsQuery = {}): Promise<SpecRunSummary[]> {
+    return (await this.listBySpec(query)).map(toRunSummary);
+  }
 }
 
 export function createFileRunStateStore(dir: string): FileRunStateStore {
   return new FileRunStateStore(dir);
+}
+
+/** Query any RunStateStore that implements list(). */
+export async function listRuns(
+  store: RunStateStore,
+  query: ListRunsQuery = {}
+): Promise<SpecRunCheckpoint[]> {
+  if (!store.list) {
+    throw new SpecHostError(
+      "run_store_no_list",
+      "RunStateStore does not implement list()"
+    );
+  }
+  const all = await Promise.resolve(store.list());
+  return filterCheckpoints(all, query);
+}
+
+export async function listRunSummaries(
+  store: RunStateStore,
+  query: ListRunsQuery = {}
+): Promise<SpecRunSummary[]> {
+  return (await listRuns(store, query)).map(toRunSummary);
 }

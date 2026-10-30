@@ -11,6 +11,7 @@ import {
 import { SpecHostError } from "./errors.js";
 import { countSimulatedWrites } from "./modes.js";
 import { prepareSpecRun } from "./prepare.js";
+import { buildRunRecord, statusFromRuntimeState } from "./run-record.js";
 import type { ResumeSpecOptions, RunSpecResult } from "./types.js";
 
 function stepOutputsFromContext(ctx: Record<string, unknown>): Record<string, unknown> {
@@ -150,36 +151,30 @@ export async function resumeSpec(
   const store = options.runStateStore ?? hitl.runStateStore;
   let nextCheckpoint: SpecRunCheckpoint | undefined;
 
-  if (state === "WAITING_USER" && pauseAndReturn && store) {
-    nextCheckpoint = {
-      ...checkpoint,
-      status: "waiting_you",
+  if (store) {
+    nextCheckpoint = buildRunRecord({
+      runId: checkpoint.runId,
+      specId: prepared.frozen.id,
+      specHash: prepared.lowered.specHash,
+      mode: prepared.mode,
+      status: statusFromRuntimeState(state),
       stageIndex: runtime.getCurrentStageIndex(),
       stageName:
         runtime.getActiveStages()[runtime.getCurrentStageIndex()]?.name ?? "",
-      pendingFeedback: runtime.getPausedFeedbackRequest() ?? undefined,
-      context: cloneContext(ctx),
+      context: ctx,
+      frozen: prepared.frozen,
+      body: prepared.body,
+      dryRun: prepared.dryRun,
+      blockNetwork: prepared.blockNetwork,
+      stepOutputs,
+      pendingFeedback:
+        state === "WAITING_USER"
+          ? runtime.getPausedFeedbackRequest() ?? undefined
+          : undefined,
       lastFeedback: feedback,
-      savedAt: new Date().toISOString(),
-    };
+      previous: checkpoint,
+    });
     await store.save(nextCheckpoint);
-  } else if (store) {
-    const terminal: SpecRunCheckpoint = {
-      ...checkpoint,
-      status:
-        state === "COMPLETE"
-          ? "complete"
-          : state === "ABORTED"
-            ? "aborted"
-            : state === "FAILED"
-              ? "failed"
-              : "running",
-      context: cloneContext(ctx),
-      lastFeedback: feedback,
-      pendingFeedback: undefined,
-      savedAt: new Date().toISOString(),
-    };
-    await store.save(terminal);
   }
 
   return {

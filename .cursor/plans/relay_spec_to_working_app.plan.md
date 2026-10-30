@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: h5-run-store
     content: "Run store — runs keyed by specId+specHash: status, timestamps, evidence pack, step outputs, HITL decisions; list/get API for Desk; replay a run from its frozen Spec"
-    status: pending
+    status: completed
   - id: r1-openapi-import
     content: OpenAPI → ServiceDescriptor generator (CLI) — select operations, map params/auth, emit YAML that passes service-descriptor schema; mark write methods irreversible by default
     status: pending
@@ -259,3 +259,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`h2-connections-secrets` completed** — pluggable `ConnectionStore` (memory / file JSON / env / macOS keychain / composite); `runSpec({ connectionStore })` derives `knownConnections`, asserts refs present, builds resolver; `env:VAR` secret refs; docs in `packages/spec-host/CONNECTIONS.md`. Desk + engager-gen use memory store for fixture tokens.
 - **`h3-live-read-dry-write` completed** — `fixture`/`shadow`/`live` semantics in `modes.ts`; shadow forces dryRun + live reads; live requires `budget.dryRun: false`; evidence tags `shadowWrite`; `tryCreateLiveLlmClient` / `resolveRunLlmClient`; HITL auto-approve only default in fixture; docs `MODES.md`.
 - **`h4-real-hitl-resume` completed** — `AgentRuntime` `pauseOnHitl` / `restoreWaitingUser` / `resumeWithFeedback`; `runSpec` pauseAndReturn + checkpoint; `resumeSpec`; Memory/File `RunStateStore`; optional FeedbackBroker `adapter`; docs `HITL.md`. Auto-approve only default in fixture; shadow/live pause or adapter by default.
+- **`h5-run-store` completed** — checkpoints carry evidence/stepOutputs/HITL decisions + `createdAt`/`updatedAt`; `listRuns`/`listRunSummaries` by `specId`/`specHash`/`status`; `replaySpecRun` from frozen Spec; Desk persists under `.data/spec-runs` and exposes `GET /api/v2/runs`, `GET /api/v2/runs/:id`, `POST .../replay`, `POST .../resume`; docs `RUNS.md`.

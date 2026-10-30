@@ -17,9 +17,16 @@ import {
 } from "@relay/protocol";
 import { compileEvals, runEvals } from "@relay/spec-evals";
 import {
+  createFileRunStateStore,
   createMemoryConnectionStore,
   isSpecHostError,
+  listRunSummaries,
+  replaySpecRun,
+  resumeSpec,
   runSpec,
+  type ListRunsQuery,
+  type RunStateStore,
+  type SpecRunStatus,
 } from "@relay/spec-host";
 import { lowerSpecV2 } from "@relay/spec-lower";
 import { scaffoldSpec, specBodyToYaml } from "@relay/spec-scaffold";
@@ -31,6 +38,78 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../../..");
+
+/** Override for unit tests; production uses `.data/spec-runs`. */
+let runStoreOverride: RunStateStore | undefined;
+
+export function setDeskRunStateStoreForTests(
+  store: RunStateStore | undefined
+): void {
+  runStoreOverride = store;
+}
+
+export function deskRunStateStore(): RunStateStore {
+  if (runStoreOverride) return runStoreOverride;
+  const root = resolve(
+    process.cwd(),
+    process.env.RELAY_DATA_DIR?.trim() || ".data"
+  );
+  return createFileRunStateStore(join(root, "spec-runs"));
+}
+
+function deskFixtureApi() {
+  const services = loadV2Services();
+  const fixturePosts = [
+    {
+      id: "t3_desk_1",
+      subreddit: "malefashionadvice",
+      threadTitle: "Capsule wardrobe basics?",
+      opText: "Need a simple system.",
+    },
+    {
+      id: "t3_desk_2",
+      subreddit: "femalefashionadvice",
+      threadTitle: "Work shoes that last?",
+      opText: "Looking for durable options, not brands.",
+    },
+  ];
+  const publicOps =
+    services.find((s) => s.id === "reddit-public")?.operations.map((o) => o.id) ??
+    ["listNew"];
+  const apiFixtures = publicOps.map((operation) => ({
+    service: "reddit-public",
+    operation,
+    body: { posts: fixturePosts },
+  }));
+  return {
+    services,
+    connectionStore: createMemoryConnectionStore({
+      "reddit:default": { type: "bearer", token: "desk-dry-run" },
+    }),
+    apiFixtures,
+  };
+}
+
+function mapHostError(err: unknown) {
+  if (isSpecHostError(err)) {
+    const status =
+      err.code === "evals_gate" || err.code === "invalid_spec"
+        ? 422
+        : err.code === "checkpoint_not_found"
+          ? 404
+          : 400;
+    return {
+      ok: false as const,
+      status,
+      error: err.message,
+      code: err.code,
+      ...(typeof err.details === "object" && err.details
+        ? (err.details as Record<string, unknown>)
+        : {}),
+    };
+  }
+  throw err;
+}
 
 function loadProtocolService(name: string) {
   const p = join(repoRoot, "packages/protocol/services", name);
@@ -532,55 +611,65 @@ export function handleFreeze(input: { yaml?: string; body?: SpecV2Body }) {
   };
 }
 
+function runResultPayload(
+  result: Awaited<ReturnType<typeof runSpec>>,
+  note: string
+) {
+  return {
+    ok: result.ok,
+    status: 200 as const,
+    state: result.state,
+    runId: result.runId,
+    specId: result.specId,
+    specHash: result.specHash,
+    mode: result.mode,
+    dryRun: result.dryRun,
+    blockNetwork: result.blockNetwork,
+    simulatedWriteCount: result.simulatedWriteCount,
+    evidenceCount: result.evidenceCount,
+    evidence: result.evidence,
+    stageResults: result.stageResults,
+    stepOutputs: result.stepOutputs,
+    checkpoint: result.checkpoint
+      ? {
+          status: result.checkpoint.status,
+          stageName: result.checkpoint.stageName,
+          createdAt: result.checkpoint.createdAt,
+          updatedAt: result.checkpoint.updatedAt,
+          hitlDecisionCount: result.checkpoint.hitlDecisions?.length ?? 0,
+        }
+      : undefined,
+    pendingFeedback: result.pendingFeedback,
+    note,
+  };
+}
+
 export async function handleRun(input: {
   yaml?: string;
   body?: SpecV2Body;
   autoApprove?: boolean;
 }) {
   const body = resolveBody(input);
-  const services = loadV2Services();
   const autoApprove = input.autoApprove !== false;
-
-  // Desk still supplies fixture posts + stub LLM for offline demo (h3 moves
-  // shadow/live into the host). Engines/run path is generic via @relay/spec-host.
-  const fixturePosts = [
-    {
-      id: "t3_desk_1",
-      subreddit: "malefashionadvice",
-      threadTitle: "Capsule wardrobe basics?",
-      opText: "Need a simple system.",
-    },
-    {
-      id: "t3_desk_2",
-      subreddit: "femalefashionadvice",
-      threadTitle: "Work shoes that last?",
-      opText: "Looking for durable options, not brands.",
-    },
-  ];
-  const publicOps = services
-    .find((s) => s.id === "reddit-public")
-    ?.operations.map((o) => o.id) ?? ["listNew"];
-  const apiFixtures = publicOps.map((operation) => ({
-    service: "reddit-public",
-    operation,
-    body: { posts: fixturePosts },
-  }));
-
+  const { services, connectionStore, apiFixtures } = deskFixtureApi();
   const gateCases = deskEvalFixtures(body);
+  const runStateStore = deskRunStateStore();
 
   try {
     const result = await runSpec({
       body,
       services,
-      connectionStore: createMemoryConnectionStore({
-        "reddit:default": { type: "bearer", token: "desk-dry-run" },
-      }),
+      connectionStore,
       llmClient: runtimeStubLlm(),
       mode: "fixture",
       dryRun: true,
       blockNetwork: true,
       apiFixtures,
-      hitl: { autoApprove },
+      hitl: {
+        autoApprove,
+        pauseAndReturn: !autoApprove,
+        runStateStore,
+      },
       evals: gateCases.length
         ? { cases: gateCases, softFailClosed: false }
         : undefined,
@@ -595,39 +684,125 @@ export async function handleRun(input: {
       softFailClosed: true,
     });
 
-    return {
-      ok: result.ok,
-      status: 200,
-      state: result.state,
-      specId: result.specId,
-      specHash: result.specHash,
-      mode: result.mode,
-      dryRun: result.dryRun,
-      blockNetwork: result.blockNetwork,
-      simulatedWriteCount: result.simulatedWriteCount,
-      evidenceCount: result.evidenceCount,
-      evidence: result.evidence,
-      stageResults: result.stageResults,
-      stepOutputs: result.stepOutputs,
-      note: autoApprove
-        ? "fixture mode via @relay/spec-host (network blocked, stub LLM). Pass mode=shadow|live on a future Desk control for live reads / gated writes — see packages/spec-host/MODES.md."
-        : "Waiting for HITL — wire Feedback Broker / Desk Console.",
-    };
+    return runResultPayload(
+      result,
+      autoApprove
+        ? "fixture mode via @relay/spec-host (network blocked, stub LLM). Run persisted — GET /api/v2/runs."
+        : "Paused for HITL — POST /api/v2/runs/:runId/resume with { action, value }."
+    );
   } catch (err) {
-    if (isSpecHostError(err)) {
-      const status = err.code === "evals_gate" || err.code === "invalid_spec"
-        ? 422
-        : 400;
-      return {
-        ok: false as const,
-        status,
-        error: err.message,
-        code: err.code,
-        ...(typeof err.details === "object" && err.details
-          ? (err.details as Record<string, unknown>)
-          : {}),
-      };
-    }
-    throw err;
+    return mapHostError(err);
+  }
+}
+
+export async function handleListRuns(query: {
+  specId?: string;
+  specHash?: string;
+  status?: string;
+  limit?: string | number;
+}) {
+  const store = deskRunStateStore();
+  const limitRaw =
+    typeof query.limit === "string" ? Number(query.limit) : query.limit;
+  const q: ListRunsQuery = {
+    specId: query.specId || undefined,
+    specHash: query.specHash || undefined,
+    status: (query.status || undefined) as SpecRunStatus | undefined,
+    limit:
+      limitRaw != null && Number.isFinite(limitRaw) && limitRaw >= 0
+        ? limitRaw
+        : 50,
+  };
+  const runs = await listRunSummaries(store, q);
+  return { ok: true as const, status: 200, runs };
+}
+
+export async function handleGetRun(runId: string) {
+  const run = await deskRunStateStore().get(runId);
+  if (!run) {
+    return {
+      ok: false as const,
+      status: 404,
+      error: `Run not found: ${runId}`,
+    };
+  }
+  return { ok: true as const, status: 200, run };
+}
+
+export async function handleReplayRun(runId: string) {
+  const { services, connectionStore, apiFixtures } = deskFixtureApi();
+  const runStateStore = deskRunStateStore();
+  try {
+    const result = await replaySpecRun({
+      runId,
+      runStateStore,
+      services,
+      connectionStore,
+      llmClient: runtimeStubLlm(),
+      mode: "fixture",
+      dryRun: true,
+      blockNetwork: true,
+      apiFixtures,
+      hitl: { autoApprove: true, runStateStore },
+      name: "desk-replay",
+      frozenBy: "relay-desk-replay",
+      context: {
+        agentId: "desk-1",
+        userId: "operator",
+        sessionId: `desk-replay-${Date.now()}`,
+      },
+      assertRunnable: false,
+      softFailClosed: true,
+    });
+    return runResultPayload(
+      result,
+      `Replayed frozen Spec from ${runId} (new runId=${result.runId ?? "?"}).`
+    );
+  } catch (err) {
+    return mapHostError(err);
+  }
+}
+
+export async function handleResumeRun(
+  runId: string,
+  input: {
+    action?: "proceed" | "abort" | "retry";
+    value?: unknown;
+    agentId?: string;
+  }
+) {
+  const { services, connectionStore, apiFixtures } = deskFixtureApi();
+  const runStateStore = deskRunStateStore();
+  try {
+    const result = await resumeSpec({
+      runId,
+      runStateStore,
+      feedback: {
+        action: input.action ?? "proceed",
+        value: input.value,
+        agentId: input.agentId,
+      },
+      services,
+      connectionStore,
+      llmClient: runtimeStubLlm(),
+      apiFixtures,
+      dryRun: true,
+      blockNetwork: true,
+      hitl: {
+        autoApprove: false,
+        pauseAndReturn: true,
+        runStateStore,
+      },
+      assertRunnable: false,
+      softFailClosed: true,
+    });
+    return runResultPayload(
+      result,
+      result.state === "WAITING_USER"
+        ? "Still waiting on HITL — resume again when ready."
+        : `Resumed ${runId} → ${result.state}.`
+    );
+  } catch (err) {
+    return mapHostError(err);
   }
 }

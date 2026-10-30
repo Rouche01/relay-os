@@ -13,24 +13,35 @@ export {
 export { selectServicesForSpec } from "./services.js";
 export { runSpec } from "./run.js";
 export { resumeSpec } from "./resume.js";
+export { replaySpecRun } from "./replay.js";
 export {
   MemoryRunStateStore,
   FileRunStateStore,
   createMemoryRunStateStore,
   createFileRunStateStore,
+  listRuns,
+  listRunSummaries,
 } from "./run-state-store.js";
 export {
   SPEC_RUN_CHECKPOINT_VERSION,
   newRunId,
   cloneContext,
+  toRunSummary,
+  filterCheckpoints,
+  checkpointCreatedAt,
+  checkpointUpdatedAt,
 } from "./checkpoint.js";
+export { buildRunRecord, statusFromRuntimeState } from "./run-record.js";
 export type {
   SpecRunCheckpoint,
   SpecRunStatus,
+  SpecRunSummary,
+  ListRunsQuery,
   RunStateStore,
 } from "./checkpoint.js";
 export type { BuildSpecEnginesOptions } from "./engines.js";
 export type { ResolvedHostMode } from "./modes.js";
+export type { ReplaySpecOptions } from "./replay.js";
 export type {
   RunSpecOptions,
   RunSpecResult,
