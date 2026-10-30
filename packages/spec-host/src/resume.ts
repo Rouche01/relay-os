@@ -74,6 +74,7 @@ export async function resumeSpec(
     fetch: options.fetch,
     mode: checkpoint.mode,
     extraEngines: options.extraEngines,
+    fallbackEngines: options.fallbackEngines,
     skipValidate: false,
     name: checkpoint.frozen.id,
   });

@@ -31,7 +31,7 @@ todos:
     status: completed
   - id: r4-browser-computer-engines
     content: Wire browser.* / computer.* engines into workflow-runtime via spec-host (fallback path); same HITL + evidence gating; at least one fixture test per verb family
-    status: pending
+    status: completed
   - id: s1-trigger
     content: Spec v2.1 `trigger` — manual | schedule (cron) | poll (interval + source step); lower onto manifest entrypoints + schedules; @relay/scheduler invokes spec-host; validator + JSON schema + scaffolder prompt updated
     status: pending
@@ -263,3 +263,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`r1-openapi-import` completed** — new [`packages/openapi-import`](../../packages/openapi-import): OpenAPI 3 → `ServiceDescriptor` (`openApiToServiceDescriptor` + `relay-openapi-import` CLI); operation selection required (refuse full dump); auth → `connection: true`; writes get `irreversible: true`; triage `apps/triage-gen/services/github.yaml` regenerated from `fixtures/github-issues.openapi.json`.
 - **`r2-curated-descriptors` completed** — new [`packages/services`](../../packages/services) (`@relay/services`): curated YAML for reddit-public/oauth, github, slack, http-fetch, rss, notion; `loadCuratedServices` / `curatedKnownConnections`; Desk + engager-gen + spec-host re-exports; absolute `{url}` path support in engines-api for http-fetch/rss.
 - **`r3-capability-gaps` completed** — `@relay/spec-scaffold` returns `needs[]` (service/connection/operation + action) on intent preflight or first draft with catalog gaps; skips repair loop; Desk `mode: "needs"` panel lists import descriptor / add connection; shell `handleScaffold` surfaces the same.
+- **`r4-browser-computer-engines` completed** — `buildSpecEngines` installs fixture `browser` + `computer` by default (`createFixtureBrowserEngine` / `createFixtureComputerEngine`); irreversible submit/act simulate under dryRun with evidence; HITL pause/resume covered; live engines via `extraEngines`; docs `FALLBACK.md`.

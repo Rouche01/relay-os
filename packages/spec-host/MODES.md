@@ -36,3 +36,7 @@ Fails closed if `budget.dryRun` is not `false`. Spec should still put `human.*` 
 ## Fixture (CI)
 
 Pass `apiFixtures` + stub `llmClient`; network stays blocked.
+
+`browser.*` / `computer.*` use offline fixture engines by default (see
+[`FALLBACK.md`](./FALLBACK.md)). Irreversible `browser.submit` / `computer.act`
+simulate like API writes when `dryRun` is true.

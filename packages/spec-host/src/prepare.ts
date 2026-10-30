@@ -84,6 +84,7 @@ export async function prepareSpecRun(options: {
   fetch?: typeof fetch;
   mode?: SpecHostMode;
   extraEngines?: Record<string, ExecutionEngine>;
+  fallbackEngines?: boolean;
   evals?: { cases: readonly EvalCase[]; softFailClosed?: boolean };
   skipValidate?: boolean;
   draftId?: string;
@@ -184,6 +185,7 @@ export async function prepareSpecRun(options: {
     blockNetwork: resolved.blockNetwork,
     fetch: options.fetch,
     extraEngines: options.extraEngines,
+    fallbackEngines: options.fallbackEngines,
   });
 
   let evalReport: EvalReport | undefined;

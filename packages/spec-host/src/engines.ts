@@ -8,6 +8,10 @@ import { createLlmEngine } from "@relay/engines-llm";
 import type { LlmClient } from "@relay/llm";
 import type { ExecutionEngine, ServiceDescriptor } from "@relay/protocol";
 import { SpecHostError } from "./errors.js";
+import {
+  createFixtureBrowserEngine,
+  createFixtureComputerEngine,
+} from "./fallback-engines.js";
 
 export type BuildSpecEnginesOptions = {
   services: readonly ServiceDescriptor[];
@@ -18,11 +22,17 @@ export type BuildSpecEnginesOptions = {
   blockNetwork: boolean;
   fetch?: typeof fetch;
   extraEngines?: Record<string, ExecutionEngine>;
+  /**
+   * Install fixture browser + computer engines when not provided in extraEngines.
+   * Default true — Specs using browser.* / computer.* run offline; override with
+   * real Playwright / ComputerEngine via extraEngines for shadow/live.
+   */
+  fallbackEngines?: boolean;
 };
 
 /**
- * Build api / llm / data engines from Spec-selected services + caller wiring.
- * Optional browser/computer (or other) engines come via `extraEngines`.
+ * Build api / llm / data (+ optional browser / computer) engines for Spec runs.
+ * browser/computer default to offline fixtures; pass live engines via extraEngines.
  */
 export function buildSpecEngines(
   options: BuildSpecEnginesOptions
@@ -62,6 +72,16 @@ export function buildSpecEngines(
       resolveConnection,
       fetch: fetchImpl,
     });
+  }
+
+  const useFallback = options.fallbackEngines !== false;
+  if (useFallback) {
+    if (!engines.browser) {
+      engines.browser = createFixtureBrowserEngine({ dryRun: options.dryRun });
+    }
+    if (!engines.computer) {
+      engines.computer = createFixtureComputerEngine({ dryRun: options.dryRun });
+    }
   }
 
   return engines;

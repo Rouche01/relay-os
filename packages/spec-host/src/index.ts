@@ -1,5 +1,15 @@
 export { SpecHostError, isSpecHostError } from "./errors.js";
 export { buildSpecEngines } from "./engines.js";
+export {
+  createFixtureBrowserEngine,
+  createFixtureComputerEngine,
+} from "./fallback-engines.js";
+export type {
+  FixtureBrowserEngineOptions,
+  FixtureBrowserLogEntry,
+  FixtureComputerEngineOptions,
+  FixtureComputerLogEntry,
+} from "./fallback-engines.js";
 export { resolveHostDefaults } from "./modes.js";
 export {
   assertModeAllowed,

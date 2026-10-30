@@ -121,8 +121,16 @@ export type RunSpecOptions = {
     cases: readonly EvalCase[];
     softFailClosed?: boolean;
   };
-  /** Merge optional engines (browser / computer / custom). */
+  /**
+   * Merge engines (browser / computer / custom).
+   * Overrides fixture fallbacks when keys `browser` / `computer` are set.
+   */
   extraEngines?: Record<string, ExecutionEngine>;
+  /**
+   * Install fixture browser + computer engines when not in extraEngines.
+   * Default true. Set false to require explicit engines for those verbs.
+   */
+  fallbackEngines?: boolean;
   /** Agent context overrides (agentId / userId / sessionId required via defaults). */
   context?: Partial<AgentContext> &
     Pick<AgentContext, "agentId" | "userId" | "sessionId">;
@@ -187,6 +195,7 @@ export type ResumeSpecOptions = {
   blockNetwork?: boolean;
   fetch?: typeof fetch;
   extraEngines?: Record<string, ExecutionEngine>;
+  fallbackEngines?: boolean;
   /** If another HITL occurs, pause again (default true when no adapter). */
   hitl?: SpecHostHitlOptions;
   softFailClosed?: boolean;
