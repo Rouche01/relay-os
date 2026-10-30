@@ -557,6 +557,53 @@ body {
   margin: 0;
 }
 
+.spec-needs {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.spec-needs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.spec-needs-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.25rem 0.55rem;
+  align-items: baseline;
+}
+
+.spec-needs-kind {
+  color: var(--warn);
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+}
+
+.spec-needs-id {
+  font-weight: 600;
+}
+
+.spec-needs-action {
+  grid-column: 1 / -1;
+  font-size: 0.75rem;
+  color: var(--fg);
+}
+
+.spec-needs-item .tile-meta {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .spec-run-tabs {
   display: flex;
   flex-wrap: wrap;

@@ -74,6 +74,7 @@ export function buildSystemPrompt(options: {
     "- api.request results are under steps.<id>.output with HTTP payload at .body (e.g. posts list → ${steps.scout.output.body.posts}).",
     "- Connection refs never contain secrets.",
     `- Known connections: ${connections}`,
+    "- Do NOT invent service ids or operations missing from ## Services — the host will report a capability gap instead.",
     "",
     formatCatalogForPrompt(),
     "",

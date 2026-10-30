@@ -30,7 +30,12 @@ import {
   loadCuratedServices,
 } from "@relay/services";
 import { lowerSpecV2 } from "@relay/spec-lower";
-import { scaffoldSpec, specBodyToYaml } from "@relay/spec-scaffold";
+import {
+  needsFromIntent,
+  scaffoldSpec,
+  specBodyToYaml,
+  formatNeedsMessage,
+} from "@relay/spec-scaffold";
 import {
   normalizeSpecV2HardChecks,
   parseSpecV2Yaml,
@@ -308,13 +313,28 @@ export async function handleScaffold(input: {
     return { ok: false as const, status: 400, error: "intent required" };
   }
   const services = loadV2Services();
+  const known = deskKnownConnections();
+  const preflight = needsFromIntent(intent, services, known);
+  if (preflight.length) {
+    return {
+      ok: false as const,
+      status: 422,
+      mode: "needs" as const,
+      error: formatNeedsMessage(preflight),
+      needs: preflight,
+      attempts: 0,
+      note:
+        "Add the missing service descriptor or connection, then retry Scaffold. See packages/openapi-import and @relay/services.",
+    };
+  }
+
   const live = input.stub === true ? null : tryLiveLlmClient();
 
   if (!live) {
     const body = stubSpecFromIntent(intent);
     const validation = validateSpecV2(body, {
       services,
-      knownConnections: deskKnownConnections(),
+      knownConnections: known,
     });
     return {
       ok: true as const,
@@ -339,10 +359,25 @@ export async function handleScaffold(input: {
     maxRepairs: 3,
   });
   console.log(
-    `[scaffold] llm done ok=${result.ok} attempts=${result.attempts} ms=${
-      Date.now() - t0
-    }`
+    `[scaffold] llm done ok=${result.ok} attempts=${result.attempts} needs=${
+      !result.ok && result.needs?.length ? result.needs.length : 0
+    } ms=${Date.now() - t0}`
   );
+  if (!result.ok && result.needs?.length) {
+    return {
+      ok: false as const,
+      status: 422,
+      mode: "needs" as const,
+      error: result.message,
+      errors: result.errors,
+      needs: result.needs,
+      yaml: result.yaml,
+      body: result.lastBody,
+      attempts: result.attempts,
+      note:
+        "Add the missing service descriptor or connection, then retry Scaffold. See packages/openapi-import and @relay/services.",
+    };
+  }
   if (!result.ok) {
     // Keep Desk usable: prefer last LLM draft, else deterministic stub for this Intent.
     const fallbackBody = result.lastBody ?? stubSpecFromIntent(intent);

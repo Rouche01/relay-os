@@ -5,6 +5,9 @@ import type {
   SpecV2ValidationResult,
   ValidateSpecV2Options,
 } from "@relay/spec-validator";
+import type { ScaffoldNeed } from "./needs.js";
+
+export type { ScaffoldNeed, ScaffoldNeedAction, ScaffoldNeedKind } from "./needs.js";
 
 export type ScaffoldSpecOptions = {
   /** Plain-language intent / goal (markdown or prose). */
@@ -17,11 +20,17 @@ export type ScaffoldSpecOptions = {
   /**
    * How many times to feed validator errors back to the model after the
    * initial draft (default 3). Total attempts = 1 + maxRepairs.
+   * Skipped entirely when a capability gap (`needs`) is detected.
    */
   maxRepairs?: number;
   temperature?: number;
   /** Extra validate options merged over services/knownConnections. */
   validate?: ValidateSpecV2Options;
+  /**
+   * When true (default), skip the LLM if intent preflight finds missing
+   * services/connections.
+   */
+  preflightNeeds?: boolean;
 };
 
 export type ScaffoldAttempt = {
@@ -50,4 +59,9 @@ export type ScaffoldResult =
       errors: SpecV2ValidationIssue[];
       history: ScaffoldAttempt[];
       message: string;
+      /**
+       * Capability gaps — import descriptor / add connection / expand ops.
+       * When set, repair loop was skipped or aborted.
+       */
+      needs?: ScaffoldNeed[];
     };

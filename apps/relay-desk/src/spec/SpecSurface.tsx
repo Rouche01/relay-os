@@ -28,6 +28,7 @@ import {
   type IntentPresetId,
   type LowerResponse,
   type RunResponse,
+  type ScaffoldNeed,
   type SpecValidationIssue,
   type SpecValidationResult,
 } from "./types.ts";
@@ -39,7 +40,7 @@ type Props = {
 };
 
 /** Chip after a scaffold attempt — distinct from raw API `mode`. */
-type ScaffoldOutcome = "llm" | "stub" | "needs_edits";
+type ScaffoldOutcome = "llm" | "stub" | "needs_edits" | "needs";
 
 function condenseError(message: string, max = 96): string {
   const one = message.replace(/\s+/g, " ").trim();
@@ -47,12 +48,29 @@ function condenseError(message: string, max = 96): string {
   return `${one.slice(0, max - 1)}…`;
 }
 
+function needActionLabel(action: string): string {
+  switch (action) {
+    case "import_descriptor":
+      return "Import descriptor";
+    case "add_connection":
+      return "Add connection";
+    case "expand_operations":
+      return "Expand operations";
+    default:
+      return action;
+  }
+}
+
 function resolveScaffoldOutcome(res: {
   ok: boolean;
   mode?: string;
   yaml?: string;
   validation?: SpecValidationResult;
+  needs?: unknown[];
 }): ScaffoldOutcome | undefined {
+  if (res.mode === "needs" || (res.needs && res.needs.length > 0)) {
+    return "needs";
+  }
   if (!res.yaml?.trim()) return undefined;
   if (!res.ok || res.validation?.ok === false) return "needs_edits";
   if (res.mode === "stub") return "stub";
@@ -159,6 +177,7 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
   >();
   const [scaffoldAttempts, setScaffoldAttempts] = useState<number | undefined>();
   const [scaffoldNote, setScaffoldNote] = useState<string | undefined>();
+  const [scaffoldNeeds, setScaffoldNeeds] = useState<ScaffoldNeed[] | undefined>();
   const [validation, setValidation] = useState<SpecValidationResult | undefined>();
   const [evals, setEvals] = useState<EvalsResponse | undefined>();
   const [lowered, setLowered] = useState<LowerResponse | undefined>();
@@ -317,6 +336,7 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
     setRunResult(undefined);
     setFrozenId(undefined);
     setScaffoldNote(undefined);
+    setScaffoldNeeds(undefined);
     try {
       const provider = await fetchScaffoldProvider(settings);
       setBusyLabel(`Scaffolding with ${provider}… often 30–90s`);
@@ -325,6 +345,7 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
       if (res.yaml) setYaml(res.yaml);
       setMode(res.mode);
       setScaffoldAttempts(res.attempts);
+      setScaffoldNeeds(res.needs);
       setEvals(undefined);
       setLowered(undefined);
       setForcePipeline(false);
@@ -344,6 +365,7 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
         ok: res.ok,
         mode: res.mode,
         yaml: res.yaml,
+        needs: res.needs,
         validation: res.validation
           ? res.validation
           : res.errors?.length
@@ -351,6 +373,11 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
             : undefined,
       });
       setScaffoldOutcome(outcome);
+      if (outcome === "needs") {
+        setScaffoldNote(res.note ?? res.error);
+        setError(undefined);
+        return;
+      }
       if (outcome === "needs_edits") {
         setScaffoldNote(res.note);
         scrollToSpecStep("validate");
@@ -673,6 +700,7 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
                     ["llm", "llm"],
                     ["stub", "stub"],
                     ["needs_edits", "needs edits"],
+                    ["needs", "needs catalog"],
                   ] as const
                 ).map(([id, label]) => (
                   <span
@@ -680,7 +708,9 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
                     role="listitem"
                     class="spec-outcome-chip"
                     data-active={scaffoldOutcome === id ? "1" : "0"}
-                    data-tone={id === "needs_edits" ? "warn" : "neutral"}
+                    data-tone={
+                      id === "needs_edits" || id === "needs" ? "warn" : "neutral"
+                    }
                   >
                     {label}
                   </span>
@@ -691,6 +721,27 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
               ) : null}
               {scaffoldNote ? (
                 <p class="tile-meta mono spec-scaffold-note">{scaffoldNote}</p>
+              ) : null}
+              {scaffoldNeeds?.length ? (
+                <div class="spec-needs" role="region" aria-label="Capability gaps">
+                  <p class="tile-label">Needs before scaffold</p>
+                  <ul class="spec-needs-list">
+                    {scaffoldNeeds.map((n) => (
+                      <li key={`${n.kind}:${n.id}`} class="spec-needs-item">
+                        <span class="mono spec-needs-kind">{n.kind}</span>
+                        <span class="mono spec-needs-id">{n.id}</span>
+                        <span class="spec-needs-action">
+                          {needActionLabel(n.action)}
+                        </span>
+                        <span class="tile-meta">{n.reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p class="hint mono">
+                    Import a descriptor (`@relay/openapi-import`) or add the
+                    connection, then retry Scaffold.
+                  </p>
+                </div>
               ) : null}
             </div>
           </div>

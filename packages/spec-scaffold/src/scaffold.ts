@@ -14,6 +14,12 @@ import {
   buildRepairUserPrompt,
   buildSystemPrompt,
 } from "./prompt.js";
+import {
+  errorsIncludeCapabilityGap,
+  formatNeedsMessage,
+  needsFromIntent,
+  needsFromValidationIssues,
+} from "./needs.js";
 import { SCAFFOLD_SPEC_JSON_SCHEMA } from "./schema.js";
 import type {
   ScaffoldAttempt,
@@ -25,7 +31,8 @@ const DEFAULT_MAX_REPAIRS = 3;
 
 /**
  * Intent → Spec v2 draft via LLM, with validator repair loop (max 3 repairs).
- * On persistent failure, returns structured errors (does not guess).
+ * Capability gaps (`needs`) abort before burning repairs — operator must
+ * import a descriptor or add a connection first.
  */
 export async function scaffoldSpec(
   options: ScaffoldSpecOptions
@@ -51,6 +58,28 @@ export async function scaffoldSpec(
   const maxRepairs = options.maxRepairs ?? DEFAULT_MAX_REPAIRS;
   const maxAttempts = 1 + Math.max(0, maxRepairs);
   const temperature = options.temperature ?? 0.2;
+
+  if (options.preflightNeeds !== false) {
+    const preflight = needsFromIntent(
+      intent,
+      services,
+      options.knownConnections
+    );
+    if (preflight.length) {
+      return {
+        ok: false,
+        attempts: 0,
+        errors: preflight.map((n) => ({
+          severity: "error" as const,
+          code: `needs_${n.kind}`,
+          message: n.reason,
+        })),
+        history: [],
+        needs: preflight,
+        message: formatNeedsMessage(preflight),
+      };
+    }
+  }
 
   const validateOpts = {
     services,
@@ -156,6 +185,21 @@ export async function scaffoldSpec(
     }
 
     lastErrors = validation.errors;
+
+    // Do not burn repairs inventing missing services/connections/ops.
+    if (errorsIncludeCapabilityGap(lastErrors)) {
+      const needs = needsFromValidationIssues(lastErrors);
+      return {
+        ok: false,
+        attempts: attempt,
+        lastBody,
+        yaml: lastBody ? specBodyToYaml(lastBody) : undefined,
+        errors: lastErrors,
+        history,
+        needs,
+        message: formatNeedsMessage(needs),
+      };
+    }
   }
 
   return {

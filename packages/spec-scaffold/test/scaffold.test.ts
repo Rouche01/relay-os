@@ -10,6 +10,7 @@ import {
 } from "@relay/protocol";
 import {
   formatCatalogForPrompt,
+  needsFromIntent,
   scaffoldSpec,
   specBodyToYaml,
 } from "../src/index.js";
@@ -187,5 +188,97 @@ describe("scaffoldSpec", () => {
     });
     assert.equal(result.ok, false);
     assert.equal(called, false);
+  });
+
+  it("preflight returns needs for unknown product without calling LLM", async () => {
+    let called = false;
+    const result = await scaffoldSpec({
+      intent: "Every morning summarize my Gmail inbox and Slack me the top 3",
+      client: stubClient(() => {
+        called = true;
+        return goodBody();
+      }),
+      services,
+      knownConnections: ["reddit:default"],
+    });
+    assert.equal(result.ok, false);
+    assert.equal(called, false);
+    if (result.ok) return;
+    assert.ok(result.needs?.some((n) => n.id === "gmail"));
+    assert.ok(result.needs?.some((n) => n.action === "import_descriptor"));
+    assert.equal(result.attempts, 0);
+  });
+
+  it("aborts repair loop when draft invents an unknown service", async () => {
+    let calls = 0;
+    const result = await scaffoldSpec({
+      intent: "Help fashion subs",
+      client: stubClient(() => {
+        calls += 1;
+        const bad = goodBody();
+        bad.services = ["stripe"];
+        bad.steps[0]!.args = {
+          service: "stripe",
+          operation: "chargesCreate",
+          params: {},
+        };
+        return bad;
+      }),
+      services,
+      knownConnections: ["reddit:default"],
+      maxRepairs: 3,
+      preflightNeeds: false,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(calls, 1);
+    if (result.ok) return;
+    assert.ok(result.needs?.some((n) => n.kind === "service" && n.id === "stripe"));
+    assert.equal(result.attempts, 1);
+  });
+});
+
+describe("needsFromIntent", () => {
+  it("flags github when catalog is reddit-only", () => {
+    const needs = needsFromIntent(
+      "Triage GitHub issues labeled bug",
+      services,
+      ["reddit:default"]
+    );
+    assert.ok(needs.some((n) => n.kind === "service" && n.id === "github"));
+  });
+
+  it("flags missing connection when service is present but connection is not", () => {
+    const withGithub = [
+      ...services,
+      {
+        id: "github",
+        baseUrl: "https://api.github.com",
+        auth: { type: "bearer" as const, connection: true as const },
+        operations: [
+          {
+            id: "issuesListForRepo",
+            method: "GET" as const,
+            path: "/repos/{owner}/{repo}/issues",
+          },
+        ],
+      },
+    ];
+    const needs = needsFromIntent(
+      "Triage GitHub issues labeled bug",
+      withGithub,
+      ["reddit:default"]
+    );
+    assert.ok(
+      needs.some((n) => n.kind === "connection" && n.id === "github:default")
+    );
+  });
+
+  it("is empty when catalog covers the intent", () => {
+    const needs = needsFromIntent(
+      "Help fashion subreddits with useful replies",
+      services,
+      ["reddit:default"]
+    );
+    assert.equal(needs.length, 0);
   });
 });

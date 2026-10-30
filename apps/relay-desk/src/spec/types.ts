@@ -15,10 +15,18 @@ export type SpecValidationResult = {
   durationMs?: number;
 };
 
+/** Capability gap from `@relay/spec-scaffold` — import descriptor / add connection. */
+export type ScaffoldNeed = {
+  kind: "service" | "connection" | "operation";
+  id: string;
+  reason: string;
+  action: "import_descriptor" | "add_connection" | "expand_operations";
+};
+
 export type ScaffoldResponse = {
   ok: boolean;
   status?: number;
-  mode?: "stub" | "llm";
+  mode?: "stub" | "llm" | "needs";
   body?: Record<string, unknown>;
   yaml?: string;
   validation?: SpecValidationResult;
@@ -26,6 +34,8 @@ export type ScaffoldResponse = {
   error?: string;
   errors?: SpecValidationIssue[];
   note?: string;
+  /** When set, scaffold stopped for missing catalog reach — do not burn repairs. */
+  needs?: ScaffoldNeed[];
 };
 
 export type ValidateResponse = {

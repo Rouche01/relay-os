@@ -28,7 +28,7 @@ todos:
     status: completed
   - id: r3-capability-gaps
     content: "Scaffolder capability-gap result — when intent needs an unknown service/connection, return `needs: [{service|connection, reason}]` instead of burning repair attempts; Desk renders ‘add connection / import descriptor’"
-    status: pending
+    status: completed
   - id: r4-browser-computer-engines
     content: Wire browser.* / computer.* engines into workflow-runtime via spec-host (fallback path); same HITL + evidence gating; at least one fixture test per verb family
     status: pending
@@ -208,7 +208,7 @@ Each addition: protocol type + JSON schema + validator rule + lowerer + runtime 
 - [x] `shadow` mode performs live reads and records simulated writes as evidence (`shadowWrite` / `simulatedWriteCount`)
 - [x] A run paused at `human.*` resumes after approve/edit/abort, including across a process restart (`pauseAndReturn` + `resumeSpec` + `RunStateStore`)
 - [x] GitHub descriptor generated from OpenAPI (not hand-written) and used by the triage Spec
-- [ ] Scaffolder returns capability gaps instead of looping on unknown services
+- [x] Scaffolder returns capability gaps instead of looping on unknown services
 - [ ] Spec v2.1 `trigger`, `when`, `once`, `retry`/`onError` validated, lowered, and enforced at runtime
 - [ ] Enabling a schedule requires an approved shadow run
 - [ ] Outcome rules measured by scheduled follow-ups
@@ -262,3 +262,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`h5-run-store` completed** — checkpoints carry evidence/stepOutputs/HITL decisions + `createdAt`/`updatedAt`; `listRuns`/`listRunSummaries` by `specId`/`specHash`/`status`; `replaySpecRun` from frozen Spec; Desk persists under `.data/spec-runs` and exposes `GET /api/v2/runs`, `GET /api/v2/runs/:id`, `POST .../replay`, `POST .../resume`; docs `RUNS.md`.
 - **`r1-openapi-import` completed** — new [`packages/openapi-import`](../../packages/openapi-import): OpenAPI 3 → `ServiceDescriptor` (`openApiToServiceDescriptor` + `relay-openapi-import` CLI); operation selection required (refuse full dump); auth → `connection: true`; writes get `irreversible: true`; triage `apps/triage-gen/services/github.yaml` regenerated from `fixtures/github-issues.openapi.json`.
 - **`r2-curated-descriptors` completed** — new [`packages/services`](../../packages/services) (`@relay/services`): curated YAML for reddit-public/oauth, github, slack, http-fetch, rss, notion; `loadCuratedServices` / `curatedKnownConnections`; Desk + engager-gen + spec-host re-exports; absolute `{url}` path support in engines-api for http-fetch/rss.
+- **`r3-capability-gaps` completed** — `@relay/spec-scaffold` returns `needs[]` (service/connection/operation + action) on intent preflight or first draft with catalog gaps; skips repair loop; Desk `mode: "needs"` panel lists import descriptor / add connection; shell `handleScaffold` surfaces the same.
