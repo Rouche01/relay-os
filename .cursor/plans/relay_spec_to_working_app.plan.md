@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: r1-openapi-import
     content: OpenAPI → ServiceDescriptor generator (CLI) — select operations, map params/auth, emit YAML that passes service-descriptor schema; mark write methods irreversible by default
-    status: pending
+    status: completed
   - id: r2-curated-descriptors
     content: Curated descriptor pack — github, slack, http.fetch / rss (generic read), plus one of gmail|notion|sheets; live in packages/services (not app-local); loadable by spec-host + scaffolder
     status: pending
@@ -207,7 +207,7 @@ Each addition: protocol type + JSON schema + validator rule + lowerer + runtime 
 - [x] Connections resolve from a secrets store; missing connection is a structured, actionable error (`SpecHostError` `missing_connection`)
 - [x] `shadow` mode performs live reads and records simulated writes as evidence (`shadowWrite` / `simulatedWriteCount`)
 - [x] A run paused at `human.*` resumes after approve/edit/abort, including across a process restart (`pauseAndReturn` + `resumeSpec` + `RunStateStore`)
-- [ ] GitHub descriptor generated from OpenAPI (not hand-written) and used by the triage Spec
+- [x] GitHub descriptor generated from OpenAPI (not hand-written) and used by the triage Spec
 - [ ] Scaffolder returns capability gaps instead of looping on unknown services
 - [ ] Spec v2.1 `trigger`, `when`, `once`, `retry`/`onError` validated, lowered, and enforced at runtime
 - [ ] Enabling a schedule requires an approved shadow run
@@ -260,3 +260,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`h3-live-read-dry-write` completed** — `fixture`/`shadow`/`live` semantics in `modes.ts`; shadow forces dryRun + live reads; live requires `budget.dryRun: false`; evidence tags `shadowWrite`; `tryCreateLiveLlmClient` / `resolveRunLlmClient`; HITL auto-approve only default in fixture; docs `MODES.md`.
 - **`h4-real-hitl-resume` completed** — `AgentRuntime` `pauseOnHitl` / `restoreWaitingUser` / `resumeWithFeedback`; `runSpec` pauseAndReturn + checkpoint; `resumeSpec`; Memory/File `RunStateStore`; optional FeedbackBroker `adapter`; docs `HITL.md`. Auto-approve only default in fixture; shadow/live pause or adapter by default.
 - **`h5-run-store` completed** — checkpoints carry evidence/stepOutputs/HITL decisions + `createdAt`/`updatedAt`; `listRuns`/`listRunSummaries` by `specId`/`specHash`/`status`; `replaySpecRun` from frozen Spec; Desk persists under `.data/spec-runs` and exposes `GET /api/v2/runs`, `GET /api/v2/runs/:id`, `POST .../replay`, `POST .../resume`; docs `RUNS.md`.
+- **`r1-openapi-import` completed** — new [`packages/openapi-import`](../../packages/openapi-import): OpenAPI 3 → `ServiceDescriptor` (`openApiToServiceDescriptor` + `relay-openapi-import` CLI); operation selection required (refuse full dump); auth → `connection: true`; writes get `irreversible: true`; triage `apps/triage-gen/services/github.yaml` regenerated from `fixtures/github-issues.openapi.json`.

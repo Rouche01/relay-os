@@ -31,7 +31,7 @@ Full text + slots: [`intent.md`](./intent.md). Success bar: [`SUCCESS.md`](./SUC
 intent.md              Locked NL intent + slots
 SUCCESS.md             Acceptance bar + E2E checklist (later)
 spec.expected.yaml     Target Spec (v2.1 fields annotated)
-services/github.yaml   Hand descriptor until OpenAPI import (r1)
+services/github.yaml   OpenAPI-imported descriptor (regen via @relay/openapi-import)
 fixtures/issues.json   Offline scout payload
 ```
 
@@ -44,6 +44,15 @@ fixtures/issues.json   Offline scout payload
 3. **Fixture / shadow runs** — `fixtures/issues.json` seeds scout; live GitHub
    when connection + host modes exist (`h3`).
 4. **E2E** — plan todo `e2e-triage-demo`.
+
+## Regenerate `services/github.yaml`
+
+```bash
+pnpm --filter @relay/openapi-import build
+pnpm --filter @relay/openapi-import run gen:github-triage
+```
+
+Source OAS excerpt: [`packages/openapi-import/fixtures/github-issues.openapi.json`](../../packages/openapi-import/fixtures/github-issues.openapi.json).
 
 ## Non-goals
 
