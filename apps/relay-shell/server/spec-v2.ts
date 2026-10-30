@@ -601,12 +601,16 @@ export async function handleRun(input: {
       state: result.state,
       specId: result.specId,
       specHash: result.specHash,
+      mode: result.mode,
+      dryRun: result.dryRun,
+      blockNetwork: result.blockNetwork,
+      simulatedWriteCount: result.simulatedWriteCount,
       evidenceCount: result.evidenceCount,
       evidence: result.evidence,
       stageResults: result.stageResults,
       stepOutputs: result.stepOutputs,
       note: autoApprove
-        ? "Dry-run via @relay/spec-host. Network off — caller fixtures + stub LLM. Live HITL cards stay on Console."
+        ? "fixture mode via @relay/spec-host (network blocked, stub LLM). Pass mode=shadow|live on a future Desk control for live reads / gated writes — see packages/spec-host/MODES.md."
         : "Waiting for HITL — wire Feedback Broker / Desk Console.",
     };
   } catch (err) {

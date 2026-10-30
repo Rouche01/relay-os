@@ -1,10 +1,19 @@
 export { SpecHostError, isSpecHostError } from "./errors.js";
-export { buildSpecEngines, resolveHostDefaults } from "./engines.js";
+export { buildSpecEngines } from "./engines.js";
+export { resolveHostDefaults } from "./modes.js";
+export {
+  assertModeAllowed,
+  countSimulatedWrites,
+} from "./modes.js";
+export {
+  createLiveLlmClient,
+  resolveRunLlmClient,
+  tryCreateLiveLlmClient,
+} from "./llm-client.js";
 export { selectServicesForSpec } from "./services.js";
 export { runSpec } from "./run.js";
-export type {
-  BuildSpecEnginesOptions,
-} from "./engines.js";
+export type { BuildSpecEnginesOptions } from "./engines.js";
+export type { ResolvedHostMode } from "./modes.js";
 export type {
   RunSpecOptions,
   RunSpecResult,
@@ -39,4 +48,3 @@ export type {
   EnvConnectionStoreOptions,
   KeychainConnectionStoreOptions,
 } from "./connections/index.js";
-

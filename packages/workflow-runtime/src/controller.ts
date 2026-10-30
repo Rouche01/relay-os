@@ -141,10 +141,23 @@ export class WorkflowController implements AppController {
 
     const output = result.data;
     this.writeStepOutput(ctx, step.id, output);
+    const detail: Record<string, unknown> = {
+      use: step.use,
+      success: true,
+    };
+    // engines-api dry-run irreversible → simulated write (shadow / fixture)
+    if (
+      output &&
+      typeof output === "object" &&
+      (output as { dryRunSimulated?: boolean }).dryRunSimulated === true
+    ) {
+      detail.dryRunSimulated = true;
+      detail.shadowWrite = true;
+    }
     recordEvidence(ctx, {
       stepId: step.id,
       kind: "execute",
-      detail: { use: step.use, success: true },
+      detail,
     });
 
     if (step.enforce?.length) {

@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: h3-live-read-dry-write
     content: Run modes — `shadow` (live reads, irreversible writes simulated + recorded as evidence), `live` (writes allowed only when budget.dryRun=false AND preceding human.* approved), `fixture` (today’s offline path for CI). Real LLM client in shadow/live
-    status: pending
+    status: completed
   - id: h4-real-hitl-resume
     content: Real HITL — remove auto-approve default; human.* steps surface via Feedback Broker / Desk Console / Telegram; persist run state (context.steps, evidence, cursor) so a paused run resumes after approve/edit/abort, across process restarts
     status: pending
@@ -203,9 +203,9 @@ Each addition: protocol type + JSON schema + validator rule + lowerer + runtime 
 ## Acceptance criteria (plan done)
 
 - [x] No hardcoded services, fixtures, or tokens **inside** `@relay/spec-host`; Desk + engager-gen both call `runSpec` (callers may still pass fixture posts / stub LLM until h3)
-- [ ] Desk run path no longer *requires* Reddit fixture posts for non-Reddit Specs (h3 / catalog reach)
+- [ ] Desk run path no longer *requires* Reddit fixture posts for non-Reddit Specs (catalog reach / Desk UI mode switch)
 - [x] Connections resolve from a secrets store; missing connection is a structured, actionable error (`SpecHostError` `missing_connection`)
-- [ ] `shadow` mode performs live reads and records simulated writes as evidence
+- [x] `shadow` mode performs live reads and records simulated writes as evidence (`shadowWrite` / `simulatedWriteCount`)
 - [ ] A run paused at `human.*` resumes after approve/edit/abort, including across a process restart
 - [ ] GitHub descriptor generated from OpenAPI (not hand-written) and used by the triage Spec
 - [ ] Scaffolder returns capability gaps instead of looping on unknown services
@@ -257,3 +257,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`h0-forcing-intent` completed** — added [`apps/triage-gen/`](../../apps/triage-gen/): locked `intent.md` (slots `acme/widgets`, `bug`, weekday 09:00), `SUCCESS.md` bar, `spec.expected.yaml` (v2.1 annotated), hand `services/github.yaml` (list + comment), `fixtures/issues.json`. Explicitly no host package — waits on `h1-spec-host-package`.
 - **`h1-spec-host-package` completed** — added [`packages/spec-host`](../../packages/spec-host): `runSpec` / `selectServicesForSpec` / `buildSpecEngines`; modes `fixture|shadow|live` (defaults); optional `extraEngines` for browser/computer. Desk `handleRun` + engager-gen call it; fixtures/stub LLM stay caller-supplied. Tests pass (GitHub-shaped fixture Spec).
 - **`h2-connections-secrets` completed** — pluggable `ConnectionStore` (memory / file JSON / env / macOS keychain / composite); `runSpec({ connectionStore })` derives `knownConnections`, asserts refs present, builds resolver; `env:VAR` secret refs; docs in `packages/spec-host/CONNECTIONS.md`. Desk + engager-gen use memory store for fixture tokens.
+- **`h3-live-read-dry-write` completed** — `fixture`/`shadow`/`live` semantics in `modes.ts`; shadow forces dryRun + live reads; live requires `budget.dryRun: false`; evidence tags `shadowWrite`; `tryCreateLiveLlmClient` / `resolveRunLlmClient`; HITL auto-approve only default in fixture; docs `MODES.md`.

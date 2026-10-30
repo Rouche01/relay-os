@@ -21,7 +21,13 @@ import {
   connectionResolverFromStore,
 } from "./connections/resolver.js";
 import { SpecHostError } from "./errors.js";
-import { buildSpecEngines, resolveHostDefaults } from "./engines.js";
+import { buildSpecEngines } from "./engines.js";
+import { resolveRunLlmClient } from "./llm-client.js";
+import {
+  assertModeAllowed,
+  countSimulatedWrites,
+  resolveHostDefaults,
+} from "./modes.js";
 import { selectServicesForSpec } from "./services.js";
 import type { RunSpecOptions, RunSpecResult } from "./types.js";
 
@@ -116,16 +122,30 @@ export async function runSpec(
     },
   });
 
-  const { dryRun, blockNetwork } = resolveHostDefaults({
+  const resolved = resolveHostDefaults({
     mode: options.mode,
     dryRun: options.dryRun,
     blockNetwork: options.blockNetwork,
     budgetDryRun: body.budget?.dryRun,
   });
+  const { mode, dryRun, blockNetwork } = resolved;
+  assertModeAllowed(mode, body, resolved);
+
+  if (mode !== "fixture" && !options.connectionStore && !resolveConnection) {
+    throw new SpecHostError(
+      "missing_connection_resolver",
+      `${mode} mode requires connectionStore (or resolveConnection) for live API auth`
+    );
+  }
+
+  const llmClient = resolveRunLlmClient({
+    mode,
+    llmClient: options.llmClient,
+  });
 
   const engines = buildSpecEngines({
     services: selected.services,
-    llmClient: options.llmClient,
+    llmClient,
     resolveConnection,
     apiFixtures: options.apiFixtures,
     dryRun,
@@ -169,7 +189,8 @@ export async function runSpec(
   });
 
   const hitl = options.hitl ?? {};
-  const autoApprove = hitl.autoApprove ?? true;
+  // Fixture CI auto-approves; shadow/live expect real HITL unless overridden.
+  const autoApprove = hitl.autoApprove ?? mode === "fixture";
   if (hitl.onFeedbackRequested) {
     runtime.on(AgentRuntimeEvent.FEEDBACK_REQUESTED, (req) => {
       void hitl.onFeedbackRequested?.(req, async (partial) => {
@@ -213,6 +234,10 @@ export async function runSpec(
     stepOutputs,
     stageResults: (ctx.stageResults ?? {}) as Record<string, unknown>,
     evalReport,
+    mode,
+    dryRun,
+    blockNetwork,
+    simulatedWriteCount: countSimulatedWrites(stepOutputs),
     runtime,
   };
 }

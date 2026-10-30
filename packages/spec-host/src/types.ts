@@ -16,10 +16,10 @@ import type { AgentRuntime } from "@relay/runtime";
 import type { ConnectionStore } from "./connections/types.js";
 
 /**
- * Host run modes (h3 will flesh shadow/live).
- * - `fixture` — offline / CI; callers supply apiFixtures + usually blockNetwork
- * - `shadow` — live reads; irreversible writes stay dry-run (default dryRun true)
- * - `live` — writes allowed when budget.dryRun=false (still HITL-gated by Spec)
+ * Host run modes:
+ * - `fixture` — offline / CI; callers supply apiFixtures + blockNetwork
+ * - `shadow` — live reads; irreversible writes always simulated + evidence
+ * - `live` — writes only when budget.dryRun=false (HITL still gated by Spec)
  */
 export type SpecHostMode = "fixture" | "shadow" | "live";
 
@@ -31,7 +31,7 @@ export type SpecHostHitlRespond = (response: {
 export type SpecHostHitlOptions = {
   /**
    * When true, every FEEDBACK_REQUESTED is auto-`proceed`.
-   * Default true for fixture CI; Desk / production should pass false (h4).
+   * Default: true in `fixture`, false in `shadow`/`live` (real HITL expected).
    */
   autoApprove?: boolean;
   /**
@@ -71,8 +71,12 @@ export type RunSpecOptions = {
    * Prefer `connectionStore`; this overrides when both are set.
    */
   resolveConnection?: ConnectionResolver;
-  /** LLM used by llm.* steps and soft-rule judges. */
-  llmClient: LlmClient;
+  /**
+   * LLM used by llm.* steps and soft-rule judges.
+   * Required for `fixture`. For `shadow`/`live`, omit to use env live client
+   * (`createLiveLlmClient` / `LLM_PROVIDER` + API key).
+   */
+  llmClient?: LlmClient;
   /**
    * Optional API fixtures (fixture mode / CI). First match wins in engines-api.
    */
@@ -125,6 +129,14 @@ export type RunSpecResult = {
   stepOutputs: Record<string, unknown>;
   stageResults: Record<string, unknown>;
   evalReport?: EvalReport;
+  /** Effective run mode after defaults. */
+  mode: SpecHostMode;
+  /** Effective API dryRun (true ⇒ irreversible writes simulated). */
+  dryRun: boolean;
+  /** True when fetch is blocked. */
+  blockNetwork: boolean;
+  /** Count of dryRunSimulated API write results in step outputs. */
+  simulatedWriteCount: number;
   /** Live runtime — callers may attach further listeners (advanced). */
   runtime: AgentRuntime;
 };
