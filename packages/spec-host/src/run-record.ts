@@ -73,6 +73,7 @@ export function buildRunRecord(input: BuildRunRecordInput): SpecRunCheckpoint {
     stepOutputs,
     hitlDecisions,
     lastFeedback: input.lastFeedback ?? input.previous?.lastFeedback,
+    evidenceApproval: input.previous?.evidenceApproval,
   };
 }
 

@@ -28,7 +28,9 @@ import {
   type ComposeSpecBody,
 } from "./compose-spec.js";
 import {
+  handleApproveEvidence,
   handleEvals,
+  handleEnableSchedule,
   handleFreeze,
   handleGetRun,
   handleListRuns,
@@ -174,8 +176,10 @@ async function main(): Promise<void> {
             "POST /api/v2/run",
             "GET /api/v2/runs",
             "GET /api/v2/runs/:runId",
+            "POST /api/v2/runs/:runId/approve-evidence",
             "POST /api/v2/runs/:runId/replay",
             "POST /api/v2/runs/:runId/resume",
+            "POST /api/v2/schedule/enable",
           ],
         });
         return;
@@ -228,12 +232,32 @@ async function main(): Promise<void> {
               yaml?: string;
               body?: unknown;
               autoApprove?: boolean;
+              mode?: "fixture" | "shadow" | "live";
             })
           : {};
         const out = await handleRun(body as {
           yaml?: string;
           body?: never;
           autoApprove?: boolean;
+          mode?: "fixture" | "shadow" | "live";
+        });
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/v2/schedule/enable") {
+        const raw = await readBody(req);
+        const body = raw
+          ? (JSON.parse(raw) as {
+              yaml?: string;
+              body?: unknown;
+              runId?: string;
+            })
+          : {};
+        const out = await handleEnableSchedule(body as {
+          yaml?: string;
+          body?: never;
+          runId?: string;
         });
         sendJson(res, out.status, out);
         return;
@@ -253,6 +277,21 @@ async function main(): Promise<void> {
       const runOne = /^\/api\/v2\/runs\/([^/]+)$/.exec(url.pathname);
       if (method === "GET" && runOne?.[1]) {
         const out = await handleGetRun(decodeURIComponent(runOne[1]));
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      const runApproveEvidence =
+        /^\/api\/v2\/runs\/([^/]+)\/approve-evidence$/.exec(url.pathname);
+      if (method === "POST" && runApproveEvidence?.[1]) {
+        const raw = await readBody(req);
+        const body = raw
+          ? (JSON.parse(raw) as { approvedBy?: string; note?: string })
+          : {};
+        const out = await handleApproveEvidence(
+          decodeURIComponent(runApproveEvidence[1]),
+          body
+        );
         sendJson(res, out.status, out);
         return;
       }

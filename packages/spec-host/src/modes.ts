@@ -96,19 +96,64 @@ export function assertModeAllowed(
 export function countSimulatedWrites(
   stepOutputs: Record<string, unknown>
 ): number {
-  let n = 0;
-  const visit = (value: unknown): void => {
+  return collectSimulatedWrites(stepOutputs).length;
+}
+
+/** One simulated / shadow write for Desk side-by-side review. */
+export type SimulatedWrite = {
+  stepId?: string;
+  source: "stepOutput" | "evidence";
+  detail: unknown;
+};
+
+/**
+ * Collect dryRunSimulated step outputs and evidence entries tagged
+ * `shadowWrite` / `dryRunSimulated` (deduped by stepId when both exist).
+ */
+export function collectSimulatedWrites(
+  stepOutputs: Record<string, unknown> = {},
+  evidence: ReadonlyArray<{
+    stepId?: string;
+    detail?: unknown;
+  }> = []
+): SimulatedWrite[] {
+  const out: SimulatedWrite[] = [];
+  const seenSteps = new Set<string>();
+
+  const visit = (stepId: string | undefined, value: unknown): void => {
     if (Array.isArray(value)) {
-      for (const item of value) visit(item);
+      for (const item of value) visit(stepId, item);
       return;
     }
     if (!value || typeof value !== "object") return;
     const o = value as Record<string, unknown>;
-    if (o.dryRunSimulated === true) n += 1;
+    if (o.dryRunSimulated === true) {
+      out.push({ stepId, source: "stepOutput", detail: o });
+      if (stepId) seenSteps.add(stepId);
+      return;
+    }
     for (const v of Object.values(o)) {
-      if (v && typeof v === "object") visit(v);
+      if (v && typeof v === "object") visit(stepId, v);
     }
   };
-  for (const out of Object.values(stepOutputs)) visit(out);
-  return n;
+
+  for (const [stepId, value] of Object.entries(stepOutputs)) {
+    visit(stepId, value);
+  }
+
+  for (const e of evidence) {
+    const detail = e.detail;
+    if (!detail || typeof detail !== "object") continue;
+    const d = detail as Record<string, unknown>;
+    if (d.shadowWrite !== true && d.dryRunSimulated !== true) continue;
+    if (e.stepId && seenSteps.has(e.stepId)) continue;
+    out.push({
+      stepId: e.stepId,
+      source: "evidence",
+      detail,
+    });
+    if (e.stepId) seenSteps.add(e.stepId);
+  }
+
+  return out;
 }

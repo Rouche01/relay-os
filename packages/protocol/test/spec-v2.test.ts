@@ -104,11 +104,15 @@ describe("Spec v2", () => {
   it("creates a draft with default dryRun budget and freeze/thaw lifecycle", () => {
     const draft = createDraftSpecV2({
       goal: "Demo",
+      trigger: { poll: { everyMs: 60_000, sourceStep: "a" } },
       steps: [{ id: "a", use: "human.approve", args: { show: "x" } }],
     });
     assert.equal(draft.status, "draft");
     assert.equal(draft.budget?.dryRun, true);
     assert.equal(draft.steps.length, 1);
+    assert.deepEqual(draft.trigger, {
+      poll: { everyMs: 60_000, sourceStep: "a" },
+    });
 
     const frozen = freezeSpecV2(draft, { frozenBy: "test" });
     assert.equal(frozen.status, "frozen");

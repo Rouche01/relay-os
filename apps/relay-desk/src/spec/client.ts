@@ -4,6 +4,8 @@ import type {
   EvalsResponse,
   FreezeResponse,
   LowerResponse,
+  ApproveEvidenceResponse,
+  EnableScheduleResponse,
   RunResponse,
   ScaffoldResponse,
   ValidateResponse,
@@ -163,11 +165,41 @@ export async function freezeSpec(
 export async function runSpec(
   settings: DeskSettings,
   yaml: string,
-  opts?: { autoApprove?: boolean }
+  opts?: { autoApprove?: boolean; mode?: "fixture" | "shadow" }
 ): Promise<RunResponse> {
   const res = await specHttp(settings, "POST", "/api/v2/run", {
     yaml,
     autoApprove: opts?.autoApprove ?? true,
+    mode: opts?.mode ?? "fixture",
   });
   return parseJson<RunResponse>(res.body);
+}
+
+export async function approveEvidence(
+  settings: DeskSettings,
+  runId: string,
+  opts?: { approvedBy?: string; note?: string }
+): Promise<ApproveEvidenceResponse> {
+  const res = await specHttp(
+    settings,
+    "POST",
+    `/api/v2/runs/${encodeURIComponent(runId)}/approve-evidence`,
+    {
+      approvedBy: opts?.approvedBy,
+      note: opts?.note,
+    }
+  );
+  return parseJson<ApproveEvidenceResponse>(res.body);
+}
+
+export async function enableSchedule(
+  settings: DeskSettings,
+  yaml: string,
+  opts?: { runId?: string }
+): Promise<EnableScheduleResponse> {
+  const res = await specHttp(settings, "POST", "/api/v2/schedule/enable", {
+    yaml,
+    runId: opts?.runId,
+  });
+  return parseJson<EnableScheduleResponse>(res.body);
 }

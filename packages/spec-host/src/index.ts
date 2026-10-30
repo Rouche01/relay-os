@@ -14,7 +14,19 @@ export { resolveHostDefaults } from "./modes.js";
 export {
   assertModeAllowed,
   countSimulatedWrites,
+  collectSimulatedWrites,
 } from "./modes.js";
+export type { SimulatedWrite } from "./modes.js";
+export {
+  approveShadowEvidence,
+  assertShadowGate,
+  listApprovedShadowRuns,
+} from "./shadow-gate.js";
+export type {
+  EvidenceApproval,
+  ApproveShadowEvidenceOptions,
+  AssertShadowGateOptions,
+} from "./shadow-gate.js";
 export {
   createLiveLlmClient,
   resolveRunLlmClient,
@@ -46,10 +58,12 @@ export {
   createSpecScheduleInvoker,
   createRunSpecInvoker,
   schedulerHostFromSpec,
+  enableSpecScheduler,
 } from "./schedule.js";
 export type {
   SpecScheduleRunFactory,
   ArmSpecSchedulerOptions,
+  EnableSpecSchedulerOptions,
 } from "./schedule.js";
 export {
   MemoryRunStateStore,

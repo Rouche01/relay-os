@@ -6,8 +6,10 @@ import { join, resolve } from "node:path";
 import { createLlmEngine } from "@relay/engines-llm";
 import { createLlmClient, parseLlmProviderId, type LlmClient } from "@relay/llm";
 import {
+  assertSchedulesValid,
   createDraftSpecV2,
   freezeSpecV2,
+  listEnabledSchedules,
   type SpecV2Body,
 } from "@relay/protocol";
 import {
@@ -17,6 +19,9 @@ import {
   runEvals,
 } from "@relay/spec-evals";
 import {
+  approveShadowEvidence,
+  assertShadowGate,
+  collectSimulatedWrites,
   createFileRunStateStore,
   createMemoryConnectionStore,
   isSpecHostError,
@@ -26,6 +31,7 @@ import {
   runSpec,
   type ListRunsQuery,
   type RunStateStore,
+  type SpecHostMode,
   type SpecRunStatus,
 } from "@relay/spec-host";
 import {
@@ -99,9 +105,14 @@ function deskFixtureApi() {
 function mapHostError(err: unknown) {
   if (isSpecHostError(err)) {
     const status =
-      err.code === "evals_gate" || err.code === "invalid_spec"
+      err.code === "evals_gate" ||
+      err.code === "invalid_spec" ||
+      err.code === "shadow_gate_unapproved" ||
+      err.code === "shadow_approval_requires_shadow" ||
+      err.code === "shadow_approval_requires_complete" ||
+      err.code === "no_spec_schedule"
         ? 422
-        : err.code === "checkpoint_not_found"
+        : err.code === "checkpoint_not_found" || err.code === "run_not_found"
           ? 404
           : 400;
     return {
@@ -569,6 +580,10 @@ function runResultPayload(
   result: Awaited<ReturnType<typeof runSpec>>,
   note: string
 ) {
+  const simulatedWrites = collectSimulatedWrites(
+    result.stepOutputs ?? {},
+    result.evidence ?? []
+  );
   return {
     ok: result.ok,
     status: 200 as const,
@@ -580,8 +595,10 @@ function runResultPayload(
     dryRun: result.dryRun,
     blockNetwork: result.blockNetwork,
     simulatedWriteCount: result.simulatedWriteCount,
+    simulatedWrites,
     evidenceCount: result.evidenceCount,
     evidence: result.evidence,
+    evidenceApproval: result.checkpoint?.evidenceApproval,
     stageResults: result.stageResults,
     stepOutputs: result.stepOutputs,
     checkpoint: result.checkpoint
@@ -591,6 +608,9 @@ function runResultPayload(
           createdAt: result.checkpoint.createdAt,
           updatedAt: result.checkpoint.updatedAt,
           hitlDecisionCount: result.checkpoint.hitlDecisions?.length ?? 0,
+          evidenceApproved: Boolean(
+            result.checkpoint.evidenceApproval?.approvedAt
+          ),
         }
       : undefined,
     pendingFeedback: result.pendingFeedback,
@@ -602,9 +622,22 @@ export async function handleRun(input: {
   yaml?: string;
   body?: SpecV2Body;
   autoApprove?: boolean;
+  /** Desk default fixture; shadow for evidence-gate rehearsal (still fixture APIs). */
+  mode?: SpecHostMode;
 }) {
   const body = resolveBody(input);
   const autoApprove = input.autoApprove !== false;
+  const mode: SpecHostMode =
+    input.mode === "shadow" || input.mode === "live" ? input.mode : "fixture";
+  if (mode === "live") {
+    return {
+      ok: false as const,
+      status: 422,
+      error:
+        "Desk /api/v2/run does not enable live writes — use shadow (simulated writes) or fixture",
+      code: "desk_live_forbidden",
+    };
+  }
   const { services, connectionStore, apiFixtures } = deskFixtureApi();
   const evals = generateEvalFixtures(body);
   const runStateStore = deskRunStateStore();
@@ -615,8 +648,9 @@ export async function handleRun(input: {
       services,
       connectionStore,
       llmClient: runtimeStubLlm(),
-      mode: "fixture",
+      mode,
       dryRun: true,
+      // Desk stays offline; shadow still records shadowWrite evidence for the gate.
       blockNetwork: true,
       apiFixtures,
       hitl: {
@@ -638,10 +672,15 @@ export async function handleRun(input: {
       softFailClosed: true,
     });
 
+    const modeNote =
+      mode === "shadow"
+        ? "shadow mode (writes simulated; network blocked in Desk). Approve evidence before enabling schedule."
+        : "fixture mode via @relay/spec-host (network blocked, stub LLM). Run persisted — GET /api/v2/runs.";
+
     return runResultPayload(
       result,
       autoApprove
-        ? "fixture mode via @relay/spec-host (network blocked, stub LLM). Run persisted — GET /api/v2/runs."
+        ? modeNote
         : "Paused for HITL — POST /api/v2/runs/:runId/resume with { action, value }."
     );
   } catch (err) {
@@ -680,7 +719,88 @@ export async function handleGetRun(runId: string) {
       error: `Run not found: ${runId}`,
     };
   }
-  return { ok: true as const, status: 200, run };
+  const simulatedWrites = collectSimulatedWrites(
+    run.stepOutputs ?? {},
+    run.evidence ?? []
+  );
+  return {
+    ok: true as const,
+    status: 200,
+    run,
+    simulatedWrites,
+    evidenceApproval: run.evidenceApproval,
+  };
+}
+
+export async function handleApproveEvidence(
+  runId: string,
+  input: { approvedBy?: string; note?: string } = {}
+) {
+  try {
+    const run = await approveShadowEvidence(deskRunStateStore(), runId, {
+      approvedBy: input.approvedBy ?? "desk-operator",
+      note: input.note,
+    });
+    return {
+      ok: true as const,
+      status: 200,
+      runId: run.runId,
+      specHash: run.specHash,
+      evidenceApproval: run.evidenceApproval,
+      note: "Shadow evidence approved — schedule enable is unlocked for this Spec hash.",
+    };
+  } catch (err) {
+    return mapHostError(err);
+  }
+}
+
+/**
+ * Fail-closed schedule enable check: requires approved shadow evidence for Spec hash.
+ * Does not start a long-lived SchedulerHost in Desk — returns gate result only.
+ */
+export async function handleEnableSchedule(input: {
+  yaml?: string;
+  body?: SpecV2Body;
+  runId?: string;
+}) {
+  try {
+    const body = resolveBody(input);
+    const lowered = lowerSpecV2(body, { name: "desk-schedule" });
+    assertSchedulesValid(lowered.manifest);
+    const schedules = listEnabledSchedules(lowered.manifest);
+    if (!schedules.length) {
+      return {
+        ok: false as const,
+        status: 422,
+        error:
+          "Spec has no schedule/poll trigger to enable (use trigger.schedule or trigger.poll)",
+        code: "no_spec_schedule",
+      };
+    }
+    const approved = await assertShadowGate({
+      store: deskRunStateStore(),
+      specHash: lowered.specHash,
+      runId: input.runId,
+    });
+    return {
+      ok: true as const,
+      status: 200,
+      enabled: true,
+      specHash: lowered.specHash,
+      approvedRunId: approved.runId,
+      evidenceApproval: approved.evidenceApproval,
+      schedules: schedules.map((s) => ({
+        id: s.id,
+        entrypoint: s.entrypoint,
+        cron: s.cron,
+        every_ms: s.every_ms,
+        enabled: s.enabled !== false,
+      })),
+      note: "Shadow gate passed — schedule may be armed (Desk check only; host not started).",
+    };
+  } catch (err) {
+    return mapHostError(err);
+  }
 }
 
 export async function handleReplayRun(runId: string) {

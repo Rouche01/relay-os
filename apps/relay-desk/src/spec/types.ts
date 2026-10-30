@@ -89,13 +89,31 @@ export type FreezeResponse = {
   yaml?: string;
 };
 
+export type SimulatedWrite = {
+  stepId?: string;
+  source?: "stepOutput" | "evidence";
+  detail?: unknown;
+};
+
+export type EvidenceApproval = {
+  approvedAt: string;
+  approvedBy?: string;
+  note?: string;
+};
+
 export type RunResponse = {
   ok: boolean;
   error?: string;
+  code?: string;
   state?: string;
+  runId?: string;
   specId?: string;
   specHash?: string;
+  mode?: "fixture" | "shadow" | "live";
   evidenceCount?: number;
+  simulatedWriteCount?: number;
+  simulatedWrites?: SimulatedWrite[];
+  evidenceApproval?: EvidenceApproval;
   note?: string;
   validation?: SpecValidationResult;
   /** Dry-run step outputs keyed by Spec step id. */
@@ -106,6 +124,34 @@ export type RunResponse = {
     stepId?: string;
     kind?: string;
     detail?: unknown;
+  }>;
+};
+
+export type ApproveEvidenceResponse = {
+  ok: boolean;
+  error?: string;
+  code?: string;
+  runId?: string;
+  specHash?: string;
+  evidenceApproval?: EvidenceApproval;
+  note?: string;
+};
+
+export type EnableScheduleResponse = {
+  ok: boolean;
+  error?: string;
+  code?: string;
+  enabled?: boolean;
+  specHash?: string;
+  approvedRunId?: string;
+  evidenceApproval?: EvidenceApproval;
+  note?: string;
+  schedules?: Array<{
+    id: string;
+    entrypoint: string;
+    cron?: string;
+    every_ms?: number;
+    enabled: boolean;
   }>;
 };
 

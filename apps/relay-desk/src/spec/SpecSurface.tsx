@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import type { DeskSettings } from "../gateway/types.ts";
 import {
+  approveEvidence,
+  enableSchedule,
   evalSpec,
   fetchScaffoldProvider,
   freezeSpec,
@@ -191,6 +193,9 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
   );
   const [exportFlash, setExportFlash] = useState<string | undefined>();
   const [autoApprove, setAutoApprove] = useState(true);
+  /** Desk run mode — shadow unlocks evidence approval for schedule enable. */
+  const [runMode, setRunMode] = useState<"fixture" | "shadow">("fixture");
+  const [scheduleNote, setScheduleNote] = useState<string | undefined>();
   const [history, setHistory] = useState<SpecHistoryEntry[]>(() =>
     typeof localStorage !== "undefined" ? loadSpecHistory() : []
   );
@@ -530,14 +535,23 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
   const onRun = useCallback(async () => {
     if (!yaml.trim()) return;
     setBusy(true);
-    setBusyLabel("Running (dry-run)…");
+    setBusyLabel(
+      runMode === "shadow" ? "Running (shadow)…" : "Running (dry-run)…"
+    );
     setError(undefined);
+    setScheduleNote(undefined);
     try {
-      const res = await runSpec(settings, yaml, { autoApprove });
+      const res = await runSpec(settings, yaml, {
+        autoApprove,
+        mode: runMode,
+      });
       setRunResult(res);
       if (!res.ok) {
         setValidation(res.validation);
         throw new Error(res.error || `Run ended ${res.state ?? "failed"}`);
+      }
+      if (runMode === "shadow") {
+        setRunTab("evidence");
       }
       if (!autoApprove && onOpenConsole) {
         flashExport("HITL may be waiting — open Console");
@@ -548,7 +562,61 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
       setBusy(false);
       setBusyLabel(undefined);
     }
-  }, [settings, yaml, autoApprove, onOpenConsole, flashExport]);
+  }, [settings, yaml, autoApprove, runMode, onOpenConsole, flashExport]);
+
+  const onApproveEvidence = useCallback(async () => {
+    const runId = runResult?.runId;
+    if (!runId) return;
+    setBusy(true);
+    setBusyLabel("Approving evidence…");
+    setError(undefined);
+    try {
+      const res = await approveEvidence(settings, runId, {
+        approvedBy: "desk-operator",
+      });
+      if (!res.ok) {
+        throw new Error(res.error || "Evidence approval failed");
+      }
+      setRunResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              evidenceApproval: res.evidenceApproval,
+              note: res.note ?? prev.note,
+            }
+          : prev
+      );
+      flashExport("shadow evidence approved");
+      setScheduleNote(res.note);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+      setBusyLabel(undefined);
+    }
+  }, [settings, runResult?.runId, flashExport]);
+
+  const onEnableSchedule = useCallback(async () => {
+    if (!yaml.trim()) return;
+    setBusy(true);
+    setBusyLabel("Checking shadow gate…");
+    setError(undefined);
+    try {
+      const res = await enableSchedule(settings, yaml, {
+        runId: runResult?.runId,
+      });
+      if (!res.ok) {
+        throw new Error(res.error || "Schedule enable blocked");
+      }
+      setScheduleNote(res.note ?? "Shadow gate passed");
+      flashExport("schedule enable unlocked");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+      setBusyLabel(undefined);
+    }
+  }, [settings, yaml, runResult?.runId, flashExport]);
 
   return (
     <div class="desk-body spec-surface">
@@ -1202,14 +1270,34 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
                 disabled={!runGate.enabled}
                 title={runGate.reason}
                 onClick={() => {
-                  setRunTab("steps");
+                  setRunTab(runMode === "shadow" ? "evidence" : "steps");
                   void onRun();
                 }}
               >
                 {busy && busyLabel?.startsWith("Running")
                   ? "Running…"
-                  : "Run dry"}
+                  : runMode === "shadow"
+                    ? "Run shadow"
+                    : "Run dry"}
               </button>
+              <label class="spec-check mono">
+                <select
+                  class="spec-mode-select"
+                  value={runMode}
+                  disabled={busy}
+                  onChange={(e) =>
+                    setRunMode(
+                      (e.target as HTMLSelectElement).value as
+                        | "fixture"
+                        | "shadow"
+                    )
+                  }
+                  aria-label="Run mode"
+                >
+                  <option value="fixture">fixture</option>
+                  <option value="shadow">shadow</option>
+                </select>
+              </label>
               <label class="spec-check mono">
                 <input
                   type="checkbox"
@@ -1319,42 +1407,117 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
                 <p class="tile-meta">No step outputs in this run.</p>
               )
             ) : runTab === "evidence" ? (
-              runResult.evidence?.length ? (
-                <pre class="spec-pre spec-pre-expanded">
-                  {JSON.stringify(
-                    runResult.evidence.map((e) => ({
-                      step: e.stepId,
-                      kind: e.kind,
-                      detail: e.detail,
-                    })),
-                    null,
-                    2
+              <div class="spec-evidence-split">
+                <div class="spec-evidence-pane">
+                  <p class="tile-label">Evidence</p>
+                  {runResult.evidence?.length ? (
+                    <pre class="spec-pre spec-pre-expanded">
+                      {JSON.stringify(
+                        runResult.evidence.map((e) => ({
+                          step: e.stepId,
+                          kind: e.kind,
+                          detail: e.detail,
+                        })),
+                        null,
+                        2
+                      )}
+                    </pre>
+                  ) : (
+                    <p class="tile-meta">
+                      No evidence entries
+                      {runResult.evidenceCount
+                        ? ` (count ${runResult.evidenceCount})`
+                        : ""}
+                      .
+                    </p>
                   )}
-                </pre>
-              ) : (
-                <p class="tile-meta">
-                  No evidence entries
-                  {runResult.evidenceCount
-                    ? ` (count ${runResult.evidenceCount})`
-                    : ""}
-                  .
-                </p>
-              )
+                </div>
+                <div class="spec-evidence-pane">
+                  <p class="tile-label">
+                    Simulated writes
+                    {runResult.simulatedWriteCount != null
+                      ? ` · ${runResult.simulatedWriteCount}`
+                      : ""}
+                  </p>
+                  {(runResult.simulatedWrites?.length ?? 0) > 0 ? (
+                    <pre class="spec-pre spec-pre-expanded">
+                      {JSON.stringify(runResult.simulatedWrites, null, 2)}
+                    </pre>
+                  ) : (
+                    <p class="tile-meta">
+                      No dryRunSimulated / shadowWrite entries in this run.
+                    </p>
+                  )}
+                </div>
+              </div>
             ) : (
               <div class="tile-copy">
                 <h2 class="tile-title">
                   {runResult.state ?? (runResult.ok ? "COMPLETE" : "FAILED")}
                 </h2>
                 <p class="tile-meta mono">
-                  evidence · {runResult.evidenceCount ?? 0}
+                  {runResult.mode ?? "fixture"} · evidence ·{" "}
+                  {runResult.evidenceCount ?? 0}
+                  {runResult.simulatedWriteCount != null
+                    ? ` · writes ${runResult.simulatedWriteCount}`
+                    : ""}
                   {runResult.specId ? ` · id ${runResult.specId}` : ""}
                 </p>
+                {runResult.runId ? (
+                  <p class="tile-meta mono">run · {runResult.runId}</p>
+                ) : null}
                 {runResult.specHash ? (
                   <p class="tile-meta mono">hash · {runResult.specHash}</p>
+                ) : null}
+                {runResult.evidenceApproval?.approvedAt ? (
+                  <p class="tile-meta mono">
+                    evidence approved · {runResult.evidenceApproval.approvedAt}
+                    {runResult.evidenceApproval.approvedBy
+                      ? ` · ${runResult.evidenceApproval.approvedBy}`
+                      : ""}
+                  </p>
                 ) : null}
                 {runResult.note ? (
                   <p class="tile-meta">{runResult.note}</p>
                 ) : null}
+                {scheduleNote ? (
+                  <p class="tile-meta">{scheduleNote}</p>
+                ) : null}
+                <div class="cta-row">
+                  <button
+                    type="button"
+                    class="cta ghost"
+                    disabled={
+                      busy ||
+                      !runResult.runId ||
+                      runResult.mode !== "shadow" ||
+                      Boolean(runResult.evidenceApproval?.approvedAt) ||
+                      !(
+                        runResult.state === "COMPLETE" ||
+                        runResult.ok === true
+                      )
+                    }
+                    title={
+                      runResult.mode !== "shadow"
+                        ? "Run in shadow mode first"
+                        : runResult.evidenceApproval?.approvedAt
+                          ? "Already approved"
+                          : "Approve this shadow evidence pack"
+                    }
+                    onClick={() => void onApproveEvidence()}
+                  >
+                    Approve evidence
+                  </button>
+                  <button
+                    type="button"
+                    class="cta ghost"
+                    disabled={busy || !yaml.trim()}
+                    title="Require approved shadow evidence for this Spec hash"
+                    onClick={() => void onEnableSchedule()}
+                  >
+                    Enable schedule
+                  </button>
+                </div>
                 {runResult.stageResults &&
                 Object.keys(runResult.stageResults).length ? (
                   <pre class="spec-pre">

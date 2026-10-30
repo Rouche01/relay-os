@@ -635,6 +635,38 @@ body {
   background: color-mix(in srgb, var(--panel-2) 80%, var(--void));
 }
 
+.spec-mode-select {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 0.25rem 0.45rem;
+  border-radius: 0.25rem;
+}
+
+.spec-evidence-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+
+@media (max-width: 720px) {
+  .spec-evidence-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.spec-evidence-pane {
+  min-width: 0;
+}
+
+.spec-evidence-pane .tile-label {
+  margin-bottom: 0.35rem;
+}
+
 .spec-diag-scroll {
   max-height: 14rem;
   overflow: auto;

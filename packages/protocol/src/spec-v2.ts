@@ -418,6 +418,12 @@ function assertBodyBasics(body: SpecV2Body): void {
 /** Create a draft Spec v2 ready for human freeze. */
 export function createDraftSpecV2(input: CreateDraftSpecV2Input): SpecV2 {
   assertBodyBasics(input);
+  if (input.trigger !== undefined) {
+    const triggerErrors = checkSpecV2TriggerShape(input.trigger);
+    if (triggerErrors.length) {
+      throw new Error(`Invalid Spec trigger:\n- ${triggerErrors.join("\n- ")}`);
+    }
+  }
   return {
     id: input.id ?? newId("specv2"),
     version: 1,
@@ -426,6 +432,7 @@ export function createDraftSpecV2(input: CreateDraftSpecV2Input): SpecV2 {
     goal: input.goal.trim(),
     connections: input.connections ? [...input.connections] : undefined,
     services: input.services ? [...input.services] : undefined,
+    trigger: input.trigger ? structuredClone(input.trigger) : undefined,
     budget: input.budget ? { ...input.budget } : { dryRun: true },
     rules: input.rules ? structuredClone(input.rules) : [],
     steps: structuredClone(input.steps),

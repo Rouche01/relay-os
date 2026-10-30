@@ -55,6 +55,15 @@ export type SpecRunCheckpoint = {
   hitlDecisions?: FeedbackResponse[];
   /** Last HITL decision after resume (also appended to hitlDecisions). */
   lastFeedback?: FeedbackResponse;
+  /**
+   * Human approval of this shadow run's evidence pack.
+   * Required (via assertShadowGate) before enabling a scheduled Spec.
+   */
+  evidenceApproval?: {
+    approvedAt: string;
+    approvedBy?: string;
+    note?: string;
+  };
 };
 
 /** Lightweight row for Desk run lists. */
@@ -71,6 +80,8 @@ export type SpecRunSummary = {
   hitlDecisionCount: number;
   dryRun: boolean;
   goal: string;
+  /** True when this complete shadow run has evidenceApproval. */
+  evidenceApproved: boolean;
 };
 
 export type ListRunsQuery = {
@@ -122,6 +133,7 @@ export function toRunSummary(cp: SpecRunCheckpoint): SpecRunSummary {
     hitlDecisionCount: cp.hitlDecisions?.length ?? (cp.lastFeedback ? 1 : 0),
     dryRun: cp.dryRun,
     goal: cp.body.goal ?? cp.frozen.goal ?? "",
+    evidenceApproved: Boolean(cp.evidenceApproval?.approvedAt),
   };
 }
 
