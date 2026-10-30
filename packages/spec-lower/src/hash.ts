@@ -9,6 +9,7 @@ export function canonicalSpecV2Json(body: SpecV2Body): string {
     goal: body.goal,
     connections: body.connections ?? null,
     services: body.services ?? null,
+    trigger: body.trigger ?? null,
     budget: body.budget ?? null,
     rules: body.rules ?? [],
     steps: body.steps,

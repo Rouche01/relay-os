@@ -20,6 +20,8 @@ export type RelayStepsBlock = {
   steps: SpecV2Body["steps"];
   connections?: string[];
   services?: string[];
+  /** Spec v2.1 trigger (manual | schedule | poll). */
+  trigger?: SpecV2Body["trigger"];
   /**
    * Context keys the runtime must populate before a fanout stage.
    * Key = stage name (step id); value = forEach ref path (without ${}).

@@ -8,6 +8,8 @@ import {
   capabilityNeedsHitl,
   checkOperationParams,
   checkSpecV2BodyShape,
+  checkSpecV2TriggerShape,
+  classifySpecV2Trigger,
   collectSpecV2Refs,
   getCapability,
   getServiceOperation,
@@ -92,6 +94,33 @@ function checkStructure(ctx: Ctx): void {
       });
     }
   });
+
+  // Spec v2.1 trigger (optional)
+  if (ctx.body.trigger !== undefined) {
+    const triggerShape = checkSpecV2TriggerShape(ctx.body.trigger);
+    for (const message of triggerShape) {
+      err(ctx, {
+        code: "trigger_invalid",
+        message,
+        path: "trigger",
+        invariant: "inv_structure",
+      });
+    }
+    if (triggerShape.length === 0) {
+      const classified = classifySpecV2Trigger(ctx.body.trigger);
+      if (
+        classified.kind === "poll" &&
+        !ctx.stepIndex.has(classified.sourceStep)
+      ) {
+        err(ctx, {
+          code: "trigger_poll_unknown_step",
+          message: `trigger.poll.sourceStep ${JSON.stringify(classified.sourceStep)} is not a Spec step id`,
+          path: "trigger/poll/sourceStep",
+          invariant: "inv_structure",
+        });
+      }
+    }
+  }
 
   // Budget: maxJobs bounds forEach (inv_budget_bounds_loops)
   const hasForEach = ctx.body.steps.some((s) => s.forEach);

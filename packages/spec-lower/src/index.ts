@@ -1,5 +1,9 @@
 export { canonicalSpecV2Json, hashSpecV2 } from "./hash.js";
-export { foreachContextKey, lowerSpecV2 } from "./lower.js";
+export {
+  foreachContextKey,
+  lowerSpecV2,
+  schedulesFromTrigger,
+} from "./lower.js";
 export {
   assertLoweredRunnable,
   liftLoweredWorkflow,

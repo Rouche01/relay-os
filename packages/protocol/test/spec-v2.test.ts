@@ -6,6 +6,8 @@ import {
   SPEC_V2_JSON_SCHEMA,
   SPEC_V2_SCHEMA_ID,
   checkSpecV2BodyShape,
+  checkSpecV2TriggerShape,
+  classifySpecV2Trigger,
   collectSpecV2Refs,
   createDraftSpecV2,
   freezeSpecV2,
@@ -184,6 +186,34 @@ describe("Spec v2", () => {
     assert.equal(body.goal, engageLiteBody.goal);
     assert.equal(body.steps.length, engageLiteBody.steps.length);
     assert.deepEqual(body.connections, ["reddit:default"]);
+  });
+
+  it("classifies Spec v2.1 trigger shapes", () => {
+    assert.deepEqual(classifySpecV2Trigger({ manual: true }), {
+      kind: "manual",
+    });
+    assert.deepEqual(
+      classifySpecV2Trigger({ schedule: { cron: "0 9 * * 1-5" } }),
+      { kind: "schedule", cron: "0 9 * * 1-5", timezone: undefined }
+    );
+    assert.deepEqual(
+      classifySpecV2Trigger({
+        poll: { everyMs: 60_000, sourceStep: "scout" },
+      }),
+      { kind: "poll", everyMs: 60_000, sourceStep: "scout" }
+    );
+    assert.ok(
+      checkSpecV2TriggerShape({
+        manual: true,
+        schedule: { cron: "0 * * * *" },
+      }).length
+    );
+    assert.ok(checkSpecV2TriggerShape({}).length);
+    const badPoll = checkSpecV2BodyShape({
+      ...engageLiteBody,
+      trigger: { poll: { everyMs: 0, sourceStep: "scout" } },
+    });
+    assert.equal(badPoll.ok, false);
   });
 
   it("keeps spec-v2.schema.json in sync with SPEC_V2_JSON_SCHEMA", () => {

@@ -194,6 +194,38 @@ describe("validateSpecV2", () => {
     assert.ok(result.errors.some((e) => e.code === "budget_max_jobs_required"));
   });
 
+  it("accepts schedule trigger and rejects poll unknown sourceStep", () => {
+    const scheduled = goodEngageLite();
+    scheduled.trigger = { schedule: { cron: "0 9 * * 1-5" } };
+    const ok = validateSpecV2(scheduled, { services });
+    assert.equal(ok.ok, true, JSON.stringify(ok.errors, null, 2));
+
+    const badPoll = goodEngageLite();
+    badPoll.trigger = {
+      poll: { everyMs: 60_000, sourceStep: "missing_step" },
+    };
+    const bad = validateSpecV2(badPoll, { services });
+    assert.equal(bad.ok, false);
+    assert.ok(bad.errors.some((e) => e.code === "trigger_poll_unknown_step"));
+
+    const both = goodEngageLite();
+    both.trigger = {
+      manual: true,
+      schedule: { cron: "0 * * * *" },
+    } as SpecV2Body["trigger"];
+    const invalid = validateSpecV2(both, { services });
+    assert.equal(invalid.ok, false);
+    // Dual-kind fails Spec body shape → code "structure" (trigger_* is for
+    // post-shape semantic checks like unknown poll sourceStep).
+    assert.ok(
+      invalid.errors.some(
+        (e) =>
+          e.code === "structure" &&
+          e.message.includes("exactly one of manual | schedule | poll")
+      )
+    );
+  });
+
   it("parses Spec v2 YAML then validates", () => {
     const yaml = `
 goal: Tiny demo

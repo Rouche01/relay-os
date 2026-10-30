@@ -34,7 +34,7 @@ todos:
     status: completed
   - id: s1-trigger
     content: Spec v2.1 `trigger` — manual | schedule (cron) | poll (interval + source step); lower onto manifest entrypoints + schedules; @relay/scheduler invokes spec-host; validator + JSON schema + scaffolder prompt updated
-    status: pending
+    status: completed
   - id: s2-when
     content: Spec v2.1 `when:` on steps — whole-ref or simple comparison (eq/ne/in/exists); false → step skipped with evidence; no general expression language
     status: pending
@@ -264,3 +264,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`r2-curated-descriptors` completed** — new [`packages/services`](../../packages/services) (`@relay/services`): curated YAML for reddit-public/oauth, github, slack, http-fetch, rss, notion; `loadCuratedServices` / `curatedKnownConnections`; Desk + engager-gen + spec-host re-exports; absolute `{url}` path support in engines-api for http-fetch/rss.
 - **`r3-capability-gaps` completed** — `@relay/spec-scaffold` returns `needs[]` (service/connection/operation + action) on intent preflight or first draft with catalog gaps; skips repair loop; Desk `mode: "needs"` panel lists import descriptor / add connection; shell `handleScaffold` surfaces the same.
 - **`r4-browser-computer-engines` completed** — `buildSpecEngines` installs fixture `browser` + `computer` by default (`createFixtureBrowserEngine` / `createFixtureComputerEngine`); irreversible submit/act simulate under dryRun with evidence; HITL pause/resume covered; live engines via `extraEngines`; docs `FALLBACK.md`.
+- **`s1-trigger` completed** — Spec v2.1 `trigger` (`manual` | `schedule.cron` | `poll.everyMs+sourceStep`) in protocol types/JSON schema; validator `trigger_*` codes; `schedulesFromTrigger` → manifest `schedules` id `spec` / entrypoint `default`; `schedulerHostFromSpec` + `createRunSpecInvoker` in `@relay/spec-host`; scaffolder prompt/schema; docs `TRIGGER.md`.

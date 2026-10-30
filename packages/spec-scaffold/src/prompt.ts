@@ -75,6 +75,7 @@ export function buildSystemPrompt(options: {
     "- Connection refs never contain secrets.",
     `- Known connections: ${connections}`,
     "- Do NOT invent service ids or operations missing from ## Services — the host will report a capability gap instead.",
+    "- Optional Spec v2.1 trigger: exactly one of { manual: true } | { schedule: { cron } } | { poll: { everyMs, sourceStep } }.",
     "",
     formatCatalogForPrompt(),
     "",

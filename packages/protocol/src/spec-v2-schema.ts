@@ -51,6 +51,7 @@ export const SPEC_V2_JSON_SCHEMA: SpecV2JsonSchema = {
       },
       "uniqueItems": true
     },
+    "trigger": { "$ref": "#/$defs/trigger" },
     "budget": {
       "type": "object",
       "additionalProperties": false,
@@ -279,6 +280,32 @@ export const SPEC_V2_JSON_SCHEMA: SpecV2JsonSchema = {
           "properties": {
             "to": { "type": "string", "enum": ["none", "reversible"] },
             "reason": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Spec v2.1 — exactly one of manual | schedule | poll",
+      "properties": {
+        "manual": { "const": true },
+        "schedule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cron"],
+          "properties": {
+            "cron": { "type": "string", "minLength": 1 },
+            "timezone": { "type": "string", "minLength": 1 }
+          }
+        },
+        "poll": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["everyMs", "sourceStep"],
+          "properties": {
+            "everyMs": { "type": "number", "exclusiveMinimum": 0 },
+            "sourceStep": { "type": "string", "minLength": 1 }
           }
         }
       }

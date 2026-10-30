@@ -93,6 +93,38 @@ export type SpecV2SideEffectDowngrade = {
 };
 
 /**
+ * Spec v2.1 — how the host starts a run.
+ * Exactly one of `manual` | `schedule` | `poll` when `trigger` is present.
+ */
+export type SpecV2ScheduleTrigger = {
+  /** Cron expression (5- or 6-field; interpreted by @relay/scheduler / croner). */
+  cron: string;
+  /** Optional IANA timezone for the cron (host default when omitted). */
+  timezone?: string;
+};
+
+export type SpecV2PollTrigger = {
+  /** Fixed interval between runs (milliseconds). */
+  everyMs: number;
+  /** Step id whose output is the poll source (must exist on Spec.steps). */
+  sourceStep: string;
+};
+
+export type SpecV2Trigger = {
+  /** Operator / API starts the run (no schedule armed). */
+  manual?: true;
+  schedule?: SpecV2ScheduleTrigger;
+  poll?: SpecV2PollTrigger;
+};
+
+export type SpecV2TriggerKind = "manual" | "schedule" | "poll";
+
+export type ClassifiedSpecV2Trigger =
+  | { kind: "manual" }
+  | { kind: "schedule"; cron: string; timezone?: string }
+  | { kind: "poll"; everyMs: number; sourceStep: string };
+
+/**
  * One ordered step. `use` must be a catalog capability id (`engine.verb`).
  * `forEach` fans out over a list ref (bounded by budget.maxJobs at runtime).
  * `enforce` lists rule ids checked against this step's output (fail closed).
@@ -121,10 +153,15 @@ export type SpecV2Body = {
   goal: string;
   connections?: string[];
   services?: string[];
+  /** Spec v2.1 — optional run trigger (manual | cron schedule | poll). */
+  trigger?: SpecV2Trigger;
   budget?: SpecBudget;
   rules?: SpecV2Rule[];
   steps: SpecV2Step[];
 };
+
+/** Stable schedule id when lowering a Spec schedule/poll trigger. */
+export const SPEC_V2_SCHEDULE_ID = "spec" as const;
 
 /**
  * Persisted Spec v2 with freeze lifecycle (same statuses as Spec v1).
@@ -314,8 +351,109 @@ export function checkSpecV2BodyShape(
   if (o.services !== undefined && !Array.isArray(o.services)) {
     errors.push("services must be an array when present");
   }
+  if (o.trigger !== undefined) {
+    const triggerErrors = checkSpecV2TriggerShape(o.trigger);
+    for (const message of triggerErrors) {
+      errors.push(message);
+    }
+  }
   if (errors.length) return { ok: false, errors };
   return { ok: true, body: value as SpecV2Body };
+}
+
+/**
+ * Shape-check a Spec v2.1 trigger object.
+ * Returns error strings (empty = ok). Does not validate sourceStep against steps.
+ */
+export function checkSpecV2TriggerShape(value: unknown): string[] {
+  const errors: string[] = [];
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return ["trigger must be an object when present"];
+  }
+  const t = value as Record<string, unknown>;
+  const kinds: string[] = [];
+  if (t.manual !== undefined) kinds.push("manual");
+  if (t.schedule !== undefined) kinds.push("schedule");
+  if (t.poll !== undefined) kinds.push("poll");
+  if (kinds.length === 0) {
+    errors.push("trigger must set exactly one of manual | schedule | poll");
+  } else if (kinds.length > 1) {
+    errors.push(
+      `trigger must set exactly one of manual | schedule | poll (got ${kinds.join(", ")})`
+    );
+  }
+
+  if (t.manual !== undefined && t.manual !== true) {
+    errors.push("trigger.manual must be true when set");
+  }
+
+  if (t.schedule !== undefined) {
+    if (!t.schedule || typeof t.schedule !== "object" || Array.isArray(t.schedule)) {
+      errors.push("trigger.schedule must be an object");
+    } else {
+      const s = t.schedule as Record<string, unknown>;
+      if (typeof s.cron !== "string" || !s.cron.trim()) {
+        errors.push("trigger.schedule.cron must be a non-empty string");
+      }
+      if (s.timezone !== undefined && (typeof s.timezone !== "string" || !s.timezone.trim())) {
+        errors.push("trigger.schedule.timezone must be a non-empty string when set");
+      }
+    }
+  }
+
+  if (t.poll !== undefined) {
+    if (!t.poll || typeof t.poll !== "object" || Array.isArray(t.poll)) {
+      errors.push("trigger.poll must be an object");
+    } else {
+      const p = t.poll as Record<string, unknown>;
+      if (
+        typeof p.everyMs !== "number" ||
+        !Number.isFinite(p.everyMs) ||
+        p.everyMs <= 0
+      ) {
+        errors.push("trigger.poll.everyMs must be a number > 0");
+      }
+      if (typeof p.sourceStep !== "string" || !p.sourceStep.trim()) {
+        errors.push("trigger.poll.sourceStep must be a non-empty string");
+      }
+    }
+  }
+
+  const allowed = new Set(["manual", "schedule", "poll"]);
+  for (const key of Object.keys(t)) {
+    if (!allowed.has(key)) {
+      errors.push(`trigger has unknown field ${JSON.stringify(key)}`);
+    }
+  }
+  return errors;
+}
+
+/**
+ * Classify a shape-valid trigger. Throws if shape is invalid.
+ */
+export function classifySpecV2Trigger(
+  trigger: SpecV2Trigger
+): ClassifiedSpecV2Trigger {
+  const shape = checkSpecV2TriggerShape(trigger);
+  if (shape.length) {
+    throw new Error(`Invalid Spec trigger:\n- ${shape.join("\n- ")}`);
+  }
+  if (trigger.manual === true) return { kind: "manual" };
+  if (trigger.schedule) {
+    return {
+      kind: "schedule",
+      cron: trigger.schedule.cron.trim(),
+      timezone: trigger.schedule.timezone?.trim() || undefined,
+    };
+  }
+  if (trigger.poll) {
+    return {
+      kind: "poll",
+      everyMs: trigger.poll.everyMs,
+      sourceStep: trigger.poll.sourceStep.trim(),
+    };
+  }
+  throw new Error("Invalid Spec trigger: empty");
 }
 
 /** Freeze a draft Spec v2. Requires ≥1 rule or ≥1 step with enforce (soft gate). */

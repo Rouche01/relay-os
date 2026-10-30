@@ -36,6 +36,15 @@ export { runSpec } from "./run.js";
 export { resumeSpec } from "./resume.js";
 export { replaySpecRun } from "./replay.js";
 export {
+  createSpecScheduleInvoker,
+  createRunSpecInvoker,
+  schedulerHostFromSpec,
+} from "./schedule.js";
+export type {
+  SpecScheduleRunFactory,
+  ArmSpecSchedulerOptions,
+} from "./schedule.js";
+export {
   MemoryRunStateStore,
   FileRunStateStore,
   createMemoryRunStateStore,

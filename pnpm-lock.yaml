@@ -550,6 +550,9 @@ importers:
       '@relay/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@relay/scheduler':
+        specifier: workspace:*
+        version: link:../scheduler
       '@relay/services':
         specifier: workspace:*
         version: link:../services

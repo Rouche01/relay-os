@@ -1,12 +1,16 @@
 import {
   catalogEngineToEngineType,
+  classifySpecV2Trigger,
+  DEFAULT_ENTRYPOINT,
   getCapability,
   parseCapabilityUse,
   parseSpecV2Ref,
+  SPEC_V2_SCHEDULE_ID,
   type AgenticAppManifest,
   type EngineType,
   type FeedbackPoint,
   type FeedbackType,
+  type ScheduleDefinition,
   type SpecV2Body,
   type SpecV2Step,
   type StageDefinition,
@@ -43,6 +47,8 @@ export function lowerSpecV2(
     slugify(body.goal).slice(0, 48) ||
     "relay-workflow";
 
+  const schedules = schedulesFromTrigger(body);
+
   const manifest: AgenticAppManifest = {
     name,
     version: options.version ?? "0.1.0",
@@ -60,6 +66,7 @@ export function lowerSpecV2(
     permissions: [],
     stages,
     feedback_patterns: [...feedbackPatterns],
+    ...(schedules?.length ? { schedules } : {}),
   };
 
   const relay: RelayStepsBlock = {
@@ -71,6 +78,7 @@ export function lowerSpecV2(
     steps: body.steps,
     connections: body.connections,
     services: body.services,
+    trigger: body.trigger,
     foreachFrom,
   };
 
@@ -82,6 +90,7 @@ export function lowerSpecV2(
       goal: body.goal,
       connections: body.connections,
       services: body.services,
+      trigger: body.trigger,
       budget: body.budget,
       rules: body.rules,
       steps: body.steps,
@@ -90,6 +99,37 @@ export function lowerSpecV2(
     relay,
     manifest,
   };
+}
+
+/** Lower Spec v2.1 trigger → manifest schedules (empty when manual / absent). */
+export function schedulesFromTrigger(
+  body: Pick<SpecV2Body, "trigger" | "goal">
+): ScheduleDefinition[] | undefined {
+  if (!body.trigger) return undefined;
+  const classified = classifySpecV2Trigger(body.trigger);
+  if (classified.kind === "manual") return undefined;
+  if (classified.kind === "schedule") {
+    return [
+      {
+        id: SPEC_V2_SCHEDULE_ID,
+        entrypoint: DEFAULT_ENTRYPOINT,
+        cron: classified.cron,
+        enabled: true,
+        description: `Spec schedule ${classified.cron}${
+          classified.timezone ? ` (${classified.timezone})` : ""
+        }`,
+      },
+    ];
+  }
+  return [
+    {
+      id: SPEC_V2_SCHEDULE_ID,
+      entrypoint: DEFAULT_ENTRYPOINT,
+      every_ms: classified.everyMs,
+      enabled: true,
+      description: `Spec poll every ${classified.everyMs}ms (source: ${classified.sourceStep})`,
+    },
+  ];
 }
 
 function lowerStep(

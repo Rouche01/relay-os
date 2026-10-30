@@ -22,6 +22,31 @@ export const SCAFFOLD_SPEC_JSON_SCHEMA: Record<string, unknown> = {
       items: { type: "string" },
       description: "Service descriptor ids (e.g. reddit-public)",
     },
+    trigger: {
+      type: "object",
+      additionalProperties: false,
+      description:
+        "Optional Spec v2.1 — exactly one of manual | schedule | poll",
+      properties: {
+        manual: { type: "boolean", description: "true for manual-only runs" },
+        schedule: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            cron: { type: "string" },
+            timezone: { type: "string" },
+          },
+        },
+        poll: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            everyMs: { type: "number" },
+            sourceStep: { type: "string" },
+          },
+        },
+      },
+    },
     budget: {
       type: "object",
       additionalProperties: false,
