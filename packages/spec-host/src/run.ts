@@ -16,6 +16,10 @@ import {
   createWorkflowRuntime,
   getEvidence,
 } from "@relay/workflow-runtime";
+import {
+  assertConnectionsAvailable,
+  connectionResolverFromStore,
+} from "./connections/resolver.js";
 import { SpecHostError } from "./errors.js";
 import { buildSpecEngines, resolveHostDefaults } from "./engines.js";
 import { selectServicesForSpec } from "./services.js";
@@ -62,10 +66,24 @@ export async function runSpec(
     );
   }
 
+  let knownConnections = options.knownConnections;
+  let resolveConnection = options.resolveConnection;
+
+  if (options.connectionStore) {
+    const fromStore = await assertConnectionsAvailable(
+      body,
+      options.connectionStore
+    );
+    if (!knownConnections) knownConnections = fromStore;
+    if (!resolveConnection) {
+      resolveConnection = connectionResolverFromStore(options.connectionStore);
+    }
+  }
+
   if (!options.skipValidate) {
     const validation = validateSpecV2(body, {
       services: options.services,
-      knownConnections: options.knownConnections,
+      knownConnections,
     });
     if (!validation.ok) {
       throw new SpecHostError(
@@ -108,7 +126,7 @@ export async function runSpec(
   const engines = buildSpecEngines({
     services: selected.services,
     llmClient: options.llmClient,
-    resolveConnection: options.resolveConnection,
+    resolveConnection,
     apiFixtures: options.apiFixtures,
     dryRun,
     blockNetwork,

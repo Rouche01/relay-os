@@ -13,6 +13,7 @@ import type { EvalCase, EvalReport } from "@relay/spec-evals";
 import type { LoweredWorkflow } from "@relay/spec-lower";
 import type { WorkflowEvidenceEntry } from "@relay/workflow-runtime";
 import type { AgentRuntime } from "@relay/runtime";
+import type { ConnectionStore } from "./connections/types.js";
 
 /**
  * Host run modes (h3 will flesh shadow/live).
@@ -53,9 +54,22 @@ export type RunSpecOptions = {
    * Host selects descriptors whose ids appear on Spec.services — never hardcodes apps.
    */
   services: readonly ServiceDescriptor[];
-  /** Passed to Spec v2 validator (connection refs). */
+  /**
+   * Pluggable secrets store. When set:
+   * - `knownConnections` defaults to `store.listIds()`
+   * - Spec connection refs are asserted present (fail closed)
+   * - `resolveConnection` defaults to the store resolver
+   */
+  connectionStore?: ConnectionStore;
+  /**
+   * Passed to Spec v2 validator (connection refs).
+   * Defaults from `connectionStore.listIds()` when store is set.
+   */
   knownConnections?: readonly string[];
-  /** Resolve Spec connection refs to credentials. Required for non-fixture live/shadow. */
+  /**
+   * Resolve Spec connection refs to credentials.
+   * Prefer `connectionStore`; this overrides when both are set.
+   */
   resolveConnection?: ConnectionResolver;
   /** LLM used by llm.* steps and soft-rule judges. */
   llmClient: LlmClient;

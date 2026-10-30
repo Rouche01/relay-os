@@ -13,3 +13,30 @@ export type {
   SpecHostHitlRespond,
   SpecHostMode,
 } from "./types.js";
+export {
+  MemoryConnectionStore,
+  createMemoryConnectionStore,
+  FileJsonConnectionStore,
+  createFileJsonConnectionStore,
+  EnvConnectionStore,
+  createEnvConnectionStore,
+  KeychainConnectionStore,
+  createKeychainConnectionStore,
+  CompositeConnectionStore,
+  createCompositeConnectionStore,
+  assertConnectionsAvailable,
+  collectSpecConnectionRefs,
+  connectionResolverFromStore,
+  resolveSecretRef,
+} from "./connections/index.js";
+export type {
+  ConnectionCredentials,
+  ConnectionFileDocument,
+  ConnectionFileEntry,
+  ConnectionResolver,
+  ConnectionStore,
+  EnvConnectionMapEntry,
+  EnvConnectionStoreOptions,
+  KeychainConnectionStoreOptions,
+} from "./connections/index.js";
+

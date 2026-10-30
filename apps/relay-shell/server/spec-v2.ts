@@ -16,7 +16,11 @@ import {
   type SpecV2HardRule,
 } from "@relay/protocol";
 import { compileEvals, runEvals } from "@relay/spec-evals";
-import { isSpecHostError, runSpec } from "@relay/spec-host";
+import {
+  createMemoryConnectionStore,
+  isSpecHostError,
+  runSpec,
+} from "@relay/spec-host";
 import { lowerSpecV2 } from "@relay/spec-lower";
 import { scaffoldSpec, specBodyToYaml } from "@relay/spec-scaffold";
 import {
@@ -568,15 +572,13 @@ export async function handleRun(input: {
     const result = await runSpec({
       body,
       services,
-      knownConnections: ["reddit:default"],
+      connectionStore: createMemoryConnectionStore({
+        "reddit:default": { type: "bearer", token: "desk-dry-run" },
+      }),
       llmClient: runtimeStubLlm(),
       mode: "fixture",
       dryRun: true,
       blockNetwork: true,
-      resolveConnection: async () => ({
-        type: "bearer",
-        token: "desk-dry-run",
-      }),
       apiFixtures,
       hitl: { autoApprove },
       evals: gateCases.length

@@ -63,20 +63,24 @@ export function buildSpecEngines(
       }) as typeof fetch
     : options.fetch ?? fetch;
 
-  const api = createApiEngine({
-    services: options.services,
-    dryRun: options.dryRun,
-    fixtures: options.apiFixtures,
-    resolveConnection,
-    fetch: fetchImpl,
-  });
   const llm = createLlmEngine({ client: options.llmClient });
   const data = createDataEngine();
-
-  return {
-    api,
+  const engines: Record<string, ExecutionEngine> = {
     llm,
     data,
     ...(options.extraEngines ?? {}),
   };
+
+  // ApiEngine requires ≥1 descriptor — omit when Spec has no services.
+  if (options.services.length > 0) {
+    engines.api = createApiEngine({
+      services: options.services,
+      dryRun: options.dryRun,
+      fixtures: options.apiFixtures,
+      resolveConnection,
+      fetch: fetchImpl,
+    });
+  }
+
+  return engines;
 }

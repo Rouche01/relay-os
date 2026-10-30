@@ -13,7 +13,7 @@ import {
   type SpecV2Body,
 } from "@relay/protocol";
 import type { EvalCase } from "@relay/spec-evals";
-import { runSpec } from "@relay/spec-host";
+import { createMemoryConnectionStore, runSpec } from "@relay/spec-host";
 import { scaffoldSpec } from "@relay/spec-scaffold";
 import { parseSpecV2Yaml, validateSpecV2 } from "@relay/spec-validator";
 
@@ -286,15 +286,13 @@ export async function runEngagerGen(options?: {
   const result = await runSpec({
     body,
     services,
-    knownConnections: ["reddit:default"],
+    connectionStore: createMemoryConnectionStore({
+      "reddit:default": { type: "bearer", token: "dry-run-token" },
+    }),
     llmClient: createStubLlmClient(),
     mode: "fixture",
     dryRun: true,
     blockNetwork: true,
-    resolveConnection: async () => ({
-      type: "bearer",
-      token: "dry-run-token",
-    }),
     apiFixtures,
     hitl: { autoApprove },
     evals: { cases: evalCases(), softFailClosed: false },

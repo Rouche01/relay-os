@@ -1,0 +1,10 @@
+{
+  "github:default": {
+    "type": "bearer",
+    "token": "env:GITHUB_TOKEN"
+  },
+  "reddit:default": {
+    "type": "bearer",
+    "token": "env:REDDIT_ACCESS_TOKEN"
+  }
+}

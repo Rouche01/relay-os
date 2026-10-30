@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { LlmClient, LlmJsonRequest, LlmJsonResult } from "@relay/llm";
 import type { ServiceDescriptor, SpecV2Body } from "@relay/protocol";
 import {
+  createMemoryConnectionStore,
   isSpecHostError,
   runSpec,
   selectServicesForSpec,
@@ -154,13 +155,11 @@ describe("runSpec", () => {
     const result = await runSpec({
       body: triageBody,
       services: [githubLite],
-      knownConnections: ["github:default"],
+      connectionStore: createMemoryConnectionStore({
+        "github:default": { type: "bearer", token: "test-token" },
+      }),
       llmClient: stubLlm(),
       mode: "fixture",
-      resolveConnection: async () => ({
-        type: "bearer",
-        token: "test-token",
-      }),
       apiFixtures: [
         {
           service: "github",
@@ -219,12 +218,33 @@ describe("runSpec", () => {
         runSpec({
           body: { ...triageBody, services: ["missing-svc"] },
           services: [githubLite],
+          connectionStore: createMemoryConnectionStore({
+            "github:default": { type: "bearer", token: "t" },
+          }),
           llmClient: stubLlm(),
           mode: "fixture",
         }),
       (err: unknown) => {
         assert.ok(isSpecHostError(err));
         if (isSpecHostError(err)) assert.equal(err.code, "missing_services");
+        return true;
+      }
+    );
+  });
+
+  it("fails closed when Spec connection is missing from store", async () => {
+    await assert.rejects(
+      () =>
+        runSpec({
+          body: triageBody,
+          services: [githubLite],
+          connectionStore: createMemoryConnectionStore({}),
+          llmClient: stubLlm(),
+          mode: "fixture",
+        }),
+      (err: unknown) => {
+        assert.ok(isSpecHostError(err));
+        if (isSpecHostError(err)) assert.equal(err.code, "missing_connection");
         return true;
       }
     );

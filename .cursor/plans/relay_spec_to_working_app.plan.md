@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: h2-connections-secrets
     content: Connection resolver — resolve refs like github:default from a secrets store (macOS keychain / .env / file, pluggable); Spec still never holds secrets; validator knownConnections comes from the store; missing connection = structured error
-    status: pending
+    status: completed
   - id: h3-live-read-dry-write
     content: Run modes — `shadow` (live reads, irreversible writes simulated + recorded as evidence), `live` (writes allowed only when budget.dryRun=false AND preceding human.* approved), `fixture` (today’s offline path for CI). Real LLM client in shadow/live
     status: pending
@@ -204,7 +204,7 @@ Each addition: protocol type + JSON schema + validator rule + lowerer + runtime 
 
 - [x] No hardcoded services, fixtures, or tokens **inside** `@relay/spec-host`; Desk + engager-gen both call `runSpec` (callers may still pass fixture posts / stub LLM until h3)
 - [ ] Desk run path no longer *requires* Reddit fixture posts for non-Reddit Specs (h3 / catalog reach)
-- [ ] Connections resolve from a secrets store; missing connection is a structured, actionable error
+- [x] Connections resolve from a secrets store; missing connection is a structured, actionable error (`SpecHostError` `missing_connection`)
 - [ ] `shadow` mode performs live reads and records simulated writes as evidence
 - [ ] A run paused at `human.*` resumes after approve/edit/abort, including across a process restart
 - [ ] GitHub descriptor generated from OpenAPI (not hand-written) and used by the triage Spec
@@ -256,3 +256,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - Opened plan from gap review: compile side done; run side is a fixture/stub/auto-approve harness in `relay-shell` `handleRun`. Agreed direction: generic spec-host → reach (OpenAPI import, capability gaps) → Spec v2.1 (trigger/when/once/retry) → shadow-gated verification → Relay App bundle. Forcing function: GitHub bug triage intent.
 - **`h0-forcing-intent` completed** — added [`apps/triage-gen/`](../../apps/triage-gen/): locked `intent.md` (slots `acme/widgets`, `bug`, weekday 09:00), `SUCCESS.md` bar, `spec.expected.yaml` (v2.1 annotated), hand `services/github.yaml` (list + comment), `fixtures/issues.json`. Explicitly no host package — waits on `h1-spec-host-package`.
 - **`h1-spec-host-package` completed** — added [`packages/spec-host`](../../packages/spec-host): `runSpec` / `selectServicesForSpec` / `buildSpecEngines`; modes `fixture|shadow|live` (defaults); optional `extraEngines` for browser/computer. Desk `handleRun` + engager-gen call it; fixtures/stub LLM stay caller-supplied. Tests pass (GitHub-shaped fixture Spec).
+- **`h2-connections-secrets` completed** — pluggable `ConnectionStore` (memory / file JSON / env / macOS keychain / composite); `runSpec({ connectionStore })` derives `knownConnections`, asserts refs present, builds resolver; `env:VAR` secret refs; docs in `packages/spec-host/CONNECTIONS.md`. Desk + engager-gen use memory store for fixture tokens.
