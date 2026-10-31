@@ -41,6 +41,8 @@ import { probeSpecApi } from "./spec/client.ts";
 import { AppsSurface } from "./apps/AppsSurface.tsx";
 import { SpecSurface } from "./spec/SpecSurface.tsx";
 import { Workspace } from "./workspace/Workspace.tsx";
+import { SpecsLibrary } from "./specs/SpecsLibrary.tsx";
+import { getDraft } from "./specs/draft-store.ts";
 import {
   mainTabFromRoute,
   parseHash,
@@ -48,7 +50,22 @@ import {
   serializeRoute,
   type DeskRoute,
 } from "./workspace/routes.ts";
+import type { LifecyclePill } from "./workspace/journey.ts";
 import type { WorkspaceView } from "./workspace/journey.ts";
+import type { DraftStatus } from "./specs/draft-store.ts";
+
+function lifecycleFromDraftStatus(status: DraftStatus): LifecyclePill {
+  switch (status) {
+    case "draft":
+      return "Draft";
+    case "checks_passed":
+      return "Checks passed";
+    case "frozen":
+      return "Frozen";
+    case "needs_catalog":
+      return "Draft";
+  }
+}
 
 const HEARTBEAT_MS = 45_000;
 const HITL_POLL_MS = 2_000;
@@ -808,21 +825,34 @@ export function App() {
         <div class="status-strip">{statusChip}</div>
 
         <main class="desk-main">
-        {route.kind === "build-workspace" ? (
-          <Workspace
-            entityId={route.draftId}
-            view={route.view}
-            backLabel="Build"
-            onBack={() => navigate({ kind: "build" })}
-            onViewChange={(view: WorkspaceView) =>
-              navigate({
-                kind: "build-workspace",
-                draftId: route.draftId,
-                view,
-              })
-            }
-          />
-        ) : route.kind === "build" || route.kind === "build-new" ? (
+        {route.kind === "build" ? (
+          <SpecsLibrary onNavigate={navigate} />
+        ) : route.kind === "build-workspace" ? (
+          (() => {
+            const draft = getDraft(route.draftId);
+            return (
+              <Workspace
+                entityId={route.draftId}
+                title={draft?.goal}
+                lifecycle={
+                  draft
+                    ? lifecycleFromDraftStatus(draft.status)
+                    : "Draft"
+                }
+                view={route.view}
+                backLabel="Build"
+                onBack={() => navigate({ kind: "build" })}
+                onViewChange={(view: WorkspaceView) =>
+                  navigate({
+                    kind: "build-workspace",
+                    draftId: route.draftId,
+                    view,
+                  })
+                }
+              />
+            );
+          })()
+        ) : route.kind === "build-new" ? (
           <SpecSurface
             settings={settings}
             onOpenSeats={() => navigate({ kind: "seats" })}

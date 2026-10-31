@@ -19,6 +19,7 @@ import {
   scaffoldPhaseLabel,
   type SpecHistoryEntry,
 } from "./history.ts";
+import { upsertDraft } from "../specs/draft-store.ts";
 import {
   deriveSpecPipeline,
   gateSpecAction,
@@ -396,6 +397,12 @@ export function SpecSurface({ settings, onOpenSeats }: Props) {
             yaml: res.yaml,
           })
         );
+        upsertDraft({
+          intent: intent.trim(),
+          yaml: res.yaml,
+          status: res.needs?.length ? "needs_catalog" : "draft",
+          mode: res.mode,
+        });
         setStubDiff(undefined);
       }
       if (!res.ok || !res.yaml) {

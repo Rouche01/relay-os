@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: w2-library
     content: Build library — Build nav lands here; in-progress only (local draft store from upgraded spec/history.ts — drafts + frozen-not-installed); do not merge GET /api/v2/apps into this list; per-row state phrase + specific action; New spec CTA; Paste-YAML as a secondary door (Install-bundle lives on Apps)
-    status: pending
+    status: completed
   - id: w3-new-spec
     content: New-spec screen — extract Intent presets (CE fashion/Freight wedge/Blank from INTENT_PRESETS), intent field with hard-limits guidance, Create draft (scaffoldSpec) with outcome states llm|stub|needs_edits|needs (ScaffoldNeed rendering reused); success creates a draft record and routes to workspace Design; needs path names import-descriptor/add-connection
     status: pending
@@ -157,3 +157,4 @@ Already available: `/api/v2/scaffold|validate|lower|evals|freeze|run`, `/api/v2/
 - 2026-10-31 — Rail locked: Seats · Build · Apps. Build library is in-progress only; Apps is approved-fleet management (not the same authoring workspace). My Desk split to [`desk_my_desk.plan.md`](./desk_my_desk.plan.md) (backlog, design-first).
 - 2026-10-31 — **w0 done:** rail + `mainTab` → `seats|build|apps`; surface titles/HITL deep-link copy; `--signal-dim` + Flowstep→CSS lock note in `styles.css` / DESIGN.md. No My Desk item. Hash routing deferred to w1.
 - 2026-10-31 — **w1 done:** hash routes (`#/seats`, `#/build`, `#/build/new`, `#/build/:id/:view`, `#/apps`, `#/apps/:id`) + `workspace/{routes,journey,header,Workspace}`; placeholder views; SpecSurface/AppsSurface still default for Build/Apps landings.
+- 2026-10-31 — **w2 done:** `specs/{draft-store,library,SpecsLibrary}`; `#/build` → library (no `/api/v2/apps` merge); migrate legacy history; Paste YAML door; New spec → `#/build/new` (SpecSurface until w3); row opens workspace; scaffold upserts drafts.

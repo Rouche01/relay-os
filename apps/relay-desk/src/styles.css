@@ -477,6 +477,105 @@ body {
   min-height: 12rem;
 }
 
+/* Build library */
+.library-head {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.library-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.library-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.library-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.75rem 1rem;
+  padding: 1rem 1.15rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.library-row-main {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  flex: 1 1 14rem;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: inherit;
+}
+
+.library-row-title {
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.library-row-state {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.library-row-meta {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.library-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.library-empty {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.library-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding-top: 0.25rem;
+}
+
+.library-footer-note {
+  margin: 0;
+  max-width: 28rem;
+}
+
+.library-paste {
+  width: 100%;
+}
+
 .spec-surface .spec-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
