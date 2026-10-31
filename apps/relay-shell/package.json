@@ -16,6 +16,7 @@
     "@relay/engines-decide": "workspace:*",
     "@relay/engines-llm": "workspace:*",
     "@relay/llm": "workspace:*",
+    "@relay/app-bundle": "workspace:*",
     "@relay/protocol": "workspace:*",
     "@relay/runtime": "workspace:*",
     "@relay/spec-evals": "workspace:*",

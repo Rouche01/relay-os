@@ -800,6 +800,7 @@ export function toSpecV2Body(spec: SpecV2): SpecV2Body {
     goal: spec.goal,
     connections: spec.connections,
     services: spec.services,
+    trigger: spec.trigger,
     budget: spec.budget,
     rules: spec.rules,
     steps: spec.steps,

@@ -31,8 +31,10 @@ import {
   handleApproveEvidence,
   handleEvals,
   handleEnableSchedule,
+  handleExportBundle,
   handleFreeze,
   handleGetRun,
+  handleImportBundle,
   handleListRuns,
   handleLower,
   handleProcessOutcomes,
@@ -182,6 +184,8 @@ async function main(): Promise<void> {
             "POST /api/v2/runs/:runId/resume",
             "POST /api/v2/schedule/enable",
             "POST /api/v2/outcomes/process",
+            "POST /api/v2/bundle/export",
+            "POST /api/v2/bundle/import",
           ],
         });
         return;
@@ -276,6 +280,29 @@ async function main(): Promise<void> {
             })
           : {};
         const out = await handleProcessOutcomes(body);
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/v2/bundle/export") {
+        const raw = await readBody(req);
+        const body = raw
+          ? (JSON.parse(raw) as { yaml?: string; body?: unknown })
+          : {};
+        const out = await handleExportBundle(body as {
+          yaml?: string;
+          body?: never;
+        });
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/v2/bundle/import") {
+        const raw = await readBody(req);
+        const body = raw
+          ? (JSON.parse(raw) as { bundle?: unknown; json?: string })
+          : {};
+        const out = await handleImportBundle(body);
         sendJson(res, out.status, out);
         return;
       }

@@ -6,6 +6,12 @@ import { join, resolve } from "node:path";
 import { createLlmEngine } from "@relay/engines-llm";
 import { createLlmClient, parseLlmProviderId, type LlmClient } from "@relay/llm";
 import {
+  buildRelayAppBundle,
+  importRelayAppBundleJson,
+  isRelayAppBundleError,
+  type RelayAppBundle,
+} from "@relay/app-bundle";
+import {
   assertSchedulesValid,
   createDraftSpecV2,
   freezeSpecV2,
@@ -120,6 +126,17 @@ function mapHostError(err: unknown) {
     return {
       ok: false as const,
       status,
+      error: err.message,
+      code: err.code,
+      ...(typeof err.details === "object" && err.details
+        ? (err.details as Record<string, unknown>)
+        : {}),
+    };
+  }
+  if (isRelayAppBundleError(err)) {
+    return {
+      ok: false as const,
+      status: 422 as const,
       error: err.message,
       code: err.code,
       ...(typeof err.details === "object" && err.details
@@ -876,6 +893,72 @@ export async function handleEnableSchedule(input: {
         enabled: s.enabled !== false,
       })),
       note: "Shadow gate passed — schedule may be armed (Desk check only; host not started).",
+    };
+  } catch (err) {
+    return mapHostError(err);
+  }
+}
+
+/** Export a content-addressed Relay App bundle from Spec YAML/body. */
+export async function handleExportBundle(input: {
+  yaml?: string;
+  body?: SpecV2Body;
+}) {
+  try {
+    const body = resolveBody(input);
+    const validation = validateSpecV2(body, {
+      services: loadV2Services(),
+      knownConnections: deskKnownConnections(),
+    });
+    if (!validation.ok) {
+      return {
+        ok: false as const,
+        status: 422,
+        error: "Spec validation failed — fix before export",
+        validation,
+      };
+    }
+    const bundle = buildRelayAppBundle({
+      body,
+      services: loadV2Services(),
+      frozenBy: "relay-desk-export",
+      name: "desk-export",
+    });
+    return {
+      ok: true as const,
+      status: 200,
+      bundle,
+      note: `Exported Relay App ${bundle.id.slice(0, 20)}… (specHash ${bundle.specHash.slice(0, 12)}…)`,
+    };
+  } catch (err) {
+    return mapHostError(err);
+  }
+}
+
+/** Import + verify a Relay App bundle JSON. */
+export async function handleImportBundle(input: {
+  bundle?: unknown;
+  json?: string;
+}) {
+  try {
+    let bundle: RelayAppBundle;
+    if (typeof input.json === "string" && input.json.trim()) {
+      bundle = importRelayAppBundleJson(input.json);
+    } else if (input.bundle != null) {
+      bundle = importRelayAppBundleJson(JSON.stringify(input.bundle));
+    } else {
+      return {
+        ok: false as const,
+        status: 400,
+        error: "Provide bundle object or json string",
+      };
+    }
+    return {
+      ok: true as const,
+      status: 200,
+      bundle,
+      yaml: specBodyToYaml(bundle.body),
+      note: `Imported ${bundle.id.slice(0, 20)}… — connect ${bundle.requiredConnections.join(", ") || "(none)"} then shadow-run before enable.`,
     };
   } catch (err) {
     return mapHostError(err);

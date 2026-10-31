@@ -165,6 +165,9 @@ importers:
 
   apps/relay-shell:
     dependencies:
+      '@relay/app-bundle':
+        specifier: workspace:*
+        version: link:../../packages/app-bundle
       '@relay/engines-decide':
         specifier: workspace:*
         version: link:../../packages/engines-decide
@@ -275,6 +278,25 @@ importers:
         version: 6.0.3
 
   packages/admin-shell:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/app-bundle:
+    dependencies:
+      '@relay/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@relay/spec-evals':
+        specifier: workspace:*
+        version: link:../spec-evals
+      '@relay/spec-lower':
+        specifier: workspace:*
+        version: link:../spec-lower
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
