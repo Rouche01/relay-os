@@ -40,6 +40,15 @@ import {
 import { probeSpecApi } from "./spec/client.ts";
 import { AppsSurface } from "./apps/AppsSurface.tsx";
 import { SpecSurface } from "./spec/SpecSurface.tsx";
+import { Workspace } from "./workspace/Workspace.tsx";
+import {
+  mainTabFromRoute,
+  parseHash,
+  railRoute,
+  serializeRoute,
+  type DeskRoute,
+} from "./workspace/routes.ts";
+import type { WorkspaceView } from "./workspace/journey.ts";
 
 const HEARTBEAT_MS = 45_000;
 const HITL_POLL_MS = 2_000;
@@ -64,7 +73,9 @@ export function App() {
   const [hitlError, setHitlError] = useState<string | undefined>();
   const [hitlBusy, setHitlBusy] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [mainTab, setMainTab] = useState<"seats" | "build" | "apps">("seats");
+  const [route, setRoute] = useState<DeskRoute>(() =>
+    typeof location !== "undefined" ? parseHash(location.hash) : { kind: "seats" }
+  );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem("relay-desk.sidebar-collapsed") === "1";
@@ -79,6 +90,29 @@ export function App() {
   const settingsRef = useRef(settings);
   seatRef.current = seat;
   settingsRef.current = settings;
+
+  const mainTab = mainTabFromRoute(route);
+
+  const navigate = useCallback((next: DeskRoute) => {
+    const hash = serializeRoute(next);
+    if (typeof location !== "undefined" && location.hash !== hash) {
+      location.hash = hash;
+      return;
+    }
+    setRoute(next);
+  }, []);
+
+  useEffect(() => {
+    const syncFromHash = () => setRoute(parseHash(location.hash));
+    if (!location.hash || location.hash === "#") {
+      location.replace(
+        `${location.pathname}${location.search}${serializeRoute({ kind: "seats" })}`
+      );
+    }
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, []);
 
   const updateSettings = useCallback((patch: Partial<DeskSettings>) => {
     setSettings((prev) => {
@@ -696,7 +730,7 @@ export function App() {
               class="rail-item"
               data-active={mainTab === "seats" ? "1" : "0"}
               title="Seats"
-              onClick={() => setMainTab("seats")}
+              onClick={() => navigate(railRoute("seats"))}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
                 <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -711,7 +745,7 @@ export function App() {
               class="rail-item"
               data-active={mainTab === "build" ? "1" : "0"}
               title="Build"
-              onClick={() => setMainTab("build")}
+              onClick={() => navigate(railRoute("build"))}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -725,7 +759,7 @@ export function App() {
               class="rail-item"
               data-active={mainTab === "apps" ? "1" : "0"}
               title="Apps"
-              onClick={() => setMainTab("apps")}
+              onClick={() => navigate(railRoute("apps"))}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
                 <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
@@ -774,12 +808,26 @@ export function App() {
         <div class="status-strip">{statusChip}</div>
 
         <main class="desk-main">
-        {mainTab === "build" ? (
+        {route.kind === "build-workspace" ? (
+          <Workspace
+            entityId={route.draftId}
+            view={route.view}
+            backLabel="Build"
+            onBack={() => navigate({ kind: "build" })}
+            onViewChange={(view: WorkspaceView) =>
+              navigate({
+                kind: "build-workspace",
+                draftId: route.draftId,
+                view,
+              })
+            }
+          />
+        ) : route.kind === "build" || route.kind === "build-new" ? (
           <SpecSurface
             settings={settings}
-            onOpenSeats={() => setMainTab("seats")}
+            onOpenSeats={() => navigate({ kind: "seats" })}
           />
-        ) : mainTab === "apps" ? (
+        ) : route.kind === "apps" || route.kind === "apps-detail" ? (
           <AppsSurface settings={settings} />
         ) : (
         <div class="desk-body">

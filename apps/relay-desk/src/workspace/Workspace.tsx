@@ -1,0 +1,93 @@
+import { WorkspaceHeader } from "./header.tsx";
+import {
+  WORKSPACE_VIEWS,
+  VIEW_LABEL,
+  nextGateForView,
+  type LifecyclePill,
+  type WorkspaceView,
+} from "./journey.ts";
+
+export type WorkspaceProps = {
+  /** Draft id or installed app id — display only until stores land. */
+  entityId: string;
+  title?: string;
+  lifecycle?: LifecyclePill;
+  specHash?: string;
+  trigger?: string;
+  view: WorkspaceView;
+  backLabel: string;
+  onBack: () => void;
+  onViewChange: (view: WorkspaceView) => void;
+};
+
+const PLACEHOLDER: Record<WorkspaceView, string> = {
+  design: "What will it do? — schematic + intent land in w6.",
+  verify: "Is it correct and safe? — checks land in w7.",
+  ship: "Can it go live? — checklist lands in w8.",
+  activity: "What did it do? — runs + overlay land in w9.",
+};
+
+export function Workspace({
+  entityId,
+  title,
+  lifecycle = "Draft",
+  specHash,
+  trigger,
+  view,
+  backLabel,
+  onBack,
+  onViewChange,
+}: WorkspaceProps) {
+  const next = nextGateForView(view);
+
+  return (
+    <div class="desk-body workspace-surface">
+      <WorkspaceHeader
+        backLabel={backLabel}
+        onBack={onBack}
+        title={title?.trim() || entityId}
+        lifecycle={lifecycle}
+        specHash={specHash}
+        trigger={trigger}
+        view={view}
+        nextGate={
+          next
+            ? {
+                label: next.label,
+                onClick: () => onViewChange(next.view),
+              }
+            : null
+        }
+      />
+
+      <nav class="ws-journey" aria-label="Journey">
+        <ol class="ws-journey-list">
+          {WORKSPACE_VIEWS.map((id, i) => (
+            <li key={id} class="ws-journey-item" data-active={id === view ? "1" : "0"}>
+              {i > 0 ? (
+                <span class="ws-journey-sep" aria-hidden="true">
+                  →
+                </span>
+              ) : null}
+              <button
+                type="button"
+                class="ws-journey-step"
+                data-active={id === view ? "1" : "0"}
+                aria-current={id === view ? "page" : undefined}
+                onClick={() => onViewChange(id)}
+              >
+                {VIEW_LABEL[id]}
+              </button>
+            </li>
+          ))}
+        </ol>
+      </nav>
+
+      <section class="ws-view" aria-label={VIEW_LABEL[view]}>
+        <p class="tile-label">{VIEW_LABEL[view]}</p>
+        <h2 class="tile-title">{PLACEHOLDER[view]}</h2>
+        <p class="tile-meta mono">{entityId}</p>
+      </section>
+    </div>
+  );
+}

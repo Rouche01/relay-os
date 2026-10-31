@@ -338,6 +338,145 @@ body {
   color: var(--muted);
 }
 
+/* Workspace shell (Design · Verify · Ship · Activity) */
+.workspace-surface {
+  gap: 1.5rem;
+}
+
+.ws-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ws-header-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ws-back {
+  padding-left: 0;
+}
+
+.ws-header-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ws-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 2.5rem;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.ws-sub {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.ws-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--panel-2) 80%, var(--void));
+}
+
+.ws-pill[data-lifecycle="live"] {
+  border-color: color-mix(in srgb, var(--signal) 45%, var(--line));
+  color: var(--signal);
+}
+
+.ws-pill[data-lifecycle="paused"] {
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+  color: var(--warn);
+}
+
+.ws-stage {
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ws-journey {
+  margin: 0;
+}
+
+.ws-journey-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ws-journey-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ws-journey-sep {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  opacity: 0.55;
+  margin: 0 0.15rem;
+}
+
+.ws-journey-step {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0.25rem 0.4rem;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 0.25rem;
+}
+
+.ws-journey-step:hover {
+  color: var(--ink);
+}
+
+.ws-journey-step[data-active="1"] {
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--signal);
+}
+
+.ws-view {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 12rem;
+}
+
 .spec-surface .spec-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1182,7 +1321,8 @@ body {
     grid-column: span 1;
   }
 
-  .console-title {
+  .console-title,
+  .ws-title {
     font-size: 2.25rem;
   }
 

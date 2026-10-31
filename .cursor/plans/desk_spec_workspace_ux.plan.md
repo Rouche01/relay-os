@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: w1-workspace-routing
     content: Workspace shell + routing — hash routes synced with mainTab seats|build|apps (deep-linkable per D1); WorkspaceHeader + journey bar + stage nav; Seats bento unchanged; no My Desk tab
-    status: pending
+    status: completed
   - id: w2-library
     content: Build library — Build nav lands here; in-progress only (local draft store from upgraded spec/history.ts — drafts + frozen-not-installed); do not merge GET /api/v2/apps into this list; per-row state phrase + specific action; New spec CTA; Paste-YAML as a secondary door (Install-bundle lives on Apps)
     status: pending
@@ -156,3 +156,4 @@ Already available: `/api/v2/scaffold|validate|lower|evals|freeze|run`, `/api/v2/
 - 2026-10-31 — Plan opened from Flowstep workspace prototype (Specs library/new + Design/Verify/Ship/Activity) and copy pass; gaps confirmed in code: no library/creation entry, frozen Specs not persisted server-side, Desk has no YAML parser (server returns parsed `body`).
 - 2026-10-31 — Rail locked: Seats · Build · Apps. Build library is in-progress only; Apps is approved-fleet management (not the same authoring workspace). My Desk split to [`desk_my_desk.plan.md`](./desk_my_desk.plan.md) (backlog, design-first).
 - 2026-10-31 — **w0 done:** rail + `mainTab` → `seats|build|apps`; surface titles/HITL deep-link copy; `--signal-dim` + Flowstep→CSS lock note in `styles.css` / DESIGN.md. No My Desk item. Hash routing deferred to w1.
+- 2026-10-31 — **w1 done:** hash routes (`#/seats`, `#/build`, `#/build/new`, `#/build/:id/:view`, `#/apps`, `#/apps/:id`) + `workspace/{routes,journey,header,Workspace}`; placeholder views; SpecSurface/AppsSurface still default for Build/Apps landings.
