@@ -11,7 +11,8 @@
     "test": "tsc -p tsconfig.test.json && node --test dist-test/test/*.test.js",
     "clean": "rm -rf dist dist-test",
     "start": "node dist/host.js",
-    "start:intent": "node dist/host.js --from-intent"
+    "start:intent": "node dist/host.js --from-intent",
+    "parity": "tsc -p tsconfig.build.json && node dist/parity.js"
   },
   "dependencies": {
     "@relay/engines-api": "workspace:*",

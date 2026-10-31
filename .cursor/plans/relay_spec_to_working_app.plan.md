@@ -58,7 +58,7 @@ todos:
     status: completed
   - id: v4-live-llm-parity
     content: "Live-LLM scaffold + draft parity vs CommunityEngager (PARITY.md): mean draft-judge within 0.5 on shared fixtures; record scaffold success rate over N intents"
-    status: pending
+    status: completed
   - id: p1-relay-app-bundle
     content: Relay App bundle format — frozen Spec + lowered manifest + specHash + descriptors + required connections + evals + trigger; content-addressed; export/import
     status: pending
@@ -272,3 +272,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`v1-generated-evals` completed** — `generateEvalFixtures` in `@relay/spec-evals` (acceptance + counterexamples); scaffolder returns `evals`; Desk freeze/run/evals use generator (removed `deskEvalFixtures`); freeze fails closed on evals gate; docs `EVALS.md`.
 - **`v2-shadow-gate` completed** — `approveShadowEvidence` / `assertShadowGate` / `enableSpecScheduler`; checkpoint `evidenceApproval`; Desk evidence∥simulated writes, shadow mode + approve + schedule enable APIs; `createDraftSpecV2` preserves `trigger` (hash parity); docs `SHADOW.md`.
 - **`v3-outcome-followups` completed** — `parseDurationMs`; lower outcome → `outcome_*` entrypoints/schedules; enqueue on complete; `processDueOutcomeFollowUps` + `createHostScheduleInvoker`; Desk Summary + `POST /api/v2/outcomes/process`; optional VoltMem via `rememberOutcome`; docs `OUTCOMES.md`.
+- **`v4-live-llm-parity` completed** — engager-gen `parity` harness: shared soft-judge vs CE baseline (mean Δ ≤ 0.5), scaffold success rate over N intents (`fixtures/parity-*`); stub CI + live via `tryCreateLiveLlmClient`; `PARITY.md` + `pnpm parity`.

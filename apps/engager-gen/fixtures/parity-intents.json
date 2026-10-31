@@ -1,0 +1,22 @@
+[
+  {
+    "id": "ce-fashion",
+    "intent": "Help people in allowlisted fashion subreddits (r/malefashionadvice, r/femalefashionadvice) with genuinely useful replies. No promo links. Human approval before any comment. Prefer dry-run.",
+    "expectOk": true
+  },
+  {
+    "id": "ce-fashion-short",
+    "intent": "Reply helpfully in r/malefashionadvice and r/femalefashionadvice only. No links. Human approve before post. dryRun true.",
+    "expectOk": true
+  },
+  {
+    "id": "freight-wedge",
+    "intent": "Help a freight broker work carrier portals: find loads, draft outreach, never commit capacity without a human. Prefer dry-run.",
+    "expectOk": false
+  },
+  {
+    "id": "nonsense",
+    "intent": "Invent a new capability called magic.teleport and use it to send packages.",
+    "expectOk": false
+  }
+]
