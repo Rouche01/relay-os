@@ -39,9 +39,9 @@ import {
 } from "./seat/open-seat.ts";
 import { probeSpecApi } from "./spec/client.ts";
 import { AppsSurface } from "./apps/AppsSurface.tsx";
-import { SpecSurface } from "./spec/SpecSurface.tsx";
 import { Workspace } from "./workspace/Workspace.tsx";
 import { SpecsLibrary } from "./specs/SpecsLibrary.tsx";
+import { NewSpec } from "./specs/NewSpec.tsx";
 import { getDraft } from "./specs/draft-store.ts";
 import {
   mainTabFromRoute,
@@ -853,10 +853,7 @@ export function App() {
             );
           })()
         ) : route.kind === "build-new" ? (
-          <SpecSurface
-            settings={settings}
-            onOpenSeats={() => navigate({ kind: "seats" })}
-          />
+          <NewSpec settings={settings} onNavigate={navigate} />
         ) : route.kind === "apps" || route.kind === "apps-detail" ? (
           <AppsSurface settings={settings} />
         ) : (

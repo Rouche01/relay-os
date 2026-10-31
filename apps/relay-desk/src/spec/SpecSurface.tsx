@@ -21,6 +21,11 @@ import {
 } from "./history.ts";
 import { upsertDraft } from "../specs/draft-store.ts";
 import {
+  needActionLabel,
+  resolveScaffoldOutcome,
+  type ScaffoldOutcome,
+} from "../specs/scaffold-outcome.ts";
+import {
   deriveSpecPipeline,
   gateSpecAction,
   scrollToSpecStep,
@@ -43,43 +48,12 @@ type Props = {
   onOpenSeats?: () => void;
 };
 
-/** Chip after a scaffold attempt — distinct from raw API `mode`. */
-type ScaffoldOutcome = "llm" | "stub" | "needs_edits" | "needs";
-
 function condenseError(message: string, max = 96): string {
   const one = message.replace(/\s+/g, " ").trim();
   if (one.length <= max) return one;
   return `${one.slice(0, max - 1)}…`;
 }
 
-function needActionLabel(action: string): string {
-  switch (action) {
-    case "import_descriptor":
-      return "Import descriptor";
-    case "add_connection":
-      return "Add connection";
-    case "expand_operations":
-      return "Expand operations";
-    default:
-      return action;
-  }
-}
-
-function resolveScaffoldOutcome(res: {
-  ok: boolean;
-  mode?: string;
-  yaml?: string;
-  validation?: SpecValidationResult;
-  needs?: unknown[];
-}): ScaffoldOutcome | undefined {
-  if (res.mode === "needs" || (res.needs && res.needs.length > 0)) {
-    return "needs";
-  }
-  if (!res.yaml?.trim()) return undefined;
-  if (!res.ok || res.validation?.ok === false) return "needs_edits";
-  if (res.mode === "stub") return "stub";
-  return "llm";
-}
 
 /** 0-based line index for a validator hint, or -1. */
 function findYamlIssueLine(
