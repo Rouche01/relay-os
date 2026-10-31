@@ -403,9 +403,15 @@ body {
   color: var(--signal);
 }
 
-.ws-pill[data-lifecycle="paused"] {
+.ws-pill[data-lifecycle="paused"],
+.ws-pill[data-lifecycle="needs-catalog"] {
   border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
   color: var(--warn);
+}
+
+.ws-pill[data-lifecycle="checks-passed"] {
+  border-color: color-mix(in srgb, var(--signal) 30%, var(--line));
+  color: var(--ink);
 }
 
 .ws-stage {
@@ -461,9 +467,19 @@ body {
   color: var(--ink);
 }
 
+.ws-journey-step[data-status="done"] {
+  color: var(--ink);
+}
+
+.ws-journey-step[data-status="current"],
 .ws-journey-step[data-active="1"] {
   color: var(--ink);
   box-shadow: inset 0 -2px 0 var(--signal);
+}
+
+.ws-journey-step[data-status="upcoming"] {
+  color: var(--muted);
+  opacity: 0.75;
 }
 
 .ws-view {

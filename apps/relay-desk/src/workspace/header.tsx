@@ -1,5 +1,5 @@
 import type { LifecyclePill, WorkspaceView } from "./journey.ts";
-import { VIEW_LABEL } from "./journey.ts";
+import { VIEW_LABEL, lifecycleDataAttr } from "./journey.ts";
 
 export type WorkspaceHeaderProps = {
   backLabel: string;
@@ -38,7 +38,7 @@ export function WorkspaceHeader({
         <div class="ws-header-titles">
           <h1 class="ws-title">{title}</h1>
           <p class="ws-sub">
-            <span class="ws-pill" data-lifecycle={lifecycle.toLowerCase()}>
+            <span class="ws-pill" data-lifecycle={lifecycleDataAttr(lifecycle)}>
               {lifecycle}
             </span>
             <span class="ws-stage mono">{VIEW_LABEL[view]}</span>

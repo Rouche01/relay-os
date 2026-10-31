@@ -1,7 +1,7 @@
 import { WorkspaceHeader } from "./header.tsx";
 import {
-  WORKSPACE_VIEWS,
   VIEW_LABEL,
+  deriveJourneySteps,
   nextGateForView,
   type LifecyclePill,
   type WorkspaceView,
@@ -38,7 +38,8 @@ export function Workspace({
   onBack,
   onViewChange,
 }: WorkspaceProps) {
-  const next = nextGateForView(view);
+  const next = nextGateForView(view, lifecycle);
+  const steps = deriveJourneySteps(lifecycle, view);
 
   return (
     <div class="desk-body workspace-surface">
@@ -54,7 +55,9 @@ export function Workspace({
           next
             ? {
                 label: next.label,
-                onClick: () => onViewChange(next.view),
+                onClick: () => {
+                  if (next.view !== view) onViewChange(next.view);
+                },
               }
             : null
         }
@@ -62,8 +65,12 @@ export function Workspace({
 
       <nav class="ws-journey" aria-label="Journey">
         <ol class="ws-journey-list">
-          {WORKSPACE_VIEWS.map((id, i) => (
-            <li key={id} class="ws-journey-item" data-active={id === view ? "1" : "0"}>
+          {steps.map((step, i) => (
+            <li
+              key={step.id}
+              class="ws-journey-item"
+              data-status={step.status}
+            >
               {i > 0 ? (
                 <span class="ws-journey-sep" aria-hidden="true">
                   →
@@ -72,11 +79,11 @@ export function Workspace({
               <button
                 type="button"
                 class="ws-journey-step"
-                data-active={id === view ? "1" : "0"}
-                aria-current={id === view ? "page" : undefined}
-                onClick={() => onViewChange(id)}
+                data-status={step.status}
+                aria-current={step.status === "current" ? "page" : undefined}
+                onClick={() => onViewChange(step.id)}
               >
-                {VIEW_LABEL[id]}
+                {step.label}
               </button>
             </li>
           ))}

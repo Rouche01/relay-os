@@ -50,22 +50,10 @@ import {
   serializeRoute,
   type DeskRoute,
 } from "./workspace/routes.ts";
-import type { LifecyclePill } from "./workspace/journey.ts";
-import type { WorkspaceView } from "./workspace/journey.ts";
-import type { DraftStatus } from "./specs/draft-store.ts";
-
-function lifecycleFromDraftStatus(status: DraftStatus): LifecyclePill {
-  switch (status) {
-    case "draft":
-      return "Draft";
-    case "checks_passed":
-      return "Checks passed";
-    case "frozen":
-      return "Frozen";
-    case "needs_catalog":
-      return "Draft";
-  }
-}
+import {
+  lifecycleFromDraft,
+  type WorkspaceView,
+} from "./workspace/journey.ts";
 
 const HEARTBEAT_MS = 45_000;
 const HITL_POLL_MS = 2_000;
@@ -834,11 +822,7 @@ export function App() {
               <Workspace
                 entityId={route.draftId}
                 title={draft?.goal}
-                lifecycle={
-                  draft
-                    ? lifecycleFromDraftStatus(draft.status)
-                    : "Draft"
-                }
+                lifecycle={draft ? lifecycleFromDraft(draft) : "Draft"}
                 view={route.view}
                 backLabel="Build"
                 onBack={() => navigate({ kind: "build" })}

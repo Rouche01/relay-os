@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: w4-journey-state
     content: Journey/lifecycle derivation — replace scroll-anchor stepper (scrollToSpecStep) with derived state: lifecycle (draft|checks passed|frozen|live|paused|needs catalog) from pipeline state (deriveSpecPipeline/gateSpecAction) for drafts and InstalledAppSummary for apps; journey = 4 views only, gates stay inside views
-    status: pending
+    status: completed
   - id: w5-schematic-model
     content: Schematic model — pure deriveSchematic(body|manifest, run?) in spec/schematic.ts: trigger node, ordered step nodes (use→plain verb, service, forEach stack, once/when/retry badges, irreversible flag via manifest/descriptor data already in responses), HITL diamond for human.*, rules strip (enforce map), edge refs; run overlay states (done/waiting/simulated/skipped) from RunResponse stepOutputs+evidence
     status: pending
@@ -159,3 +159,4 @@ Already available: `/api/v2/scaffold|validate|lower|evals|freeze|run`, `/api/v2/
 - 2026-10-31 — **w1 done:** hash routes (`#/seats`, `#/build`, `#/build/new`, `#/build/:id/:view`, `#/apps`, `#/apps/:id`) + `workspace/{routes,journey,header,Workspace}`; placeholder views; SpecSurface/AppsSurface still default for Build/Apps landings.
 - 2026-10-31 — **w2 done:** `specs/{draft-store,library,SpecsLibrary}`; `#/build` → library (no `/api/v2/apps` merge); migrate legacy history; Paste YAML door; New spec → `#/build/new` (SpecSurface until w3); row opens workspace; scaffold upserts drafts.
 - 2026-10-31 — **w3 done:** `specs/NewSpec.tsx` + shared `scaffold-outcome.ts`; `#/build/new` Create draft → Design; needs-catalog stays on page with import-descriptor/add-connection actions; SpecSurface no longer routed (kept until view cutover).
+- 2026-10-31 — **w4 done:** `journey.ts` derives lifecycle from draft (+ optional pipeline) / InstalledAppSummary; journey bar done|current|upcoming; library + header + next-gate CTA share one source; `draftStatusFromPipeline` ready for workspace store.
