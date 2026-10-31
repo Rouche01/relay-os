@@ -94,7 +94,7 @@ export function AppsSurface({ settings }: Props) {
       <div class="console-head">
         <h1 class="console-title">Apps</h1>
         <p class="console-sub">
-          Install bundle → connect → shadow → enable · thaw re-gates
+          Approved apps · enable, pause, runs · Edit spec returns to Build
         </p>
       </div>
 

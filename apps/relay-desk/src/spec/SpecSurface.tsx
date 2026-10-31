@@ -38,8 +38,8 @@ import {
 
 type Props = {
   settings: DeskSettings;
-  /** Switch Desk main tab to Console (HITL cards). */
-  onOpenConsole?: () => void;
+  /** Switch Desk main tab to Seats (HITL cards). */
+  onOpenSeats?: () => void;
 };
 
 /** Chip after a scaffold attempt — distinct from raw API `mode`. */
@@ -159,10 +159,10 @@ function downloadText(filename: string, text: string, mime: string): void {
 }
 
 /**
- * Spec governance surface — Intent → scaffold → validate → evals → lower → freeze → run.
- * HITL cards stay on Console.
+ * Build surface (interim) — Intent → scaffold → validate → evals → lower → freeze → run.
+ * HITL cards stay on Seats. Replaced by workspace views in desk_spec_workspace_ux.
  */
-export function SpecSurface({ settings, onOpenConsole }: Props) {
+export function SpecSurface({ settings, onOpenSeats }: Props) {
   const [intent, setIntent] = useState(DEFAULT_CE_INTENT);
   const [intentPreset, setIntentPreset] = useState<IntentPresetId | "custom">(
     "ce-fashion"
@@ -554,8 +554,8 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
       if (runMode === "shadow") {
         setRunTab("evidence");
       }
-      if (!autoApprove && onOpenConsole) {
-        flashExport("HITL may be waiting — open Console");
+      if (!autoApprove && onOpenSeats) {
+        flashExport("HITL may be waiting — open Seats");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -563,7 +563,7 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
       setBusy(false);
       setBusyLabel(undefined);
     }
-  }, [settings, yaml, autoApprove, runMode, onOpenConsole, flashExport]);
+  }, [settings, yaml, autoApprove, runMode, onOpenSeats, flashExport]);
 
   const onApproveEvidence = useCallback(async () => {
     const runId = runResult?.runId;
@@ -670,9 +670,9 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
   return (
     <div class="desk-body spec-surface">
       <div class="console-head">
-        <h1 class="console-title">Spec</h1>
+        <h1 class="console-title">Build</h1>
         <p class="console-sub">
-          Intent → dry-run · HITL stays in Console
+          Intent → Spec → Manifest → App · HITL stays in Seats
         </p>
         <nav class="spec-pipeline" aria-label="Spec pipeline">
           <ol class="spec-pipeline-list">
@@ -1358,13 +1358,13 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
                 />
                 auto-approve HITL
               </label>
-              {!autoApprove && onOpenConsole ? (
+              {!autoApprove && onOpenSeats ? (
                 <button
                   type="button"
                   class="cta linkish"
-                  onClick={onOpenConsole}
+                  onClick={onOpenSeats}
                 >
-                  Open Console
+                  Open Seats
                 </button>
               ) : null}
               {!evalsPassed ? (
@@ -1410,7 +1410,7 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
             ) : null}
             {!autoApprove ? (
               <p class="tile-meta">
-                Auto-approve off — dry-run may wait on HITL; use Console cards
+                Auto-approve off — dry-run may wait on HITL; use Seats cards
                 when FEEDBACK_ADAPTER=desk.
               </p>
             ) : null}
@@ -1445,7 +1445,7 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
             {!runResult ? (
               <p class="tile-meta">
                 Run dry to populate fixtures + stub LLM trail. HITL is
-                auto-approved here; live cards stay on Console.
+                auto-approved here; live cards stay on Seats.
               </p>
             ) : runTab === "steps" ? (
               Object.keys(runResult.stepOutputs ?? {}).length ? (

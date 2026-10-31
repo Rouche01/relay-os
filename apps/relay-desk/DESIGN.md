@@ -13,39 +13,40 @@ Do **not** embed the live desktop as the main-window hero. Streams open in separ
 
 ## App navigation (locked) — collapsible sidebar
 
-**Console vs Spec** are primary **surfaces**, not top tabs. Nav lives in a **left sidebar** that collapses to **icon-only**.
+**Seats · Build · Apps** are primary **surfaces**, not top tabs. Nav lives in a **left sidebar** that collapses to **icon-only**. **My Desk** is a locked fourth name — reserved, not rendered until [`desk_my_desk.plan.md`](../../.cursor/plans/desk_my_desk.plan.md) (backlog, design-first).
 
 | Surface | Owns | Does not own |
 |---------|------|----------------|
-| **Console** | Gateway / Watch / Seat / HITL — current Idle bento (title + 7/5 grid) | Intent→Spec compile, living-todo queue |
-| **Spec** | Intent → draft Spec → freeze → run (governance) | Seat lease chrome, live stream controls |
+| **Seats** | Gateway / Watch / Seat / HITL — current Idle bento (title + 7/5 grid). Pooled computers any app can spin; you attend them. | Intent→Spec compile, approved-fleet management, the user's personal computer |
+| **Build** | Intent → Spec → Manifest → App. In-progress library, New spec, Design / Verify / Ship. | Seat lease chrome, live stream controls, approved fleet |
+| **Apps** | Approved / installed apps as a managed fleet (enable, pause, connections, schedules, runs). | Drafts, scaffold, Design/Verify authoring |
+| **My Desk** | *(reserved)* Dedicated personal virtual computer — persistent, never pooled. | Seats inventory, Build authoring |
 
-**Why sidebar (not top tabs):** Spec will grow; Console stays dense operator chrome; collapse keeps the bento wide when working seats/HITL. Top tabs were interim only.
+**Why sidebar (not top tabs):** Build will grow; Seats stays dense operator chrome; collapse keeps the bento wide when working seats/HITL. Top tabs were interim only.
 
 **Sidebar (expanded ~12–14rem)**
 - Top: brand mark + “Relay Desk” (serif)
-- Nav: Console · Spec (icon + label; active = ink weight / quiet indicator)
+- Nav: Seats · Build · Apps (icon + label; active = ink weight / quiet indicator). My Desk not shown until its plan leaves backlog.
 - Footer: Settings (opens drawer) · collapse control
-- Optional later: more Spec children under Spec — still sidebar, not a third top tab
 
 **Sidebar (collapsed ~3.5rem)**
 - Brand mark only · icon nav · Settings gear · expand control
 - Tooltips on hover for labels
 
 **Main column**
-- Thin top strip: global status only (`desk.hsv · ready` / HITL waiting) — no duplicate Console|Spec
-- Body: Console bento **unchanged**, or Spec scaffold
+- Thin top strip: global status only (`desk.hsv · ready` / HITL waiting) — no duplicate rail labels
+- Body: Seats bento **unchanged**, or Build / Apps surface
 
-**Locked:** No Spec compiler strip on Console Idle. No primary nav in the top bar.
+**Locked:** No Spec compiler strip on Seats Idle. No primary nav in the top bar. Do not implement My Desk as “another seat.”
 
-Spec implementation follows [`relay_intent_spec_verify_hitl.plan.md`](../../.cursor/plans/relay_intent_spec_verify_hitl.plan.md) / [`relay_living_todo_shell.plan.md`](../../.cursor/plans/relay_living_todo_shell.plan.md). Desk ships Spec as **scaffold** until that work lands.
+Build / Apps workspace follows [`desk_spec_workspace_ux.plan.md`](../../.cursor/plans/desk_spec_workspace_ux.plan.md). Seats is today's Console (rename only).
 
 ```text
 ┌──────────┬─────────────────────────────┐
 │ Sidebar  │ status                      │
-│ Console  ├─────────────────────────────┤
-│ Spec     │ Console bento  OR  Spec     │
-│ …        │ (collapse → icons only)     │
+│ Seats    ├─────────────────────────────┤
+│ Build    │ Seats bento  OR  Build/Apps │
+│ Apps     │ (collapse → icons only)     │
 │ Settings │                             │
 └──────────┴─────────────────────────────┘
 ```
@@ -61,7 +62,7 @@ Desk is a **client** of computer-with-agent. The gateway may be:
 
 Settings (`COMPUTER_GATEWAY_URL` + token) select the profile — no separate Desk builds. Optional guided local install: [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md).
 
-## Separation of concerns (Console)
+## Separation of concerns (Seats)
 
 | Concern | Role | Owns | Does not own |
 |---------|------|------|----------------|
@@ -95,11 +96,12 @@ Settings ── configures Gateway + HITL bridge endpoints
 
 ## Main-window composition
 
-1. **Sidebar** — brand · Console · Spec · Settings · collapse (expanded or icon-only).
+1. **Sidebar** — brand · Seats · Build · Apps · Settings · collapse (expanded or icon-only). My Desk reserved, not rendered.
 2. **Status strip** — global status only (idle / watching / claimed / HITL waiting).
-3. **Console surface** — title + subtitle → HITL | Seat → Gateway | Watch (current layout; do not regress).
-4. **Spec surface** — Intent → scaffold YAML → validator / rules / evals → lower → freeze → dry-run (shell `/api/v2/*`). HITL cards stay on Console.
-5. **Settings** — from sidebar → drawer (Gateway + HITL bridge + Spec API URL).
+3. **Seats surface** — title + subtitle → HITL | Seat → Gateway | Watch (current Console layout; do not regress).
+4. **Build surface** — Intent → Spec → Manifest → App (library / new / Design · Verify · Ship). HITL cards stay on Seats.
+5. **Apps surface** — approved fleet (install, enable/pause, runs). Edit spec / thaw returns to Build.
+6. **Settings** — from sidebar → drawer (Gateway + HITL bridge + Spec API URL).
 
 Operator console first; bento for **hierarchy**, not marketing-grid density. No mini-VNC previews inside tiles.
 
@@ -123,6 +125,8 @@ Theme: **deep-space operator** — graphite void, ice signal, amber hazard. Futu
 | `--danger` | `#E05A5A` | Recycle / Abort |
 | `--hitl` | `#3EE0C4` @ 10% fill | HITL card wash |
 
+**Flowstep → CSS lock:** prototypes use Flowstep `grayscaleDark` (primary often renders light/gray). Desk `styles.css` is the source of truth — map every Flowstep “primary” accent to `--signal` (`#3EE0C4`), panels to `--panel` / `--panel-2`, text to `--ink` / `--muted`. Do not ship Flowstep grayscale hex into Desk components.
+
 Avoid: purple-indigo gradients, soft cream+terracotta, neon multi-glow stacks, Inter-as-brand.
 
 ### Typography
@@ -145,7 +149,7 @@ Avoid: purple-indigo gradients, soft cream+terracotta, neon multi-glow stacks, I
 
 ### Components
 
-- **Sidebar nav** — Console | Spec (+ collapse); Settings in rail footer.
+- **Sidebar nav** — Seats · Build · Apps (+ collapse); Settings in rail footer. My Desk reserved.
 - **Tile** — title, one short line, primary actions, optional expand.
 - **Seat row** — mode badge (`Watch` | `Claimed`), id, Focus / Close.
 - **HITL card** — kicker, prompt, Approve (signal) / Abort (ghost|danger).
@@ -153,22 +157,29 @@ Avoid: purple-indigo gradients, soft cream+terracotta, neon multi-glow stacks, I
 - **Spec surface** — Intent box, YAML editor, validator/evals/manifest tiles, Freeze + Run dry.
 - **Stream window chrome** — OS title only; no duplicated Desk chrome inside noVNC.
 
+### Copy (Spec/App workspace)
+
+- **One stage vocabulary:** `Design · Verify · Ship · Activity` in journey bar, stage nav, and CTAs. Lifecycle (`Draft | Frozen | Live`) only in the header pill; gate specifics (freeze, shadow, enable) live inside Ship, never as competing journey labels.
+- **Name the user's thing, not the UI:** headings and rows use the app and its concrete actions (`Bug triage for acme/widgets`, “The only irreversible step is `post`…”, “No issue can be commented on twice”). Internal nouns (`scaffold`, `lower`, `thaw`, bundle ids, `specHash`) appear only in mono detail lines, never as primary labels — user-facing verbs are *Create draft*, *run checks*, *Edit spec*.
+- **No UI-meta copy:** don't explain the interface (“status travels…”, “one question per view”), don't repeat the same label in subtitle + section title + nav, and don't show outcome/state chips before the action has happened. Every line must either name a state, a consequence, or a next action.
+
 ## Flowstep screens (target)
 
-1. **Idle — console** — sidebar expanded; Console active; current bento  
+1. **Idle — console** — sidebar expanded; Seats active (today labeled Console in Flowstep); current bento  
 2. **Idle — console (collapsed)** — icon-only sidebar; same bento  
-3. **Spec — surface** — sidebar; Spec active; Intent→YAML→evals→run  
+3. **Spec — surface** — sidebar; Build active (today labeled Spec in Flowstep); Intent→YAML→evals→run  
 4. **Spec — surface (collapsed)** — icon-only sidebar  
-5. **HITL pending** / **Watching** / **Leased** / **Parked** / **Settings** — Console modes (unchanged concerns; adopt sidebar)  
+5. **HITL pending** / **Watching** / **Leased** / **Parked** / **Settings** — Seats modes (unchanged concerns; adopt sidebar)  
 6. **Multi-seat (future)** — Seat list with 2+ rows; still separate OS windows  
 7. Top-tab / Idle intent-strip screens — superseded; archive or delete later  
-8. **Spec — schematic** *(prototype 2026-10-31)* — read-only flow diagram derived from the Spec (trigger → steps → HITL gate → irreversible writes; rules rail; `Schematic | Manifest | YAML` toggle). Canonical example: GitHub triage-gen. Not a freeform node editor — YAML stays source of truth, node click inspects / jumps to YAML  
-9. **Spec — schematic · inspector** *(prototype)* — node selected → inspector (args, `forEach`/`once`/`when`, outputs/schema, `enforce`, validation) + highlighted YAML drawer  
-10. **Spec — schematic · shadow run** *(prototype)* — run overlay on the same graph: completed/skipped/waiting-HITL/simulated-write node states, evidence pack ∥ simulated writes, shadow gate before `Enable schedule`
-11. **Workspace — Design / Verify / Ship / Activity** *(prototype 2026-10-31)* — multi-view successor to the single Spec surface: one Spec/App workspace with persistent context header (goal, status, hash, trigger) + journey bar (`Design → Verify → Freeze → Shadow → Live` = gate state, navigates not scrolls) + stage nav. Each view answers one question: Design “what will it do?” (schematic canvas from #8/#9, YAML drawer), Verify “is it correct and safe?” (validator/evals/lowered manifest, irreversible-step risk), Ship “can it go live?” (frozen bundle, connections, shadow gate, enable), Activity “what did it do?” (runs from run store, schematic run overlay from #10, outcomes). One contextual next-gate CTA per view; Spec (authoring) and Apps (installed) open the same workspace at different stages; thaw returns to Design and re-gates. Screens #8–#10 remain component studies for the schematic/inspector/run-overlay
+8. **Specs — library / Specs — new** *(prototype 2026-10-31, creation entry)* — `Build` nav lands on the library of *in-progress* drafts (`+ New spec` primary). New spec: preset chips (CE fashion · Freight wedge · Blank — presets set text only, mirroring `INTENT_PRESETS`) → intent text → Scaffold (provider + `llm|stub|needs edits|needs catalog` outcome chips) → on success creates a draft and opens the workspace at Design. Right rail: what-happens-next journey, catalog reach + `needs` path (import descriptor / add connection instead of repair burn). Paste-YAML is a secondary Build door; Install-bundle lives on Apps. Approved/installed apps are not Build library rows.
+9. **Workspace — Design / Verify / Ship / Activity** *(prototype 2026-10-31, canonical Build UX)* — multi-view successor to the single Spec surface: persistent context header (goal, status, hash, trigger) + journey bar + stage nav (`Design · Verify · Ship · Activity`). Each view answers one question: Design “what will it do?”, Verify “is it correct and safe?”, Ship “can it go live?”, Activity “what did it do?”. Enable lands the app on **Apps**; Apps does not open Design/Verify; *Edit spec* / thaw returns to Build Design and re-gates. HITL deep-links to **Seats**. The earlier single-view `Spec — schematic*` screens were deleted 2026-10-31 — schematic/inspector/run-overlay survive inside Design/Activity. Workspace screens follow this file's design system and the existing Flowstep shell: `grayscaleDark` theme, `w-56` sidebar with serif brand, thin status strip, token classes only (no hard-coded hex).
+10. **My Desk** — *not prototyped.* Reserved rail item; see [`desk_my_desk.plan.md`](../../.cursor/plans/desk_my_desk.plan.md).
 
 ## Related
 
+- Workspace UX: [`.cursor/plans/desk_spec_workspace_ux.plan.md`](../../.cursor/plans/desk_spec_workspace_ux.plan.md)  
+- My Desk (backlog): [`.cursor/plans/desk_my_desk.plan.md`](../../.cursor/plans/desk_my_desk.plan.md)  
 - Plan: [`.cursor/plans/relay_desk_hitl_shell.plan.md`](../../.cursor/plans/relay_desk_hitl_shell.plan.md)  
 - Laptop install: [`LAPTOP.md`](./LAPTOP.md)  
 - Spec thesis: [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](../../.cursor/plans/relay_intent_spec_verify_hitl.plan.md)  

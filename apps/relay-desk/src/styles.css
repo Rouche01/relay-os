@@ -1,4 +1,8 @@
-/* Flowstep Idle console — deep-space operator (DESIGN.md / Flowstep tokens) */
+/*
+ * Flowstep → Desk CSS token lock (DESIGN.md).
+ * Flowstep theme is grayscaleDark (primary renders light); Desk restores signal cyan.
+ * Never hard-code Flowstep grayscale hex in components — use these vars only.
+ */
 :root {
   color-scheme: dark;
   --void: #070a0f;
@@ -11,6 +15,7 @@
   --primary: #e8f1fa;
   --primary-fg: #070a0f;
   --signal: #3ee0c4;
+  --signal-dim: #1a6b5e;
   --warn: #e0b35a;
   --danger: #e05a5a;
   --hitl-wash: rgba(62, 224, 196, 0.1);

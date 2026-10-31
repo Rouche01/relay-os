@@ -64,7 +64,7 @@ export function App() {
   const [hitlError, setHitlError] = useState<string | undefined>();
   const [hitlBusy, setHitlBusy] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [mainTab, setMainTab] = useState<"console" | "spec" | "apps">("console");
+  const [mainTab, setMainTab] = useState<"seats" | "build" | "apps">("seats");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem("relay-desk.sidebar-collapsed") === "1";
@@ -593,7 +593,7 @@ export function App() {
           ? "Watching"
           : seat.phase === "parked"
             ? "Parked"
-            : "Idle console";
+            : "Seats";
 
   const consoleSub =
     hitl
@@ -606,7 +606,7 @@ export function App() {
             : "observe only · no claim"
           : seat.phase === "parked"
             ? `session warm · ${seat.sessionId ?? "—"}`
-            : "operator surface · no active lease";
+            : "pooled computers · attend when an agent needs you";
 
   const statusLabel =
     hitl
@@ -694,9 +694,9 @@ export function App() {
             <button
               type="button"
               class="rail-item"
-              data-active={mainTab === "console" ? "1" : "0"}
-              title="Console"
-              onClick={() => setMainTab("console")}
+              data-active={mainTab === "seats" ? "1" : "0"}
+              title="Seats"
+              onClick={() => setMainTab("seats")}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
                 <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -704,21 +704,21 @@ export function App() {
                 <rect x="3" y="14" width="7" height="7" rx="1" />
                 <rect x="14" y="14" width="7" height="7" rx="1" />
               </svg>
-              {!sidebarCollapsed ? <span>Console</span> : null}
+              {!sidebarCollapsed ? <span>Seats</span> : null}
             </button>
             <button
               type="button"
               class="rail-item"
-              data-active={mainTab === "spec" ? "1" : "0"}
-              title="Spec"
-              onClick={() => setMainTab("spec")}
+              data-active={mainTab === "build" ? "1" : "0"}
+              title="Build"
+              onClick={() => setMainTab("build")}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <path d="M14 2v6h6" />
                 <path d="M8 13h8M8 17h6" />
               </svg>
-              {!sidebarCollapsed ? <span>Spec</span> : null}
+              {!sidebarCollapsed ? <span>Build</span> : null}
             </button>
             <button
               type="button"
@@ -774,10 +774,10 @@ export function App() {
         <div class="status-strip">{statusChip}</div>
 
         <main class="desk-main">
-        {mainTab === "spec" ? (
+        {mainTab === "build" ? (
           <SpecSurface
             settings={settings}
-            onOpenConsole={() => setMainTab("console")}
+            onOpenSeats={() => setMainTab("seats")}
           />
         ) : mainTab === "apps" ? (
           <AppsSurface settings={settings} />
