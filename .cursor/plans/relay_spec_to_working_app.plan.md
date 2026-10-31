@@ -64,7 +64,7 @@ todos:
     status: completed
   - id: p2-desk-app-lifecycle
     content: Desk app lifecycle — install bundle → connect → shadow run → enable → pause/disable → view runs/outcomes; thaw-to-edit re-requires evals + shadow gate
-    status: pending
+    status: completed
   - id: e2e-triage-demo
     content: E2E cold demo — plain-text triage intent → scaffold → freeze → shadow run against real GitHub → approve → enable schedule → next tick posts after HITL; no duplicate comments on re-run; checklist in docs/
     status: pending
@@ -212,7 +212,7 @@ Each addition: protocol type + JSON schema + validator rule + lowerer + runtime 
 - [x] Spec v2.1 `trigger`, `when`, `once`, `retry`/`onError`, output schema validated, lowered, and enforced at runtime
 - [x] Enabling a schedule requires an approved shadow run
 - [x] Outcome rules measured by scheduled follow-ups
-- [ ] Relay App bundle exportable/importable; Desk install → shadow → enable → pause works *(export/import done in p1; Desk lifecycle = p2)*
+- [x] Relay App bundle exportable/importable; Desk install → shadow → enable → pause works
 - [ ] E2E triage demo: plain text → live scheduled app, HITL before every post, no duplicate comments, no GitHub-specific code outside the descriptor
 
 ## Non-goals
@@ -274,3 +274,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`v3-outcome-followups` completed** — `parseDurationMs`; lower outcome → `outcome_*` entrypoints/schedules; enqueue on complete; `processDueOutcomeFollowUps` + `createHostScheduleInvoker`; Desk Summary + `POST /api/v2/outcomes/process`; optional VoltMem via `rememberOutcome`; docs `OUTCOMES.md`.
 - **`v4-live-llm-parity` completed** — engager-gen `parity` harness: shared soft-judge vs CE baseline (mean Δ ≤ 0.5), scaffold success rate over N intents (`fixtures/parity-*`); stub CI + live via `tryCreateLiveLlmClient`; `PARITY.md` + `pnpm parity`.
 - **`p1-relay-app-bundle` completed** — new `@relay/app-bundle` (`build` / `verify` / export-import JSON, content id `rapp_<sha256>`); embeds frozen Spec + lowered + descriptors + connections + evals + trigger; Desk `POST /api/v2/bundle/export|import`; `toSpecV2Body` keeps `trigger`; docs `BUNDLE.md`.
+- **`p2-desk-app-lifecycle` completed** — Desk Apps tab: install bundle → connect → shadow → approve evidence → enable → pause/disable → runs/outcomes; thaw re-arms evals + shadow gate on refreeze; store under `.data/installed-apps/`; APIs `/api/v2/apps*`; tests in `installed-apps.test.ts`.

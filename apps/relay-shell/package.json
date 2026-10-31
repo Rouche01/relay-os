@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "api": "tsx server/api.ts",
     "start": "RELAY_SHELL_SERVE_UI=1 tsx server/api.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p server/tsconfig.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p server/tsconfig.json",
+    "test": "tsx --test server/installed-apps.test.ts"
   },
   "dependencies": {
     "@relay/engines-decide": "workspace:*",

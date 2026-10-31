@@ -290,7 +290,7 @@ function tryLiveLlmClient(): LlmClient | null {
   }
 }
 
-function runtimeStubLlm(): LlmClient {
+export function runtimeStubLlm(): LlmClient {
   return {
     provider: "gemini",
     async completeJson(req) {

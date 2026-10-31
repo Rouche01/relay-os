@@ -28,6 +28,22 @@ import {
   type ComposeSpecBody,
 } from "./compose-spec.js";
 import {
+  handleAppApproveEvidence,
+  handleAppDisable,
+  handleAppEnable,
+  handleAppPause,
+  handleAppRefreeze,
+  handleAppResume,
+  handleAppRuns,
+  handleAppShadowRun,
+  handleAppThaw,
+  handleConnectApp,
+  handleGetApp,
+  handleInstallApp,
+  handleListApps,
+  handleUninstallApp,
+} from "./apps-lifecycle.js";
+import {
   handleApproveEvidence,
   handleEvals,
   handleEnableSchedule,
@@ -186,6 +202,20 @@ async function main(): Promise<void> {
             "POST /api/v2/outcomes/process",
             "POST /api/v2/bundle/export",
             "POST /api/v2/bundle/import",
+            "GET /api/v2/apps",
+            "POST /api/v2/apps/install",
+            "GET /api/v2/apps/:id",
+            "POST /api/v2/apps/:id/connect",
+            "POST /api/v2/apps/:id/shadow-run",
+            "POST /api/v2/apps/:id/approve-evidence",
+            "POST /api/v2/apps/:id/enable",
+            "POST /api/v2/apps/:id/pause",
+            "POST /api/v2/apps/:id/resume",
+            "POST /api/v2/apps/:id/disable",
+            "GET /api/v2/apps/:id/runs",
+            "POST /api/v2/apps/:id/thaw",
+            "POST /api/v2/apps/:id/refreeze",
+            "DELETE /api/v2/apps/:id",
           ],
         });
         return;
@@ -305,6 +335,89 @@ async function main(): Promise<void> {
         const out = await handleImportBundle(body);
         sendJson(res, out.status, out);
         return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/v2/apps") {
+        const out = await handleListApps();
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/v2/apps/install") {
+        const raw = await readBody(req);
+        const body = raw
+          ? (JSON.parse(raw) as { bundle?: unknown; json?: string })
+          : {};
+        const out = await handleInstallApp(body);
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      const appOne = /^\/api\/v2\/apps\/([^/]+)$/.exec(url.pathname);
+      if (appOne?.[1]) {
+        const appId = decodeURIComponent(appOne[1]);
+        if (method === "GET") {
+          const out = await handleGetApp(appId);
+          sendJson(res, out.status, out);
+          return;
+        }
+        if (method === "DELETE") {
+          const out = await handleUninstallApp(appId);
+          sendJson(res, out.status, out);
+          return;
+        }
+      }
+
+      const appAction =
+        /^\/api\/v2\/apps\/([^/]+)\/(connect|shadow-run|approve-evidence|enable|pause|resume|disable|runs|thaw|refreeze)$/.exec(
+          url.pathname
+        );
+      if (appAction?.[1] && appAction[2]) {
+        const appId = decodeURIComponent(appAction[1]);
+        const action = appAction[2];
+        if (method === "GET" && action === "runs") {
+          const out = await handleAppRuns(appId);
+          sendJson(res, out.status, out);
+          return;
+        }
+        if (method === "POST") {
+          const raw = await readBody(req);
+          const body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+          let out;
+          switch (action) {
+            case "connect":
+              out = await handleConnectApp(appId, body as { connection?: string; connected?: boolean });
+              break;
+            case "shadow-run":
+              out = await handleAppShadowRun(appId, body as { autoApprove?: boolean });
+              break;
+            case "approve-evidence":
+              out = await handleAppApproveEvidence(appId, body as { runId?: string; approvedBy?: string });
+              break;
+            case "enable":
+              out = await handleAppEnable(appId);
+              break;
+            case "pause":
+              out = await handleAppPause(appId);
+              break;
+            case "resume":
+              out = await handleAppResume(appId);
+              break;
+            case "disable":
+              out = await handleAppDisable(appId);
+              break;
+            case "thaw":
+              out = await handleAppThaw(appId);
+              break;
+            case "refreeze":
+              out = await handleAppRefreeze(appId, body as { yaml?: string; body?: unknown; skipEvalsGate?: boolean });
+              break;
+            default:
+              out = { ok: false as const, status: 404, error: "Unknown action" };
+          }
+          sendJson(res, out.status, out);
+          return;
+        }
       }
 
       if (method === "GET" && url.pathname === "/api/v2/runs") {

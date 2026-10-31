@@ -162,6 +162,9 @@ Avoid: purple-indigo gradients, soft cream+terracotta, neon multi-glow stacks, I
 5. **HITL pending** / **Watching** / **Leased** / **Parked** / **Settings** — Console modes (unchanged concerns; adopt sidebar)  
 6. **Multi-seat (future)** — Seat list with 2+ rows; still separate OS windows  
 7. Top-tab / Idle intent-strip screens — superseded; archive or delete later  
+8. **Spec — schematic** *(prototype 2026-10-31)* — read-only flow diagram derived from the Spec (trigger → steps → HITL gate → irreversible writes; rules rail; `Schematic | Manifest | YAML` toggle). Canonical example: GitHub triage-gen. Not a freeform node editor — YAML stays source of truth, node click inspects / jumps to YAML  
+9. **Spec — schematic · inspector** *(prototype)* — node selected → inspector (args, `forEach`/`once`/`when`, outputs/schema, `enforce`, validation) + highlighted YAML drawer  
+10. **Spec — schematic · shadow run** *(prototype)* — run overlay on the same graph: completed/skipped/waiting-HITL/simulated-write node states, evidence pack ∥ simulated writes, shadow gate before `Enable schedule`
 
 ## Related
 

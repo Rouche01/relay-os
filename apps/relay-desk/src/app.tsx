@@ -38,6 +38,7 @@ import {
   openSeatWindow,
 } from "./seat/open-seat.ts";
 import { probeSpecApi } from "./spec/client.ts";
+import { AppsSurface } from "./apps/AppsSurface.tsx";
 import { SpecSurface } from "./spec/SpecSurface.tsx";
 
 const HEARTBEAT_MS = 45_000;
@@ -63,7 +64,7 @@ export function App() {
   const [hitlError, setHitlError] = useState<string | undefined>();
   const [hitlBusy, setHitlBusy] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [mainTab, setMainTab] = useState<"console" | "spec">("console");
+  const [mainTab, setMainTab] = useState<"console" | "spec" | "apps">("console");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem("relay-desk.sidebar-collapsed") === "1";
@@ -719,6 +720,18 @@ export function App() {
               </svg>
               {!sidebarCollapsed ? <span>Spec</span> : null}
             </button>
+            <button
+              type="button"
+              class="rail-item"
+              data-active={mainTab === "apps" ? "1" : "0"}
+              title="Apps"
+              onClick={() => setMainTab("apps")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
+              </svg>
+              {!sidebarCollapsed ? <span>Apps</span> : null}
+            </button>
           </nav>
         </div>
         <div class="rail-bottom">
@@ -766,6 +779,8 @@ export function App() {
             settings={settings}
             onOpenConsole={() => setMainTab("console")}
           />
+        ) : mainTab === "apps" ? (
+          <AppsSurface settings={settings} />
         ) : (
         <div class="desk-body">
           <div class="console-head">

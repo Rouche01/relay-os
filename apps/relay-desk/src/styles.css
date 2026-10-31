@@ -667,6 +667,51 @@ body {
   margin-bottom: 0.35rem;
 }
 
+.apps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 22rem;
+  overflow: auto;
+}
+
+.apps-list-item {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  border-radius: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.apps-list-item:hover {
+  border-color: color-mix(in srgb, var(--ink) 30%, var(--line));
+}
+
+.apps-list-item[data-active="1"] {
+  border-color: color-mix(in srgb, var(--ink) 45%, var(--line));
+  background: color-mix(in srgb, var(--panel-2) 75%, var(--void));
+}
+
+.apps-list-goal {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.apps-runs {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+
 .spec-outcomes {
   margin-top: 0.5rem;
 }
