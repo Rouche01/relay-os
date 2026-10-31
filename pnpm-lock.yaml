@@ -230,7 +230,36 @@ importers:
         specifier: ^6.2.2
         version: 6.4.5(@types/node@22.20.4)(tsx@4.23.15)(yaml@2.9.1)
 
-  apps/triage-gen: {}
+  apps/triage-gen:
+    dependencies:
+      '@relay/app-bundle':
+        specifier: workspace:*
+        version: link:../../packages/app-bundle
+      '@relay/llm':
+        specifier: workspace:*
+        version: link:../../packages/llm
+      '@relay/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      '@relay/services':
+        specifier: workspace:*
+        version: link:../../packages/services
+      '@relay/spec-host':
+        specifier: workspace:*
+        version: link:../../packages/spec-host
+      '@relay/spec-validator':
+        specifier: workspace:*
+        version: link:../../packages/spec-validator
+      '@relay/workflow-runtime':
+        specifier: workspace:*
+        version: link:../../packages/workflow-runtime
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
 
   packages/action-store:
     dependencies:

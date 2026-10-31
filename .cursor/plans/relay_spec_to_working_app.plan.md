@@ -67,7 +67,7 @@ todos:
     status: completed
   - id: e2e-triage-demo
     content: E2E cold demo — plain-text triage intent → scaffold → freeze → shadow run against real GitHub → approve → enable schedule → next tick posts after HITL; no duplicate comments on re-run; checklist in docs/
-    status: pending
+    status: completed
 isProject: true
 ---
 
@@ -213,7 +213,7 @@ Each addition: protocol type + JSON schema + validator rule + lowerer + runtime 
 - [x] Enabling a schedule requires an approved shadow run
 - [x] Outcome rules measured by scheduled follow-ups
 - [x] Relay App bundle exportable/importable; Desk install → shadow → enable → pause works
-- [ ] E2E triage demo: plain text → live scheduled app, HITL before every post, no duplicate comments, no GitHub-specific code outside the descriptor
+- [x] E2E triage demo: plain text → live scheduled app, HITL before every post, no duplicate comments, no GitHub-specific code outside the descriptor
 
 ## Non-goals
 
@@ -275,3 +275,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`v4-live-llm-parity` completed** — engager-gen `parity` harness: shared soft-judge vs CE baseline (mean Δ ≤ 0.5), scaffold success rate over N intents (`fixtures/parity-*`); stub CI + live via `tryCreateLiveLlmClient`; `PARITY.md` + `pnpm parity`.
 - **`p1-relay-app-bundle` completed** — new `@relay/app-bundle` (`build` / `verify` / export-import JSON, content id `rapp_<sha256>`); embeds frozen Spec + lowered + descriptors + connections + evals + trigger; Desk `POST /api/v2/bundle/export|import`; `toSpecV2Body` keeps `trigger`; docs `BUNDLE.md`.
 - **`p2-desk-app-lifecycle` completed** — Desk Apps tab: install bundle → connect → shadow → approve evidence → enable → pause/disable → runs/outcomes; thaw re-arms evals + shadow gate on refreeze; store under `.data/installed-apps/`; APIs `/api/v2/apps*`; tests in `installed-apps.test.ts`.
+- **`e2e-triage-demo` completed** — `apps/triage-gen` cold demo: validate expected Spec → freeze/bundle → shadow → approve → enableSpecScheduler → live tick ×2 with `once` (0 duplicate posts); fixtures+stub CI, optional `--live-github`; docs [`docs/triage-demo.md`](../../docs/triage-demo.md).

@@ -35,15 +35,22 @@ services/README.md     Points at packages/services/descriptors/github.yaml
 fixtures/issues.json   Offline scout payload
 ```
 
-## Using this fixture (later phases)
+## Cold E2E demo
 
-1. **Scaffold target** — feed `intent.md` to `@relay/spec-scaffold` once `github`
-   is on the known-services list; compare to `spec.expected.yaml`.
-2. **Validate (v2 subset)** — strip or ignore `trigger` / `once` / `retry` until
-   Spec v2.1 lands; validate steps against `services/github.yaml`.
-3. **Fixture / shadow runs** — `fixtures/issues.json` seeds scout; live GitHub
-   when connection + host modes exist (`h3`).
-4. **E2E** — plan todo `e2e-triage-demo`.
+```bash
+pnpm --filter @relay/apps-triage-gen cold-demo
+# optional live list:
+# GITHUB_TOKEN=… pnpm --filter @relay/apps-triage-gen cold-demo -- --live-github
+```
+
+Walkthrough + checklist: [`docs/triage-demo.md`](../../docs/triage-demo.md).
+
+## Using this fixture
+
+1. **Scaffold target** — `intent.md` + `spec.expected.yaml` (authoritative shape).
+2. **Validate** — against curated `@relay/services` `github` + `github:default`.
+3. **Fixture / shadow** — `fixtures/issues.json` offline; `--live-github` for live list.
+4. **E2E** — `cold-demo` / `test` (plan todo `e2e-triage-demo`).
 
 ## Regenerate GitHub descriptor
 

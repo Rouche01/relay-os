@@ -2,5 +2,25 @@
   "name": "@relay/apps-triage-gen",
   "version": "0.0.0",
   "private": true,
-  "description": "Forcing-function acceptance fixture: GitHub bug triage Intent → Spec (no host — see @relay/spec-host plan)"
+  "type": "module",
+  "description": "Forcing-function acceptance fixture + E2E cold demo for GitHub bug triage",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/test/*.test.js",
+    "cold-demo": "tsc -p tsconfig.build.json && node dist/cold-demo.js",
+    "clean": "rm -rf dist dist-test .data"
+  },
+  "dependencies": {
+    "@relay/app-bundle": "workspace:*",
+    "@relay/llm": "workspace:*",
+    "@relay/protocol": "workspace:*",
+    "@relay/services": "workspace:*",
+    "@relay/spec-host": "workspace:*",
+    "@relay/spec-validator": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "6.0.3"
+  }
 }

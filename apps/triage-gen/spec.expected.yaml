@@ -59,8 +59,8 @@ steps:
   - id: draft
     use: llm.generate
     forEach: "${steps.scout.output.body}"
-    # v2.1 — s3-once-idempotency (implemented; dedupe drafts per issue)
-    once: "${item.number}"
+    # Idempotency lives on `post` (never double-comment). Draft may re-run;
+    # once on draft would leave skip-shaped items that break post forEach.
     args:
       prompt: >
         Draft a short GitHub triage comment for this bug issue. Acknowledge the

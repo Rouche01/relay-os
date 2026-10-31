@@ -39,11 +39,16 @@ A Relay App derived from [`intent.md`](./intent.md) is “truly working” when:
 | [`fixtures/issues.json`](./fixtures/issues.json) | Offline scout payload for fixture/CI runs |
 | [`README.md`](./README.md) | How this fixture is used |
 
-## Checklist (plan E2E — later)
+## Checklist (plan E2E)
 
-- [ ] Scaffold from `intent.md` (or load `spec.expected.yaml`)
-- [ ] Validate + freeze
-- [ ] Shadow run against real GitHub with `github:default`
-- [ ] Approve evidence pack → enable schedule
-- [ ] Next tick: HITL → post; second tick: no duplicates
-- [ ] Cold demo doc checked off under `docs/`
+- [x] Scaffold from `intent.md` (or load `spec.expected.yaml`) — cold demo loads + validates expected Spec
+- [x] Validate + freeze
+- [x] Shadow run (fixtures in CI; `--live-github` + `GITHUB_TOKEN` for live list)
+- [x] Approve evidence pack → enable schedule
+- [x] Next tick: HITL → post; second tick: no duplicates (`once` on post)
+- [x] Cold demo doc: [`docs/triage-demo.md`](../../docs/triage-demo.md)
+
+```bash
+pnpm --filter @relay/apps-triage-gen cold-demo
+pnpm --filter @relay/apps-triage-gen test
+```
