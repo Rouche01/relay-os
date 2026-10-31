@@ -1,6 +1,8 @@
 import type { SpecV2Body } from "@relay/protocol";
 import {
   assertSchedulesValid,
+  DEFAULT_ENTRYPOINT,
+  isOutcomeScheduleId,
   listEnabledSchedules,
 } from "@relay/protocol";
 import { lowerSpecV2 } from "@relay/spec-lower";
@@ -11,42 +13,87 @@ import {
 } from "@relay/scheduler";
 import type { SpecRunCheckpoint, RunStateStore } from "./checkpoint.js";
 import { SpecHostError } from "./errors.js";
+import {
+  processDueOutcomeFollowUps,
+  type MeasureOutcomeFn,
+  type OutcomeMemoryWriter,
+} from "./outcome-followups.js";
 import { runSpec } from "./run.js";
 import { assertShadowGate } from "./shadow-gate.js";
 import type { RunSpecOptions, RunSpecResult } from "./types.js";
 
 export type SpecScheduleRunFactory = (
-  ctx: Parameters<ScheduleInvoker>[1]
-) => Promise<RunSpecResult> | RunSpecResult;
+  ctx: Parameters<ScheduleInvoker>[1],
+  entrypoint: string
+) => Promise<RunSpecResult | void> | RunSpecResult | void;
 
 /**
  * Build a scheduler invoker that runs a Spec via {@link runSpec}.
- * The lowered schedule entrypoint is always `default` (root stages).
+ * Outcome entrypoints (`outcome_*`) should use {@link createHostScheduleInvoker}.
  */
 export function createSpecScheduleInvoker(
   factory: SpecScheduleRunFactory
 ): ScheduleInvoker {
-  return async (_entrypoint, ctx) => {
-    await factory(ctx);
+  return async (entrypoint, ctx) => {
+    await factory(ctx, entrypoint);
   };
 }
 
 /**
  * Convenience invoker that freezes call-site `runSpec` options and re-runs
- * the Spec body on every schedule fire.
+ * the Spec body on every **default** schedule fire (skips outcome_*).
  */
 export function createRunSpecInvoker(
   options: Omit<RunSpecOptions, "hitl"> & {
     hitl?: RunSpecOptions["hitl"];
   }
 ): ScheduleInvoker {
-  return createSpecScheduleInvoker(async () =>
-    runSpec({
+  return createSpecScheduleInvoker(async (_ctx, entrypoint) => {
+    if (isOutcomeScheduleId(entrypoint)) return;
+    if (entrypoint !== DEFAULT_ENTRYPOINT && entrypoint !== "") return;
+    await runSpec({
       ...options,
       // Scheduled ticks: auto-approve only when caller opted in (fixture).
       hitl: options.hitl ?? { autoApprove: options.mode === "fixture" },
-    })
-  );
+    });
+  });
+}
+
+export type HostScheduleInvokerOptions = Omit<RunSpecOptions, "hitl"> & {
+  hitl?: RunSpecOptions["hitl"];
+  /** Required to process outcome_* follow-ups. */
+  runStateStore: RunStateStore;
+  measureOutcome?: MeasureOutcomeFn;
+  rememberOutcome?: OutcomeMemoryWriter;
+};
+
+/**
+ * Scheduler invoker: default entrypoint → {@link runSpec}; `outcome_*` →
+ * measure due follow-ups on the run store.
+ */
+export function createHostScheduleInvoker(
+  options: HostScheduleInvokerOptions
+): ScheduleInvoker {
+  const { runStateStore, measureOutcome, rememberOutcome, ...runOpts } =
+    options;
+  return createSpecScheduleInvoker(async (_ctx, entrypoint) => {
+    if (isOutcomeScheduleId(entrypoint)) {
+      await processDueOutcomeFollowUps(runStateStore, {
+        entrypointOrRuleId: entrypoint,
+        measure: measureOutcome,
+        remember: rememberOutcome,
+      });
+      return;
+    }
+    if (entrypoint !== DEFAULT_ENTRYPOINT && entrypoint !== "") return;
+    await runSpec({
+      ...runOpts,
+      hitl: {
+        ...(runOpts.hitl ?? { autoApprove: runOpts.mode === "fixture" }),
+        runStateStore: runOpts.hitl?.runStateStore ?? runStateStore,
+      },
+    });
+  });
 }
 
 export type ArmSpecSchedulerOptions = Omit<
@@ -85,7 +132,7 @@ export function schedulerHostFromSpec(
   if (!schedules.length) {
     throw new SpecHostError(
       "no_spec_schedule",
-      "Spec has no schedule/poll trigger to arm (use trigger.schedule or trigger.poll)"
+      "Spec has no schedule/poll trigger or outcome follow-up to arm"
     );
   }
   const { body: _body, name: _name, invoke, ...hostOpts } = options;

@@ -3,16 +3,20 @@ import {
   classifySpecV2Trigger,
   DEFAULT_ENTRYPOINT,
   getCapability,
+  outcomeScheduleId,
   parseCapabilityUse,
+  parseDurationMs,
   parseSpecV2Ref,
   SPEC_V2_ESCALATE_FEEDBACK_PREFIX,
   SPEC_V2_SCHEDULE_ID,
   type AgenticAppManifest,
   type EngineType,
+  type EntrypointDefinition,
   type FeedbackPoint,
   type FeedbackType,
   type ScheduleDefinition,
   type SpecV2Body,
+  type SpecV2OutcomeRule,
   type SpecV2Step,
   type StageDefinition,
 } from "@relay/protocol";
@@ -48,7 +52,9 @@ export function lowerSpecV2(
     slugify(body.goal).slice(0, 48) ||
     "relay-workflow";
 
-  const schedules = schedulesFromTrigger(body);
+  const triggerSchedules = schedulesFromTrigger(body) ?? [];
+  const outcome = schedulesAndEntrypointsFromOutcomeRules(body);
+  const schedules = [...triggerSchedules, ...outcome.schedules];
 
   const manifest: AgenticAppManifest = {
     name,
@@ -67,7 +73,10 @@ export function lowerSpecV2(
     permissions: [],
     stages,
     feedback_patterns: [...feedbackPatterns],
-    ...(schedules?.length ? { schedules } : {}),
+    ...(Object.keys(outcome.entrypoints).length
+      ? { entrypoints: outcome.entrypoints }
+      : {}),
+    ...(schedules.length ? { schedules } : {}),
   };
 
   const relay: RelayStepsBlock = {
@@ -131,6 +140,50 @@ export function schedulesFromTrigger(
       description: `Spec poll every ${classified.everyMs}ms (source: ${classified.sourceStep})`,
     },
   ];
+}
+
+/**
+ * Lower Spec outcome rules → named entrypoints + every_ms schedules.
+ * Hosts invoke these entrypoints to measure deferred metrics (not root stages).
+ */
+export function schedulesAndEntrypointsFromOutcomeRules(
+  body: Pick<SpecV2Body, "rules">
+): {
+  schedules: ScheduleDefinition[];
+  entrypoints: Record<string, EntrypointDefinition>;
+} {
+  const schedules: ScheduleDefinition[] = [];
+  const entrypoints: Record<string, EntrypointDefinition> = {};
+  for (const rule of body.rules ?? []) {
+    if (rule.kind !== "outcome") continue;
+    const outcomeRule = rule as SpecV2OutcomeRule;
+    const id = outcomeScheduleId(outcomeRule.id);
+    let afterMs: number;
+    try {
+      afterMs = parseDurationMs(outcomeRule.metric.after);
+    } catch {
+      // Validator owns fail-closed; skip malformed here so lower stays pure.
+      continue;
+    }
+    entrypoints[id] = {
+      description: `Outcome follow-up: ${outcomeRule.metric.name} after ${outcomeRule.metric.after}`,
+      stages: [
+        {
+          name: id,
+          description: `Measure ${outcomeRule.metric.name} (rule ${outcomeRule.id})`,
+          engine: "none",
+        },
+      ],
+    };
+    schedules.push({
+      id,
+      entrypoint: id,
+      every_ms: afterMs,
+      enabled: true,
+      description: `Outcome ${outcomeRule.id} · ${outcomeRule.metric.name} · ${outcomeRule.metric.after}`,
+    });
+  }
+  return { schedules, entrypoints };
 }
 
 function lowerStep(

@@ -71,4 +71,27 @@ describe("schedulesFromTrigger / lowerSpecV2 trigger", () => {
     const lowered = lowerSpecV2({ ...baseBody(), trigger: { manual: true } });
     assert.equal(lowered.manifest.schedules, undefined);
   });
+
+  it("outcome rules → entrypoints + every_ms schedules", () => {
+    const body: SpecV2Body = {
+      ...baseBody(),
+      trigger: { manual: true },
+      rules: [
+        {
+          id: "maintainer_ack",
+          kind: "outcome",
+          metric: { name: "issue_reaction_or_reply", after: "72h", min: 1 },
+        },
+      ],
+    };
+    const lowered = lowerSpecV2(body, { name: "triage" });
+    assert.equal(lowered.manifest.schedules?.length, 1);
+    assert.equal(lowered.manifest.schedules?.[0]?.id, "outcome_maintainer_ack");
+    assert.equal(
+      lowered.manifest.schedules?.[0]?.every_ms,
+      72 * 3_600_000
+    );
+    assert.ok(lowered.manifest.entrypoints?.outcome_maintainer_ack);
+    assertSchedulesValid(lowered.manifest);
+  });
 });

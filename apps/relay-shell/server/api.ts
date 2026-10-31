@@ -35,6 +35,7 @@ import {
   handleGetRun,
   handleListRuns,
   handleLower,
+  handleProcessOutcomes,
   handleReplayRun,
   handleResumeRun,
   handleRun,
@@ -180,6 +181,7 @@ async function main(): Promise<void> {
             "POST /api/v2/runs/:runId/replay",
             "POST /api/v2/runs/:runId/resume",
             "POST /api/v2/schedule/enable",
+            "POST /api/v2/outcomes/process",
           ],
         });
         return;
@@ -259,6 +261,21 @@ async function main(): Promise<void> {
           body?: never;
           runId?: string;
         });
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/v2/outcomes/process") {
+        const raw = await readBody(req);
+        const body = raw
+          ? (JSON.parse(raw) as {
+              ruleId?: string;
+              specHash?: string;
+              now?: string;
+              value?: number;
+            })
+          : {};
+        const out = await handleProcessOutcomes(body);
         sendJson(res, out.status, out);
         return;
       }

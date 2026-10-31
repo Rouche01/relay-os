@@ -101,6 +101,22 @@ export type EvidenceApproval = {
   note?: string;
 };
 
+export type OutcomeFollowUp = {
+  ruleId: string;
+  metricName: string;
+  after: string;
+  dueAt: string;
+  status: "pending" | "complete" | "failed" | "skipped";
+  min?: number;
+  max?: number;
+  result?: {
+    measuredAt: string;
+    value?: number;
+    passed?: boolean;
+    detail?: unknown;
+  };
+};
+
 export type RunResponse = {
   ok: boolean;
   error?: string;
@@ -114,6 +130,7 @@ export type RunResponse = {
   simulatedWriteCount?: number;
   simulatedWrites?: SimulatedWrite[];
   evidenceApproval?: EvidenceApproval;
+  outcomeFollowUps?: OutcomeFollowUp[];
   note?: string;
   validation?: SpecValidationResult;
   /** Dry-run step outputs keyed by Spec step id. */

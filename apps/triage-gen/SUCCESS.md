@@ -27,7 +27,7 @@ A Relay App derived from [`intent.md`](./intent.md) is “truly working” when:
 - Formal verification of drafts
 - Multi-repo / multi-org routing
 - Browser or computer engines (API path only)
-- Outcome metric automation (tracked as plan `v3`; not required for bar items 1–8)
+- Live GitHub reaction/reply measure callback (host records outcomes via `outcome_*` follow-ups; app supplies `measureOutcome`)
 
 ## Artifacts in this package
 

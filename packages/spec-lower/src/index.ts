@@ -3,6 +3,7 @@ export {
   foreachContextKey,
   lowerSpecV2,
   schedulesFromTrigger,
+  schedulesAndEntrypointsFromOutcomeRules,
 } from "./lower.js";
 export {
   assertLoweredRunnable,

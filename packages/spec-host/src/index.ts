@@ -57,6 +57,7 @@ export { replaySpecRun } from "./replay.js";
 export {
   createSpecScheduleInvoker,
   createRunSpecInvoker,
+  createHostScheduleInvoker,
   schedulerHostFromSpec,
   enableSpecScheduler,
 } from "./schedule.js";
@@ -64,7 +65,22 @@ export type {
   SpecScheduleRunFactory,
   ArmSpecSchedulerOptions,
   EnableSpecSchedulerOptions,
+  HostScheduleInvokerOptions,
 } from "./schedule.js";
+export {
+  buildOutcomeFollowUps,
+  withEnqueuedOutcomeFollowUps,
+  listDueOutcomeFollowUps,
+  recordOutcomeFollowUp,
+  processDueOutcomeFollowUps,
+} from "./outcome-followups.js";
+export type {
+  OutcomeFollowUp,
+  OutcomeFollowUpStatus,
+  OutcomeResult,
+  MeasureOutcomeFn,
+  OutcomeMemoryWriter,
+} from "./outcome-followups.js";
 export {
   MemoryRunStateStore,
   FileRunStateStore,

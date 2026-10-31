@@ -6,6 +6,7 @@ import type {
   SpecV2Body,
 } from "@relay/protocol";
 import type { WorkflowEvidenceEntry } from "@relay/workflow-runtime";
+import type { OutcomeFollowUp } from "./outcome-followups.js";
 import type { SpecHostMode } from "./types.js";
 
 export const SPEC_RUN_CHECKPOINT_VERSION = 1 as const;
@@ -64,6 +65,11 @@ export type SpecRunCheckpoint = {
     approvedBy?: string;
     note?: string;
   };
+  /**
+   * Deferred outcome-rule follow-ups (enqueued on complete).
+   * Measured by outcome_* schedule entrypoints.
+   */
+  outcomeFollowUps?: OutcomeFollowUp[];
 };
 
 /** Lightweight row for Desk run lists. */
@@ -82,6 +88,10 @@ export type SpecRunSummary = {
   goal: string;
   /** True when this complete shadow run has evidenceApproval. */
   evidenceApproved: boolean;
+  /** Pending + complete outcome follow-ups on this run. */
+  outcomeFollowUpCount: number;
+  /** Outcome follow-ups with status complete. */
+  outcomeCompleteCount: number;
 };
 
 export type ListRunsQuery = {
@@ -134,6 +144,9 @@ export function toRunSummary(cp: SpecRunCheckpoint): SpecRunSummary {
     dryRun: cp.dryRun,
     goal: cp.body.goal ?? cp.frozen.goal ?? "",
     evidenceApproved: Boolean(cp.evidenceApproval?.approvedAt),
+    outcomeFollowUpCount: cp.outcomeFollowUps?.length ?? 0,
+    outcomeCompleteCount:
+      cp.outcomeFollowUps?.filter((f) => f.status === "complete").length ?? 0,
   };
 }
 

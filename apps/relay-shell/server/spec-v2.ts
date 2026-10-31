@@ -25,7 +25,9 @@ import {
   createFileRunStateStore,
   createMemoryConnectionStore,
   isSpecHostError,
+  listDueOutcomeFollowUps,
   listRunSummaries,
+  processDueOutcomeFollowUps,
   replaySpecRun,
   resumeSpec,
   runSpec,
@@ -599,6 +601,7 @@ function runResultPayload(
     evidenceCount: result.evidenceCount,
     evidence: result.evidence,
     evidenceApproval: result.checkpoint?.evidenceApproval,
+    outcomeFollowUps: result.checkpoint?.outcomeFollowUps,
     stageResults: result.stageResults,
     stepOutputs: result.stepOutputs,
     checkpoint: result.checkpoint
@@ -611,6 +614,8 @@ function runResultPayload(
           evidenceApproved: Boolean(
             result.checkpoint.evidenceApproval?.approvedAt
           ),
+          outcomeFollowUpCount:
+            result.checkpoint.outcomeFollowUps?.length ?? 0,
         }
       : undefined,
     pendingFeedback: result.pendingFeedback,
@@ -729,7 +734,81 @@ export async function handleGetRun(runId: string) {
     run,
     simulatedWrites,
     evidenceApproval: run.evidenceApproval,
+    outcomeFollowUps: run.outcomeFollowUps,
   };
+}
+
+/**
+ * Process due outcome follow-ups (Desk sweep / force measure).
+ * Default measure returns metric.min when set, else 1 — for offline demo only.
+ */
+export async function handleProcessOutcomes(input: {
+  ruleId?: string;
+  specHash?: string;
+  /** ISO; default now. Pass a future/past stamp in tests. */
+  now?: string;
+  /** Demo numeric value when no live measure is wired. */
+  value?: number;
+}) {
+  try {
+    const store = deskRunStateStore();
+    if (input.ruleId) {
+      const out = await processDueOutcomeFollowUps(store, {
+        entrypointOrRuleId: input.ruleId.startsWith("outcome_")
+          ? input.ruleId
+          : `outcome_${input.ruleId}`,
+        specHash: input.specHash,
+        now: input.now,
+        measure: async (followUp) => ({
+          value:
+            input.value ??
+            followUp.min ??
+            1,
+          detail: { source: "desk-process" },
+        }),
+      });
+      return {
+        ok: true as const,
+        status: 200,
+        processed: out.processed,
+        runIds: out.runIds,
+        note:
+          out.processed > 0
+            ? `Recorded ${out.processed} outcome follow-up(s).`
+            : "No due outcome follow-ups for that rule.",
+      };
+    }
+    const due = await listDueOutcomeFollowUps(store, {
+      specHash: input.specHash,
+      now: input.now,
+      limit: 50,
+    });
+    const runIds: string[] = [];
+    for (const { followUp } of due) {
+      await processDueOutcomeFollowUps(store, {
+        entrypointOrRuleId: followUp.ruleId,
+        specHash: input.specHash,
+        now: input.now,
+        measure: async (fu) => ({
+          value: input.value ?? fu.min ?? 1,
+          detail: { source: "desk-process" },
+        }),
+      });
+      runIds.push(followUp.parentRunId);
+    }
+    return {
+      ok: true as const,
+      status: 200,
+      processed: runIds.length,
+      runIds,
+      note:
+        runIds.length > 0
+          ? `Recorded ${runIds.length} outcome follow-up(s).`
+          : "No due outcome follow-ups.",
+    };
+  } catch (err) {
+    return mapHostError(err);
+  }
 }
 
 export async function handleApproveEvidence(

@@ -19,6 +19,7 @@ import {
   indexServiceDescriptors,
   isSpecV2Ref,
   parseCapabilityUse,
+  parseDurationMs,
   parseSpecV2Ref,
   resolveCapabilitySideEffect,
   type ServiceDescriptor,
@@ -672,6 +673,9 @@ function checkRuleCoverage(ctx: Ctx): void {
         invariant: "inv_rule_coverage",
       });
     }
+    if (rule.kind === "outcome" && raw.metric !== undefined) {
+      checkOutcomeMetricShape(ctx, rule.id, raw.metric);
+    }
 
     // hard/soft must be enforced somewhere; outcome is post-run
     if (rule.kind === "hard" || rule.kind === "soft") {
@@ -684,6 +688,69 @@ function checkRuleCoverage(ctx: Ctx): void {
         });
       }
     }
+  }
+}
+
+function checkOutcomeMetricShape(
+  ctx: Ctx,
+  ruleId: string,
+  metric: unknown
+): void {
+  if (metric === null || typeof metric !== "object" || Array.isArray(metric)) {
+    err(ctx, {
+      code: "outcome_metric_invalid",
+      message: `Outcome rule ${JSON.stringify(ruleId)} metric must be an object`,
+      ruleId,
+      path: `rules/${ruleId}/metric`,
+    });
+    return;
+  }
+  const m = metric as Record<string, unknown>;
+  if (typeof m.name !== "string" || !m.name.trim()) {
+    err(ctx, {
+      code: "outcome_metric_invalid",
+      message: `Outcome rule ${JSON.stringify(ruleId)} metric.name must be a non-empty string`,
+      ruleId,
+      path: `rules/${ruleId}/metric/name`,
+    });
+  }
+  if (typeof m.after !== "string" || !m.after.trim()) {
+    err(ctx, {
+      code: "outcome_metric_invalid",
+      message: `Outcome rule ${JSON.stringify(ruleId)} metric.after must be a non-empty duration string`,
+      ruleId,
+      path: `rules/${ruleId}/metric/after`,
+    });
+    return;
+  }
+  try {
+    parseDurationMs(m.after);
+  } catch (e) {
+    err(ctx, {
+      code: "outcome_metric_after_invalid",
+      message:
+        e instanceof Error
+          ? e.message
+          : `Outcome rule ${JSON.stringify(ruleId)} metric.after is invalid`,
+      ruleId,
+      path: `rules/${ruleId}/metric/after`,
+    });
+  }
+  if (m.min !== undefined && typeof m.min !== "number") {
+    err(ctx, {
+      code: "outcome_metric_invalid",
+      message: `Outcome rule ${JSON.stringify(ruleId)} metric.min must be a number when set`,
+      ruleId,
+      path: `rules/${ruleId}/metric/min`,
+    });
+  }
+  if (m.max !== undefined && typeof m.max !== "number") {
+    err(ctx, {
+      code: "outcome_metric_invalid",
+      message: `Outcome rule ${JSON.stringify(ruleId)} metric.max must be a number when set`,
+      ruleId,
+      path: `rules/${ruleId}/metric/max`,
+    });
   }
 }
 

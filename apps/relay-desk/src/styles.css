@@ -667,6 +667,19 @@ body {
   margin-bottom: 0.35rem;
 }
 
+.spec-outcomes {
+  margin-top: 0.5rem;
+}
+
+.spec-outcome-list {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.spec-outcome-list li {
+  margin: 0.15rem 0;
+}
+
 .spec-diag-scroll {
   max-height: 14rem;
   overflow: auto;

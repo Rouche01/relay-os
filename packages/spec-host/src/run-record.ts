@@ -74,6 +74,7 @@ export function buildRunRecord(input: BuildRunRecordInput): SpecRunCheckpoint {
     hitlDecisions,
     lastFeedback: input.lastFeedback ?? input.previous?.lastFeedback,
     evidenceApproval: input.previous?.evidenceApproval,
+    outcomeFollowUps: input.previous?.outcomeFollowUps,
   };
 }
 

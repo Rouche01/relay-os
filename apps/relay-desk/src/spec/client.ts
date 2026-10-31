@@ -203,3 +203,27 @@ export async function enableSchedule(
   });
   return parseJson<EnableScheduleResponse>(res.body);
 }
+
+export async function processOutcomes(
+  settings: DeskSettings,
+  opts?: {
+    ruleId?: string;
+    specHash?: string;
+    now?: string;
+    value?: number;
+  }
+): Promise<{
+  ok: boolean;
+  error?: string;
+  processed?: number;
+  runIds?: string[];
+  note?: string;
+}> {
+  const res = await specHttp(settings, "POST", "/api/v2/outcomes/process", {
+    ruleId: opts?.ruleId,
+    specHash: opts?.specHash,
+    now: opts?.now,
+    value: opts?.value,
+  });
+  return parseJson(res.body);
+}

@@ -7,6 +7,7 @@ import {
   fetchScaffoldProvider,
   freezeSpec,
   lowerSpec,
+  processOutcomes,
   runSpec,
   scaffoldSpec,
   validateSpec,
@@ -617,6 +618,54 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
       setBusyLabel(undefined);
     }
   }, [settings, yaml, runResult?.runId, flashExport]);
+
+  const onProcessOutcomes = useCallback(async () => {
+    setBusy(true);
+    setBusyLabel("Processing outcomes…");
+    setError(undefined);
+    try {
+      const res = await processOutcomes(settings, {
+        specHash: runResult?.specHash,
+        // Force due for Desk demo when follow-ups are still pending.
+        now: new Date(Date.now() + 365 * 24 * 3_600_000).toISOString(),
+        value: 1,
+      });
+      if (!res.ok) {
+        throw new Error(res.error || "Outcome process failed");
+      }
+      setScheduleNote(res.note ?? `Processed ${res.processed ?? 0}`);
+      flashExport(`outcomes · ${res.processed ?? 0}`);
+      if (runResult?.runId && (res.processed ?? 0) > 0) {
+        setRunResult((prev) =>
+          prev
+            ? {
+                ...prev,
+                note: res.note ?? prev.note,
+                outcomeFollowUps: (prev.outcomeFollowUps ?? []).map((f) =>
+                  f.status === "pending"
+                    ? {
+                        ...f,
+                        status: "complete" as const,
+                        result: {
+                          measuredAt: new Date().toISOString(),
+                          value: 1,
+                          passed: true,
+                          detail: { source: "desk-process" },
+                        },
+                      }
+                    : f
+                ),
+              }
+            : prev
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+      setBusyLabel(undefined);
+    }
+  }, [settings, runResult?.specHash, runResult?.runId, flashExport]);
 
   return (
     <div class="desk-body spec-surface">
@@ -1483,6 +1532,25 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
                 {scheduleNote ? (
                   <p class="tile-meta">{scheduleNote}</p>
                 ) : null}
+                {(runResult.outcomeFollowUps?.length ?? 0) > 0 ? (
+                  <div class="spec-outcomes">
+                    <p class="tile-label">Outcome follow-ups</p>
+                    <ul class="spec-outcome-list">
+                      {runResult.outcomeFollowUps!.map((f) => (
+                        <li key={f.ruleId} class="tile-meta mono">
+                          {f.ruleId} · {f.metricName} · {f.status}
+                          {f.result?.value != null
+                            ? ` · value ${f.result.value}`
+                            : ""}
+                          {f.result?.passed != null
+                            ? ` · ${f.result.passed ? "pass" : "fail"}`
+                            : ""}
+                          {f.status === "pending" ? ` · due ${f.dueAt}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 <div class="cta-row">
                   <button
                     type="button"
@@ -1516,6 +1584,17 @@ export function SpecSurface({ settings, onOpenConsole }: Props) {
                     onClick={() => void onEnableSchedule()}
                   >
                     Enable schedule
+                  </button>
+                  <button
+                    type="button"
+                    class="cta ghost"
+                    disabled={
+                      busy || !(runResult.outcomeFollowUps?.length ?? 0)
+                    }
+                    title="Measure due outcome follow-ups for this Spec hash"
+                    onClick={() => void onProcessOutcomes()}
+                  >
+                    Process outcomes
                   </button>
                 </div>
                 {runResult.stageResults &&

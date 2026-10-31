@@ -11,6 +11,7 @@ import {
 import { SpecHostError } from "./errors.js";
 import { countSimulatedWrites } from "./modes.js";
 import { prepareSpecRun } from "./prepare.js";
+import { withEnqueuedOutcomeFollowUps } from "./outcome-followups.js";
 import { buildRunRecord, statusFromRuntimeState } from "./run-record.js";
 import type { ResumeSpecOptions, RunSpecResult } from "./types.js";
 
@@ -175,6 +176,7 @@ export async function resumeSpec(
       lastFeedback: feedback,
       previous: checkpoint,
     });
+    nextCheckpoint = withEnqueuedOutcomeFollowUps(nextCheckpoint);
     await store.save(nextCheckpoint);
   }
 

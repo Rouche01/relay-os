@@ -14,6 +14,7 @@ import {
   freezeSpecV2,
   isSpecV2Ref,
   markSpecV2Running,
+  parseDurationMs,
   parseSpecV2Ref,
   thawSpecV2,
   toSpecV2Body,
@@ -152,6 +153,12 @@ describe("Spec v2", () => {
         steps: [{ id: "a", use: "llm.generate" }],
       })
     );
+  });
+
+  it("parses outcome metric.after durations", () => {
+    assert.equal(parseDurationMs("72h"), 72 * 3_600_000);
+    assert.equal(parseDurationMs("1d"), 86_400_000);
+    assert.throws(() => parseDurationMs("soon"));
   });
 
   it("parses and collects ${...} refs", () => {

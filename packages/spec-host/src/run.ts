@@ -8,6 +8,7 @@ import { newRunId, type SpecRunCheckpoint } from "./checkpoint.js";
 import { SpecHostError } from "./errors.js";
 import { countSimulatedWrites } from "./modes.js";
 import { prepareSpecRun } from "./prepare.js";
+import { withEnqueuedOutcomeFollowUps } from "./outcome-followups.js";
 import { buildRunRecord, statusFromRuntimeState } from "./run-record.js";
 import type { RunSpecOptions, RunSpecResult } from "./types.js";
 
@@ -125,6 +126,7 @@ export async function runSpec(
           : undefined,
       previous: previous ?? undefined,
     });
+    checkpoint = withEnqueuedOutcomeFollowUps(checkpoint);
     await persistStore.save(checkpoint);
   }
 

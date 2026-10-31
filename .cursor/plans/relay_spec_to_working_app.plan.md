@@ -55,7 +55,7 @@ todos:
     status: completed
   - id: v3-outcome-followups
     content: Outcome rules become scheduled follow-up entrypoints (e.g. metric after 48h) that record results to the run store / VoltMem; surfaced per app
-    status: pending
+    status: completed
   - id: v4-live-llm-parity
     content: "Live-LLM scaffold + draft parity vs CommunityEngager (PARITY.md): mean draft-judge within 0.5 on shared fixtures; record scaffold success rate over N intents"
     status: pending
@@ -211,7 +211,7 @@ Each addition: protocol type + JSON schema + validator rule + lowerer + runtime 
 - [x] Scaffolder returns capability gaps instead of looping on unknown services
 - [x] Spec v2.1 `trigger`, `when`, `once`, `retry`/`onError`, output schema validated, lowered, and enforced at runtime
 - [x] Enabling a schedule requires an approved shadow run
-- [ ] Outcome rules measured by scheduled follow-ups
+- [x] Outcome rules measured by scheduled follow-ups
 - [ ] Relay App bundle exportable/importable; Desk install → shadow → enable → pause works
 - [ ] E2E triage demo: plain text → live scheduled app, HITL before every post, no duplicate comments, no GitHub-specific code outside the descriptor
 
@@ -271,3 +271,4 @@ YAML `todos` above are the source of truth. Append dated notes under **Log**; do
 - **`s5-output-schema` completed** — runtime validates `llm.generate`/`extract` `args.schema` + step `outputs` (JSON Schema subset, fail closed, participates in retry/onError); scaffolder note; docs `OUTPUT.md`.
 - **`v1-generated-evals` completed** — `generateEvalFixtures` in `@relay/spec-evals` (acceptance + counterexamples); scaffolder returns `evals`; Desk freeze/run/evals use generator (removed `deskEvalFixtures`); freeze fails closed on evals gate; docs `EVALS.md`.
 - **`v2-shadow-gate` completed** — `approveShadowEvidence` / `assertShadowGate` / `enableSpecScheduler`; checkpoint `evidenceApproval`; Desk evidence∥simulated writes, shadow mode + approve + schedule enable APIs; `createDraftSpecV2` preserves `trigger` (hash parity); docs `SHADOW.md`.
+- **`v3-outcome-followups` completed** — `parseDurationMs`; lower outcome → `outcome_*` entrypoints/schedules; enqueue on complete; `processDueOutcomeFollowUps` + `createHostScheduleInvoker`; Desk Summary + `POST /api/v2/outcomes/process`; optional VoltMem via `rememberOutcome`; docs `OUTCOMES.md`.

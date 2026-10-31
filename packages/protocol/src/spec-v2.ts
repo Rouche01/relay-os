@@ -315,6 +315,64 @@ export type SpecV2Body = {
 /** Stable schedule id when lowering a Spec schedule/poll trigger. */
 export const SPEC_V2_SCHEDULE_ID = "spec" as const;
 
+/** Prefix for lowered outcome-rule entrypoints / schedules (`outcome_<ruleId>`). */
+export const SPEC_V2_OUTCOME_PREFIX = "outcome_" as const;
+
+/** Entrypoint + schedule id for an outcome rule. */
+export function outcomeScheduleId(ruleId: string): string {
+  return `${SPEC_V2_OUTCOME_PREFIX}${ruleId}`;
+}
+
+export function isOutcomeScheduleId(id: string): boolean {
+  return id.startsWith(SPEC_V2_OUTCOME_PREFIX);
+}
+
+export function ruleIdFromOutcomeScheduleId(id: string): string | undefined {
+  if (!isOutcomeScheduleId(id)) return undefined;
+  const rest = id.slice(SPEC_V2_OUTCOME_PREFIX.length);
+  return rest.length ? rest : undefined;
+}
+
+/**
+ * Parse Spec outcome `metric.after` to milliseconds.
+ * Accepts `48h`, `72H`, `7d`, `30m`, `90s`, `500ms`, or a plain integer string (ms).
+ */
+export function parseDurationMs(after: string): number {
+  const raw = after.trim();
+  if (!raw) {
+    throw new Error("duration must be a non-empty string");
+  }
+  if (/^\d+$/.test(raw)) {
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) {
+      throw new Error(`duration must be > 0 (got ${JSON.stringify(after)})`);
+    }
+    return n;
+  }
+  const m = /^(\d+(?:\.\d+)?)\s*(ms|s|m|h|d)$/i.exec(raw);
+  if (!m) {
+    throw new Error(
+      `Invalid duration ${JSON.stringify(after)} (use 48h, 7d, 30m, 90s, 500ms, or ms integer)`
+    );
+  }
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0) {
+    throw new Error(`duration must be > 0 (got ${JSON.stringify(after)})`);
+  }
+  const unit = m[2]!.toLowerCase();
+  const mult =
+    unit === "ms"
+      ? 1
+      : unit === "s"
+        ? 1_000
+        : unit === "m"
+          ? 60_000
+          : unit === "h"
+            ? 3_600_000
+            : 86_400_000;
+  return Math.round(n * mult);
+}
+
 /**
  * Persisted Spec v2 with freeze lifecycle (same statuses as Spec v1).
  * `procedure` is optional — generated workflows use the generic interpreter.
