@@ -178,6 +178,7 @@ Avoid: purple-indigo gradients, soft cream+terracotta, neon multi-glow stacks, I
 
 ## Related
 
+- Operator guide (plain language): [`GUIDE.md`](./GUIDE.md)  
 - Workspace UX: [`.cursor/plans/desk_spec_workspace_ux.plan.md`](../../.cursor/plans/desk_spec_workspace_ux.plan.md)  
 - My Desk (backlog): [`.cursor/plans/desk_my_desk.plan.md`](../../.cursor/plans/desk_my_desk.plan.md)  
 - Plan: [`.cursor/plans/relay_desk_hitl_shell.plan.md`](../../.cursor/plans/relay_desk_hitl_shell.plan.md)  

@@ -2,6 +2,8 @@
 
 Desktop **HITL operator shell** (Tauri 2 + Preact). Pairs CommunityEngager feedback with an embedded [computer-with-agent](file:///Users/richardemate/Projects/computer-with-agent) noVNC seat (`vnc_url`).
 
+**How it works (plain language):** [`GUIDE.md`](./GUIDE.md) — Seats · Build · Apps, ship checklist, glossary.
+
 Package: `@relay/apps-relay-desk`
 
 ## Prerequisites
