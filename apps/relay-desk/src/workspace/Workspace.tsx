@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from "preact/hooks";
+import { useCallback, useState } from "preact/hooks";
 import type { DeskSettings } from "../gateway/types.ts";
 import type { SpecValidationIssue } from "../spec/types.ts";
 import type { DraftRecord } from "../specs/draft-store.ts";
 import { DesignView } from "./views/DesignView.tsx";
 import { VerifyView } from "./views/VerifyView.tsx";
 import { ShipView } from "./views/ShipView.tsx";
+import { ActivityView } from "./views/ActivityView.tsx";
 import { WorkspaceHeader } from "./header.tsx";
+import { useWorkspaceDraft } from "./useWorkspaceDraft.ts";
 import {
   VIEW_LABEL,
   deriveJourneySteps,
@@ -25,17 +27,15 @@ export type WorkspaceProps = {
   backLabel: string;
   onBack: () => void;
   onViewChange: (view: WorkspaceView) => void;
-  /** Draft entity for Build workspace (Design/Verify/…). */
+  /** Seed draft from parent (optional — store is source of truth). */
   draft?: DraftRecord;
   settings?: DeskSettings;
   onDraftUpdated?: (draft: DraftRecord) => void;
   onReDraft?: () => void;
   /** After Ship enable — typically navigate to Apps. */
   onShipped?: () => void;
-};
-
-const PLACEHOLDER: Record<"activity", string> = {
-  activity: "What did it do? — runs + overlay land in w9.",
+  /** Activity HITL → Seats. */
+  onOpenSeats?: () => void;
 };
 
 export function Workspace({
@@ -48,20 +48,20 @@ export function Workspace({
   backLabel,
   onBack,
   onViewChange,
-  draft,
+  draft: draftProp,
   settings,
   onDraftUpdated,
   onReDraft,
   onShipped,
+  onOpenSeats,
 }: WorkspaceProps) {
-  const [liveDraft, setLiveDraft] = useState(draft);
+  const { draft: liveDraft, adoptDraft } = useWorkspaceDraft(
+    entityId,
+    draftProp
+  );
   const [focusIssue, setFocusIssue] = useState<
     Pick<SpecValidationIssue, "path" | "stepId" | "ruleId"> | undefined
   >();
-
-  useEffect(() => {
-    setLiveDraft(draft);
-  }, [draft]);
 
   const lifecycle =
     liveDraft != null
@@ -72,10 +72,10 @@ export function Workspace({
 
   const handleDraftUpdated = useCallback(
     (nextDraft: DraftRecord) => {
-      setLiveDraft(nextDraft);
+      adoptDraft(nextDraft);
       onDraftUpdated?.(nextDraft);
     },
-    [onDraftUpdated]
+    [onDraftUpdated, adoptDraft]
   );
 
   const jumpToDesign = useCallback(
@@ -158,14 +158,23 @@ export function Workspace({
           onDraftUpdated={handleDraftUpdated}
           onEnabled={() => onShipped?.()}
         />
-      ) : view === "design" || view === "verify" || view === "ship" ? (
+      ) : view === "activity" && liveDraft && settings ? (
+        <ActivityView
+          draft={liveDraft}
+          settings={settings}
+          onDraftUpdated={handleDraftUpdated}
+          onOpenSeats={() => onOpenSeats?.()}
+          onEditSpec={() => onViewChange("design")}
+        />
+      ) : view === "design" ||
+        view === "verify" ||
+        view === "ship" ||
+        view === "activity" ? (
         <section class="ws-view" aria-label={VIEW_LABEL[view]}>
           <p class="tile-meta">Draft not found on this Desk.</p>
         </section>
       ) : (
         <section class="ws-view" aria-label={VIEW_LABEL[view]}>
-          <p class="tile-label">{VIEW_LABEL[view]}</p>
-          <h2 class="tile-title">{PLACEHOLDER[view]}</h2>
           <p class="tile-meta mono">{entityId}</p>
         </section>
       )}

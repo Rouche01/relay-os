@@ -99,8 +99,8 @@ Settings ── configures Gateway + HITL bridge endpoints
 1. **Sidebar** — brand · Seats · Build · Apps · Settings · collapse (expanded or icon-only). My Desk reserved, not rendered.
 2. **Status strip** — global status only (idle / watching / claimed / HITL waiting).
 3. **Seats surface** — title + subtitle → HITL | Seat → Gateway | Watch (current Console layout; do not regress).
-4. **Build surface** — Intent → Spec → Manifest → App (library / new / Design · Verify · Ship). HITL cards stay on Seats.
-5. **Apps surface** — approved fleet (install, enable/pause, runs). Edit spec / thaw returns to Build.
+4. **Build surface** — Intent → Spec → Manifest → App (library / new / Design · Verify · Ship · Activity). HITL cards stay on Seats.
+5. **Apps surface** — approved fleet (install, enable/pause, connect, runs). Edit spec / thaw returns to Build Design.
 6. **Settings** — from sidebar → drawer (Gateway + HITL bridge + Spec API URL).
 
 Operator console first; bento for **hierarchy**, not marketing-grid density. No mini-VNC previews inside tiles.
@@ -154,7 +154,7 @@ Avoid: purple-indigo gradients, soft cream+terracotta, neon multi-glow stacks, I
 - **Seat row** — mode badge (`Watch` | `Claimed`), id, Focus / Close.
 - **HITL card** — kicker, prompt, Approve (signal) / Abort (ghost|danger).
 - **Settings fields** — labeled inputs; Probe + result line.
-- **Spec surface** — Intent box, YAML editor, validator/evals/manifest tiles, Freeze + Run dry.
+- **Build workspace** — library + New spec; Design (schematic / YAML) · Verify · Ship · Activity; draft store on this Desk.
 - **Stream window chrome** — OS title only; no duplicated Desk chrome inside noVNC.
 
 ### Copy (Spec/App workspace)
@@ -163,17 +163,17 @@ Avoid: purple-indigo gradients, soft cream+terracotta, neon multi-glow stacks, I
 - **Name the user's thing, not the UI:** headings and rows use the app and its concrete actions (`Bug triage for acme/widgets`, “The only irreversible step is `post`…”, “No issue can be commented on twice”). Internal nouns (`scaffold`, `lower`, `thaw`, bundle ids, `specHash`) appear only in mono detail lines, never as primary labels — user-facing verbs are *Create draft*, *run checks*, *Edit spec*.
 - **No UI-meta copy:** don't explain the interface (“status travels…”, “one question per view”), don't repeat the same label in subtitle + section title + nav, and don't show outcome/state chips before the action has happened. Every line must either name a state, a consequence, or a next action.
 
-## Flowstep screens (target)
+## Flowstep screens
 
-1. **Idle — console** — sidebar expanded; Seats active (today labeled Console in Flowstep); current bento  
-2. **Idle — console (collapsed)** — icon-only sidebar; same bento  
-3. **Spec — surface** — sidebar; Build active (today labeled Spec in Flowstep); Intent→YAML→evals→run  
-4. **Spec — surface (collapsed)** — icon-only sidebar  
-5. **HITL pending** / **Watching** / **Leased** / **Parked** / **Settings** — Seats modes (unchanged concerns; adopt sidebar)  
+1. **Idle — console** — ✅ implemented as **Seats**; sidebar expanded; current bento  
+2. **Idle — console (collapsed)** — ✅ icon-only sidebar; same bento  
+3. **Spec — surface** — ❌ superseded by (8)+(9); single scrolling Spec surface removed  
+4. **Spec — surface (collapsed)** — ❌ superseded  
+5. **HITL pending** / **Watching** / **Leased** / **Parked** / **Settings** — ✅ Seats modes (sidebar + Settings drawer)  
 6. **Multi-seat (future)** — Seat list with 2+ rows; still separate OS windows  
 7. Top-tab / Idle intent-strip screens — superseded; archive or delete later  
-8. **Specs — library / Specs — new** *(prototype 2026-10-31, creation entry)* — `Build` nav lands on the library of *in-progress* drafts (`+ New spec` primary). New spec: preset chips (CE fashion · Freight wedge · Blank — presets set text only, mirroring `INTENT_PRESETS`) → intent text → Scaffold (provider + `llm|stub|needs edits|needs catalog` outcome chips) → on success creates a draft and opens the workspace at Design. Right rail: what-happens-next journey, catalog reach + `needs` path (import descriptor / add connection instead of repair burn). Paste-YAML is a secondary Build door; Install-bundle lives on Apps. Approved/installed apps are not Build library rows.
-9. **Workspace — Design / Verify / Ship / Activity** *(prototype 2026-10-31, canonical Build UX)* — multi-view successor to the single Spec surface: persistent context header (goal, status, hash, trigger) + journey bar + stage nav (`Design · Verify · Ship · Activity`). Each view answers one question: Design “what will it do?”, Verify “is it correct and safe?”, Ship “can it go live?”, Activity “what did it do?”. Enable lands the app on **Apps**; Apps does not open Design/Verify; *Edit spec* / thaw returns to Build Design and re-gates. HITL deep-links to **Seats**. The earlier single-view `Spec — schematic*` screens were deleted 2026-10-31 — schematic/inspector/run-overlay survive inside Design/Activity. Workspace screens follow this file's design system and the existing Flowstep shell: `grayscaleDark` theme, `w-56` sidebar with serif brand, thin status strip, token classes only (no hard-coded hex).
+8. **Specs — library / Specs — new** — ✅ implemented (`#/build`, `#/build/new`). Build library = in-progress drafts only; New spec presets → Create draft → Design; Paste-YAML secondary; Install-bundle on Apps.  
+9. **Workspace — Design / Verify / Ship / Activity** — ✅ implemented (`#/build/:draftId/:view`). Header + journey; Enable → Apps; Apps *Edit spec* → Build Design; Activity HITL → Seats.  
 10. **My Desk** — *not prototyped.* Reserved rail item; see [`desk_my_desk.plan.md`](../../.cursor/plans/desk_my_desk.plan.md).
 
 ## Related

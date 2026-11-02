@@ -319,7 +319,11 @@ export function applyRunOverlay(
     if (kind.includes("error") || kind.includes("fail")) errorSteps.add(stepId);
   }
 
-  if (run.state === "paused" || run.state === "waiting_human") {
+  if (
+    run.state === "paused" ||
+    run.state === "waiting_human" ||
+    run.state === "waiting_you"
+  ) {
     for (const step of model.steps) {
       if (step.kind === "hitl") waitingSteps.add(step.id);
     }

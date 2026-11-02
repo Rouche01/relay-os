@@ -243,3 +243,62 @@ export async function processOutcomes(
   });
   return parseJson(res.body);
 }
+
+export type SpecRunListItem = {
+  runId: string;
+  specId?: string;
+  specHash?: string;
+  status: string;
+  mode: string;
+  updatedAt: string;
+  createdAt?: string;
+  evidenceCount?: number;
+  evidenceApproved?: boolean;
+  outcomeFollowUpCount?: number;
+  outcomeCompleteCount?: number;
+  goal?: string;
+  stageName?: string;
+};
+
+export async function listRuns(
+  settings: DeskSettings,
+  opts?: { specHash?: string; specId?: string; limit?: number }
+): Promise<{ ok: boolean; runs?: SpecRunListItem[]; error?: string }> {
+  const q = new URLSearchParams();
+  if (opts?.specHash) q.set("specHash", opts.specHash);
+  if (opts?.specId) q.set("specId", opts.specId);
+  if (opts?.limit != null) q.set("limit", String(opts.limit));
+  const suffix = q.toString() ? `?${q.toString()}` : "";
+  const res = await specHttp(settings, "GET", `/api/v2/runs${suffix}`);
+  return parseJson(res.body);
+}
+
+export async function getRun(
+  settings: DeskSettings,
+  runId: string
+): Promise<{
+  ok: boolean;
+  error?: string;
+  run?: {
+    runId?: string;
+    status?: string;
+    mode?: string;
+    specHash?: string;
+    stepOutputs?: Record<string, unknown>;
+    evidence?: RunResponse["evidence"];
+    evidenceApproval?: RunResponse["evidenceApproval"];
+    outcomeFollowUps?: RunResponse["outcomeFollowUps"];
+    state?: string;
+    pendingFeedback?: unknown;
+  };
+  simulatedWrites?: RunResponse["simulatedWrites"];
+  evidenceApproval?: RunResponse["evidenceApproval"];
+  outcomeFollowUps?: RunResponse["outcomeFollowUps"];
+}> {
+  const res = await specHttp(
+    settings,
+    "GET",
+    `/api/v2/runs/${encodeURIComponent(runId)}`
+  );
+  return parseJson(res.body);
+}

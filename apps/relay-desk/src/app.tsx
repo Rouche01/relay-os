@@ -848,13 +848,20 @@ export function App() {
                   navigate({ kind: "build-new" });
                 }}
                 onShipped={() => navigate({ kind: "apps" })}
+                onOpenSeats={() => navigate(railRoute("seats"))}
               />
             );
           })()
         ) : route.kind === "build-new" ? (
           <NewSpec settings={settings} onNavigate={navigate} />
         ) : route.kind === "apps" || route.kind === "apps-detail" ? (
-          <AppsSurface settings={settings} />
+          <AppsSurface
+            settings={settings}
+            selectedAppId={
+              route.kind === "apps-detail" ? route.appId : undefined
+            }
+            onNavigate={navigate}
+          />
         ) : (
         <div class="desk-body">
           <div class="console-head">

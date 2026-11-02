@@ -31,16 +31,16 @@ todos:
     status: completed
   - id: w9-activity-view
     content: "Activity view — runs list (draft: GET /api/v2/runs by specHash; app: GET /api/v2/apps/:id/runs) with plain-language run summaries, run detail as schematic overlay (w5), evidence + outcome follow-ups (processOutcomes), paused-at-HITL row deep-links to Seats (rename onOpenConsole), Pause; Edit spec (thaw) is a door back to Build Design and re-gates"
-    status: pending
+    status: completed
   - id: w10-apps-rework
     content: Apps = approved fleet only — installed list + install-bundle paste (existing client.ts); enable/pause/connect/schedules/runs stay here as management; selecting an app does not open Build Design/Verify; Edit spec / thaw is the only door back to Build; remove lifecycle tiles that duplicate w8/w9 authoring
-    status: pending
+    status: completed
   - id: w11-state-styles
     content: State + styles pass — draft/workspace state survives navigation and reload (persist draft store + selected entity/view; SpecSurface local state lifted into a workspace store/hook), styles.css workspace classes on existing tokens, collapsed-sidebar + narrow-window behaviour, no Seats/HITL regressions (Console behaviour, new name)
-    status: pending
+    status: completed
   - id: w12-verify-docs
     content: Verify + docs — desk typecheck/build, shell tests untouched (installed-apps.test.ts), manual E2E checklist (triage draft → checks → freeze → shadow → approve → enable → appears on Apps → run pauses at HITL → Seats); update DESIGN.md Flowstep list to implemented + plan log in relay_spec_to_working_app (p2/e2e linkage)
-    status: pending
+    status: completed
 isProject: true
 ---
 
@@ -123,15 +123,24 @@ Already available: `/api/v2/scaffold|validate|lower|evals|freeze|run`, `/api/v2/
 
 ## Acceptance criteria
 
-- [ ] Rail reads Seats · Build · Apps (no My Desk item); Settings remains footer
-- [ ] From Desk launch: Build library → New spec (preset or blank) → Create draft → lands in Design with a correct schematic for the triage Spec (trigger, scout, forEach stack, HITL diamond, irreversible post, rules strip) without touching YAML
-- [ ] Build library lists drafts/frozen-not-installed only; approved apps appear on Apps after enable, not as Build rows
-- [ ] Every label follows DESIGN.md § Copy: one stage vocabulary, lifecycle only in header pill, user-facing verbs (*Create draft*, *run checks*, *Edit spec*); internal nouns only in mono details
-- [ ] Verify names the irreversible step and its protections in plain language; a validator failure jumps to the exact YAML line in Design
-- [ ] Ship checklist works for both a draft (freeze → export/install → connect → shadow → approve → enable) and an installed app, with Enable locked until shadow evidence is approved in both paths
-- [ ] Activity shows a paused run, deep-links to Seats for approval, and the run detail is the same schematic with run states; outcome follow-ups visible with due state
-- [ ] Navigation/reload never loses a draft or a completed scaffold; journey state is identical in library row, header pill, and journey bar
-- [ ] Seats/HITL behaviour unchanged (Console under the new name); Desk `typecheck` + `build` pass; shell `installed-apps.test.ts` still passes
+- [x] Rail reads Seats · Build · Apps (no My Desk item); Settings remains footer
+- [x] From Desk launch: Build library → New spec (preset or blank) → Create draft → lands in Design with a correct schematic for the triage Spec (trigger, scout, forEach stack, HITL diamond, irreversible post, rules strip) without touching YAML
+- [x] Build library lists drafts/frozen-not-installed only; approved apps appear on Apps after enable, not as Build rows
+- [x] Every label follows DESIGN.md § Copy: one stage vocabulary, lifecycle only in header pill, user-facing verbs (*Create draft*, *run checks*, *Edit spec*); internal nouns only in mono details
+- [x] Verify names the irreversible step and its protections in plain language; a validator failure jumps to the exact YAML line in Design
+- [x] Ship checklist works for both a draft (freeze → export/install → connect → shadow → approve → enable) and an installed app, with Enable locked until shadow evidence is approved in both paths
+- [x] Activity shows a paused run, deep-links to Seats for approval, and the run detail is the same schematic with run states; outcome follow-ups visible with due state
+- [x] Navigation/reload never loses a draft or a completed scaffold; journey state is identical in library row, header pill, and journey bar
+- [x] Seats/HITL behaviour unchanged (Console under the new name); Desk `typecheck` + `build` pass; shell `installed-apps.test.ts` still passes
+
+### Manual E2E checklist
+
+1. Build → New spec (CE / triage) → Create draft → Design schematic looks right  
+2. Verify → run checks → jump failure to YAML if any → all pass  
+3. Ship → freeze → install → connect → shadow → approve → enable → lands on Apps  
+4. Apps row manage only; Edit spec → Build Design (re-gates)  
+5. Trigger run that pauses at HITL → Activity “Waiting for you” → Open Seats → Approve  
+6. Reload Desk — draft + `#/build/:id/:view` survive
 
 ## Non-goals
 
@@ -164,3 +173,11 @@ Already available: `/api/v2/scaffold|validate|lower|evals|freeze|run`, `/api/v2/
 - 2026-11-02 — **w6 done:** `workspace/views/DesignView.tsx` — intent + Re-draft, Schematic|Manifest|YAML, inspector, Save YAML → validate body, Compile for manifest; `yaml-focus.ts` shared; drafts store `body`/`manifest`.
 - 2026-11-02 — **w7 done:** `VerifyView` — Run checks (validate→evals→lower), plain summary, irreversible risk, structure + rules tables, compile strip; jump to Design YAML; draft status → checks_passed.
 - 2026-11-02 — **w8 done:** `ShipView` + `ship/{draft,app}-adapter` — freeze→install→connect→shadow→approve→enable; evidence/sim writes; Enable locked until approved; enable navigates to Apps; `exportBundle` client.
+- 2026-11-02 — **w9 done:** `ActivityView` + `listRuns`/`getRun`; runs by specHash or app id; schematic overlay + outcomes; HITL → Seats; Pause; Edit spec thaw → Design.
+- 2026-11-02 — **w10 done:** Apps Manage only — removed shadow/approve/refreeze authoring; Edit spec thaws → Build Design; HITL runs → Seats; hash `#/apps/:id`.
+- 2026-11-02 — **w11 done:** `useWorkspaceDraft`; deleted `SpecSurface.tsx`; narrow-window workspace/apps styles; sidebar collapse already persisted.
+- 2026-11-02 — **w12 done:** Desk `tsc`+`vite build` pass; `installed-apps.test.ts` pass; DESIGN.md Flowstep screens marked implemented; manual E2E checklist in plan; linked from `relay_spec_to_working_app`.
+
+
+
+

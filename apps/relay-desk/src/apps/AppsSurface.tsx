@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
 import type { DeskSettings } from "../gateway/types.ts";
 import {
-  approveAppEvidence,
   connectApp,
   disableApp,
   enableApp,
@@ -10,23 +9,57 @@ import {
   listAppRuns,
   listApps,
   pauseApp,
-  refreezeApp,
   resumeApp,
-  shadowRunApp,
   thawApp,
   uninstallApp,
 } from "./client.ts";
 import type { AppRunSummary, InstalledAppSummary } from "./types.ts";
+import {
+  loadDrafts,
+  updateDraft,
+  upsertDraft,
+  type DraftRecord,
+} from "../specs/draft-store.ts";
+import type { DeskRoute } from "../workspace/routes.ts";
 
 type Props = {
   settings: DeskSettings;
+  /** Selected app from hash `#/apps/:id` (optional). */
+  selectedAppId?: string;
+  onNavigate: (route: DeskRoute) => void;
 };
 
-export function AppsSurface({ settings }: Props) {
+function schedulePhrase(state: InstalledAppSummary["scheduleState"]): string {
+  switch (state) {
+    case "enabled":
+      return "Live";
+    case "paused":
+      return "Paused";
+    default:
+      return "Disabled";
+  }
+}
+
+function summarizeRunStatus(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "waiting_you" || s.includes("wait")) return "Waiting for you";
+  if (s === "aborted") return "Aborted";
+  if (s.includes("fail") || s.includes("error")) return "Failed";
+  if (s === "complete") return "Finished";
+  if (s === "running") return "Running";
+  return status;
+}
+
+function draftForApp(appId: string): DraftRecord | undefined {
+  return loadDrafts().find((d) => d.installedAppId === appId);
+}
+
+export function AppsSurface({ settings, selectedAppId, onNavigate }: Props) {
   const [apps, setApps] = useState<InstalledAppSummary[]>([]);
-  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [selectedId, setSelectedId] = useState<string | undefined>(
+    selectedAppId
+  );
   const [installJson, setInstallJson] = useState("");
-  const [editYaml, setEditYaml] = useState("");
   const [connections, setConnections] = useState<
     Record<string, { connected: boolean }>
   >({});
@@ -35,6 +68,18 @@ export function AppsSurface({ settings }: Props) {
   const [note, setNote] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setSelectedId(selectedAppId);
+  }, [selectedAppId]);
+
+  const selectApp = useCallback(
+    (id: string | undefined) => {
+      setSelectedId(id);
+      onNavigate(id ? { kind: "apps-detail", appId: id } : { kind: "apps" });
+    },
+    [onNavigate]
+  );
 
   const refreshList = useCallback(async () => {
     const res = await listApps(settings);
@@ -54,7 +99,6 @@ export function AppsSurface({ settings }: Props) {
       }
       setConnections(res.app?.connections ?? {});
       setRequired(res.app?.bundle.requiredConnections ?? []);
-      if (res.yaml) setEditYaml(res.yaml);
       const runRes = await listAppRuns(settings, id);
       if (runRes.ok) setRuns(runRes.runs ?? []);
     },
@@ -67,11 +111,24 @@ export function AppsSurface({ settings }: Props) {
 
   useEffect(() => {
     if (selectedId) void refreshSelected(selectedId);
+    else {
+      setConnections({});
+      setRequired([]);
+      setRuns([]);
+    }
   }, [selectedId, refreshSelected]);
 
   const selected = apps.find((a) => a.id === selectedId);
 
-  const run = async (label: string, fn: () => Promise<{ ok: boolean; error?: string; note?: string; app?: InstalledAppSummary }>) => {
+  const run = async (
+    label: string,
+    fn: () => Promise<{
+      ok: boolean;
+      error?: string;
+      note?: string;
+      app?: InstalledAppSummary;
+    }>
+  ) => {
     setBusy(true);
     setError(undefined);
     setNote(undefined);
@@ -80,7 +137,7 @@ export function AppsSurface({ settings }: Props) {
       if (!res.ok) throw new Error(res.error || `${label} failed`);
       setNote(res.note ?? label);
       await refreshList();
-      if (res.app) setSelectedId(res.app.id);
+      if (res.app) selectApp(res.app.id);
       else if (selectedId) await refreshSelected(selectedId);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -89,12 +146,65 @@ export function AppsSurface({ settings }: Props) {
     }
   };
 
+  const onEditSpec = async () => {
+    if (!selected) return;
+    setBusy(true);
+    setError(undefined);
+    setNote(undefined);
+    try {
+      const res = await thawApp(settings, selected.id);
+      if (!res.ok) throw new Error(res.error || "Thaw failed");
+      const yaml = res.yaml?.trim();
+      if (!yaml) throw new Error("Thaw returned no YAML");
+
+      const existing = draftForApp(selected.id);
+      const draft = existing
+        ? updateDraft(existing.id, {
+            yaml,
+            goal: selected.goal,
+            status: "draft",
+            specHash: selected.specHash,
+            installedAppId: selected.id,
+            scheduleEnabled: false,
+            evidenceApproved: false,
+            frozenId: undefined,
+          })
+        : upsertDraft({
+            intent: selected.goal,
+            goal: selected.goal,
+            yaml,
+            status: "draft",
+            specHash: selected.specHash,
+            installedAppId: selected.id,
+            scheduleEnabled: false,
+            evidenceApproved: false,
+          });
+      if (!draft) throw new Error("Could not open draft on this Desk");
+      setNote(res.note ?? "Thawed — re-gates on Build");
+      await refreshList();
+      onNavigate({
+        kind: "build-workspace",
+        draftId: draft.id,
+        view: "design",
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const hitlRuns = runs.filter((r) => {
+    const s = r.status.toLowerCase();
+    return s === "waiting_you" || s.includes("wait") || s.includes("hitl");
+  });
+
   return (
     <div class="desk-body apps-surface">
       <div class="console-head">
         <h1 class="console-title">Apps</h1>
         <p class="console-sub">
-          Approved apps · enable, pause, runs · Edit spec returns to Build
+          Approved fleet · connect, enable, pause · Edit spec opens Build
         </p>
       </div>
 
@@ -103,8 +213,7 @@ export function AppsSurface({ settings }: Props) {
           <div class="tile-stack">
             <p class="tile-label">Install</p>
             <p class="tile-meta">
-              Paste a Relay App JSON from Spec export (
-              <span class="mono">POST /api/v2/bundle/export</span>).
+              Paste a Relay App JSON from Ship export.
             </p>
             <textarea
               class="spec-yaml"
@@ -145,7 +254,7 @@ export function AppsSurface({ settings }: Props) {
           <div class="tile-stack">
             <p class="tile-label">Installed</p>
             {!apps.length ? (
-              <p class="tile-meta">No apps yet.</p>
+              <p class="tile-meta">No apps yet — Ship enable lands them here.</p>
             ) : (
               <ul class="apps-list">
                 {apps.map((a) => (
@@ -154,11 +263,11 @@ export function AppsSurface({ settings }: Props) {
                       type="button"
                       class="apps-list-item"
                       data-active={selectedId === a.id ? "1" : "0"}
-                      onClick={() => setSelectedId(a.id)}
+                      onClick={() => selectApp(a.id)}
                     >
                       <span class="tile-meta mono">
-                        {a.scheduleState}
-                        {a.needsShadowGate ? " · gate" : ""}
+                        {schedulePhrase(a.scheduleState)}
+                        {a.needsShadowGate ? " · needs gate" : ""}
                         {a.editing ? " · editing" : ""}
                       </span>
                       <span class="tile-title apps-list-goal">{a.goal}</span>
@@ -176,16 +285,21 @@ export function AppsSurface({ settings }: Props) {
 
         <section class="tile spec-tile-wide">
           <div class="tile-stack">
-            <p class="tile-label">Lifecycle</p>
+            <p class="tile-label">Manage</p>
             {!selected ? (
               <p class="tile-meta">Select an installed app.</p>
             ) : (
               <>
+                <h2 class="tile-title">{selected.goal}</h2>
                 <p class="tile-meta mono">
-                  {selected.scheduleState} · hash {selected.specHash.slice(0, 12)}…
-                  {selected.needsShadowGate ? " · needs shadow gate" : ""}
-                  {selected.editing ? " · thawed" : ""}
+                  {schedulePhrase(selected.scheduleState)} · hash{" "}
+                  {selected.specHash.slice(0, 12)}…
+                  {selected.needsShadowGate
+                    ? " · finish Ship gate before Enable"
+                    : ""}
+                  {selected.editing ? " · thawed on Build" : ""}
                 </p>
+
                 <p class="tile-label">Connections</p>
                 <div class="cta-row">
                   {required.length ? (
@@ -194,7 +308,7 @@ export function AppsSurface({ settings }: Props) {
                         key={ref}
                         type="button"
                         class="cta ghost"
-                        disabled={busy}
+                        disabled={busy || selected.editing}
                         onClick={() =>
                           void run(`Connect ${ref}`, () =>
                             connectApp(
@@ -214,35 +328,23 @@ export function AppsSurface({ settings }: Props) {
                     <p class="tile-meta">No connections required.</p>
                   )}
                 </div>
+
+                <p class="tile-label">Schedule</p>
                 <div class="cta-row">
                   <button
                     type="button"
                     class="cta"
-                    disabled={busy || selected.editing}
-                    onClick={() =>
-                      void run("Shadow run", () =>
-                        shadowRunApp(settings, selected.id)
-                      )
+                    disabled={
+                      busy ||
+                      selected.editing ||
+                      selected.needsShadowGate ||
+                      selected.scheduleState === "enabled"
                     }
-                  >
-                    Shadow run
-                  </button>
-                  <button
-                    type="button"
-                    class="cta ghost"
-                    disabled={busy || selected.editing}
-                    onClick={() =>
-                      void run("Approve evidence", () =>
-                        approveAppEvidence(settings, selected.id)
-                      )
+                    title={
+                      selected.needsShadowGate
+                        ? "Approve shadow evidence on Build Ship first"
+                        : undefined
                     }
-                  >
-                    Approve evidence
-                  </button>
-                  <button
-                    type="button"
-                    class="cta"
-                    disabled={busy || selected.editing || selected.needsShadowGate}
                     onClick={() =>
                       void run("Enable", () => enableApp(settings, selected.id))
                     }
@@ -282,32 +384,15 @@ export function AppsSurface({ settings }: Props) {
                     Disable
                   </button>
                 </div>
+
                 <div class="cta-row">
                   <button
                     type="button"
-                    class="cta ghost"
-                    disabled={busy || selected.editing}
-                    onClick={() =>
-                      void run("Thaw", async () => {
-                        const res = await thawApp(settings, selected.id);
-                        if (res.ok && res.yaml) setEditYaml(res.yaml);
-                        return res;
-                      })
-                    }
+                    class="cta"
+                    disabled={busy}
+                    onClick={() => void onEditSpec()}
                   >
-                    Thaw to edit
-                  </button>
-                  <button
-                    type="button"
-                    class="cta ghost"
-                    disabled={busy || !selected.editing}
-                    onClick={() =>
-                      void run("Refreeze", () =>
-                        refreezeApp(settings, selected.id, editYaml)
-                      )
-                    }
-                  >
-                    Refreeze
+                    Edit spec
                   </button>
                   <button
                     type="button"
@@ -317,7 +402,7 @@ export function AppsSurface({ settings }: Props) {
                       void run("Uninstall", async () => {
                         const res = await uninstallApp(settings, selected.id);
                         if (res.ok) {
-                          setSelectedId(undefined);
+                          selectApp(undefined);
                           setRuns([]);
                         }
                         return res;
@@ -327,25 +412,34 @@ export function AppsSurface({ settings }: Props) {
                     Uninstall
                   </button>
                 </div>
-                {selected.editing ? (
-                  <textarea
-                    class="spec-yaml"
-                    rows={12}
-                    value={editYaml}
-                    disabled={busy}
-                    onInput={(e) =>
-                      setEditYaml((e.target as HTMLTextAreaElement).value)
-                    }
-                  />
+                <p class="tile-meta">
+                  Edit spec thaws the app and opens Build Design — re-run checks
+                  and Ship before Enable.
+                </p>
+
+                <p class="tile-label">Runs</p>
+                {hitlRuns.length ? (
+                  <div class="cta-row">
+                    <p class="tile-meta">
+                      {hitlRuns.length} waiting for you —
+                    </p>
+                    <button
+                      type="button"
+                      class="cta"
+                      onClick={() => onNavigate({ kind: "seats" })}
+                    >
+                      Open Seats
+                    </button>
+                  </div>
                 ) : null}
-                <p class="tile-label">Runs / outcomes</p>
                 {!runs.length ? (
                   <p class="tile-meta">No runs for this Spec hash yet.</p>
                 ) : (
                   <ul class="apps-runs">
                     {runs.map((r) => (
                       <li key={r.runId} class="tile-meta mono">
-                        {r.runId.slice(0, 16)}… · {r.status} · {r.mode}
+                        {summarizeRunStatus(r.status)} · {r.mode} ·{" "}
+                        {r.runId.slice(0, 14)}…
                         {r.evidenceApproved ? " · evidence✓" : ""}
                         {r.outcomeFollowUpCount
                           ? ` · outcomes ${r.outcomeCompleteCount ?? 0}/${r.outcomeFollowUpCount}`
