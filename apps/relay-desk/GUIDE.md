@@ -53,7 +53,7 @@ That’s the whole product loop: **design → prove → ship → operate → att
 
 ### New spec
 
-You describe what you want. Desk scaffolds a **Spec** (structured plan). If something’s missing (a connection or catalog entry), it tells you what to add instead of guessing.
+You describe what you want. Desk scaffolds a **Spec** (structured plan) against the **curated catalog** only (github, reddit, slack, …). If something’s missing, you get a **Needs** list (import descriptor / add connection) instead of invented APIs. Offline (no LLM key) still picks GitHub triage when the intent says GitHub — not a Reddit stub.
 
 ### Workspace stages
 

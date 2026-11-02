@@ -92,23 +92,17 @@ export function buildDraftUserPrompt(intent: string): string {
     "Write a Spec v2 JSON body for this intent.",
     "Prefer a short linear pipeline with HITL before any write.",
     "Populate args fully — empty {} fails validation.",
+    "Use ONLY services/operations listed under ## Services. Prefer github triage shape when the intent is GitHub issues.",
     "",
     "## Shape example (adapt; do not copy blindly)",
     JSON.stringify(
       {
-        goal: "…",
-        connections: ["reddit:default"],
-        services: ["reddit-public", "reddit-oauth"],
-        budget: { maxJobs: 2, dryRun: true },
+        goal: "Triage new bug issues in acme/widgets",
+        connections: ["github:default"],
+        services: ["github"],
+        trigger: { schedule: { cron: "0 9 * * 1-5" } },
+        budget: { maxJobs: 10, dryRun: true },
         rules: [
-          {
-            id: "allowlist_only",
-            kind: "hard",
-            check: {
-              in: "${item.subreddit}",
-              list: ["malefashionadvice"],
-            },
-          },
           {
             id: "no_promo_links",
             kind: "hard",
@@ -123,27 +117,59 @@ export function buildDraftUserPrompt(intent: string): string {
             id: "scout",
             use: "api.request",
             args: {
-              service: "reddit-public",
-              operation: "listNew",
-              params: { subreddit: "malefashionadvice", limit: 10 },
+              service: "github",
+              operation: "issuesListForRepo",
+              connection: "github:default",
+              params: {
+                owner: "acme",
+                repo: "widgets",
+                labels: "bug",
+                state: "open",
+              },
             },
           },
           {
             id: "draft",
             use: "llm.generate",
-            forEach: "${steps.scout.output.body.posts}",
+            forEach: "${steps.scout.output.body}",
             args: {
-              prompt: "Draft a helpful reply. No links.",
+              prompt: "Draft a short triage comment. No URLs. JSON text + issue_number.",
               input: "${item}",
+              schema: {
+                type: "object",
+                properties: {
+                  text: { type: "string" },
+                  issue_number: { type: "number" },
+                },
+                required: ["text", "issue_number"],
+              },
             },
-            enforce: ["allowlist_only", "no_promo_links"],
+            enforce: ["no_promo_links"],
           },
           {
             id: "approve",
             use: "human.approve",
             args: {
               show: "${steps.draft.output}",
-              prompt: "Approve before post?",
+              prompt: "Approve triage comments before post?",
+            },
+          },
+          {
+            id: "post",
+            use: "api.request",
+            forEach: "${steps.draft.output}",
+            once: "${item.issue_number}",
+            args: {
+              service: "github",
+              operation: "issuesCreateComment",
+              connection: "github:default",
+              method: "POST",
+              params: {
+                owner: "acme",
+                repo: "widgets",
+                issue_number: "${item.issue_number}",
+                body: "${item.text}",
+              },
             },
           },
         ],

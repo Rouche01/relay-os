@@ -299,6 +299,16 @@ export function NewSpec({ settings, onNavigate }: NewSpecProps) {
 
         <aside class="tile new-spec-rail" aria-label="What happens next">
           <div class="tile-stack">
+            <p class="tile-label">Catalog on this Desk</p>
+            <p class="tile-meta mono">
+              github · reddit-public · reddit-oauth · slack · notion · rss ·
+              http-fetch
+            </p>
+            <p class="tile-meta">
+              ASAP path: <strong>GitHub triage</strong>. Intent outside this
+              list surfaces as Needs (import descriptor) — we do not invent
+              services.
+            </p>
             <p class="tile-label">After create</p>
             <ol class="new-spec-next">
               <li>

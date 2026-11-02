@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: cl2-scaffold-constrain
     content: Constrain Desk scaffold to catalog ops + known connections; surface needs[] clearly when intent asks for missing services
-    status: pending
+    status: completed
   - id: cl3-run-once-hitl
     content: Fix Run once → fanout HITL pauses parent and lands on Seats (no approve→unknown continue)
     status: pending
@@ -65,7 +65,14 @@ Sibling of long-term [`relay_open_services_platform.plan.md`](./relay_open_servi
 | **Not ASAP success** | Reddit write / CE fashion comment posting (preset kept as **CE fashion (demo)** only) |
 | **Not ASAP** | Freight wedge preset labeled **(later)** — long-term platform |
 
-Next: `cl2` scaffold constrain, then `cl3` fanout HITL → Seats.
+### `cl2` done (2026-11-02)
+
+- Offline `stubSpecFromIntent` is intent-aware: **GitHub triage** | CE reddit demo | generic HITL-only (no invented API).
+- LLM scaffold prompt example is GitHub triage; still fail-closed on unknown ops.
+- Preflight `needs[]` for missing catalog services; New Spec rail lists curated services.
+- Tests: `server/stub-spec.test.ts`.
+
+Next: `cl3` fanout HITL → Seats.
 
 ## Verify
 

@@ -48,10 +48,12 @@ import {
 } from "@relay/services";
 import { lowerSpecV2 } from "@relay/spec-lower";
 import {
+  errorsIncludeCapabilityGap,
+  formatNeedsMessage,
   needsFromIntent,
+  needsFromValidationIssues,
   scaffoldSpec,
   specBodyToYaml,
-  formatNeedsMessage,
 } from "@relay/spec-scaffold";
 import {
   normalizeSpecV2HardChecks,
@@ -188,17 +190,125 @@ export function deskKnownConnections(): string[] {
   return curatedKnownConnections();
 }
 
-/** CE-lite template used when no LLM key (offline Desk demo). */
-export function stubSpecFromIntent(intent: string): SpecV2Body {
-  const goal =
+/** Which offline stub to emit when LLM scaffold is unavailable. */
+export function stubKindFromIntent(
+  intent: string
+): "github" | "reddit" | "generic" {
+  const t = intent.trim();
+  if (/\bgithub\b/i.test(t) || /\bacme\/widgets\b/i.test(t)) return "github";
+  if (/\breddit\b/i.test(t) || /\bsubreddit\b/i.test(t)) return "reddit";
+  return "generic";
+}
+
+function goalFromIntent(intent: string, fallback: string): string {
+  return (
     intent
       .split("\n")
       .map((l) => l.replace(/^#+\s*/, "").trim())
-      .find((l) => l.length > 0) ||
-    "Help people in allowlisted fashion subreddits with genuinely useful replies";
+      .find((l) => l.length > 0) || fallback
+  );
+}
 
+/** GitHub triage stub — ASAP closed-loop dogfood (matches triage-gen shape). */
+function stubGithubTriage(intent: string): SpecV2Body {
   return {
-    goal,
+    goal: goalFromIntent(
+      intent,
+      "Triage new bug issues in acme/widgets with a helpful first comment"
+    ),
+    connections: ["github:default"],
+    services: ["github"],
+    trigger: { schedule: { cron: "0 9 * * 1-5" } },
+    budget: { maxJobs: 10, dryRun: true },
+    rules: [
+      {
+        id: "no_promo_links",
+        kind: "hard",
+        check: { notMatches: "${draft.text}", pattern: "https?://" },
+      },
+      {
+        id: "triage_quality",
+        kind: "soft",
+        judge: {
+          rubric: ["acknowledgesBug", "asksForReproOrLogs", "suggestsNextStep"],
+          minMean: 3.5,
+        },
+      },
+    ],
+    steps: [
+      {
+        id: "scout",
+        use: "api.request",
+        args: {
+          service: "github",
+          operation: "issuesListForRepo",
+          connection: "github:default",
+          params: {
+            owner: "acme",
+            repo: "widgets",
+            labels: "bug",
+            state: "open",
+            per_page: 20,
+          },
+        },
+        outputs: ["body"],
+      },
+      {
+        id: "draft",
+        use: "llm.generate",
+        forEach: "${steps.scout.output.body}",
+        args: {
+          prompt:
+            "Draft a short GitHub triage comment for this bug issue. Acknowledge the report, ask for repro or logs if missing, suggest one next step. No URLs. Return JSON with text and issue_number.",
+          input: "${item}",
+          schema: {
+            type: "object",
+            properties: {
+              text: { type: "string" },
+              issue_number: { type: "number" },
+            },
+            required: ["text", "issue_number"],
+          },
+        },
+        enforce: ["no_promo_links", "triage_quality"],
+      },
+      {
+        id: "approve",
+        use: "human.approve",
+        args: {
+          show: "${steps.draft.output}",
+          prompt: "Approve triage comments before post?",
+        },
+      },
+      {
+        id: "post",
+        use: "api.request",
+        forEach: "${steps.draft.output}",
+        once: "${item.issue_number}",
+        args: {
+          service: "github",
+          operation: "issuesCreateComment",
+          connection: "github:default",
+          method: "POST",
+          params: {
+            owner: "acme",
+            repo: "widgets",
+            issue_number: "${item.issue_number}",
+            body: "${item.text}",
+          },
+        },
+      },
+    ],
+  };
+}
+
+/** CE fashion stub — demo only, not ASAP success bar. */
+function stubRedditFashion(intent: string): SpecV2Body {
+  return {
+    goal: goalFromIntent(
+      intent,
+      "Help people in allowlisted fashion subreddits with genuinely useful replies"
+    ),
     connections: ["reddit:default"],
     services: ["reddit-public", "reddit-oauth"],
     budget: { maxJobs: 2, dryRun: true },
@@ -223,11 +333,6 @@ export function stubSpecFromIntent(intent: string): SpecV2Body {
           rubric: ["threadFit", "soundsHuman", "specificity"],
           minMean: 3.5,
         },
-      },
-      {
-        id: "earns_engagement",
-        kind: "outcome",
-        metric: { name: "comment_score", after: "48h", min: 2 },
       },
     ],
     steps: [
@@ -284,13 +389,69 @@ export function stubSpecFromIntent(intent: string): SpecV2Body {
           },
         },
       },
+    ],
+  };
+}
+
+/**
+ * Catalog-only stub when intent does not match a known template.
+ * No invented api.request — operator must name a curated service or import one.
+ */
+function stubGenericHitl(intent: string): SpecV2Body {
+  return {
+    goal: goalFromIntent(intent, "Draft a plan and ask before acting"),
+    connections: [],
+    services: [],
+    trigger: { manual: true },
+    budget: { dryRun: true, maxJobs: 1 },
+    rules: [
       {
-        id: "learn",
-        use: "data.append",
-        args: { store: "outcomes", value: "${steps.post.output}" },
+        id: "no_promo_links",
+        kind: "hard",
+        check: { notMatches: "${draft.text}", pattern: "https?://" },
+      },
+    ],
+    steps: [
+      {
+        id: "draft",
+        use: "llm.generate",
+        args: {
+          prompt:
+            "Summarize the operator intent into a short action plan. No URLs. Return JSON with text.",
+          input: intent.slice(0, 2000),
+          schema: {
+            type: "object",
+            properties: { text: { type: "string" } },
+            required: ["text"],
+          },
+        },
+        enforce: ["no_promo_links"],
+      },
+      {
+        id: "approve",
+        use: "human.approve",
+        args: {
+          show: "${steps.draft.output}",
+          prompt: "Approve this plan? (Add a curated service before API writes.)",
+        },
       },
     ],
   };
+}
+
+/**
+ * Offline / fallback Spec from intent — only curated catalog shapes.
+ * ASAP default: GitHub triage when intent mentions GitHub.
+ */
+export function stubSpecFromIntent(intent: string): SpecV2Body {
+  switch (stubKindFromIntent(intent)) {
+    case "github":
+      return stubGithubTriage(intent);
+    case "reddit":
+      return stubRedditFashion(intent);
+    default:
+      return stubGenericHitl(intent);
+  }
 }
 
 function resolveBody(input: {
@@ -385,7 +546,7 @@ export async function handleScaffold(input: {
       needs: preflight,
       attempts: 0,
       note:
-        "Add the missing service descriptor or connection, then retry Scaffold. See packages/openapi-import and @relay/services.",
+        "This Desk only scaffolds against the curated catalog (github, reddit, slack, …). Import a descriptor or pick a catalog preset, then retry.",
     };
   }
 
@@ -397,6 +558,22 @@ export async function handleScaffold(input: {
       services,
       knownConnections: known,
     });
+    if (!validation.ok && errorsIncludeCapabilityGap(validation.errors)) {
+      const needs = needsFromValidationIssues(validation.errors);
+      return {
+        ok: false as const,
+        status: 422,
+        mode: "needs" as const,
+        error: formatNeedsMessage(needs),
+        needs,
+        yaml: specBodyToYaml(body),
+        body,
+        validation,
+        attempts: 1,
+        note:
+          "Stub Spec hit a catalog gap — use GitHub triage / CE fashion presets, or import a descriptor.",
+      };
+    }
     const evals = generateEvalFixtures(body);
     return {
       ok: true as const,
@@ -407,6 +584,12 @@ export async function handleScaffold(input: {
       validation,
       attempts: 1,
       evals,
+      note:
+        stubKindFromIntent(intent) === "github"
+          ? "Offline stub: GitHub triage (ASAP dogfood). Connect github:default before live Run once."
+          : stubKindFromIntent(intent) === "reddit"
+            ? "Offline stub: CE fashion (demo). ASAP success bar is GitHub triage."
+            : "Offline stub: HITL-only plan (no API). Name a curated service in the intent for api.request.",
     };
   }
 
