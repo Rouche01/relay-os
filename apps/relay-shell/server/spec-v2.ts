@@ -77,8 +77,10 @@ export function deskRunStateStore(): RunStateStore {
   return createFileRunStateStore(join(root, "spec-runs"));
 }
 
-function deskFixtureApi() {
-  const services = loadV2Services();
+/** Offline CE / triage-shaped fixtures for Desk fixture + app shadow runs. */
+export function buildDeskApiFixtures(
+  services: readonly { id: string; operations: readonly { id: string }[] }[]
+) {
   const fixturePosts = [
     {
       id: "t3_desk_1",
@@ -93,20 +95,45 @@ function deskFixtureApi() {
       opText: "Looking for durable options, not brands.",
     },
   ];
-  const publicOps =
-    services.find((s) => s.id === "reddit-public")?.operations.map((o) => o.id) ??
-    ["listNew"];
-  const apiFixtures = publicOps.map((operation) => ({
-    service: "reddit-public",
-    operation,
-    body: { posts: fixturePosts },
-  }));
+  const fixtureIssues = [
+    {
+      number: 1,
+      title: "Desk shadow fixture issue",
+      labels: [{ name: "bug" }],
+      body: "Repro steps…",
+    },
+  ];
+  return services.flatMap((s) =>
+    s.operations.map((op) => {
+      const id = s.id.toLowerCase();
+      const opId = op.id.toLowerCase();
+      let body: unknown;
+      if (id.includes("reddit") && !opId.includes("comment")) {
+        // CE Spec: forEach "${steps.scout.output.body.posts}"
+        body = { posts: fixturePosts };
+      } else if (
+        id.includes("github") ||
+        opId.includes("issues") ||
+        opId.includes("list")
+      ) {
+        // Triage Spec: forEach "${steps.scout.output.body}" (array body)
+        body = fixtureIssues;
+      } else {
+        body = { ok: true, deskFixture: true };
+      }
+      return { service: s.id, operation: op.id, body };
+    })
+  );
+}
+
+function deskFixtureApi() {
+  const services = loadV2Services();
   return {
     services,
     connectionStore: createMemoryConnectionStore({
       "reddit:default": { type: "bearer", token: "desk-dry-run" },
     }),
-    apiFixtures,
+    apiFixtures: buildDeskApiFixtures(services),
   };
 }
 
@@ -300,7 +327,8 @@ export function runtimeStubLlm(): LlmClient {
         (req.schema as { properties?: Record<string, unknown> }).properties
           ? ((req.schema as { properties: Record<string, unknown> }).properties)
           : {};
-      if ("threadFit" in props || "soundsHuman" in props) {
+      // Soft-rule judges always ask for rationale + rubric dims (see llm-engine judgeSchema).
+      if ("rationale" in props) {
         const scores: Record<string, unknown> = { rationale: "stub" };
         for (const k of Object.keys(props)) {
           if (k !== "rationale") scores[k] = 4;

@@ -20,6 +20,24 @@ export default defineConfig({
     watch: {
       ignored: ["**/src-tauri/**"],
     },
+    // Browser dogfood (Vite tab) — gateway/HITL/Spec have no CORS; proxy locally.
+    proxy: {
+      "/__desk/gateway": {
+        target: "http://127.0.0.1:9000",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/__desk\/gateway/, ""),
+      },
+      "/__desk/hitl": {
+        target: "http://127.0.0.1:9100",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/__desk\/hitl/, ""),
+      },
+      "/__desk/spec": {
+        target: "http://127.0.0.1:8790",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/__desk\/spec/, ""),
+      },
+    },
   },
   envPrefix: ["VITE_", "TAURI_"],
   build: {

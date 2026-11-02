@@ -42,26 +42,12 @@ import {
   type InstalledRelayApp,
 } from "./installed-apps.js";
 import {
+  buildDeskApiFixtures,
   deskKnownConnections,
   deskRunStateStore,
   loadV2Services,
   runtimeStubLlm,
 } from "./spec-v2.js";
-
-/** Offline fixtures for Desk app shadow (network stays blocked). */
-function deskAppApiFixtures(services: readonly ServiceDescriptor[]) {
-  return services.flatMap((s) =>
-    s.operations.map((op) => ({
-      service: s.id,
-      operation: op.id,
-      body: {
-        ok: true,
-        deskAppFixture: true,
-        items: [{ id: "desk_app_1", title: "Desk app shadow fixture" }],
-      },
-    }))
-  );
-}
 
 function mapError(err: unknown) {
   if (isSpecHostError(err) || isRelayAppBundleError(err)) {
@@ -243,7 +229,7 @@ export async function handleAppShadowRun(
       dryRun: true,
       // Desk stays offline; fixtures cover api.* while shadow records simulated writes.
       blockNetwork: true,
-      apiFixtures: deskAppApiFixtures(services),
+      apiFixtures: buildDeskApiFixtures(services),
       hitl: {
         autoApprove,
         pauseAndReturn: !autoApprove,

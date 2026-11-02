@@ -26,6 +26,24 @@ async function isTauri(): Promise<boolean> {
   }
 }
 
+/** Vite-only: map local gateway URL → same-origin proxy (no CORS). */
+function browserFetchBase(configured: string): string {
+  const base = normalizeBase(configured);
+  try {
+    const u = new URL(base);
+    const local =
+      u.hostname === "127.0.0.1" ||
+      u.hostname === "localhost" ||
+      u.hostname === "::1";
+    if (local && (u.port === "9000" || u.port === "")) {
+      return "/__desk/gateway";
+    }
+  } catch {
+    /* use configured */
+  }
+  return base;
+}
+
 /**
  * HTTP via Rust (no CORS) when running under Tauri; fetch() for Vite-only dogfood.
  */
@@ -35,12 +53,12 @@ async function gatewayHttp(
   path: string,
   body?: unknown
 ): Promise<GatewayHttpResult> {
-  const base = normalizeBase(settings.gatewayUrl);
+  const configured = normalizeBase(settings.gatewayUrl);
   const urlPath = path.startsWith("/") ? path : `/${path}`;
 
   if (await isTauri()) {
     return invoke<GatewayHttpResult>("gateway_http", {
-      baseUrl: base,
+      baseUrl: configured,
       token: settings.apiToken,
       method,
       path: urlPath,
@@ -49,6 +67,7 @@ async function gatewayHttp(
     });
   }
 
+  const base = browserFetchBase(configured);
   const headers: Record<string, string> = {
     Authorization: `Bearer ${settings.apiToken}`,
   };
@@ -57,11 +76,19 @@ async function gatewayHttp(
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
-  const res = await fetch(`${base}${urlPath}`, {
-    method,
-    headers,
-    body: payload,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${base}${urlPath}`, {
+      method,
+      headers,
+      body: payload,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `${msg} — computer gateway blocked in the browser (CORS). Use the Relay Desk Tauri window, or keep URL at http://127.0.0.1:9000 with Vite proxy.`
+    );
+  }
   return { status: res.status, body: await res.text() };
 }
 

@@ -535,14 +535,29 @@ export class AgentRuntime extends EventEmitter {
           sessionId: this.context.sessionId,
           [itemKey]: item,
         },
-        childController
-        // no fanoutHost — children cannot nest further in v1
+        childController,
+        undefined, // no nested fanout in v1
+        { pauseOnHitl: this.pauseOnHitl }
       );
       ref.runtime = child;
 
       child.on(AgentRuntimeEvent.ERROR, (err: unknown) => {
         runtimeError = err instanceof Error ? err.message : String(err);
       });
+
+      // Parent auto-approve / Desk shadow listeners are not inherited. When the
+      // parent is not pausing for HITL, children must proceed the same way or
+      // fanout human.* stages hang forever (WAITING_USER with no provider).
+      if (!this.pauseOnHitl) {
+        child.on(AgentRuntimeEvent.FEEDBACK_REQUESTED, (req) => {
+          void child!.provideFeedback({
+            requestId: req.id,
+            agentId: req.agentId,
+            action: "proceed",
+            value: true,
+          });
+        });
+      }
 
       await this.fanoutHost!.onChildStart?.(child, item, index);
       await child.start();

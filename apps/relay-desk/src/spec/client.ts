@@ -51,6 +51,22 @@ async function specHttp(
     });
   }
 
+  // Vite dogfood: same-origin proxy when Spec API is local (shell has no CORS).
+  let fetchBase = base;
+  try {
+    const u = new URL(base);
+    if (
+      (u.hostname === "127.0.0.1" ||
+        u.hostname === "localhost" ||
+        u.hostname === "::1") &&
+      (u.port === "8790" || u.port === "")
+    ) {
+      fetchBase = "/__desk/spec";
+    }
+  } catch {
+    /* keep base */
+  }
+
   const headers: Record<string, string> = {};
   let payload: string | undefined;
   if (body !== undefined) {
@@ -60,7 +76,7 @@ async function specHttp(
   const signal =
     timeoutMs && timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined;
   try {
-    const res = await fetch(`${base}${urlPath}`, {
+    const res = await fetch(`${fetchBase}${urlPath}`, {
       method,
       headers,
       body: payload,
