@@ -10,6 +10,8 @@ import {
   handleAppApproveEvidence,
   handleAppEnable,
   handleAppPause,
+  handleAppRunOnce,
+  handleAppRuns,
   handleAppShadowRun,
   handleAppThaw,
   handleConnectApp,
@@ -243,5 +245,59 @@ describe("apps lifecycle", () => {
     const shadow = await handleAppShadowRun(id, { autoApprove: true });
     assert.equal(shadow.ok, true);
     assert.equal(shadow.state, "COMPLETE");
+  });
+
+  it("Run once blocked before shadow gate; works after approve; thaw blocks", async () => {
+    dir = mkdtempSync(join(tmpdir(), "relay-apps-run-once-"));
+    setInstalledAppsDirForTests(dir);
+    setDeskRunStateStoreForTests(createMemoryRunStateStore());
+
+    const bundle = buildRelayAppBundle({
+      body,
+      services: [],
+    });
+    const installed = await handleInstallApp({
+      json: JSON.stringify(bundle),
+    });
+    assert.equal(installed.ok, true);
+    const id = installed.ok ? installed.app!.id : "";
+
+    const blocked = await handleAppRunOnce(id);
+    assert.equal(blocked.ok, false);
+    assert.equal(
+      "code" in blocked ? blocked.code : undefined,
+      "shadow_gate_unapproved"
+    );
+
+    const shadow = await handleAppShadowRun(id, { autoApprove: true });
+    assert.equal(shadow.ok, true);
+    const approve = await handleAppApproveEvidence(id, {
+      runId: shadow.runId,
+    });
+    assert.equal(approve.ok, true);
+
+    const runOnce = await handleAppRunOnce(id);
+    assert.equal(runOnce.ok, true);
+    assert.ok(runOnce.runId);
+    assert.ok(
+      runOnce.state === "WAITING_USER" || runOnce.state === "COMPLETE",
+      `unexpected state ${runOnce.state}`
+    );
+    const listed = await handleAppRuns(id);
+    assert.equal(listed.ok, true);
+    assert.ok(
+      listed.ok &&
+        listed.runs?.some((r) => r.runId === runOnce.runId),
+      "Run once must appear under app runs (same specHash)"
+    );
+
+    const thaw = await handleAppThaw(id);
+    assert.equal(thaw.ok, true);
+    const blockedThaw = await handleAppRunOnce(id);
+    assert.equal(blockedThaw.ok, false);
+    assert.equal(
+      "code" in blockedThaw ? blockedThaw.code : undefined,
+      "app_editing"
+    );
   });
 });

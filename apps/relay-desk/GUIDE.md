@@ -35,9 +35,9 @@ Settings (footer of the sidebar) stores connection URLs and tokens. Those stay o
 2. Pick a preset or write your intent in plain language → **Create draft**.  
 3. You land in **Design**: see the flow as a diagram; tweak the plan in YAML if you need to.  
 4. Go to **Verify** → **Run checks**. Fix anything that fails (jump back to the exact YAML line).  
-5. Go to **Ship**. Walk the checklist: freeze → install → connect secrets → **shadow run** (rehearsal) → approve evidence → **Enable**.  
-6. The app appears under **Apps**. Schedules can fire.  
-7. When a run pauses for you, **Activity** (or Apps) points you to **Seats** → Approve or Abort.
+5. Go to **Ship**. Walk the checklist: freeze → install → connect secrets → **shadow run** (rehearsal) → approve evidence → **Enable** (schedule) and/or leave schedule off and use **Run once** later.  
+6. The app appears under **Apps**. You can **Run once** on demand, and/or **Enable** so schedules fire.  
+7. When a run pauses for you (including Run once HITL), **Activity** or Apps → **Open Seats** → Approve or Abort.
 
 That’s the whole product loop: **design → prove → ship → operate → attend**.
 
@@ -77,9 +77,9 @@ Ship is a checklist, not a single button:
 3. **Connect** — mark required secrets/connections as ready.  
 4. **Shadow run** — rehearse with **simulated writes** (no real posts/comments).  
 5. **Approve evidence** — you looked at what the rehearsal would have done.  
-6. **Enable** — turn the schedule on. Locked until evidence is approved.
+6. **Enable** — turn the schedule on. Locked until evidence is approved. Optional if you only want on-demand runs.
 
-After Enable, manage day-to-day life on **Apps**. To change the plan later: **Edit spec** (thaw) → back to Build Design → re-check and re-ship.
+After the Ship gate clears, manage day-to-day life on **Apps**. To change the plan later: **Edit spec** (thaw) → back to Build Design → re-check and re-ship.
 
 ---
 
@@ -87,11 +87,14 @@ After Enable, manage day-to-day life on **Apps**. To change the plan later: **Ed
 
 **Apps** is only for installed, approved plans:
 
-- Connect / enable / pause / disable  
+- **Run once** — on-demand live run (tap again to **Confirm run**). Needs connections + approved shadow evidence; does **not** need the schedule Enabled. HITL pauses go to **Seats**.  
+- **Enable / Pause / Resume / Disable** — schedule only (cron/poll ticks). Separate from Run once.  
 - See recent runs  
-- **Edit spec** opens Build again (re-gates: you must shadow and approve again before Enable)
+- **Edit spec** opens Build again (re-gates: you must shadow and approve again before Run once or Enable)
 
-Creating and editing the *shape* of the plan stays in Build. Apps is operations.
+**Run once vs Enable:** Run once = “do it now.” Enable = “keep doing it on the trigger.” Manual Specs with no schedule still use Run once after the Ship gate.
+
+Creating and editing the *shape* of the plan stays in Build. Apps is operations. Build YAML **live** run stays forbidden — live happens from Apps after the gate.
 
 ---
 
@@ -146,6 +149,7 @@ Use the **Relay Desk app window** (Tauri) for gateway Probe — a plain browser 
 | **Evidence** | Record of what the shadow run would have done |
 | **Simulated writes** | Fake side effects shown for review (not sent to the real API) |
 | **Enable** | Turn the schedule on so the app can run by itself |
+| **Run once** | On-demand live run from Apps (after shadow gate; HITL → Seats) |
 | **Pause / Resume** | Hold or restart a live schedule |
 | **Thaw / Edit spec** | Unlock an installed app for editing (must re-verify and re-shadow) |
 | **Run** | One execution of the plan |
@@ -177,10 +181,13 @@ Internal IDs (`specHash`, bundle ids, capability names like `api.request`) may a
 | Symptom | Likely meaning |
 |---------|----------------|
 | Shadow soft-rule / draft failures offline | Stub LLM rehearsing quality rules — Desk fixtures should pass after a shell restart |
-| Shadow hangs on “Fanout approve” | HITL inside a multi-item step; shell must load a current `@relay/runtime` build |
+| Shadow hangs on “Fanout approve” | HITL inside a multi-item step; rebuild `@relay/runtime` (and any touched packages), then restart Spec API so **dist** matches source |
 | Gateway Probe = “Failed to fetch” | Browser CORS — use the Tauri Desk window, or Vite proxy with local `127.0.0.1:9000` |
-| Enable greyed out | Shadow evidence not approved yet |
+| Enable / Run once greyed out | Shadow evidence not approved yet (or connections incomplete / thawed) |
+| Run once pauses immediately | Expected when the Spec has `human.*` — open **Seats** |
 | Edit spec on Apps | Expected — you’re sent to Build to re-gate |
+
+After changing runtime / engines packages locally: `pnpm --filter @relay/runtime build` (plus other touched packages), then restart the Spec API process so Desk uses the new dist.
 
 ---
 

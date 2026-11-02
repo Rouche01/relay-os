@@ -40,18 +40,42 @@ async function appHttp(
     });
   }
 
+  // Vite dogfood: same-origin proxy when Spec API is local (shell has no CORS).
+  let fetchBase = base;
+  try {
+    const u = new URL(base);
+    if (
+      (u.hostname === "127.0.0.1" ||
+        u.hostname === "localhost" ||
+        u.hostname === "::1") &&
+      (u.port === "8790" || u.port === "")
+    ) {
+      fetchBase = "/__desk/spec";
+    }
+  } catch {
+    /* keep base */
+  }
+
   const headers: Record<string, string> = {};
   let payload: string | undefined;
   if (body !== undefined) {
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
-  const res = await fetch(`${base}${urlPath}`, {
-    method,
-    headers,
-    body: payload,
-  });
-  return { status: res.status, body: await res.text() };
+  try {
+    const res = await fetch(`${fetchBase}${urlPath}`, {
+      method,
+      headers,
+      body: payload,
+    });
+    return { status: res.status, body: await res.text() };
+  } catch (err) {
+    throw new Error(
+      err instanceof Error
+        ? err.message
+        : "Apps API request failed (CORS/network) — use the Tauri Desk window or Vite proxy"
+    );
+  }
 }
 
 function parseJson<T>(raw: string): T {
@@ -174,6 +198,26 @@ export async function enableApp(
     settings,
     "POST",
     `/api/v2/apps/${encodeURIComponent(id)}/enable`
+  );
+  return parseJson(res.body);
+}
+
+/** On-demand live run (HITL may pause for Seats). Does not require schedule enabled. */
+export async function runAppOnce(
+  settings: DeskSettings,
+  id: string
+): Promise<{
+  ok: boolean;
+  runId?: string;
+  state?: string;
+  error?: string;
+  note?: string;
+  app?: InstalledAppSummary;
+}> {
+  const res = await appHttp(
+    settings,
+    "POST",
+    `/api/v2/apps/${encodeURIComponent(id)}/run`
   );
   return parseJson(res.body);
 }

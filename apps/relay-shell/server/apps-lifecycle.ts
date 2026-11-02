@@ -270,6 +270,130 @@ export async function handleAppShadowRun(
   }
 }
 
+/**
+ * On-demand live run for an installed app (manual or scheduled Specs).
+ * Requires connections + cleared shadow gate; does not require schedule enabled.
+ * HITL pauses for Seats (no auto-approve).
+ */
+export async function handleAppRunOnce(id: string) {
+  const app = getInstalledApp(id);
+  if (!app) {
+    return { ok: false as const, status: 404, error: `App not found: ${id}` };
+  }
+  if (app.editing) {
+    return {
+      ok: false as const,
+      status: 422,
+      error: "App is thawed for edit — re-freeze + shadow gate before Run once",
+      code: "app_editing",
+    };
+  }
+  if (!allConnectionsConnected(app)) {
+    return {
+      ok: false as const,
+      status: 422,
+      error: "Connect all required connections before Run once",
+      code: "connections_incomplete",
+      connections: app.connections,
+      requiredConnections: app.bundle.requiredConnections,
+    };
+  }
+  if (app.needsShadowGate) {
+    return {
+      ok: false as const,
+      status: 422,
+      error:
+        "Shadow evidence not approved — finish Ship gate before Run once",
+      code: "shadow_gate_unapproved",
+    };
+  }
+
+  const services = mergeServices(app.bundle);
+  const connectionStore = createMemoryConnectionStore(
+    Object.fromEntries(
+      app.bundle.requiredConnections.map((ref) => [
+        ref,
+        { type: "bearer" as const, token: "desk-installed-token" },
+      ])
+    )
+  );
+  const runStateStore = deskRunStateStore();
+  // Live requires Spec budget.dryRun === false. Frozen wins over body in prepare —
+  // override budget on a shallow copy; keep contentHash so runs stay under this app.
+  const liveFrozen = {
+    ...app.bundle.frozen,
+    budget: { ...app.bundle.frozen.budget, dryRun: false as const },
+  };
+  const liveBody = {
+    ...app.bundle.body,
+    budget: { ...app.bundle.body.budget, dryRun: false as const },
+  };
+
+  try {
+    const result = await runSpec({
+      body: liveBody,
+      frozen: liveFrozen,
+      services,
+      connectionStore,
+      llmClient: runtimeStubLlm(),
+      mode: "live",
+      dryRun: false,
+      // Desk dogfood: fixtures + blocked network; production secrets unlock real IO later.
+      blockNetwork: true,
+      apiFixtures: buildDeskApiFixtures(services),
+      hitl: {
+        autoApprove: false,
+        pauseAndReturn: true,
+        runStateStore,
+      },
+      name: "desk-app-run-once",
+      frozenBy: "relay-desk-app",
+      context: {
+        agentId: "desk-app-1",
+        userId: "operator",
+        sessionId: `desk-app-run-${Date.now()}`,
+      },
+      assertRunnable: false,
+      softFailClosed: true,
+    });
+
+    const now = new Date().toISOString();
+    app.updatedAt = now;
+    saveInstalledApp(app);
+
+    // Live budget override changes hashSpecV2(body). Re-key the run record to the
+    // installed app hash so Apps → Runs / Seats filters still find it.
+    const appHash = app.bundle.specHash;
+    if (result.runId && result.specHash !== appHash) {
+      const prev = await Promise.resolve(runStateStore.get(result.runId));
+      if (prev) {
+        await runStateStore.save({ ...prev, specHash: appHash });
+      }
+    }
+
+    const waiting =
+      result.state === "WAITING_USER" ||
+      String(result.state).toLowerCase().includes("wait");
+
+    return {
+      ok: result.ok || waiting,
+      status: 200 as const,
+      runId: result.runId,
+      state: result.state,
+      specHash: appHash,
+      evidenceCount: result.evidenceCount,
+      app: toInstalledAppSummary(app),
+      note: waiting
+        ? "Run paused for HITL — open Seats to Approve or Abort."
+        : result.state === "COMPLETE"
+          ? "Run once complete."
+          : "Run once finished — check status / Seats.",
+    };
+  } catch (err) {
+    return mapError(err);
+  }
+}
+
 export async function handleAppApproveEvidence(
   id: string,
   input: { runId?: string; approvedBy?: string } = {}

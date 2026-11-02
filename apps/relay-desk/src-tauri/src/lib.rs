@@ -23,8 +23,9 @@ async fn gateway_http(
   };
   let url = format!("{base}{path}");
 
+  // Spec/app runs (esp. fanout + HITL) can exceed 30s; keep a generous ceiling.
   let client = reqwest::Client::builder()
-    .timeout(std::time::Duration::from_secs(30))
+    .timeout(std::time::Duration::from_secs(300))
     .build()
     .map_err(|e| e.to_string())?;
 

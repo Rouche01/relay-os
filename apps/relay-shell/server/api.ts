@@ -34,6 +34,7 @@ import {
   handleAppPause,
   handleAppRefreeze,
   handleAppResume,
+  handleAppRunOnce,
   handleAppRuns,
   handleAppShadowRun,
   handleAppThaw,
@@ -207,6 +208,7 @@ async function main(): Promise<void> {
             "GET /api/v2/apps/:id",
             "POST /api/v2/apps/:id/connect",
             "POST /api/v2/apps/:id/shadow-run",
+            "POST /api/v2/apps/:id/run",
             "POST /api/v2/apps/:id/approve-evidence",
             "POST /api/v2/apps/:id/enable",
             "POST /api/v2/apps/:id/pause",
@@ -369,7 +371,7 @@ async function main(): Promise<void> {
       }
 
       const appAction =
-        /^\/api\/v2\/apps\/([^/]+)\/(connect|shadow-run|approve-evidence|enable|pause|resume|disable|runs|thaw|refreeze)$/.exec(
+        /^\/api\/v2\/apps\/([^/]+)\/(connect|shadow-run|run|approve-evidence|enable|pause|resume|disable|runs|thaw|refreeze)$/.exec(
           url.pathname
         );
       if (appAction?.[1] && appAction[2]) {
@@ -390,6 +392,9 @@ async function main(): Promise<void> {
               break;
             case "shadow-run":
               out = await handleAppShadowRun(appId, body as { autoApprove?: boolean });
+              break;
+            case "run":
+              out = await handleAppRunOnce(appId);
               break;
             case "approve-evidence":
               out = await handleAppApproveEvidence(appId, body as { runId?: string; approvedBy?: string });

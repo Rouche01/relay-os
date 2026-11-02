@@ -10,6 +10,7 @@ import {
   listApps,
   pauseApp,
   resumeApp,
+  runAppOnce,
   thawApp,
   uninstallApp,
 } from "./client.ts";
@@ -68,9 +69,12 @@ export function AppsSurface({ settings, selectedAppId, onNavigate }: Props) {
   const [note, setNote] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+  /** Inline confirm — Tauri webview often ignores window.confirm. */
+  const [runOnceArmed, setRunOnceArmed] = useState(false);
 
   useEffect(() => {
     setSelectedId(selectedAppId);
+    setRunOnceArmed(false);
   }, [selectedAppId]);
 
   const selectApp = useCallback(
@@ -131,16 +135,17 @@ export function AppsSurface({ settings, selectedAppId, onNavigate }: Props) {
   ) => {
     setBusy(true);
     setError(undefined);
-    setNote(undefined);
+    setNote(`${label}…`);
     try {
       const res = await fn();
       if (!res.ok) throw new Error(res.error || `${label} failed`);
       setNote(res.note ?? label);
       await refreshList();
-      if (res.app) selectApp(res.app.id);
-      else if (selectedId) await refreshSelected(selectedId);
+      if (selectedId) await refreshSelected(selectedId);
+      else if (res.app) selectApp(res.app.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+      setNote(undefined);
     } finally {
       setBusy(false);
     }
@@ -204,7 +209,8 @@ export function AppsSurface({ settings, selectedAppId, onNavigate }: Props) {
       <div class="console-head">
         <h1 class="console-title">Apps</h1>
         <p class="console-sub">
-          Approved fleet · connect, enable, pause · Edit spec opens Build
+          Approved fleet · run once, enable schedule, pause · Edit spec opens
+          Build
         </p>
       </div>
 
@@ -295,7 +301,7 @@ export function AppsSurface({ settings, selectedAppId, onNavigate }: Props) {
                   {schedulePhrase(selected.scheduleState)} · hash{" "}
                   {selected.specHash.slice(0, 12)}…
                   {selected.needsShadowGate
-                    ? " · finish Ship gate before Enable"
+                    ? " · finish Ship gate before Run once / Enable"
                     : ""}
                   {selected.editing ? " · thawed on Build" : ""}
                 </p>
@@ -328,6 +334,81 @@ export function AppsSurface({ settings, selectedAppId, onNavigate }: Props) {
                     <p class="tile-meta">No connections required.</p>
                   )}
                 </div>
+
+                <p class="tile-label">Run</p>
+                <div class="cta-row">
+                  {!runOnceArmed ? (
+                    <button
+                      type="button"
+                      class="cta"
+                      disabled={
+                        busy ||
+                        selected.editing ||
+                        selected.needsShadowGate ||
+                        selected.connectionsConnected <
+                          selected.connectionsRequired
+                      }
+                      title={
+                        selected.needsShadowGate
+                          ? "Approve shadow evidence on Build Ship first"
+                          : selected.editing
+                            ? "Re-freeze and Ship before Run once"
+                            : "Run this app once now (may pause on Seats)"
+                      }
+                      onClick={() => setRunOnceArmed(true)}
+                    >
+                      Run once
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        class="cta"
+                        disabled={busy}
+                        onClick={() => {
+                          setRunOnceArmed(false);
+                          void run("Run once", async () => {
+                            const res = await runAppOnce(
+                              settings,
+                              selected.id
+                            );
+                            if (
+                              res.ok &&
+                              res.state &&
+                              (res.state === "WAITING_USER" ||
+                                res.state.toLowerCase().includes("wait"))
+                            ) {
+                              return {
+                                ...res,
+                                note:
+                                  res.note ??
+                                  "Paused for you — open Seats to Approve or Abort.",
+                              };
+                            }
+                            return res;
+                          });
+                        }}
+                      >
+                        Confirm run
+                      </button>
+                      <button
+                        type="button"
+                        class="cta ghost"
+                        disabled={busy}
+                        onClick={() => setRunOnceArmed(false)}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
+                <p class="tile-meta">
+                  {busy && note
+                    ? note
+                    : runOnceArmed
+                      ? "This can perform real actions with connected secrets."
+                      : "On-demand · does not require Enable. HITL pauses land on Seats."}
+                </p>
 
                 <p class="tile-label">Schedule</p>
                 <div class="cta-row">
@@ -414,7 +495,7 @@ export function AppsSurface({ settings, selectedAppId, onNavigate }: Props) {
                 </div>
                 <p class="tile-meta">
                   Edit spec thaws the app and opens Build Design — re-run checks
-                  and Ship before Enable.
+                  and Ship before Run once or Enable.
                 </p>
 
                 <p class="tile-label">Runs</p>
