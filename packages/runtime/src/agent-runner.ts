@@ -20,10 +20,12 @@ import { assertEnginesForManifest } from "./bind-engines";
 import {
   fanoutSleep,
   itemIdOf,
+  RELAY_FANOUT_HITL_KEY,
   resolveFanoutOutcome,
   summarizeFanout,
   type FanoutChildResult,
   type FanoutHost,
+  type RelayFanoutHitlPause,
 } from "./fanout";
 
 /** Thrown internally to unwind the stage loop on human abort. */
@@ -249,6 +251,10 @@ export class AgentRuntime extends EventEmitter {
       throw new Error(`No stage at index ${this.currentStageIndex}`);
     }
     const engine = this.resolveEngine(stage);
+    const fanoutPause = this.context[RELAY_FANOUT_HITL_KEY] as
+      | RelayFanoutHitlPause
+      | undefined;
+    const pausedRequest = this.pausedFeedbackRequest;
 
     this.emit(AgentRuntimeEvent.FEEDBACK_RECEIVED, response);
 
@@ -272,13 +278,23 @@ export class AgentRuntime extends EventEmitter {
       }
       this.pendingRequestId = null;
       this.pausedFeedbackRequest = null;
+      delete this.context[RELAY_FANOUT_HITL_KEY];
       if (hardAbort) {
         this.updateState("ABORTED");
         return;
       }
       this.updateState("RUNNING");
+    } else if (stage.fanout && fanoutPause && pausedRequest) {
+      // Fanout child HITL — feedback is applied on the child, not the parent stage.
+      this.emit(AgentRuntimeEvent.FEEDBACK_APPLIED, {
+        stage: stage.name,
+        response,
+      });
+      this.pendingRequestId = null;
+      this.pausedFeedbackRequest = null;
+      this.updateState("RUNNING");
     } else {
-      const context = this.pausedFeedbackRequest?.context;
+      const context = pausedRequest?.context;
       const fps = stage.feedback_points ?? [];
       const fp = fps[0];
       if (
@@ -317,6 +333,25 @@ export class AgentRuntime extends EventEmitter {
     }
 
     try {
+      if (
+        stage.fanout &&
+        fanoutPause &&
+        pausedRequest &&
+        fanoutPause.stageName === stage.name &&
+        this.getState() === "RUNNING" &&
+        !isAbortResponse(response)
+      ) {
+        await this.continueFanoutAfterHitl(
+          stage,
+          response,
+          fanoutPause,
+          pausedRequest
+        );
+        if (this.getState() === "WAITING_USER") {
+          return;
+        }
+      }
+
       for (let i = this.currentStageIndex + 1; i < this.activeStages.length; i++) {
         this.currentStageIndex = i;
         await this.executeStage(this.activeStages[i]!);
@@ -479,15 +514,49 @@ export class AgentRuntime extends EventEmitter {
         `\n=== Fanout ${stage.name} ${i + 1}/${queue.length} · ${label} ===`
       );
 
-      children.push(
-        await this.runFanoutChild(stage, item, i, itemKey, label)
+      const childResult = await this.runFanoutChild(
+        stage,
+        item,
+        i,
+        itemKey,
+        label
       );
+
+      // pauseOnHitl: bubble child WAITING_USER to parent — do not continue as
+      // "unknown" into later stages (e.g. post without Seats).
+      if (
+        this.pauseOnHitl &&
+        childResult.outcome === "waiting" &&
+        childResult.pendingFeedback
+      ) {
+        const pause: RelayFanoutHitlPause = {
+          stageName: stage.name,
+          pauseIndex: i,
+          itemKey,
+          completedBefore: [...children],
+        };
+        this.context[RELAY_FANOUT_HITL_KEY] = pause;
+        children.push(childResult);
+        const summary = summarizeFanout(stage.name, items.length, children);
+        this.setStageResult(stage.name, { ...summary, paused: true });
+        this.context.fanoutSummary = summary;
+        this.pausedFeedbackRequest = childResult.pendingFeedback;
+        this.pendingRequestId = childResult.pendingFeedback.id;
+        this.updateState("WAITING_USER");
+        console.log(
+          `[fanout] ${stage.name} paused for HITL at ${i + 1}/${queue.length} · ${label}`
+        );
+        throw new AgentPauseError(childResult.pendingFeedback);
+      }
+
+      children.push(childResult);
 
       if (i < queue.length - 1 && delayMs > 0) {
         await fanoutSleep(delayMs);
       }
     }
 
+    delete this.context[RELAY_FANOUT_HITL_KEY];
     const summary = summarizeFanout(stage.name, items.length, children);
     this.setStageResult(stage.name, summary);
     this.context.fanoutSummary = summary;
@@ -566,6 +635,8 @@ export class AgentRuntime extends EventEmitter {
       console.warn(`[fanout] ${label} failed outside the stage loop: ${error}`);
       return { ...base, state: "FAILED", outcome: "failed", error };
     } finally {
+      // Keep WAITING_USER children attached until parent bubbles pause — still
+      // call onChildEnd so brokers detach; pending feedback is copied below.
       if (child) await this.fanoutHost!.onChildEnd?.(child, item, index);
     }
 
@@ -583,6 +654,11 @@ export class AgentRuntime extends EventEmitter {
       if (e != null) execError = String(e);
     }
 
+    const pendingFeedback =
+      outcome === "waiting"
+        ? child.getPausedFeedbackRequest() ?? undefined
+        : undefined;
+
     const result: FanoutChildResult = {
       ...base,
       state,
@@ -594,8 +670,201 @@ export class AgentRuntime extends EventEmitter {
           ? (ctx.stageResults as Record<string, unknown>)
           : undefined,
       error: outcome === "failed" ? runtimeError ?? execError : undefined,
+      pendingFeedback,
     };
 
+    console.log(
+      `[fanout] ${label} → ${outcome}${result.error ? ` (${result.error})` : ""}`
+    );
+    return result;
+  }
+
+  /**
+   * After Seats Approve/Abort on a fanout child pause: finish that child, then
+   * remaining items (may pause again on the next human.* child).
+   */
+  private async continueFanoutAfterHitl(
+    stage: StageDefinition,
+    response: FeedbackResponse,
+    pause: RelayFanoutHitlPause,
+    pendingRequest: FeedbackRequest
+  ): Promise<void> {
+    if (!this.fanoutHost || !stage.fanout) {
+      throw new Error("continueFanoutAfterHitl requires fanout host + stage");
+    }
+    const fanout = stage.fanout;
+    const raw = this.context[fanout.from];
+    if (!Array.isArray(raw) && raw !== undefined) {
+      throw new Error(
+        `Fanout resume "${stage.name}": context.${fanout.from} must be an array`
+      );
+    }
+    const items = (raw as unknown[] | undefined) ?? [];
+    const overrides = this.fanoutHost.resolveFanoutConfig?.(stage) ?? {};
+    const max = overrides.max ?? fanout.max ?? items.length;
+    const delayMs = overrides.delayMs ?? fanout.delay_ms ?? 0;
+    const queue = items.slice(0, Math.max(0, max));
+    const itemKey = pause.itemKey;
+    const children: FanoutChildResult[] = [...pause.completedBefore];
+
+    const pauseItem = queue[pause.pauseIndex];
+    if (pauseItem === undefined) {
+      throw new Error(
+        `Fanout resume "${stage.name}": no item at index ${pause.pauseIndex}`
+      );
+    }
+    const pauseLabel =
+      this.fanoutHost.describeItem?.(pauseItem, pause.pauseIndex) ??
+      itemIdOf(pauseItem) ??
+      `#${pause.pauseIndex + 1}`;
+    console.log(
+      `\n=== Fanout ${stage.name} resume HITL · ${pauseLabel} ===`
+    );
+    children.push(
+      await this.runFanoutChildWithFeedback(
+        stage,
+        pauseItem,
+        pause.pauseIndex,
+        itemKey,
+        pauseLabel,
+        response,
+        pendingRequest
+      )
+    );
+
+    for (let i = pause.pauseIndex + 1; i < queue.length; i++) {
+      const item = queue[i]!;
+      const label =
+        this.fanoutHost.describeItem?.(item, i) ??
+        itemIdOf(item) ??
+        `#${i + 1}`;
+      console.log(
+        `\n=== Fanout ${stage.name} ${i + 1}/${queue.length} · ${label} ===`
+      );
+      const childResult = await this.runFanoutChild(
+        stage,
+        item,
+        i,
+        itemKey,
+        label
+      );
+      if (
+        this.pauseOnHitl &&
+        childResult.outcome === "waiting" &&
+        childResult.pendingFeedback
+      ) {
+        const nextPause: RelayFanoutHitlPause = {
+          stageName: stage.name,
+          pauseIndex: i,
+          itemKey,
+          completedBefore: [...children],
+        };
+        this.context[RELAY_FANOUT_HITL_KEY] = nextPause;
+        children.push(childResult);
+        const summary = summarizeFanout(stage.name, items.length, children);
+        this.setStageResult(stage.name, { ...summary, paused: true });
+        this.context.fanoutSummary = summary;
+        this.pausedFeedbackRequest = childResult.pendingFeedback;
+        this.pendingRequestId = childResult.pendingFeedback.id;
+        this.updateState("WAITING_USER");
+        console.log(
+          `[fanout] ${stage.name} paused for HITL at ${i + 1}/${queue.length} · ${label}`
+        );
+        throw new AgentPauseError(childResult.pendingFeedback);
+      }
+      children.push(childResult);
+      if (i < queue.length - 1 && delayMs > 0) {
+        await fanoutSleep(delayMs);
+      }
+    }
+
+    delete this.context[RELAY_FANOUT_HITL_KEY];
+    const summary = summarizeFanout(stage.name, items.length, children);
+    this.setStageResult(stage.name, summary);
+    this.context.fanoutSummary = summary;
+    console.log(
+      `[fanout] ${stage.name} complete=${summary.complete} aborted=${summary.aborted} failed=${summary.failed} skipped=${summary.skipped}`
+    );
+  }
+
+  private async runFanoutChildWithFeedback(
+    stage: StageDefinition,
+    item: unknown,
+    index: number,
+    itemKey: string,
+    label: string,
+    response: FeedbackResponse,
+    pendingRequest: FeedbackRequest
+  ): Promise<FanoutChildResult> {
+    const fanout = stage.fanout!;
+    const base = {
+      index,
+      itemId: itemIdOf(item),
+    };
+    let child: AgentRuntime | undefined;
+    let runtimeError: string | undefined;
+    try {
+      const ref: { runtime?: AgentRuntime } = {};
+      const childController = await this.fanoutHost!.createChildController(
+        stage,
+        item,
+        index,
+        () => {
+          if (!ref.runtime) {
+            throw new Error(
+              "fanout child runtime accessed before initialisation"
+            );
+          }
+          return ref.runtime.getContext();
+        }
+      );
+      child = new AgentRuntime(
+        fanout.manifest,
+        this.engines,
+        {
+          agentId: pendingRequest.agentId,
+          userId: this.context.userId,
+          sessionId: this.context.sessionId,
+          [itemKey]: item,
+        },
+        childController,
+        undefined,
+        { pauseOnHitl: this.pauseOnHitl }
+      );
+      ref.runtime = child;
+      child.on(AgentRuntimeEvent.ERROR, (err: unknown) => {
+        runtimeError = err instanceof Error ? err.message : String(err);
+      });
+      await this.fanoutHost!.onChildStart?.(child, item, index);
+      child.restoreWaitingUser(pendingRequest, 0);
+      await child.resumeWithFeedback({
+        ...response,
+        requestId: pendingRequest.id,
+        agentId: pendingRequest.agentId,
+      });
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      console.warn(`[fanout] ${label} resume failed: ${error}`);
+      return { ...base, state: "FAILED", outcome: "failed", error };
+    } finally {
+      if (child) await this.fanoutHost!.onChildEnd?.(child, item, index);
+    }
+
+    const ctx = child.getContext();
+    const state = child.getState();
+    const outcome = resolveFanoutOutcome(state, ctx.hitlOutcome);
+    const result: FanoutChildResult = {
+      ...base,
+      state,
+      outcome,
+      hitlOutcome: ctx.hitlOutcome,
+      executeResult: ctx.executeResult,
+      stageResults:
+        ctx.stageResults && typeof ctx.stageResults === "object"
+          ? (ctx.stageResults as Record<string, unknown>)
+          : undefined,
+      error: outcome === "failed" ? runtimeError : undefined,
+    };
     console.log(
       `[fanout] ${label} → ${outcome}${result.error ? ` (${result.error})` : ""}`
     );

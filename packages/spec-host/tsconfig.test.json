@@ -5,7 +5,8 @@
     "rootDir": ".",
     "noEmit": false,
     "declaration": false,
-    "sourceMap": false
+    "sourceMap": false,
+    "types": ["node"]
   },
   "include": ["test/**/*"]
 }

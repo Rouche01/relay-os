@@ -1,6 +1,7 @@
 import type {
   AgentContext,
   AgentState,
+  FeedbackRequest,
   StageDefinition,
 } from "@relay/protocol";
 import type { AppController } from "./types.js";
@@ -11,6 +12,7 @@ export type FanoutChildOutcome =
   | "complete"
   | "aborted"
   | "failed"
+  | "waiting"
   | "unknown";
 
 export interface FanoutChildResult {
@@ -24,6 +26,8 @@ export interface FanoutChildResult {
   executeResult?: unknown;
   /** Child `stageResults` bag for app run logs (draft / hitl / learn). */
   stageResults?: Record<string, unknown>;
+  /** Set when pauseOnHitl left the child in WAITING_USER. */
+  pendingFeedback?: FeedbackRequest;
 }
 
 export interface FanoutSummary {
@@ -94,9 +98,21 @@ export function resolveFanoutOutcome(
   if (state === "FAILED") return "failed";
   if (state === "ABORTED") return "aborted";
   if (state === "COMPLETE") return "complete";
+  if (state === "WAITING_USER") return "waiting";
   if (hitlOutcome === "aborted") return "aborted";
   return "unknown";
 }
+
+/** Context key: parent paused inside a fanout child HITL (pauseOnHitl). */
+export const RELAY_FANOUT_HITL_KEY = "_relayFanoutHitl";
+
+export type RelayFanoutHitlPause = {
+  stageName: string;
+  pauseIndex: number;
+  itemKey: string;
+  /** Children finished before the waiting item (not including the waiter). */
+  completedBefore: FanoutChildResult[];
+};
 
 export function summarizeFanout(
   stage: string,

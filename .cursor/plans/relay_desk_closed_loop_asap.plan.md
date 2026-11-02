@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: cl3-run-once-hitl
     content: Fix Run once → fanout HITL pauses parent and lands on Seats (no approve→unknown continue)
-    status: pending
+    status: completed
   - id: cl4-connections-ux
     content: Thin Connections (or Settings) UX — mark/test required connections for installed apps; document env/keychain for live tokens
     status: pending
@@ -72,7 +72,14 @@ Sibling of long-term [`relay_open_services_platform.plan.md`](./relay_open_servi
 - Preflight `needs[]` for missing catalog services; New Spec rail lists curated services.
 - Tests: `server/stub-spec.test.ts`.
 
-Next: `cl3` fanout HITL → Seats.
+### `cl3` done (2026-11-02)
+
+- Fanout child `WAITING_USER` under `pauseOnHitl` bubbles to parent (no more `approve → unknown` → post).
+- Resume continues the fanout after Seats Approve (may pause again on the next item).
+- Test: `spec-host` HITL `forEach human.approve` pause + resume.
+- Rebuild `@relay/runtime` (and restart Spec API) before dogfood.
+
+Next: `cl4` connections UX.
 
 ## Verify
 

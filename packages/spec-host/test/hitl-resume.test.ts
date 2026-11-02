@@ -174,6 +174,111 @@ describe("HITL pause + resume", () => {
     assert.equal(saved?.status, "complete");
   });
 
+  it("pauses inside forEach human.approve (fanout) and resumes", async () => {
+    const store = createMemoryRunStateStore();
+    const connections = createMemoryConnectionStore({
+      "github:default": { type: "bearer", token: "t" },
+    });
+    const fixtures = [
+      {
+        service: "github",
+        operation: "issuesListForRepo",
+        body: [
+          { number: 1, title: "A" },
+          { number: 2, title: "B" },
+        ],
+      },
+    ];
+    let n = 0;
+    const llm: LlmClient = {
+      provider: "gemini",
+      async completeJson(): Promise<LlmJsonResult> {
+        n += 1;
+        return {
+          text: JSON.stringify({
+            text: `Triage note ${n}`,
+            issue_number: n,
+          }),
+          provider: "gemini",
+          model: "hitl-stub",
+        };
+      },
+    };
+    const fanoutApproveBody: SpecV2Body = {
+      ...body,
+      budget: { maxJobs: 2, dryRun: true },
+      steps: [
+        body.steps![0]!,
+        body.steps![1]!,
+        {
+          id: "approve",
+          use: "human.approve",
+          forEach: "${steps.scout.output.body}",
+          args: {
+            show: "${item}",
+            prompt: "Approve this item?",
+          },
+        },
+        body.steps![3]!,
+      ],
+    };
+
+    const paused = await runSpec({
+      body: fanoutApproveBody,
+      services: [githubLite],
+      connectionStore: connections,
+      llmClient: llm,
+      mode: "fixture",
+      apiFixtures: fixtures,
+      hitl: {
+        autoApprove: false,
+        pauseAndReturn: true,
+        runStateStore: store,
+        runId: "run_fanout_hitl",
+      },
+    });
+
+    assert.equal(paused.state, "WAITING_USER");
+    assert.ok(paused.pendingFeedback);
+    assert.notEqual(
+      paused.state,
+      "COMPLETE",
+      "must not skip Seats and complete"
+    );
+
+    // Approve first fanout item; expect pause again on second OR complete after both.
+    let resume = await resumeSpec({
+      runId: "run_fanout_hitl",
+      runStateStore: store,
+      feedback: { action: "proceed", value: true },
+      services: [githubLite],
+      connectionStore: connections,
+      llmClient: llm,
+      apiFixtures: fixtures,
+      hitl: { autoApprove: false, pauseAndReturn: true, runStateStore: store },
+    });
+
+    if (resume.state === "WAITING_USER") {
+      resume = await resumeSpec({
+        runId: "run_fanout_hitl",
+        runStateStore: store,
+        feedback: { action: "proceed", value: true },
+        services: [githubLite],
+        connectionStore: connections,
+        llmClient: llm,
+        apiFixtures: fixtures,
+        hitl: {
+          autoApprove: false,
+          pauseAndReturn: true,
+          runStateStore: store,
+        },
+      });
+    }
+
+    assert.equal(resume.state, "COMPLETE");
+    assert.equal(resume.ok, true);
+  });
+
   it("abort via resume leaves ABORTED", async () => {
     const store = createMemoryRunStateStore();
     const connections = createMemoryConnectionStore({

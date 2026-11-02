@@ -186,7 +186,8 @@ Internal IDs (`specHash`, bundle ids, capability names like `api.request`) may a
 | Shadow hangs on “Fanout approve” | HITL inside a multi-item step; rebuild `@relay/runtime` (and any touched packages), then restart Spec API so **dist** matches source |
 | Gateway Probe = “Failed to fetch” | Browser CORS — use the Tauri Desk window, or Vite proxy with local `127.0.0.1:9000` |
 | Enable / Run once greyed out | Shadow evidence not approved yet (or connections incomplete / thawed) |
-| Run once pauses immediately | Expected when the Spec has `human.*` — open **Seats** |
+| Run once pauses (incl. per-item approve) | Expected — open **Seats**; Approve may pause again on the next fanout item |
+| Run once used to skip HITL (`approve → unknown`) | Fixed in runtime — rebuild `@relay/runtime` and restart Spec API |
 | Edit spec on Apps | Expected — you’re sent to Build to re-gate |
 
 After changing runtime / engines packages locally: `pnpm --filter @relay/runtime build` (plus other touched packages), then restart the Spec API process so Desk uses the new dist.
