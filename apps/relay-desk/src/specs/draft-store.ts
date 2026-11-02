@@ -23,6 +23,10 @@ export type DraftRecord = {
   mode?: string;
   /** Frozen Spec id when status is frozen (local only until install). */
   frozenId?: string;
+  /** Parsed Spec body from scaffold/validate (D4 — schematic source). */
+  body?: Record<string, unknown>;
+  /** Lowered manifest JSON when available (Design Manifest toggle). */
+  manifest?: Record<string, unknown>;
 };
 
 const KEY = "relay-desk.build-drafts";
@@ -125,6 +129,8 @@ export function upsertDraft(
     updatedAt: new Date().toISOString(),
     mode: input.mode,
     frozenId: input.frozenId,
+    body: input.body,
+    manifest: input.manifest,
   };
   const without = list.filter((d) => d.id !== id && d.yaml !== input.yaml);
   saveAll([next, ...without]);

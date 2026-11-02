@@ -1,9 +1,9 @@
 ---
 name: Desk Spec/App workspace UX
-overview: "Implement the Flowstep workspace design (2026-10-31) under the locked rail Seats · Build · Apps: replace the scrolling Spec surface with a Build library + New-spec screen + Design/Verify/Ship/Activity workspace; Apps is the approved-fleet home (not a second authoring door). Desk-only against existing /api/v2/*. My Desk is out of scope — see desk_my_desk.plan.md."
+overview: ""
 todos:
   - id: w0-design-lock
-    content: Lock design/copy mapping — Flowstep Workspace + Specs screens → styles.css tokens (--signal #3EE0C4 etc from DESIGN.md, not Flowstep grayscale); copy rules from DESIGN.md § Copy; rail labels Seats · Build · Apps (Settings footer); do not render My Desk
+    content: "Lock design/copy mapping — Flowstep Workspace + Specs screens → styles.css tokens (--signal #3EE0C4 etc from DESIGN.md, not Flowstep grayscale); copy rules from DESIGN.md § Copy; rail labels Seats · Build · Apps (Settings footer); do not render My Desk"
     status: completed
   - id: w1-workspace-routing
     content: Workspace shell + routing — hash routes synced with mainTab seats|build|apps (deep-linkable per D1); WorkspaceHeader + journey bar + stage nav; Seats bento unchanged; no My Desk tab
@@ -15,22 +15,22 @@ todos:
     content: New-spec screen — extract Intent presets (CE fashion/Freight wedge/Blank from INTENT_PRESETS), intent field with hard-limits guidance, Create draft (scaffoldSpec) with outcome states llm|stub|needs_edits|needs (ScaffoldNeed rendering reused); success creates a draft record and routes to workspace Design; needs path names import-descriptor/add-connection
     status: completed
   - id: w4-journey-state
-    content: Journey/lifecycle derivation — replace scroll-anchor stepper (scrollToSpecStep) with derived state: lifecycle (draft|checks passed|frozen|live|paused|needs catalog) from pipeline state (deriveSpecPipeline/gateSpecAction) for drafts and InstalledAppSummary for apps; journey = 4 views only, gates stay inside views
+    content: "Journey/lifecycle derivation — replace scroll-anchor stepper (scrollToSpecStep) with derived state: lifecycle (draft|checks passed|frozen|live|paused|needs catalog) from pipeline state (deriveSpecPipeline/gateSpecAction) for drafts and InstalledAppSummary for apps; journey = 4 views only, gates stay inside views"
     status: completed
   - id: w5-schematic-model
-    content: Schematic model — pure deriveSchematic(body|manifest, run?) in spec/schematic.ts: trigger node, ordered step nodes (use→plain verb, service, forEach stack, once/when/retry badges, irreversible flag via manifest/descriptor data already in responses), HITL diamond for human.*, rules strip (enforce map), edge refs; run overlay states (done/waiting/simulated/skipped) from RunResponse stepOutputs+evidence
-    status: pending
+    content: "Schematic model — pure deriveSchematic(body|manifest, run?) in spec/schematic.ts: trigger node, ordered step nodes (use→plain verb, service, forEach stack, once/when/retry badges, irreversible flag via manifest/descriptor data already in responses), HITL diamond for human.*, rules strip (enforce map), edge refs; run overlay states (done/waiting/simulated/skipped) from RunResponse stepOutputs+evidence"
+    status: completed
   - id: w6-design-view
     content: Design view — intent strip (Re-draft), schematic canvas (Schematic|Manifest|YAML toggle), node click → inspector (args/forEach/once/outputs/schema/enforce, from schematic model) + YAML drawer with existing findYamlIssueLine/focusYamlLine jump; YAML edit stays source of truth
-    status: pending
+    status: completed
   - id: w7-verify-view
     content: Verify view — All-checks summary in plain language, irreversible-step risk callout (derived, names the step), Structure + Rules-from-intent tables (reuse validation/evals rendering from SpecSurface), What-it-compiles-to strip from LowerResponse manifest stages; failures jump to YAML line in Design
     status: pending
   - id: w8-ship-view
-    content: Ship view — Going-live checklist unifying the two existing backends behind one adapter (draft YAML: freeze/export-bundle/schedule-enable + run shadow via /api/v2/*; installed app: connect/shadow-run/approve-evidence/enable/pause via /api/v2/apps/:id/*); evidence ∥ simulated writes review; Enable locked until shadow evidence approved (needsShadowGate); successful enable lands the app on Apps
+    content: "Ship view — Going-live checklist unifying the two existing backends behind one adapter (draft YAML: freeze/export-bundle/schedule-enable + run shadow via /api/v2/*; installed app: connect/shadow-run/approve-evidence/enable/pause via /api/v2/apps/:id/*); evidence ∥ simulated writes review; Enable locked until shadow evidence approved (needsShadowGate); successful enable lands the app on Apps"
     status: pending
   - id: w9-activity-view
-    content: Activity view — runs list (draft: GET /api/v2/runs by specHash; app: GET /api/v2/apps/:id/runs) with plain-language run summaries, run detail as schematic overlay (w5), evidence + outcome follow-ups (processOutcomes), paused-at-HITL row deep-links to Seats (rename onOpenConsole), Pause; Edit spec (thaw) is a door back to Build Design and re-gates
+    content: "Activity view — runs list (draft: GET /api/v2/runs by specHash; app: GET /api/v2/apps/:id/runs) with plain-language run summaries, run detail as schematic overlay (w5), evidence + outcome follow-ups (processOutcomes), paused-at-HITL row deep-links to Seats (rename onOpenConsole), Pause; Edit spec (thaw) is a door back to Build Design and re-gates"
     status: pending
   - id: w10-apps-rework
     content: Apps = approved fleet only — installed list + install-bundle paste (existing client.ts); enable/pause/connect/schedules/runs stay here as management; selecting an app does not open Build Design/Verify; Edit spec / thaw is the only door back to Build; remove lifecycle tiles that duplicate w8/w9 authoring
@@ -160,3 +160,5 @@ Already available: `/api/v2/scaffold|validate|lower|evals|freeze|run`, `/api/v2/
 - 2026-10-31 — **w2 done:** `specs/{draft-store,library,SpecsLibrary}`; `#/build` → library (no `/api/v2/apps` merge); migrate legacy history; Paste YAML door; New spec → `#/build/new` (SpecSurface until w3); row opens workspace; scaffold upserts drafts.
 - 2026-10-31 — **w3 done:** `specs/NewSpec.tsx` + shared `scaffold-outcome.ts`; `#/build/new` Create draft → Design; needs-catalog stays on page with import-descriptor/add-connection actions; SpecSurface no longer routed (kept until view cutover).
 - 2026-10-31 — **w4 done:** `journey.ts` derives lifecycle from draft (+ optional pipeline) / InstalledAppSummary; journey bar done|current|upcoming; library + header + next-gate CTA share one source; `draftStatusFromPipeline` ready for workspace store.
+- 2026-10-31 — **w5 done:** `spec/schematic.ts` — `deriveSchematic` / `applyRunOverlay` / `inferIrreversible` / `irreversibleSteps`; HTTP-only (no yaml/@relay); HITL + forEach/once/when/retry badges; manifest irreversible enrichment; run overlay states.
+- 2026-11-02 — **w6 done:** `workspace/views/DesignView.tsx` — intent + Re-draft, Schematic|Manifest|YAML, inspector, Save YAML → validate body, Compile for manifest; `yaml-focus.ts` shared; drafts store `body`/`manifest`.

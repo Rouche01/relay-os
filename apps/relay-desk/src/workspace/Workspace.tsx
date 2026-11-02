@@ -1,3 +1,7 @@
+import { useCallback, useEffect, useState } from "preact/hooks";
+import type { DeskSettings } from "../gateway/types.ts";
+import type { DraftRecord } from "../specs/draft-store.ts";
+import { DesignView } from "./views/DesignView.tsx";
 import { WorkspaceHeader } from "./header.tsx";
 import {
   VIEW_LABEL,
@@ -8,7 +12,6 @@ import {
 } from "./journey.ts";
 
 export type WorkspaceProps = {
-  /** Draft id or installed app id — display only until stores land. */
   entityId: string;
   title?: string;
   lifecycle?: LifecyclePill;
@@ -18,10 +21,14 @@ export type WorkspaceProps = {
   backLabel: string;
   onBack: () => void;
   onViewChange: (view: WorkspaceView) => void;
+  /** Draft entity for Build workspace (Design/Verify/…). */
+  draft?: DraftRecord;
+  settings?: DeskSettings;
+  onDraftUpdated?: (draft: DraftRecord) => void;
+  onReDraft?: () => void;
 };
 
-const PLACEHOLDER: Record<WorkspaceView, string> = {
-  design: "What will it do? — schematic + intent land in w6.",
+const PLACEHOLDER: Record<Exclude<WorkspaceView, "design">, string> = {
   verify: "Is it correct and safe? — checks land in w7.",
   ship: "Can it go live? — checklist lands in w8.",
   activity: "What did it do? — runs + overlay land in w9.",
@@ -37,16 +44,33 @@ export function Workspace({
   backLabel,
   onBack,
   onViewChange,
+  draft,
+  settings,
+  onDraftUpdated,
+  onReDraft,
 }: WorkspaceProps) {
   const next = nextGateForView(view, lifecycle);
   const steps = deriveJourneySteps(lifecycle, view);
+  const [liveDraft, setLiveDraft] = useState(draft);
+
+  useEffect(() => {
+    setLiveDraft(draft);
+  }, [draft]);
+
+  const handleDraftUpdated = useCallback(
+    (nextDraft: DraftRecord) => {
+      setLiveDraft(nextDraft);
+      onDraftUpdated?.(nextDraft);
+    },
+    [onDraftUpdated]
+  );
 
   return (
     <div class="desk-body workspace-surface">
       <WorkspaceHeader
         backLabel={backLabel}
         onBack={onBack}
-        title={title?.trim() || entityId}
+        title={title?.trim() || liveDraft?.goal || entityId}
         lifecycle={lifecycle}
         specHash={specHash}
         trigger={trigger}
@@ -90,11 +114,24 @@ export function Workspace({
         </ol>
       </nav>
 
-      <section class="ws-view" aria-label={VIEW_LABEL[view]}>
-        <p class="tile-label">{VIEW_LABEL[view]}</p>
-        <h2 class="tile-title">{PLACEHOLDER[view]}</h2>
-        <p class="tile-meta mono">{entityId}</p>
-      </section>
+      {view === "design" && liveDraft && settings ? (
+        <DesignView
+          draft={liveDraft}
+          settings={settings}
+          onDraftUpdated={handleDraftUpdated}
+          onReDraft={() => onReDraft?.()}
+        />
+      ) : view === "design" ? (
+        <section class="ws-view" aria-label="Design">
+          <p class="tile-meta">Draft not found on this Desk.</p>
+        </section>
+      ) : (
+        <section class="ws-view" aria-label={VIEW_LABEL[view]}>
+          <p class="tile-label">{VIEW_LABEL[view]}</p>
+          <h2 class="tile-title">{PLACEHOLDER[view]}</h2>
+          <p class="tile-meta mono">{entityId}</p>
+        </section>
+      )}
     </div>
   );
 }

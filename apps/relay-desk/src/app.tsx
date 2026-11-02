@@ -821,7 +821,6 @@ export function App() {
             return (
               <Workspace
                 entityId={route.draftId}
-                title={draft?.goal}
                 lifecycle={draft ? lifecycleFromDraft(draft) : "Draft"}
                 view={route.view}
                 backLabel="Build"
@@ -833,6 +832,21 @@ export function App() {
                     view,
                   })
                 }
+                draft={draft}
+                settings={settings}
+                onReDraft={() => {
+                  if (draft?.intent) {
+                    try {
+                      sessionStorage.setItem(
+                        "relay-desk.redraft-intent",
+                        draft.intent
+                      );
+                    } catch {
+                      /* ignore */
+                    }
+                  }
+                  navigate({ kind: "build-new" });
+                }}
               />
             );
           })()

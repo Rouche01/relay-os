@@ -30,6 +30,7 @@ import {
   gateSpecAction,
   scrollToSpecStep,
 } from "./pipeline.ts";
+import { findYamlIssueLine, focusYamlLine } from "./yaml-focus.ts";
 import {
   DEFAULT_CE_INTENT,
   INTENT_PRESETS,
@@ -52,66 +53,6 @@ function condenseError(message: string, max = 96): string {
   const one = message.replace(/\s+/g, " ").trim();
   if (one.length <= max) return one;
   return `${one.slice(0, max - 1)}…`;
-}
-
-
-/** 0-based line index for a validator hint, or -1. */
-function findYamlIssueLine(
-  yaml: string,
-  issue: Pick<SpecValidationIssue, "path" | "stepId" | "ruleId">
-): number {
-  const lines = yaml.split("\n");
-  if (issue.stepId) {
-    const needle = issue.stepId;
-    for (let i = 0; i < lines.length; i++) {
-      if (new RegExp(`^\\s+-\\s+id:\\s*["']?${escapeRegExp(needle)}\\b`).test(lines[i]!)) {
-        return i;
-      }
-    }
-  }
-  if (issue.ruleId) {
-    const needle = issue.ruleId;
-    for (let i = 0; i < lines.length; i++) {
-      if (new RegExp(`^\\s+-\\s+id:\\s*["']?${escapeRegExp(needle)}\\b`).test(lines[i]!)) {
-        return i;
-      }
-    }
-  }
-  if (issue.path) {
-    const leaf = issue.path.split("/").filter(Boolean).pop();
-    if (leaf && !/^\d+$/.test(leaf)) {
-      for (let i = 0; i < lines.length; i++) {
-        if (new RegExp(`^\\s*${escapeRegExp(leaf)}\\s*:`).test(lines[i]!)) {
-          return i;
-        }
-      }
-    }
-  }
-  return -1;
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function focusYamlLine(
-  textarea: HTMLTextAreaElement | null,
-  yaml: string,
-  lineIndex: number
-): void {
-  if (!textarea || lineIndex < 0) return;
-  const lines = yaml.split("\n");
-  let start = 0;
-  for (let i = 0; i < lineIndex; i++) {
-    start += (lines[i]?.length ?? 0) + 1;
-  }
-  const end = start + (lines[lineIndex]?.length ?? 0);
-  scrollToSpecStep("yaml");
-  textarea.focus();
-  textarea.setSelectionRange(start, end);
-  const lineHeight =
-    Number.parseFloat(getComputedStyle(textarea).lineHeight) || 18;
-  textarea.scrollTop = Math.max(0, lineIndex * lineHeight - textarea.clientHeight / 3);
 }
 
 async function copyText(text: string): Promise<boolean> {
@@ -224,7 +165,9 @@ export function SpecSurface({ settings, onOpenSeats }: Props) {
   const jumpToIssue = useCallback(
     (issue: Pick<SpecValidationIssue, "path" | "stepId" | "ruleId">) => {
       const line = findYamlIssueLine(yaml, issue);
-      focusYamlLine(yamlRef.current, yaml, line);
+      focusYamlLine(yamlRef.current, yaml, line, {
+        beforeFocus: () => scrollToSpecStep("yaml"),
+      });
     },
     [yaml]
   );
@@ -376,6 +319,7 @@ export function SpecSurface({ settings, onOpenSeats }: Props) {
           yaml: res.yaml,
           status: res.needs?.length ? "needs_catalog" : "draft",
           mode: res.mode,
+          body: res.body,
         });
         setStubDiff(undefined);
       }

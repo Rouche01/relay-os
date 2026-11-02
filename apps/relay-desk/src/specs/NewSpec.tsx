@@ -36,6 +36,19 @@ export function NewSpec({ settings, onNavigate }: NewSpecProps) {
   const [intentPreset, setIntentPreset] = useState<IntentPresetId | "custom">(
     "ce-fashion"
   );
+
+  useEffect(() => {
+    try {
+      const redraft = sessionStorage.getItem("relay-desk.redraft-intent");
+      if (redraft?.trim()) {
+        sessionStorage.removeItem("relay-desk.redraft-intent");
+        setIntent(redraft);
+        setIntentPreset("custom");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState<string | undefined>();
   const [busyStartedAt, setBusyStartedAt] = useState<number | undefined>();
@@ -106,6 +119,7 @@ export function NewSpec({ settings, onNavigate }: NewSpecProps) {
             yaml: res.yaml,
             status: "needs_catalog",
             mode: res.mode,
+            body: res.body,
           });
         }
         return;
@@ -128,6 +142,7 @@ export function NewSpec({ settings, onNavigate }: NewSpecProps) {
         yaml: res.yaml,
         status: "draft",
         mode: res.mode,
+        body: res.body,
       });
 
       if (nextOutcome === "needs_edits") {
