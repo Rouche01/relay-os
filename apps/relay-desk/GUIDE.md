@@ -31,8 +31,10 @@ Settings (footer of the sidebar) stores connection URLs and tokens. Those stay o
 
 ## A typical first journey
 
+**ASAP dogfood path:** use the **GitHub triage** preset (repo `acme/widgets`, connection `github:default`). CE fashion / Reddit write is a demo only — not the success bar.
+
 1. Open **Build** → **+ New spec**.  
-2. Pick a preset or write your intent in plain language → **Create draft**.  
+2. Keep **GitHub triage** (or write a catalog-only intent) → **Create draft**.  
 3. You land in **Design**: see the flow as a diagram; tweak the plan in YAML if you need to.  
 4. Go to **Verify** → **Run checks**. Fix anything that fails (jump back to the exact YAML line).  
 5. Go to **Ship**. Walk the checklist: freeze → install → connect secrets → **shadow run** (rehearsal) → approve evidence → **Enable** (schedule) and/or leave schedule off and use **Run once** later.  

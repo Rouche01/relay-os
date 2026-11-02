@@ -3,7 +3,7 @@ import type { DeskSettings } from "../gateway/types.ts";
 import { fetchScaffoldProvider, scaffoldSpec } from "../spec/client.ts";
 import { scaffoldPhaseLabel } from "../spec/history.ts";
 import {
-  DEFAULT_CE_INTENT,
+  DEFAULT_GITHUB_TRIAGE_INTENT,
   INTENT_PRESETS,
   type IntentPresetId,
   type ScaffoldNeed,
@@ -32,9 +32,9 @@ const OUTCOME_CHIPS: ReadonlyArray<{
 ];
 
 export function NewSpec({ settings, onNavigate }: NewSpecProps) {
-  const [intent, setIntent] = useState(DEFAULT_CE_INTENT);
+  const [intent, setIntent] = useState(DEFAULT_GITHUB_TRIAGE_INTENT);
   const [intentPreset, setIntentPreset] = useState<IntentPresetId | "custom">(
-    "ce-fashion"
+    "github-triage"
   );
 
   useEffect(() => {

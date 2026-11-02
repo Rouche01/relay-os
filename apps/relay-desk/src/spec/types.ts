@@ -172,11 +172,21 @@ export type EnableScheduleResponse = {
   }>;
 };
 
+/** ASAP closed-loop dogfood — GitHub triage (see apps/triage-gen/intent.md). */
+export const DEFAULT_GITHUB_TRIAGE_INTENT = `Every weekday at 09:00, find open issues labeled bug in repo acme/widgets, draft a short triage comment for each new issue, ask me before posting, and never comment on the same issue twice.
+
+Only open bug issues in acme/widgets. No promo links or URLs in drafts. Human approve before any comment. Prefer dry-run. Bound fan-out with maxJobs 10. Connection github:default.`;
+
+/** @deprecated Prefer DEFAULT_GITHUB_TRIAGE_INTENT for ASAP; kept for CE demo preset. */
 export const DEFAULT_CE_INTENT = `Help people in allowlisted fashion subreddits (r/malefashionadvice, r/femalefashionadvice) with genuinely useful replies.
 
 No promo links. Human approval before any comment. Prefer dry-run. Bound fan-out with a small maxJobs budget.`;
 
-export type IntentPresetId = "ce-fashion" | "freight-wedge" | "blank";
+export type IntentPresetId =
+  | "github-triage"
+  | "ce-fashion"
+  | "freight-wedge"
+  | "blank";
 
 export type IntentPreset = {
   id: IntentPresetId;
@@ -187,13 +197,18 @@ export type IntentPreset = {
 /** Desk Intent library — presets only set text; they do not auto-scaffold. */
 export const INTENT_PRESETS: readonly IntentPreset[] = [
   {
+    id: "github-triage",
+    label: "GitHub triage",
+    intent: DEFAULT_GITHUB_TRIAGE_INTENT,
+  },
+  {
     id: "ce-fashion",
-    label: "CE fashion",
+    label: "CE fashion (demo)",
     intent: DEFAULT_CE_INTENT,
   },
   {
     id: "freight-wedge",
-    label: "Freight wedge",
+    label: "Freight wedge (later)",
     intent: `Help a freight broker work carrier-facing portals: find matching loads, draft outreach, and never commit capacity without a human.
 
 Hard rules: only allowlisted brokers/shippers; no fake MC/DOT claims; human approve before any irreversible portal write or email send. Prefer dry-run. Bound fan-out with a small maxJobs budget.`,
