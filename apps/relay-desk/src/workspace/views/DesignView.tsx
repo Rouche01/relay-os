@@ -230,24 +230,21 @@ export function DesignView({
 
   return (
     <div class="design-view">
-      <section class="design-intent tile">
-        <div class="tile-stack">
-          <div class="tile-head">
-            <p class="tile-label">Intent</p>
-            <button
-              type="button"
-              class="cta linkish"
-              disabled={busy}
-              onClick={onReDraft}
-            >
-              Re-draft
-            </button>
-          </div>
-          <p class="design-intent-text">{draft.intent || "—"}</p>
-        </div>
-      </section>
+      <div class="design-intent-row">
+        <p class="tile-label">Your intent</p>
+        <button
+          type="button"
+          class="cta ghost design-redraft"
+          disabled={busy}
+          onClick={onReDraft}
+        >
+          Re-draft
+        </button>
+      </div>
+      <p class="design-intent-text">{draft.intent || "—"}</p>
 
       <div class="design-toolbar">
+        <p class="tile-label">Flow</p>
         <div class="design-mode" role="tablist" aria-label="Design surface">
           {(
             [
@@ -269,7 +266,7 @@ export function DesignView({
             </button>
           ))}
         </div>
-        <div class="cta-row">
+        <div class="cta-row design-toolbar-actions">
           {mode === "yaml" && yamlDirty ? (
             <button
               type="button"
@@ -325,21 +322,15 @@ export function DesignView({
               ))}
               {schematic.rules.length ? (
                 <div class="sch-rules" aria-label="Rules">
-                  <p class="tile-label">Rules</p>
-                  <ul class="sch-rules-list">
+                  <span class="tile-label">Rules</span>
+                  <div class="sch-rules-chips">
                     {schematic.rules.map((r) => (
-                      <li key={r.id}>
-                        <span class="mono">{r.id}</span>
+                      <span key={r.id} class="sch-rule-chip mono">
+                        {r.id}
                         <span class="muted"> · {r.kind}</span>
-                        {r.enforcedBy.length ? (
-                          <span class="mono muted">
-                            {" "}
-                            · {r.enforcedBy.join(", ")}
-                          </span>
-                        ) : null}
-                      </li>
+                      </span>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               ) : null}
               {!schematic.nodes.length ? (
@@ -350,67 +341,68 @@ export function DesignView({
                 </p>
               ) : null}
             </div>
-            <aside class="sch-inspector tile" aria-label="Inspector">
-              <div class="tile-stack">
-                <p class="tile-label">Inspector</p>
-                {selected ? (
-                  <>
-                    <h2 class="tile-title">{selected.label}</h2>
-                    {selected.use ? (
-                      <p class="mono muted">{selected.use}</p>
-                    ) : null}
-                    {selected.forEach ? (
-                      <p class="tile-meta">
-                        forEach · <span class="mono">{selected.forEach}</span>
-                      </p>
-                    ) : null}
-                    {selected.once ? (
-                      <p class="tile-meta">
-                        once · <span class="mono">{selected.once}</span>
-                      </p>
-                    ) : null}
-                    {selected.enforce.length ? (
-                      <p class="tile-meta">
-                        enforce ·{" "}
-                        <span class="mono">{selected.enforce.join(", ")}</span>
-                      </p>
-                    ) : null}
-                    {selected.outputs.length ? (
-                      <p class="tile-meta">
-                        outputs ·{" "}
-                        <span class="mono">{selected.outputs.join(", ")}</span>
-                      </p>
-                    ) : null}
-                    {selected.schema ? (
-                      <pre class="spec-pre sch-pre">
-                        {JSON.stringify(selected.schema, null, 2)}
-                      </pre>
-                    ) : null}
-                    {selected.args && Object.keys(selected.args).length ? (
-                      <pre class="spec-pre sch-pre">
-                        {JSON.stringify(selected.args, null, 2)}
-                      </pre>
-                    ) : null}
-                    {selected.kind === "step" || selected.kind === "hitl" ? (
-                      <button
-                        type="button"
-                        class="cta linkish"
-                        onClick={() => jumpToStepYaml(selected.id)}
-                      >
-                        Jump to YAML
-                      </button>
-                    ) : null}
-                  </>
-                ) : (
-                  <p class="tile-meta">Select a node</p>
-                )}
-              </div>
+            <aside class="sch-inspector" aria-label="Inspector">
+              <p class="tile-label">Inspector</p>
+              {selected ? (
+                <>
+                  <h2 class="tile-title">{selected.label}</h2>
+                  {selected.use ? (
+                    <p class="mono muted">{selected.use}</p>
+                  ) : null}
+                  {selected.forEach ? (
+                    <p class="tile-meta">
+                      forEach · <span class="mono">{selected.forEach}</span>
+                    </p>
+                  ) : null}
+                  {selected.once ? (
+                    <p class="tile-meta">
+                      once · <span class="mono">{selected.once}</span>
+                    </p>
+                  ) : null}
+                  {selected.enforce.length ? (
+                    <p class="tile-meta">
+                      enforce ·{" "}
+                      <span class="mono">{selected.enforce.join(", ")}</span>
+                    </p>
+                  ) : null}
+                  {selected.outputs.length ? (
+                    <p class="tile-meta">
+                      outputs ·{" "}
+                      <span class="mono">{selected.outputs.join(", ")}</span>
+                    </p>
+                  ) : null}
+                  {selected.schema ? (
+                    <pre class="spec-pre sch-pre">
+                      {JSON.stringify(selected.schema, null, 2)}
+                    </pre>
+                  ) : null}
+                  {selected.args && Object.keys(selected.args).length ? (
+                    <pre class="spec-pre sch-pre">
+                      {JSON.stringify(selected.args, null, 2)}
+                    </pre>
+                  ) : null}
+                  {selected.kind === "step" || selected.kind === "hitl" ? (
+                    <button
+                      type="button"
+                      class="cta linkish"
+                      onClick={() => jumpToStepYaml(selected.id)}
+                    >
+                      Jump to YAML
+                    </button>
+                  ) : null}
+                </>
+              ) : (
+                <p class="tile-meta">
+                  Select a step to see its settings · YAML is the source of
+                  truth
+                </p>
+              )}
             </aside>
           </div>
         ) : null}
 
         {mode === "manifest" ? (
-          <div class="design-manifest tile">
+          <div class="design-manifest">
             {manifest ? (
               <pre class="spec-pre sch-pre">
                 {JSON.stringify(manifest, null, 2)}
@@ -425,7 +417,7 @@ export function DesignView({
         ) : null}
 
         {mode === "yaml" ? (
-          <div class="design-yaml tile" data-spec-step="yaml">
+          <div class="design-yaml" data-spec-step="yaml">
             <textarea
               ref={yamlRef}
               class="spec-textarea mono design-yaml-editor"

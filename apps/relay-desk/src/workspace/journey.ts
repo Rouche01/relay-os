@@ -181,15 +181,15 @@ export function nextGateForView(
       if (lifecycle === "Needs catalog") {
         return { view: "design", label: "See what's missing" };
       }
-      return { view: "verify", label: "Run checks" };
+      return { view: "verify", label: "Next: run checks →" };
     case "verify":
       if (lifecycle === "Draft" || lifecycle === "Needs catalog") {
-        return { view: "verify", label: "Run checks" };
+        return { view: "verify", label: "Next: run checks →" };
       }
-      return { view: "ship", label: "Go to Ship" };
+      return { view: "ship", label: "Next: Ship →" };
     case "ship":
       if (lifecycle === "Live" || lifecycle === "Paused") {
-        return { view: "activity", label: "View activity" };
+        return { view: "activity", label: "Next: Activity →" };
       }
       return { view: "ship", label: "Finish setup" };
     case "activity":

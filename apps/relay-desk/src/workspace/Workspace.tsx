@@ -27,23 +27,24 @@ export type WorkspaceProps = {
   backLabel: string;
   onBack: () => void;
   onViewChange: (view: WorkspaceView) => void;
-  /** Seed draft from parent (optional — store is source of truth). */
   draft?: DraftRecord;
   settings?: DeskSettings;
   onDraftUpdated?: (draft: DraftRecord) => void;
   onReDraft?: () => void;
-  /** After Ship enable — typically navigate to Apps. */
   onShipped?: () => void;
-  /** Activity HITL → Seats. */
   onOpenSeats?: () => void;
 };
+
+function stageMark(status: "done" | "current" | "upcoming"): string {
+  if (status === "current") return "●";
+  if (status === "done") return "●";
+  return "○";
+}
 
 export function Workspace({
   entityId,
   title,
   lifecycle: lifecycleProp,
-  specHash,
-  trigger,
   view,
   backLabel,
   onBack,
@@ -86,15 +87,16 @@ export function Workspace({
     [onViewChange]
   );
 
+  const goal = title?.trim() || liveDraft?.goal || entityId;
+
   return (
     <div class="desk-body workspace-surface">
       <WorkspaceHeader
+        surfaceLabel="Build"
         backLabel={backLabel}
         onBack={onBack}
-        title={title?.trim() || liveDraft?.goal || entityId}
+        title={goal}
         lifecycle={lifecycle}
-        specHash={specHash ?? liveDraft?.specHash}
-        trigger={trigger}
         view={view}
         nextGate={
           next
@@ -108,26 +110,23 @@ export function Workspace({
         }
       />
 
-      <nav class="ws-journey" aria-label="Journey">
-        <ol class="ws-journey-list">
+      <nav class="ws-journey-bar" aria-label="Journey">
+        <ol class="ws-journey-bar-list">
           {steps.map((step, i) => (
-            <li
-              key={step.id}
-              class="ws-journey-item"
-              data-status={step.status}
-            >
+            <li key={step.id} class="ws-journey-bar-item">
               {i > 0 ? (
-                <span class="ws-journey-sep" aria-hidden="true">
-                  →
+                <span class="ws-journey-bar-sep" aria-hidden="true">
+                  ──
                 </span>
               ) : null}
               <button
                 type="button"
-                class="ws-journey-step"
+                class="ws-journey-bar-step"
                 data-status={step.status}
                 aria-current={step.status === "current" ? "page" : undefined}
                 onClick={() => onViewChange(step.id)}
               >
+                <span aria-hidden="true">{stageMark(step.status)}</span>{" "}
                 {step.label}
               </button>
             </li>
@@ -135,49 +134,60 @@ export function Workspace({
         </ol>
       </nav>
 
-      {view === "design" && liveDraft && settings ? (
-        <DesignView
-          draft={liveDraft}
-          settings={settings}
-          onDraftUpdated={handleDraftUpdated}
-          onReDraft={() => onReDraft?.()}
-          focusIssue={focusIssue}
-          onFocusIssueConsumed={() => setFocusIssue(undefined)}
-        />
-      ) : view === "verify" && liveDraft && settings ? (
-        <VerifyView
-          draft={liveDraft}
-          settings={settings}
-          onDraftUpdated={handleDraftUpdated}
-          onJumpToDesign={jumpToDesign}
-        />
-      ) : view === "ship" && liveDraft && settings ? (
-        <ShipView
-          draft={liveDraft}
-          settings={settings}
-          onDraftUpdated={handleDraftUpdated}
-          onEnabled={() => onShipped?.()}
-        />
-      ) : view === "activity" && liveDraft && settings ? (
-        <ActivityView
-          draft={liveDraft}
-          settings={settings}
-          onDraftUpdated={handleDraftUpdated}
-          onOpenSeats={() => onOpenSeats?.()}
-          onEditSpec={() => onViewChange("design")}
-        />
-      ) : view === "design" ||
-        view === "verify" ||
-        view === "ship" ||
-        view === "activity" ? (
-        <section class="ws-view" aria-label={VIEW_LABEL[view]}>
-          <p class="tile-meta">Draft not found on this Desk.</p>
-        </section>
-      ) : (
-        <section class="ws-view" aria-label={VIEW_LABEL[view]}>
-          <p class="tile-meta mono">{entityId}</p>
-        </section>
-      )}
+      <div class="ws-body">
+        <nav class="ws-stage-rail" aria-label="Stages">
+          {steps.map((step) => (
+            <button
+              key={step.id}
+              type="button"
+              class="ws-stage-rail-btn"
+              data-status={step.status}
+              aria-current={step.status === "current" ? "page" : undefined}
+              onClick={() => onViewChange(step.id)}
+            >
+              <span aria-hidden="true">{stageMark(step.status)}</span>{" "}
+              {step.label}
+            </button>
+          ))}
+        </nav>
+
+        <div class="ws-panel" aria-label={VIEW_LABEL[view]}>
+          {view === "design" && liveDraft && settings ? (
+            <DesignView
+              draft={liveDraft}
+              settings={settings}
+              onDraftUpdated={handleDraftUpdated}
+              onReDraft={() => onReDraft?.()}
+              focusIssue={focusIssue}
+              onFocusIssueConsumed={() => setFocusIssue(undefined)}
+            />
+          ) : view === "verify" && liveDraft && settings ? (
+            <VerifyView
+              draft={liveDraft}
+              settings={settings}
+              onDraftUpdated={handleDraftUpdated}
+              onJumpToDesign={jumpToDesign}
+            />
+          ) : view === "ship" && liveDraft && settings ? (
+            <ShipView
+              draft={liveDraft}
+              settings={settings}
+              onDraftUpdated={handleDraftUpdated}
+              onEnabled={() => onShipped?.()}
+            />
+          ) : view === "activity" && liveDraft && settings ? (
+            <ActivityView
+              draft={liveDraft}
+              settings={settings}
+              onDraftUpdated={handleDraftUpdated}
+              onOpenSeats={() => onOpenSeats?.()}
+              onEditSpec={() => onViewChange("design")}
+            />
+          ) : (
+            <p class="tile-meta">Draft not found on this Desk.</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
