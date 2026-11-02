@@ -83,6 +83,7 @@ export function lifecycleFromDraft(
   draft: DraftRecord,
   pipeline?: SpecPipelineInput
 ): LifecyclePill {
+  if (draft.scheduleEnabled) return "Live";
   if (draft.status === "needs_catalog") return "Needs catalog";
   if (pipeline) {
     return lifecycleFromDraftStatus(draftStatusFromPipeline(pipeline));

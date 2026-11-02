@@ -25,10 +25,10 @@ todos:
     status: completed
   - id: w7-verify-view
     content: Verify view — All-checks summary in plain language, irreversible-step risk callout (derived, names the step), Structure + Rules-from-intent tables (reuse validation/evals rendering from SpecSurface), What-it-compiles-to strip from LowerResponse manifest stages; failures jump to YAML line in Design
-    status: pending
+    status: completed
   - id: w8-ship-view
     content: "Ship view — Going-live checklist unifying the two existing backends behind one adapter (draft YAML: freeze/export-bundle/schedule-enable + run shadow via /api/v2/*; installed app: connect/shadow-run/approve-evidence/enable/pause via /api/v2/apps/:id/*); evidence ∥ simulated writes review; Enable locked until shadow evidence approved (needsShadowGate); successful enable lands the app on Apps"
-    status: pending
+    status: completed
   - id: w9-activity-view
     content: "Activity view — runs list (draft: GET /api/v2/runs by specHash; app: GET /api/v2/apps/:id/runs) with plain-language run summaries, run detail as schematic overlay (w5), evidence + outcome follow-ups (processOutcomes), paused-at-HITL row deep-links to Seats (rename onOpenConsole), Pause; Edit spec (thaw) is a door back to Build Design and re-gates"
     status: pending
@@ -162,3 +162,5 @@ Already available: `/api/v2/scaffold|validate|lower|evals|freeze|run`, `/api/v2/
 - 2026-10-31 — **w4 done:** `journey.ts` derives lifecycle from draft (+ optional pipeline) / InstalledAppSummary; journey bar done|current|upcoming; library + header + next-gate CTA share one source; `draftStatusFromPipeline` ready for workspace store.
 - 2026-10-31 — **w5 done:** `spec/schematic.ts` — `deriveSchematic` / `applyRunOverlay` / `inferIrreversible` / `irreversibleSteps`; HTTP-only (no yaml/@relay); HITL + forEach/once/when/retry badges; manifest irreversible enrichment; run overlay states.
 - 2026-11-02 — **w6 done:** `workspace/views/DesignView.tsx` — intent + Re-draft, Schematic|Manifest|YAML, inspector, Save YAML → validate body, Compile for manifest; `yaml-focus.ts` shared; drafts store `body`/`manifest`.
+- 2026-11-02 — **w7 done:** `VerifyView` — Run checks (validate→evals→lower), plain summary, irreversible risk, structure + rules tables, compile strip; jump to Design YAML; draft status → checks_passed.
+- 2026-11-02 — **w8 done:** `ShipView` + `ship/{draft,app}-adapter` — freeze→install→connect→shadow→approve→enable; evidence/sim writes; Enable locked until approved; enable navigates to Apps; `exportBundle` client.

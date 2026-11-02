@@ -847,6 +847,7 @@ export function App() {
                   }
                   navigate({ kind: "build-new" });
                 }}
+                onShipped={() => navigate({ kind: "apps" })}
               />
             );
           })()

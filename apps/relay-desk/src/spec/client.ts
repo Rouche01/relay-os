@@ -162,6 +162,22 @@ export async function freezeSpec(
   return parseJson<FreezeResponse>(res.body);
 }
 
+export async function exportBundle(
+  settings: DeskSettings,
+  yaml: string
+): Promise<{
+  ok: boolean;
+  error?: string;
+  note?: string;
+  bundle?: unknown;
+  validation?: unknown;
+}> {
+  const res = await specHttp(settings, "POST", "/api/v2/bundle/export", {
+    yaml,
+  });
+  return parseJson(res.body);
+}
+
 export async function runSpec(
   settings: DeskSettings,
   yaml: string,

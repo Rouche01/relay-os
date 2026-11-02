@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
 import type { DeskSettings } from "../gateway/types.ts";
+import type { SpecValidationIssue } from "../spec/types.ts";
 import type { DraftRecord } from "../specs/draft-store.ts";
 import { DesignView } from "./views/DesignView.tsx";
+import { VerifyView } from "./views/VerifyView.tsx";
+import { ShipView } from "./views/ShipView.tsx";
 import { WorkspaceHeader } from "./header.tsx";
 import {
   VIEW_LABEL,
   deriveJourneySteps,
+  lifecycleFromDraft,
   nextGateForView,
   type LifecyclePill,
   type WorkspaceView,
@@ -26,18 +30,18 @@ export type WorkspaceProps = {
   settings?: DeskSettings;
   onDraftUpdated?: (draft: DraftRecord) => void;
   onReDraft?: () => void;
+  /** After Ship enable — typically navigate to Apps. */
+  onShipped?: () => void;
 };
 
-const PLACEHOLDER: Record<Exclude<WorkspaceView, "design">, string> = {
-  verify: "Is it correct and safe? — checks land in w7.",
-  ship: "Can it go live? — checklist lands in w8.",
+const PLACEHOLDER: Record<"activity", string> = {
   activity: "What did it do? — runs + overlay land in w9.",
 };
 
 export function Workspace({
   entityId,
   title,
-  lifecycle = "Draft",
+  lifecycle: lifecycleProp,
   specHash,
   trigger,
   view,
@@ -48,14 +52,23 @@ export function Workspace({
   settings,
   onDraftUpdated,
   onReDraft,
+  onShipped,
 }: WorkspaceProps) {
-  const next = nextGateForView(view, lifecycle);
-  const steps = deriveJourneySteps(lifecycle, view);
   const [liveDraft, setLiveDraft] = useState(draft);
+  const [focusIssue, setFocusIssue] = useState<
+    Pick<SpecValidationIssue, "path" | "stepId" | "ruleId"> | undefined
+  >();
 
   useEffect(() => {
     setLiveDraft(draft);
   }, [draft]);
+
+  const lifecycle =
+    liveDraft != null
+      ? lifecycleFromDraft(liveDraft)
+      : (lifecycleProp ?? "Draft");
+  const next = nextGateForView(view, lifecycle);
+  const steps = deriveJourneySteps(lifecycle, view);
 
   const handleDraftUpdated = useCallback(
     (nextDraft: DraftRecord) => {
@@ -65,6 +78,14 @@ export function Workspace({
     [onDraftUpdated]
   );
 
+  const jumpToDesign = useCallback(
+    (issue: Pick<SpecValidationIssue, "path" | "stepId" | "ruleId">) => {
+      setFocusIssue(issue);
+      onViewChange("design");
+    },
+    [onViewChange]
+  );
+
   return (
     <div class="desk-body workspace-surface">
       <WorkspaceHeader
@@ -72,7 +93,7 @@ export function Workspace({
         onBack={onBack}
         title={title?.trim() || liveDraft?.goal || entityId}
         lifecycle={lifecycle}
-        specHash={specHash}
+        specHash={specHash ?? liveDraft?.specHash}
         trigger={trigger}
         view={view}
         nextGate={
@@ -120,9 +141,25 @@ export function Workspace({
           settings={settings}
           onDraftUpdated={handleDraftUpdated}
           onReDraft={() => onReDraft?.()}
+          focusIssue={focusIssue}
+          onFocusIssueConsumed={() => setFocusIssue(undefined)}
         />
-      ) : view === "design" ? (
-        <section class="ws-view" aria-label="Design">
+      ) : view === "verify" && liveDraft && settings ? (
+        <VerifyView
+          draft={liveDraft}
+          settings={settings}
+          onDraftUpdated={handleDraftUpdated}
+          onJumpToDesign={jumpToDesign}
+        />
+      ) : view === "ship" && liveDraft && settings ? (
+        <ShipView
+          draft={liveDraft}
+          settings={settings}
+          onDraftUpdated={handleDraftUpdated}
+          onEnabled={() => onShipped?.()}
+        />
+      ) : view === "design" || view === "verify" || view === "ship" ? (
+        <section class="ws-view" aria-label={VIEW_LABEL[view]}>
           <p class="tile-meta">Draft not found on this Desk.</p>
         </section>
       ) : (

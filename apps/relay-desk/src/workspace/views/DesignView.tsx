@@ -20,6 +20,7 @@ export type DesignViewProps = {
   onReDraft: () => void;
   /** Jump to YAML line when arriving from Verify (w7). */
   focusIssue?: Pick<SpecValidationIssue, "path" | "stepId" | "ruleId">;
+  onFocusIssueConsumed?: () => void;
 };
 
 type CanvasMode = "schematic" | "manifest" | "yaml";
@@ -95,6 +96,7 @@ export function DesignView({
   onDraftUpdated,
   onReDraft,
   focusIssue,
+  onFocusIssueConsumed,
 }: DesignViewProps) {
   const [mode, setMode] = useState<CanvasMode>("schematic");
   const [yamlDraft, setYamlDraft] = useState(draft.yaml);
@@ -158,13 +160,14 @@ export function DesignView({
   }, [draft.id]);
 
   useEffect(() => {
-    if (!focusIssue || !yamlRef.current) return;
+    if (!focusIssue) return;
     setMode("yaml");
     const line = findYamlIssueLine(yamlDraft, focusIssue);
     requestAnimationFrame(() => {
       focusYamlLine(yamlRef.current, yamlDraft, line);
+      onFocusIssueConsumed?.();
     });
-  }, [focusIssue, yamlDraft]);
+  }, [focusIssue, yamlDraft, onFocusIssueConsumed]);
 
   const schematic = useMemo(
     () => deriveSchematic({ body, manifest }),

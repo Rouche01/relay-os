@@ -5,6 +5,10 @@
  */
 
 import { loadSpecHistory, type SpecHistoryEntry } from "../spec/history.ts";
+import type {
+  EvalsResponse,
+  SpecValidationResult,
+} from "../spec/types.ts";
 
 export type DraftStatus =
   | "draft"
@@ -27,6 +31,25 @@ export type DraftRecord = {
   body?: Record<string, unknown>;
   /** Lowered manifest JSON when available (Design Manifest toggle). */
   manifest?: Record<string, unknown>;
+  specHash?: string;
+  /** Last validate / evals results (Verify view). */
+  validation?: SpecValidationResult;
+  evals?: EvalsResponse;
+  /** Ship progress (local until Apps owns the live fleet). */
+  installedAppId?: string;
+  lastShadowRunId?: string;
+  evidenceApproved?: boolean;
+  scheduleEnabled?: boolean;
+  /** Last shadow run evidence/sim writes for Ship review. */
+  lastShadow?: {
+    runId?: string;
+    ok?: boolean;
+    evidenceCount?: number;
+    simulatedWriteCount?: number;
+    simulatedWrites?: Array<{ stepId?: string; detail?: unknown }>;
+    evidenceApproval?: { approvedAt: string; note?: string };
+    note?: string;
+  };
 };
 
 const KEY = "relay-desk.build-drafts";
@@ -131,6 +154,14 @@ export function upsertDraft(
     frozenId: input.frozenId,
     body: input.body,
     manifest: input.manifest,
+    specHash: input.specHash,
+    validation: input.validation,
+    evals: input.evals,
+    installedAppId: input.installedAppId,
+    lastShadowRunId: input.lastShadowRunId,
+    evidenceApproved: input.evidenceApproved,
+    scheduleEnabled: input.scheduleEnabled,
+    lastShadow: input.lastShadow,
   };
   const without = list.filter((d) => d.id !== id && d.yaml !== input.yaml);
   saveAll([next, ...without]);
