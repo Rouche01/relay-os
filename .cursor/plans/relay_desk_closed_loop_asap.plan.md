@@ -112,5 +112,6 @@ Sibling of long-term [`relay_open_services_platform.plan.md`](./relay_open_servi
 - [`apps/relay-desk/GUIDE.md`](../../apps/relay-desk/GUIDE.md)
 - [`relay_capability_slots.plan.md`](./relay_capability_slots.plan.md) — next for service/binding choice
 - [`relay_open_services_platform.plan.md`](./relay_open_services_platform.plan.md)
+- [`relay_capability_slots.plan.md`](./relay_capability_slots.plan.md) — slots dogfood (YouTube/Reddit); does not change ASAP GitHub bar
 - [`relay_spec_to_working_app.plan.md`](./relay_spec_to_working_app.plan.md)
 - [`desk_spec_workspace_ux.plan.md`](./desk_spec_workspace_ux.plan.md)

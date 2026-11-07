@@ -64,6 +64,10 @@ Relay ships a **small curated seed** and **ways to grow the catalog**. Vertical 
 | redditapis / notify-only | Worked as a binding | Prefer honest degraded binding over blocked product |
 | Computer/browser | Human-like UI path when no API | First-class binding, not a hack |
 
+**Rule of thumb:** bindings change; Specs and HITL should not.
+
+That lesson is implemented as **capability slots** (medium-term, landed): Spec names a stable slot (`reddit.read`, `youtube.discover`, …); scaffold emits ranked candidates; Ship resolves one binding; runtime applies it via `args.slot` without rewriting Spec law. See [`relay_capability_slots.plan.md`](./relay_capability_slots.plan.md) and Desk [`GUIDE.md`](../../apps/relay-desk/GUIDE.md) § What works today. ASAP GitHub triage remains concrete catalog services (closed-loop bar unchanged).
+
 Scaffold must **infer** which binding is possible from intent + installed services + connection state — not assume every noun has an `api.request`.
 
 ## Desk product shape (long-term)
@@ -116,7 +120,7 @@ Two directions — do not collapse them:
 
 ## Related
 
-- [`relay_capability_slots.plan.md`](./relay_capability_slots.plan.md) — capability slots + ranked binding alternatives (scaffold contract)
+- [`relay_capability_slots.plan.md`](./relay_capability_slots.plan.md) — capability slots + ranked binding alternatives (**done** — CE lesson: swap binding, keep Spec law)
 - [`relay_app_knowledge_mcp.plan.md`](./relay_app_knowledge_mcp.plan.md) — outbound opt-in app MCP/API + knowledge store
 - [`relay_desk_closed_loop_asap.plan.md`](./relay_desk_closed_loop_asap.plan.md) — short-term closed loop (complete)
 - [`docs/manifesto-v2.md`](../../docs/manifesto-v2.md) — MCP vs acting

@@ -21,8 +21,8 @@ todos:
     content: Dogfood — Reddit-style or YouTube-style intent scaffolds with slots + alternatives (official / degraded / computer / human); operator picks without Spec rewrite
     status: completed
   - id: cs6-docs-link
-    content: Document CE lesson + link from open-services plan; GUIDE note that ASAP still uses concrete catalog services until this lands
-    status: pending
+    content: Document CE lesson + link from open-services plan; GUIDE note that ASAP GitHub triage stays concrete while slots dogfood (YouTube/Reddit) is separate
+    status: completed
 isProject: true
 ---
 
@@ -119,7 +119,7 @@ Spec (future slots[])
 | When checked | Create draft proposes candidates; Ship confirms resolution |
 | Degraded | Allowed as candidate; must be labeled; never silent default to live-looking |
 | Swap | Change resolved binding without re-scaffold |
-| ASAP | Remains concrete catalog services until this ships |
+| ASAP | GitHub triage stays concrete catalog services (closed-loop bar); slots dogfood is YouTube/Reddit |
 | Thesis | Locked `cs0` (2026-11-07) — see Non-negotiables above |
 
 ## Success criteria
@@ -130,8 +130,7 @@ Spec (future slots[])
 
 ## Suggested sequencing
 
-1. ~~`cs0`–`cs5`~~  
-2. `cs6` — docs / cross-links  
+1. ~~`cs0`–`cs6`~~ — plan complete.
 
 ### `cs0`–`cs3` done (2026-11-07)
 
@@ -148,7 +147,11 @@ Spec (future slots[])
 - YouTube stub (`stubYouTubeDiscover`) + Reddit scout use `args.slot`; Ship resolve remaps computer / degraded http-fetch / human / notify without rewriting goal or step ids.
 - `applyResolvedSlots` remaps binding → `computer.observe` / `api.request` / `human.edit` / `browser.navigate`.
 - Smoke: `apps/relay-shell/server/slots-dogfood.test.ts`.
-- Next: `cs6` docs / GUIDE + open-services cross-link.
+
+### `cs6` done (2026-11-07)
+
+- Desk [`GUIDE.md`](../../apps/relay-desk/GUIDE.md): ASAP GitHub stays concrete; slots dogfood called out separately with CE lesson.
+- Open-services plan § Lessons → capability slots + GUIDE cross-link.
 
 ## Links
 

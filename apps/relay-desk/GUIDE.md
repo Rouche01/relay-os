@@ -38,12 +38,16 @@ This is the closed loop you can trust right now. Longer “any service” work i
 | **GitHub triage** preset → Verify → Ship → Apps **Run once** → Seats Approve → run finishes | Desk Spec API still **blocks network** and uses **fixtures** for GitHub list/comment unless you open network later |
 | **Mark ready** `github:default` on Ship/Apps | Mark ready ≠ token. Live secrets go in Spec API `.env` (`GITHUB_TOKEN` + `RELAY_CONNECTIONS`) |
 | **Enable** schedule after evidence approve | Separate from Run once; cron ticks need Spec API kept running |
-| Catalog scaffold (github / reddit demo / generic HITL) | Unknown services show **Needs[]** — no invented APIs |
+| Catalog scaffold (github / reddit demo / YouTube discover / generic HITL) | Unknown services show **Needs[]** — no invented APIs |
 | Fanout HITL pauses parent → Seats | Rebuild `@relay/runtime` + restart Spec API after pulling runtime fixes |
+
+**ASAP closed loop stays concrete:** GitHub triage steps still name `github` / `github:default` directly (no `args.slot` required). That is the success bar.
+
+**Capability slots (medium-term, landed for dogfood):** YouTube discover and Reddit scout Specs can name a **slot** (`youtube.discover`, `reddit.read`) with ranked alternatives (official / degraded / computer / human). On **Ship**, pick a candidate — binding can change without rewriting goal, rules, or step ids. CE lesson: bindings change; Spec + HITL should not. See [capability slots plan](../../.cursor/plans/relay_capability_slots.plan.md). Automated: `slots-dogfood.test.ts` (alongside closed-loop smoke).
 
 **Not ASAP success:** Reddit/CE fashion **write**, freight wedge, customer-authored services, My Desk.
 
-Manual UI checklist: [`SMOKE.md`](./SMOKE.md). Automated: `pnpm --filter @relay/apps-relay-shell test` (`closed-loop-smoke.test.ts`).
+Manual UI checklist: [`SMOKE.md`](./SMOKE.md). Automated: `pnpm --filter @relay/apps-relay-shell test` (`closed-loop-smoke.test.ts`, `slots-dogfood.test.ts`).
 
 ---
 
@@ -241,6 +245,7 @@ After changing runtime / engines packages locally: `pnpm --filter @relay/runtime
 
 - ASAP closed loop: [`.cursor/plans/relay_desk_closed_loop_asap.plan.md`](../../.cursor/plans/relay_desk_closed_loop_asap.plan.md)  
 - Smoke checklist: [`SMOKE.md`](./SMOKE.md)  
+- Capability slots (binding alternatives): [`.cursor/plans/relay_capability_slots.plan.md`](../../.cursor/plans/relay_capability_slots.plan.md)  
 - Product UX plan: [`.cursor/plans/desk_spec_workspace_ux.plan.md`](../../.cursor/plans/desk_spec_workspace_ux.plan.md)  
 - Intent → Spec thesis: [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](../../.cursor/plans/relay_intent_spec_verify_hitl.plan.md)  
 - Long-term open services: [`.cursor/plans/relay_open_services_platform.plan.md`](../../.cursor/plans/relay_open_services_platform.plan.md)  
