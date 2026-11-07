@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: cs4-runtime-resolve
     content: Host resolves slot → binding at run time from install state; swap binding without re-scaffolding Spec
-    status: pending
+    status: completed
   - id: cs5-dogfood
     content: Dogfood — Reddit-style or YouTube-style intent scaffolds with slots + alternatives (official / degraded / computer / human); operator picks without Spec rewrite
     status: pending
@@ -130,20 +130,20 @@ Spec (future slots[])
 
 ## Suggested sequencing
 
-1. ~~`cs0`–`cs3`~~  
-2. `cs4` — runtime resolve  
-3. `cs5` — dogfood  
-4. `cs6` — docs / cross-links  
+1. ~~`cs0`–`cs4`~~  
+2. `cs5` — dogfood  
+3. `cs6` — docs / cross-links  
 
-### `cs0`–`cs2` done (2026-11-07)
+### `cs0`–`cs3` done (2026-11-07)
 
-- Thesis, types/vocab, scaffold emit — see earlier notes.
+- Thesis, types, scaffold emit, Ship resolve UX.
 
-### `cs3` done (2026-11-07)
+### `cs4` done (2026-11-07)
 
-- `POST /api/v2/slots/resolve` — explicit candidate pick; blocked refused; degraded flagged in note.
-- Desk Ship **Bindings** step lists slot candidates; click resolves + mark-ready when connection present; shadow still gates live writes.
-- Next: `cs4` — runtime resolves slot → binding from install/Spec state.
+- `applyResolvedSlots` in `@relay/protocol` — steps with `args.slot` get service/connection from Ship resolution; swap candidate without changing goal/step ids.
+- `prepareSpecRun` applies slots before validate/lower; unresolved slot refs fail closed.
+- ASAP concrete steps (no `args.slot`) still run; sidecar slots alone do not block.
+- Next: `cs5` dogfood Spec that uses `args.slot` end-to-end.
 
 ## Links
 

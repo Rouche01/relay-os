@@ -2,6 +2,7 @@ import type { ApiFixture, ConnectionResolver } from "@relay/engines-api";
 import type { DataStore } from "@relay/engines-data";
 import type { LlmClient } from "@relay/llm";
 import {
+  applyResolvedSlots,
   createDraftSpecV2,
   freezeSpecV2,
   type SpecV2,
@@ -94,7 +95,16 @@ export async function prepareSpecRun(options: {
   frozenBy?: string;
   name?: string;
 }): Promise<PreparedSpecRun> {
-  const body = bodyFromFrozenOrBody(options);
+  const rawBody = bodyFromFrozenOrBody(options);
+  const applied = applyResolvedSlots(rawBody);
+  if (!applied.ok) {
+    throw new SpecHostError(
+      "unresolved_slots",
+      applied.errors.join("; "),
+      { errors: applied.errors }
+    );
+  }
+  const body = applied.body;
   const selected = selectServicesForSpec(body, options.services);
   if (!selected.ok) {
     throw new SpecHostError(

@@ -10,6 +10,7 @@ export * from "./spec-v2-schema";
 export * from "./service-descriptor";
 export * from "./service-descriptor-schema";
 export * from "./capability-slots";
+export * from "./apply-resolved-slots";
 export * from "./intent";
 export * from "./evidence";
 export * from "./spec-store";
