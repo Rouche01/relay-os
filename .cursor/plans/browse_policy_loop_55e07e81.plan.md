@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: spec-controller
     content: Add BrowsePolicyController AppController and opt-in stage wiring for Spec runs
-    status: pending
+    status: completed
 isProject: false
 ---
 

@@ -4,6 +4,7 @@ export {
   lowerSpecV2,
   schedulesFromTrigger,
   schedulesAndEntrypointsFromOutcomeRules,
+  SPEC_V2_BROWSE_NEED_HUMAN_PREFIX,
 } from "./lower.js";
 export {
   assertLoweredRunnable,

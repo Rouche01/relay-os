@@ -35,3 +35,9 @@ export {
   browseGoalTask,
   type BrowseGoalTaskOptions,
 } from "./browse-goal-task.js";
+
+export {
+  BrowsePolicyController,
+  withBrowsePolicy,
+  type BrowsePolicyControllerOptions,
+} from "./controller.js";

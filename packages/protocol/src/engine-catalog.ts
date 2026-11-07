@@ -269,6 +269,48 @@ const COMPUTER_ACT_ARGS: CapabilityArgSchema = {
   },
 };
 
+const COMPUTER_BROWSE_ARGS: CapabilityArgSchema = {
+  goal: {
+    type: "string",
+    required: true,
+    description: "Fixed high-level browse goal (prompts are generated each turn)",
+  },
+  url: {
+    type: "string",
+    description: "Optional start URL to open before the loop",
+  },
+  maxSteps: {
+    type: "number",
+    description: "Max observe→decide→act iterations (default 20)",
+  },
+  lambda: {
+    type: "number",
+    description: "Exponential action-rate λ (1/seconds); mean wait ≈ 1/λ s",
+  },
+  mu: {
+    type: "number",
+    description: "Per-step exit hazard in [0, 1]",
+  },
+  distribution: {
+    type: "string",
+    enum: ["exponential", "lognormal"],
+    description: "Inter-action wait distribution (default exponential)",
+  },
+  allowedActions: {
+    type: "array",
+    description: "Optional allow-list of desktop action types",
+  },
+  actionMix: {
+    type: "object",
+    description: "Soft click/scroll/type priors for the decide prompt",
+  },
+  slot: {
+    type: "string",
+    description:
+      "Capability slot id — binding filled at Ship resolve (args.slot)",
+  },
+};
+
 const DATA_KEY_ARGS: CapabilityArgSchema = {
   store: {
     type: "string",
@@ -457,6 +499,15 @@ export const ENGINE_CAPABILITY_CATALOG: readonly EngineCapabilityDef[] = [
     "act",
     "Perform OS-level input on the desktop (irreversible by default)",
     COMPUTER_ACT_ARGS,
+    "irreversible",
+    { kind: "fixed", sideEffect: "irreversible" },
+    true
+  ),
+  cap(
+    "computer",
+    "browse",
+    "Autonomous desktop browse loop: human-like waits + vision decisions toward a fixed goal",
+    COMPUTER_BROWSE_ARGS,
     "irreversible",
     { kind: "fixed", sideEffect: "irreversible" },
     true

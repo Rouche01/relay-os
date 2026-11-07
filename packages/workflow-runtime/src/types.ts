@@ -3,7 +3,7 @@ import type {
   ExecutionEngine,
   FeedbackResponse,
 } from "@relay/protocol";
-import type { AgentRuntimeOptions } from "@relay/runtime";
+import type { AgentRuntimeOptions, AppController } from "@relay/runtime";
 import type { LoweredWorkflow } from "@relay/spec-lower";
 
 /** One evidence trail entry recorded during a Spec v2 run. */
@@ -46,4 +46,14 @@ export type CreateWorkflowRuntimeOptions = {
   softFailClosed?: boolean;
   /** Forwarded to AgentRuntime (pauseOnHitl, startAtStageIndex, …). */
   runtimeOptions?: AgentRuntimeOptions;
+  /**
+   * Optional decorator around WorkflowController (and fanout children).
+   * Use to opt in autonomous handlers (e.g. computer.browse) without
+   * replacing declarative Spec execution for other steps.
+   * `helpers.getContext` is safe to close over — it resolves after runtime init.
+   */
+  decorateController?: (
+    base: AppController,
+    helpers: { getContext: () => AgentContext }
+  ) => AppController;
 };

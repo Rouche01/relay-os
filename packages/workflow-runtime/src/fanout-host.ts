@@ -14,6 +14,10 @@ export type WorkflowFanoutHostOptions = {
   getParentContext: () => AgentContext;
   engines?: Record<string, ExecutionEngine>;
   softFailClosed?: boolean;
+  decorateController?: (
+    base: AppController,
+    getContext: () => AgentContext
+  ) => AppController;
 };
 
 /**
@@ -25,6 +29,10 @@ export class WorkflowFanoutHost implements FanoutHost {
   private readonly getParentContext: () => AgentContext;
   private readonly engines: Record<string, ExecutionEngine>;
   private readonly softFailClosed: boolean;
+  private readonly decorateController?: (
+    base: AppController,
+    getContext: () => AgentContext
+  ) => AppController;
   private readonly childOutputs = new Map<string, unknown[]>();
 
   constructor(options: WorkflowFanoutHostOptions) {
@@ -32,6 +40,7 @@ export class WorkflowFanoutHost implements FanoutHost {
     this.getParentContext = options.getParentContext;
     this.engines = options.engines ?? {};
     this.softFailClosed = options.softFailClosed ?? true;
+    this.decorateController = options.decorateController;
   }
 
   createChildController(
@@ -40,12 +49,15 @@ export class WorkflowFanoutHost implements FanoutHost {
     _index: number,
     getContext: () => AgentContext
   ): AppController {
-    return new WorkflowController({
+    const base = new WorkflowController({
       lowered: this.lowered,
       getContext,
       engines: this.engines,
       softFailClosed: this.softFailClosed,
     });
+    return this.decorateController
+      ? this.decorateController(base, getContext)
+      : base;
   }
 
   async onChildStart(

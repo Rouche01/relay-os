@@ -13,7 +13,11 @@
   },
   "dependencies": {
     "@relay/engines-computer": "workspace:*",
-    "@relay/llm": "workspace:*"
+    "@relay/llm": "workspace:*",
+    "@relay/protocol": "workspace:*",
+    "@relay/runtime": "workspace:*",
+    "@relay/spec-lower": "workspace:*",
+    "@relay/workflow-runtime": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

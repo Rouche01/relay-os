@@ -1,13 +1,13 @@
 import type { AgentContext, ExecutionEngine } from "@relay/protocol";
 import { assertLoweredRunnable, type LoweredWorkflow } from "@relay/spec-lower";
-import { AgentRuntime } from "@relay/runtime";
+import { AgentRuntime, type AppController } from "@relay/runtime";
 import { WorkflowController } from "./controller.js";
 import { WorkflowFanoutHost } from "./fanout-host.js";
 import type { CreateWorkflowRuntimeOptions } from "./types.js";
 
 export type WorkflowRuntimeBundle = {
   runtime: AgentRuntime;
-  controller: WorkflowController;
+  controller: AppController;
   fanoutHost: WorkflowFanoutHost;
   lowered: LoweredWorkflow;
 };
@@ -32,7 +32,7 @@ export function createWorkflowRuntime(
   const ref: { runtime?: AgentRuntime } = {};
   const softFailClosed = options.softFailClosed ?? true;
 
-  const controller = new WorkflowController({
+  const baseController = new WorkflowController({
     lowered,
     getContext: () => {
       if (!ref.runtime) {
@@ -43,17 +43,26 @@ export function createWorkflowRuntime(
     engines,
     softFailClosed,
   });
+  const getContext = () => {
+    if (!ref.runtime) {
+      throw new Error("Workflow runtime accessed before initialisation");
+    }
+    return ref.runtime.getContext();
+  };
+  const decorate = options.decorateController;
+  const controller = decorate
+    ? decorate(baseController, { getContext })
+    : baseController;
 
   const fanoutHost = new WorkflowFanoutHost({
     lowered,
-    getParentContext: () => {
-      if (!ref.runtime) {
-        throw new Error("Workflow runtime accessed before initialisation");
-      }
-      return ref.runtime.getContext();
-    },
+    getParentContext: getContext,
     engines,
     softFailClosed,
+    decorateController: decorate
+      ? (base, childGetContext) =>
+          decorate(base, { getContext: childGetContext })
+      : undefined,
   });
 
   const runtime = new AgentRuntime(

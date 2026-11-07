@@ -34,3 +34,33 @@ await runner.run("browse_goal", {
 ```
 
 Inference and pacing live here; the gateway only leases, screenshots, and acts.
+
+## Spec v2 (`computer.browse`)
+
+Opt in with a Spec step `use: "computer.browse"` and decorate the workflow controller:
+
+```ts
+import { createWorkflowRuntime } from "@relay/workflow-runtime";
+import {
+  createLlmBrowseDecider,
+  withBrowsePolicy,
+} from "@relay/browse-policy";
+import { createLlmClient } from "@relay/llm";
+
+const decide = createLlmBrowseDecider(createLlmClient({ provider: "gemini" }));
+
+const { runtime } = createWorkflowRuntime({
+  lowered,
+  engines,
+  context,
+  decorateController: (base, { getContext }) =>
+    withBrowsePolicy(base, {
+      lowered,
+      getContext,
+      decide,
+      engines,
+    }),
+});
+```
+
+Other steps still run through `WorkflowController`. `need_human` pauses on the stage’s browse feedback point; Abort hard-stops the run.

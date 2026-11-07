@@ -46,7 +46,7 @@ describe("engine capability catalog", () => {
       "type",
       "submit",
     ]);
-    assert.deepEqual(byEngine.computer, ["observe", "act"]);
+    assert.deepEqual(byEngine.computer, ["observe", "act", "browse"]);
     assert.deepEqual(byEngine.data, ["get", "put", "query", "append"]);
     assert.deepEqual(byEngine.human, ["approve", "edit", "choose"]);
   });

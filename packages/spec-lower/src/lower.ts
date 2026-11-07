@@ -290,12 +290,31 @@ export function foreachContextKey(stepId: string): string {
   return `__relay.foreach.${stepId}`;
 }
 
+/** Prefix for computer.browse need_human pauses (skip unless pending). */
+export const SPEC_V2_BROWSE_NEED_HUMAN_PREFIX = "[browse-need-human]";
+
 function humanFeedback(
   step: SpecV2Step,
   patterns: Set<FeedbackType>
 ): FeedbackPoint[] | undefined {
   const parsed = parseCapabilityUse(step.use);
-  if (!parsed.ok || parsed.capability.engine !== "human") return undefined;
+  if (!parsed.ok) return undefined;
+
+  if (
+    parsed.capability.engine === "computer" &&
+    parsed.capability.verb === "browse"
+  ) {
+    patterns.add("freeform");
+    return [
+      {
+        type: "freeform",
+        description: `${SPEC_V2_BROWSE_NEED_HUMAN_PREFIX} Browse needs human input`,
+        required: true,
+      },
+    ];
+  }
+
+  if (parsed.capability.engine !== "human") return undefined;
 
   const verb = parsed.capability.verb;
   if (verb === "approve") {

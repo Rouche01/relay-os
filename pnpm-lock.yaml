@@ -339,6 +339,18 @@ importers:
       '@relay/llm':
         specifier: workspace:*
         version: link:../llm
+      '@relay/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@relay/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@relay/spec-lower':
+        specifier: workspace:*
+        version: link:../spec-lower
+      '@relay/workflow-runtime':
+        specifier: workspace:*
+        version: link:../workflow-runtime
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -483,7 +495,7 @@ importers:
     dependencies:
       '@google/genai':
         specifier: latest
-        version: 2.32.0
+        version: 3.0.0
       '@relay/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -1161,9 +1173,9 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
 
-  '@google/genai@2.32.0':
-    resolution: {integrity: sha512-60c79uXpR0a47bmGqDxbXEBuQUalNmwo5mx5kqb91jIW4FoqpsLSt86DeVhRhtH5+s/16Wqxt3sXzFQn2U1OHQ==}
-    engines: {node: '>=20.0.0'}
+  '@google/genai@3.0.0':
+    resolution: {integrity: sha512-0o2uBXPWBNUu0jWg2Id5iBtCnsd7lnxKPQfnijKvNublG/zj40CToERvz/eyfNjzzXt2kwuvxpouLUrRCZ2WUQ==}
+    engines: {node: '>=22.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
     peerDependenciesMeta:
@@ -1863,6 +1875,10 @@ packages:
     resolution: {integrity: sha512-4K0myLaWL5EteuSAro91EGFgcfVgxb64Jx+7oDAY6GOkXD4M69yuSEljNcInGVCA5sOPxmZ/EqDLj2x0Q0+Ygg==}
     engines: {node: '>=12.0.0'}
 
+  protobufjs@7.6.6:
+    resolution: {integrity: sha512-dYDWdjSl5RNb7SgPxGQcRU+GtvP7s2fpkrY0r432PcOIaZ0/rBcxEZnQN67iJhFuQiVw754JDoPruPCNdGsbjg==}
+    engines: {node: '>=12.0.0'}
+
   puppeteer-extra-plugin-stealth@2.11.2:
     resolution: {integrity: sha512-bUemM5XmTj9i2ZerBzsk2AN5is0wHMNE6K0hXBzBXOzP5m5G3Wl0RHhiqKeHToe/uIH8AoZiGhc1tCkLZQPKTQ==}
     engines: {node: '>=8'}
@@ -2394,11 +2410,11 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@google/genai@2.32.0':
+  '@google/genai@3.0.0':
     dependencies:
       google-auth-library: 10.6.2
       p-retry: 4.6.2
-      protobufjs: 7.6.1
+      protobufjs: 7.6.6
       ws: 8.21.0
     transitivePeerDependencies:
       - bufferutil
@@ -3049,6 +3065,20 @@ snapshots:
       '@protobufjs/fetch': 1.1.1
       '@protobufjs/float': 1.0.2
       '@protobufjs/inquire': 1.1.2
+      '@protobufjs/path': 1.1.2
+      '@protobufjs/pool': 1.1.0
+      '@protobufjs/utf8': 1.1.1
+      '@types/node': 22.20.4
+      long: 5.3.2
+
+  protobufjs@7.6.6:
+    dependencies:
+      '@protobufjs/aspromise': 1.1.2
+      '@protobufjs/base64': 1.1.2
+      '@protobufjs/codegen': 2.0.5
+      '@protobufjs/eventemitter': 1.1.1
+      '@protobufjs/fetch': 1.1.1
+      '@protobufjs/float': 1.0.2
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.1
