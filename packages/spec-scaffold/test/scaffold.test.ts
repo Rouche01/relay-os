@@ -11,6 +11,7 @@ import {
 import {
   formatCatalogForPrompt,
   needsFromIntent,
+  proposeSlotsFromIntent,
   scaffoldSpec,
   specBodyToYaml,
 } from "../src/index.js";
@@ -237,17 +238,17 @@ describe("scaffoldSpec", () => {
   });
 });
 
-describe("needsFromIntent", () => {
-  it("flags github when catalog is reddit-only", () => {
+describe("needsFromIntent (cs2 capability slots)", () => {
+  it("does not Needs when github missing — scm.issues still has human candidate", () => {
     const needs = needsFromIntent(
       "Triage GitHub issues labeled bug",
       services,
       ["reddit:default"]
     );
-    assert.ok(needs.some((n) => n.kind === "service" && n.id === "github"));
+    assert.equal(needs.length, 0);
   });
 
-  it("flags missing connection when service is present but connection is not", () => {
+  it("does not Needs for missing github connection when slot has viable alternatives", () => {
     const withGithub = [
       ...services,
       {
@@ -268,17 +269,47 @@ describe("needsFromIntent", () => {
       withGithub,
       ["reddit:default"]
     );
-    assert.ok(
-      needs.some((n) => n.kind === "connection" && n.id === "github:default")
-    );
+    assert.equal(needs.length, 0);
   });
 
-  it("is empty when catalog covers the intent", () => {
+  it("is empty for Reddit when catalog covers read path", () => {
     const needs = needsFromIntent(
       "Help fashion subreddits with useful replies",
       services,
       ["reddit:default"]
     );
     assert.equal(needs.length, 0);
+  });
+
+  it("YouTube intent does not Needs — youtube.discover has non-blocked candidates", () => {
+    const needs = needsFromIntent(
+      "Every day find YouTube creators with Nigerian audience",
+      services,
+      []
+    );
+    assert.equal(needs.length, 0);
+  });
+
+  it("still Needs for non-vocab services (stripe)", () => {
+    const needs = needsFromIntent("Charge customers via Stripe", services, []);
+    assert.ok(needs.some((n) => n.kind === "service" && n.id === "stripe"));
+  });
+});
+
+describe("proposeSlotsFromIntent", () => {
+  it("emits youtube.discover with unresolved candidates", () => {
+    const slots = proposeSlotsFromIntent({
+      intent: "Discover YouTube creators in Nigeria by niche",
+      catalog: services,
+      knownConnections: [],
+    });
+    assert.equal(slots.length, 1);
+    assert.equal(slots[0]!.id, "youtube.discover");
+    assert.equal(slots[0]!.resolved, null);
+    assert.ok(slots[0]!.candidates.length >= 2);
+    assert.ok(
+      slots[0]!.candidates.some((c) => c.status !== "blocked"),
+      "expected a viable candidate"
+    );
   });
 });

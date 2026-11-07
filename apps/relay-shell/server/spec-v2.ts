@@ -16,6 +16,7 @@ import {
   createDraftSpecV2,
   freezeSpecV2,
   listEnabledSchedules,
+  type ServiceDescriptor,
   type SpecV2Body,
 } from "@relay/protocol";
 import {
@@ -54,6 +55,7 @@ import {
   needsFromValidationIssues,
   scaffoldSpec,
   specBodyToYaml,
+  withSlotsFromIntent,
 } from "@relay/spec-scaffold";
 import {
   normalizeSpecV2HardChecks,
@@ -451,15 +453,25 @@ function stubGenericHitl(intent: string): SpecV2Body {
  * Offline / fallback Spec from intent — only curated catalog shapes.
  * ASAP default: GitHub triage when intent mentions GitHub.
  */
-export function stubSpecFromIntent(intent: string): SpecV2Body {
-  switch (stubKindFromIntent(intent)) {
-    case "github":
-      return stubGithubTriage(intent);
-    case "reddit":
-      return stubRedditFashion(intent);
-    default:
-      return stubGenericHitl(intent);
+export function stubSpecFromIntent(
+  intent: string,
+  opts?: {
+    services?: readonly ServiceDescriptor[];
+    knownConnections?: readonly string[];
   }
+): SpecV2Body {
+  const kind = stubKindFromIntent(intent);
+  const raw =
+    kind === "github"
+      ? stubGithubTriage(intent)
+      : kind === "reddit"
+        ? stubRedditFashion(intent)
+        : stubGenericHitl(intent);
+  return withSlotsFromIntent(raw, {
+    intent,
+    catalog: opts?.services ?? loadV2Services(),
+    knownConnections: opts?.knownConnections ?? deskKnownConnections(),
+  });
 }
 
 function resolveBody(input: {
@@ -573,7 +585,10 @@ export async function handleScaffold(input: {
   const live = input.stub === true ? null : tryLiveLlmClient();
 
   if (!live) {
-    const body = stubSpecFromIntent(intent);
+    const body = stubSpecFromIntent(intent, {
+      services,
+      knownConnections: known,
+    });
     const validation = validateSpecV2(body, {
       services,
       knownConnections: known,
@@ -646,7 +661,12 @@ export async function handleScaffold(input: {
   }
   if (!result.ok) {
     // Keep Desk usable: prefer last LLM draft, else deterministic stub for this Intent.
-    const fallbackBody = result.lastBody ?? stubSpecFromIntent(intent);
+    const fallbackRaw = result.lastBody ?? stubSpecFromIntent(intent, { services, knownConnections: known });
+    const fallbackBody = withSlotsFromIntent(fallbackRaw, {
+      intent,
+      catalog: services,
+      knownConnections: known,
+    });
     const fallbackYaml = result.yaml ?? specBodyToYaml(fallbackBody);
     const fallbackValidation = validateSpecV2(fallbackBody, {
       services,

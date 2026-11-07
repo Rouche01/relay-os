@@ -28,16 +28,33 @@ describe("stubSpecFromIntent (catalog-constrained)", () => {
 
   it("GitHub triage stub validates against curated catalog", () => {
     const body = stubSpecFromIntent(
-      "Every weekday find open issues labeled bug in acme/widgets on GitHub"
+      "Every weekday find open issues labeled bug in acme/widgets on GitHub",
+      { services, knownConnections: known }
     );
     assert.deepEqual(body.services, ["github"]);
     assert.equal(body.connections?.[0], "github:default");
+    assert.ok(body.slots?.some((s) => s.id === "scm.issues"));
+    assert.equal(body.slots?.[0]?.resolved ?? null, null);
+    const v = validateSpecV2(body, { services, knownConnections: known });
+    assert.equal(v.ok, true, JSON.stringify(v.errors, null, 2));
+  });
+
+  it("YouTube stub emits youtube.discover slot without inventing YouTube API steps", () => {
+    const body = stubSpecFromIntent(
+      "Every day find YouTube creators with Nigerian audience by niche",
+      { services, knownConnections: known }
+    );
+    assert.ok(body.slots?.some((s) => s.id === "youtube.discover"));
+    assert.ok(!(body.services ?? []).includes("youtube-data"));
     const v = validateSpecV2(body, { services, knownConnections: known });
     assert.equal(v.ok, true, JSON.stringify(v.errors, null, 2));
   });
 
   it("generic stub has no invented API services", () => {
-    const body = stubSpecFromIntent("Automate my freight TMS without naming a service");
+    const body = stubSpecFromIntent(
+      "Automate my freight TMS without naming a service",
+      { services, knownConnections: known }
+    );
     assert.deepEqual(body.services ?? [], []);
     assert.ok(body.steps?.every((s) => s.use !== "api.request"));
     const v = validateSpecV2(body, { services, knownConnections: known });

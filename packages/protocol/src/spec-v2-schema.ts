@@ -51,6 +51,11 @@ export const SPEC_V2_JSON_SCHEMA: SpecV2JsonSchema = {
       },
       "uniqueItems": true
     },
+    "slots": {
+      "type": "array",
+      "description": "Capability slots — what the Spec needs; candidates rank how (cs2).",
+      "items": { "$ref": "#/$defs/capabilitySlot" }
+    },
     "trigger": { "$ref": "#/$defs/trigger" },
     "budget": {
       "type": "object",
@@ -72,6 +77,49 @@ export const SPEC_V2_JSON_SCHEMA: SpecV2JsonSchema = {
     }
   },
   "$defs": {
+    "bindingCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding", "status"],
+      "properties": {
+        "binding": {
+          "type": "string",
+          "enum": ["api", "mcp", "browser", "computer", "human", "notify"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["live", "degraded", "available", "blocked", "unknown"]
+        },
+        "service": { "type": "string", "minLength": 1 },
+        "connection": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string" },
+        "rank": { "type": "number" }
+      }
+    },
+    "capabilitySlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "needs", "candidates"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "needs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "candidates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/bindingCandidate" }
+        },
+        "resolved": {
+          "type": ["string", "null"],
+          "description": "Install-time connection ref; null until Ship"
+        },
+        "preferredCandidateIndex": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
     "refOrAny": {
       "description": "Literal or a whole-string Spec v2 ref ${path}"
     },

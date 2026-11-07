@@ -1,13 +1,22 @@
 import type { ServiceDescriptor } from "@relay/protocol";
 import type { SpecV2ValidationIssue } from "@relay/spec-validator";
+import {
+  needsFromCapabilitySlots,
+  proposeSlotsFromIntent,
+} from "./slots.js";
 
 /** Capability gap the operator must resolve before scaffold can succeed. */
-export type ScaffoldNeedKind = "service" | "connection" | "operation";
+export type ScaffoldNeedKind =
+  | "service"
+  | "connection"
+  | "operation"
+  | "capability";
 
 export type ScaffoldNeedAction =
   | "import_descriptor"
   | "add_connection"
-  | "expand_operations";
+  | "expand_operations"
+  | "resolve_slot";
 
 export type ScaffoldNeed = {
   kind: ScaffoldNeedKind;
@@ -164,7 +173,10 @@ export function needsFromValidationIssues(
 }
 
 /**
- * Preflight: intent wording implies services/connections missing from the catalog.
+ * Preflight (cs2):
+ * - Vocab-matched intents → propose capability slots; Needs only if a slot has
+ *   zero viable candidates (human/computer/degraded still count).
+ * - Non-vocab hints (gmail, stripe, …) keep the old service/connection Needs.
  * Does not call the LLM.
  */
 export function needsFromIntent(
@@ -174,14 +186,28 @@ export function needsFromIntent(
 ): ScaffoldNeed[] {
   const text = intent.trim();
   if (!text) return [];
+
+  const slots = proposeSlotsFromIntent({
+    intent: text,
+    catalog,
+    knownConnections,
+  });
+  const out = needsFromCapabilitySlots(slots);
+  const seen = new Set(out.map((n) => `${n.kind}:${n.id}`));
+  /** Services already represented as slot candidates — do not double-Needs them. */
+  const slottedServices = new Set(
+    slots.flatMap((s) =>
+      s.candidates.map((c) => c.service).filter((id): id is string => !!id)
+    )
+  );
+
   const byId = new Set(catalog.map((s) => s.id));
   const known =
     knownConnections !== undefined ? new Set(knownConnections) : null;
-  const out: ScaffoldNeed[] = [];
-  const seen = new Set<string>();
 
   for (const hint of INTENT_HINTS) {
     if (!hint.patterns.some((p) => p.test(text))) continue;
+    if (slottedServices.has(hint.serviceId)) continue;
 
     if (!byId.has(hint.serviceId)) {
       pushNeed(out, seen, {
@@ -213,7 +239,9 @@ export function formatNeedsMessage(needs: readonly ScaffoldNeed[]): string {
         ? "import descriptor"
         : n.action === "add_connection"
           ? "add connection"
-          : "expand operations";
+          : n.action === "resolve_slot"
+            ? "add a viable binding"
+            : "expand operations";
     return `- [${n.kind}] ${n.id} — ${action}: ${n.reason}`;
   });
   return [

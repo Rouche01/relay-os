@@ -9,6 +9,10 @@
  * additive for generated HITL workflows.
  */
 
+import {
+  checkCapabilitySlotShape,
+  type CapabilitySlot,
+} from "./capability-slots";
 import type { CapabilityUseId } from "./engine-catalog";
 import {
   freezeSpec,
@@ -305,6 +309,11 @@ export type SpecV2Body = {
   goal: string;
   connections?: string[];
   services?: string[];
+  /**
+   * Capability slots (cs2+) — what the Spec needs; candidates rank how.
+   * `resolved` is install-time; omit until scaffold/Ship fills them.
+   */
+  slots?: CapabilitySlot[];
   /** Spec v2.1 — optional run trigger (manual | cron schedule | poll). */
   trigger?: SpecV2Trigger;
   budget?: SpecBudget;
@@ -490,6 +499,7 @@ export function createDraftSpecV2(input: CreateDraftSpecV2Input): SpecV2 {
     goal: input.goal.trim(),
     connections: input.connections ? [...input.connections] : undefined,
     services: input.services ? [...input.services] : undefined,
+    slots: input.slots ? structuredClone(input.slots) : undefined,
     trigger: input.trigger ? structuredClone(input.trigger) : undefined,
     budget: input.budget ? { ...input.budget } : { dryRun: true },
     rules: input.rules ? structuredClone(input.rules) : [],
@@ -567,6 +577,18 @@ export function checkSpecV2BodyShape(
   }
   if (o.services !== undefined && !Array.isArray(o.services)) {
     errors.push("services must be an array when present");
+  }
+  if (o.slots !== undefined) {
+    if (!Array.isArray(o.slots)) {
+      errors.push("slots must be an array when present");
+    } else {
+      o.slots.forEach((slot, i) => {
+        const r = checkCapabilitySlotShape(slot);
+        if (!r.ok) {
+          for (const e of r.errors) errors.push(`slots[${i}]: ${e}`);
+        }
+      });
+    }
   }
   if (o.trigger !== undefined) {
     const triggerErrors = checkSpecV2TriggerShape(o.trigger);
@@ -800,6 +822,7 @@ export function toSpecV2Body(spec: SpecV2): SpecV2Body {
     goal: spec.goal,
     connections: spec.connections,
     services: spec.services,
+    slots: spec.slots,
     trigger: spec.trigger,
     budget: spec.budget,
     rules: spec.rules,

@@ -13,6 +13,11 @@ export {
   errorsAreOnlyCapabilityGaps,
   isCapabilityGapCode,
 } from "./needs.js";
+export {
+  proposeSlotsFromIntent,
+  needsFromCapabilitySlots,
+  withSlotsFromIntent,
+} from "./slots.js";
 export { SCAFFOLD_SPEC_JSON_SCHEMA } from "./schema.js";
 export { scaffoldSpec, specBodyToYaml } from "./scaffold.js";
 /** Re-export fixture generator for Desk / hosts that skip scaffoldSpec. */

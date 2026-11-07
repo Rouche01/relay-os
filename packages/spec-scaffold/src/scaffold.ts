@@ -22,6 +22,7 @@ import {
   needsFromValidationIssues,
 } from "./needs.js";
 import { SCAFFOLD_SPEC_JSON_SCHEMA } from "./schema.js";
+import { withSlotsFromIntent } from "./slots.js";
 import type {
   ScaffoldAttempt,
   ScaffoldResult,
@@ -175,11 +176,16 @@ export async function scaffoldSpec(
     history.push({ attempt, kind, body, validation });
 
     if (validation.ok) {
-      const evals = generateEvalFixtures(body);
+      const bodyWithSlots = withSlotsFromIntent(body, {
+        intent,
+        catalog: services,
+        knownConnections: options.knownConnections,
+      });
+      const evals = generateEvalFixtures(bodyWithSlots);
       return {
         ok: true,
-        body,
-        yaml: specBodyToYaml(body),
+        body: bodyWithSlots,
+        yaml: specBodyToYaml(bodyWithSlots),
         attempts: attempt,
         validation,
         history,

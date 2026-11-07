@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: cs2-scaffold-emit
     content: Scaffold emits unresolved slots + candidates from intent (not hard-coded single service); Needs[] only when no candidates exist at all
-    status: pending
+    status: completed
   - id: cs3-ship-resolve
     content: Ship / Connections UX — pick or accept top live candidate; never silent degraded; mark ready on resolved connection; shadow before irreversible writes
     status: pending
@@ -80,7 +80,7 @@ Community Engager’s Reddit path failed by baking one service into the product 
 
 ## Architecture
 
-Types + seed live in [`packages/protocol/src/capability-slots.ts`](../../packages/protocol/src/capability-slots.ts) (`CapabilitySlot`, `BindingCandidate`, `CAPABILITY_VOCAB_SEED`). **Not** wired into `SpecV2Body` yet — that is `cs2` (scaffold emit). ASAP Specs stay concrete `services` / `connections`.
+Types + seed: [`packages/protocol/src/capability-slots.ts`](../../packages/protocol/src/capability-slots.ts). Emit: [`packages/spec-scaffold/src/slots.ts`](../../packages/spec-scaffold/src/slots.ts) + optional `SpecV2Body.slots`. ASAP steps still use concrete `services` / `connections`; slots ride alongside until Ship resolve (`cs3`).
 
 ```text
 Spec (future slots[])
@@ -130,12 +130,11 @@ Spec (future slots[])
 
 ## Suggested sequencing
 
-1. ~~`cs0` thesis~~ · ~~`cs1` types + vocabulary~~  
-2. `cs2` — scaffold emit  
-3. `cs3` — Ship resolve UX  
-4. `cs4` — runtime resolve  
-5. `cs5` — dogfood  
-6. `cs6` — docs / cross-links  
+1. ~~`cs0` thesis~~ · ~~`cs1` types + vocabulary~~ · ~~`cs2` scaffold emit~~  
+2. `cs3` — Ship resolve UX  
+3. `cs4` — runtime resolve  
+4. `cs5` — dogfood  
+5. `cs6` — docs / cross-links  
 
 ### `cs0` done (2026-11-07)
 
@@ -143,8 +142,13 @@ Spec (future slots[])
 
 ### `cs1` done (2026-11-07)
 
-- `@relay/protocol` — `CapabilitySlot` / `BindingCandidate` / vocab seed (`scm.issues`, `reddit.read`, `youtube.discover`, `slack.notify`, `notion.store`, `http.fetch`) + shape helpers + tests.
-- Next: `cs2` — scaffold emits slots + candidates; optional `SpecV2Body.slots`.
+- `@relay/protocol` — `CapabilitySlot` / `BindingCandidate` / vocab seed + shape helpers + tests.
+
+### `cs2` done (2026-11-07)
+
+- Optional `SpecV2Body.slots`; scaffold/stub attach unresolved slots from intent.
+- `needsFromIntent`: Needs only when a slot has zero viable candidates; non-vocab hints (gmail/stripe) still Needs; slotted services are not double-flagged.
+- Next: `cs3` — Ship resolve UX.
 
 ## Links
 
