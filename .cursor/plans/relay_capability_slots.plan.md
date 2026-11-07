@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: cs1-slot-model
     content: Define CapabilitySlot / BindingCandidate types (id, ops needed, candidates[{service, binding, status, reason}], resolved connection ref) + small capability vocabulary seed (e.g. reddit.read, youtube.discover, scm.issues)
-    status: pending
+    status: completed
   - id: cs2-scaffold-emit
     content: Scaffold emits unresolved slots + candidates from intent (not hard-coded single service); Needs[] only when no candidates exist at all
     status: pending
@@ -78,19 +78,17 @@ Community Engager’s Reddit path failed by baking one service into the product 
 | Vendor blocked → rewrite Spec | Swap candidate; Spec law unchanged |
 | Needs[] is only fail-closed | Needs[] only when **zero** candidates; otherwise choose |
 
-## Architecture (sketch — types in `cs1`)
+## Architecture
+
+Types + seed live in [`packages/protocol/src/capability-slots.ts`](../../packages/protocol/src/capability-slots.ts) (`CapabilitySlot`, `BindingCandidate`, `CAPABILITY_VOCAB_SEED`). **Not** wired into `SpecV2Body` yet — that is `cs2` (scaffold emit). ASAP Specs stay concrete `services` / `connections`.
 
 ```text
-Spec
-  slots:
-    - id: youtube.discover
-      needs: [search/list creators, audience signals]
-      candidates:
-        - { service: youtube-data, binding: api, status: blocked|live, reason }
-        - { service: http-fetch, binding: api, status: degraded, reason }
-        - { binding: computer, status: available, reason }
-        - { binding: human, status: available }
-      resolved: null | connectionRef   # null until Ship; then install-owned
+Spec (future slots[])
+  - id: youtube.discover
+    needs: [...]
+    candidates: [{ service, binding, status, reason, rank? }, ...]
+    resolved: null | connectionRef
+    preferredCandidateIndex?: number
 ```
 
 - **Slot** = capability required by the Spec (stable).
@@ -132,7 +130,7 @@ Spec
 
 ## Suggested sequencing
 
-1. ~~`cs0` thesis~~ → `cs1` types + vocabulary seed  
+1. ~~`cs0` thesis~~ · ~~`cs1` types + vocabulary~~  
 2. `cs2` — scaffold emit  
 3. `cs3` — Ship resolve UX  
 4. `cs4` — runtime resolve  
@@ -141,8 +139,12 @@ Spec
 
 ### `cs0` done (2026-11-07)
 
-- Thesis + non-negotiables locked in this plan (Spec law vs candidates vs install resolution; Needs[] only when zero candidates; ASAP stays concrete until emit ships).
-- Next: `cs1` — `CapabilitySlot` / `BindingCandidate` types + vocabulary seed.
+- Thesis + non-negotiables locked in this plan.
+
+### `cs1` done (2026-11-07)
+
+- `@relay/protocol` — `CapabilitySlot` / `BindingCandidate` / vocab seed (`scm.issues`, `reddit.read`, `youtube.discover`, `slack.notify`, `notion.store`, `http.fetch`) + shape helpers + tests.
+- Next: `cs2` — scaffold emits slots + candidates; optional `SpecV2Body.slots`.
 
 ## Links
 
