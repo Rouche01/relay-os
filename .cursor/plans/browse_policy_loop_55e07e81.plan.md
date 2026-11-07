@@ -4,16 +4,16 @@ overview: Add a relay-os browse policy loop that samples exponential human-like 
 todos:
   - id: scaffold-package
     content: Scaffold @relay/browse-policy with types, Exp/mu sampler, and unit tests
-    status: pending
+    status: completed
   - id: core-loop
     content: Implement runBrowsePolicyLoop + vision decide client interface/adapter
-    status: pending
+    status: completed
   - id: browse-goal-task
     content: Add browse_goal ComputerTask adapter wired to ComputerEngine navigate/screenshot/action
-    status: pending
+    status: completed
   - id: timing-evidence
     content: Add lognormal wait mode, action-mix prompt bias, and structured evidence log
-    status: pending
+    status: completed
   - id: spec-controller
     content: Add BrowsePolicyController AppController and opt-in stage wiring for Spec runs
     status: pending

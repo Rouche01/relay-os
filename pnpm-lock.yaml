@@ -250,9 +250,6 @@ importers:
       '@relay/spec-validator':
         specifier: workspace:*
         version: link:../../packages/spec-validator
-      '@relay/workflow-runtime':
-        specifier: workspace:*
-        version: link:../../packages/workflow-runtime
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -326,6 +323,22 @@ importers:
       '@relay/spec-lower':
         specifier: workspace:*
         version: link:../spec-lower
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/browse-policy:
+    dependencies:
+      '@relay/engines-computer':
+        specifier: workspace:*
+        version: link:../engines-computer
+      '@relay/llm':
+        specifier: workspace:*
+        version: link:../llm
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
