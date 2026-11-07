@@ -127,6 +127,29 @@ Use the **Relay Desk app window** (Tauri) for gateway Probe — a plain browser 
 
 ---
 
+## Connections (mark ready vs live secrets)
+
+Two different things:
+
+| Layer | What it does |
+|-------|----------------|
+| **Mark ready** (Ship / Apps) | Tells Desk “this app may proceed past the connections checklist.” No token is stored in the Spec or the Desk UI. |
+| **Live secrets** (Spec API process) | Real bearer tokens for `github:default` etc. Set on the machine running `pnpm --filter @relay/apps-relay-shell api`. |
+
+ASAP GitHub dogfood (live reads/writes when network is open):
+
+```bash
+# apps/relay-shell/.env
+GITHUB_TOKEN=ghp_…
+RELAY_CONNECTIONS={"github:default":{"type":"bearer","token":"env:GITHUB_TOKEN"}}
+```
+
+Or `RELAY_CONNECTIONS_FILE` pointing at JSON like [`packages/spec-host/connections.example.json`](../../packages/spec-host/connections.example.json). Details: [`CONNECTIONS.md`](../../packages/spec-host/CONNECTIONS.md).
+
+**Settings → Live connections → Probe connections** reports which curated refs have a live secret (never shows the token). Desk dogfood still uses offline fixtures for many runs; marking ready is enough to finish Ship.
+
+---
+
 ## Glossary (words you’ll see)
 
 | Term | Plain meaning |

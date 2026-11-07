@@ -157,10 +157,11 @@ export function ShipView({
                         key={c.id}
                         type="button"
                         class="cta ghost"
-                        disabled={busy || c.connected || !draft.installedAppId}
+                        disabled={busy || !draft.installedAppId}
+                        title="Mark ready for Ship (tokens stay on Spec API env)"
                         onClick={() => void runAction("connect", c.id)}
                       >
-                        {c.connected ? "✓ " : ""}
+                        {c.connected ? "✓ ready · " : "mark · "}
                         {c.id}
                       </button>
                     ))}

@@ -307,6 +307,13 @@ export function AppsSurface({ settings, selectedAppId, onNavigate }: Props) {
                 </p>
 
                 <p class="tile-label">Connections</p>
+                <p class="tile-meta">
+                  Mark ready for Ship / Run once. This does not store API tokens
+                  — live secrets live on the Spec API process (
+                  <span class="mono">GITHUB_TOKEN</span> +{" "}
+                  <span class="mono">RELAY_CONNECTIONS</span>). Probe from
+                  Settings.
+                </p>
                 <div class="cta-row">
                   {required.length ? (
                     required.map((ref) => (
@@ -316,17 +323,21 @@ export function AppsSurface({ settings, selectedAppId, onNavigate }: Props) {
                         class="cta ghost"
                         disabled={busy || selected.editing}
                         onClick={() =>
-                          void run(`Connect ${ref}`, () =>
-                            connectApp(
-                              settings,
-                              selected.id,
-                              ref,
-                              !connections[ref]?.connected
-                            )
+                          void run(
+                            connections[ref]?.connected
+                              ? `Unmark ${ref}`
+                              : `Mark ${ref}`,
+                            () =>
+                              connectApp(
+                                settings,
+                                selected.id,
+                                ref,
+                                !connections[ref]?.connected
+                              )
                           )
                         }
                       >
-                        {connections[ref]?.connected ? "✓ " : ""}
+                        {connections[ref]?.connected ? "✓ ready · " : "mark · "}
                         {ref}
                       </button>
                     ))

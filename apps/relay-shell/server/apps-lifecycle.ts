@@ -24,11 +24,15 @@ import {
 import {
   approveShadowEvidence,
   assertShadowGate,
+  createCompositeConnectionStore,
+  createEnvConnectionStore,
   createMemoryConnectionStore,
   isSpecHostError,
   listRunSummaries,
   runSpec,
+  type ConnectionStore,
 } from "@relay/spec-host";
+import { curatedKnownConnections } from "@relay/services";
 import { specBodyToYaml } from "@relay/spec-scaffold";
 import { parseSpecV2Yaml, validateSpecV2 } from "@relay/spec-validator";
 import {
@@ -59,6 +63,65 @@ function mapError(err: unknown) {
     };
   }
   throw err;
+}
+
+/**
+ * Resolve secrets for an installed app: live env/file first, then Desk mark-ready stub.
+ * Marking connected on Apps does not inject tokens — set RELAY_CONNECTIONS* on Spec API.
+ */
+export function deskAppConnectionStore(
+  requiredConnections: readonly string[]
+): ConnectionStore {
+  const memory = createMemoryConnectionStore(
+    Object.fromEntries(
+      requiredConnections.map((ref) => [
+        ref,
+        { type: "bearer" as const, token: "desk-installed-token" },
+      ])
+    )
+  );
+  try {
+    const env = createEnvConnectionStore();
+    return createCompositeConnectionStore([env, memory]);
+  } catch {
+    return memory;
+  }
+}
+
+/** Probe which curated connection refs have live secrets in Spec API env. */
+export async function handleConnectionsStatus() {
+  const curated = curatedKnownConnections();
+  let envIds: readonly string[] = [];
+  const live: Record<string, boolean> = {};
+  try {
+    const env = createEnvConnectionStore();
+    envIds = await Promise.resolve(env.listIds());
+    for (const id of curated) {
+      if (!envIds.includes(id)) {
+        live[id] = false;
+        continue;
+      }
+      const creds = await Promise.resolve(env.get(id));
+      live[id] = Boolean(creds && creds.type !== "none");
+    }
+  } catch (err) {
+    return {
+      ok: false as const,
+      status: 422 as const,
+      error: err instanceof Error ? err.message : String(err),
+      note: "Fix RELAY_CONNECTIONS / RELAY_CONNECTIONS_FILE JSON, then retry.",
+    };
+  }
+  return {
+    ok: true as const,
+    status: 200 as const,
+    connections: curated.map((id) => ({
+      id,
+      liveSecret: live[id] === true,
+    })),
+    note:
+      "Apps “mark ready” unlocks Ship; live API calls need secrets on the Spec API process (GITHUB_TOKEN + RELAY_CONNECTIONS). See GUIDE Connections.",
+  };
 }
 
 function mergeServices(bundle: RelayAppBundle) {
@@ -207,14 +270,7 @@ export async function handleAppShadowRun(
   }
 
   const services = mergeServices(app.bundle);
-  const connectionStore = createMemoryConnectionStore(
-    Object.fromEntries(
-      app.bundle.requiredConnections.map((ref) => [
-        ref,
-        { type: "bearer" as const, token: "desk-installed-token" },
-      ])
-    )
-  );
+  const connectionStore = deskAppConnectionStore(app.bundle.requiredConnections);
   const runStateStore = deskRunStateStore();
   const autoApprove = input.autoApprove !== false;
 
@@ -309,14 +365,7 @@ export async function handleAppRunOnce(id: string) {
   }
 
   const services = mergeServices(app.bundle);
-  const connectionStore = createMemoryConnectionStore(
-    Object.fromEntries(
-      app.bundle.requiredConnections.map((ref) => [
-        ref,
-        { type: "bearer" as const, token: "desk-installed-token" },
-      ])
-    )
-  );
+  const connectionStore = deskAppConnectionStore(app.bundle.requiredConnections);
   const runStateStore = deskRunStateStore();
   // Live requires Spec budget.dryRun === false. Frozen wins over body in prepare —
   // override budget on a shallow copy; keep contentHash so runs stay under this app.

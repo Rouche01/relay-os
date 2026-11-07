@@ -39,6 +39,7 @@ import {
   handleAppShadowRun,
   handleAppThaw,
   handleConnectApp,
+  handleConnectionsStatus,
   handleGetApp,
   handleInstallApp,
   handleListApps,
@@ -205,6 +206,7 @@ async function main(): Promise<void> {
             "POST /api/v2/bundle/import",
             "GET /api/v2/apps",
             "POST /api/v2/apps/install",
+            "GET /api/v2/connections",
             "GET /api/v2/apps/:id",
             "POST /api/v2/apps/:id/connect",
             "POST /api/v2/apps/:id/shadow-run",
@@ -341,6 +343,12 @@ async function main(): Promise<void> {
 
       if (method === "GET" && url.pathname === "/api/v2/apps") {
         const out = await handleListApps();
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/v2/connections") {
+        const out = await handleConnectionsStatus();
         sendJson(res, out.status, out);
         return;
       }

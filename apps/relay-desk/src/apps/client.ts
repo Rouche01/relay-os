@@ -146,6 +146,17 @@ export async function connectApp(
   return parseJson(res.body);
 }
 
+/** Probe Spec API env for live secrets (does not return token values). */
+export async function probeConnections(settings: DeskSettings): Promise<{
+  ok: boolean;
+  connections?: Array<{ id: string; liveSecret: boolean }>;
+  error?: string;
+  note?: string;
+}> {
+  const res = await appHttp(settings, "GET", "/api/v2/connections");
+  return parseJson(res.body);
+}
+
 export async function shadowRunApp(
   settings: DeskSettings,
   id: string

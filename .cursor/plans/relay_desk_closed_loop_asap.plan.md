@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: cl4-connections-ux
     content: Thin Connections (or Settings) UX — mark/test required connections for installed apps; document env/keychain for live tokens
-    status: pending
+    status: completed
   - id: cl5-smoke-script
     content: One smoke path — New spec → Verify → Ship gate → Apps Run once → Seats Approve/Abort → run completes; Enable schedule optional second check
     status: pending
@@ -79,7 +79,14 @@ Sibling of long-term [`relay_open_services_platform.plan.md`](./relay_open_servi
 - Test: `spec-host` HITL `forEach human.approve` pause + resume.
 - Rebuild `@relay/runtime` (and restart Spec API) before dogfood.
 
-Next: `cl4` connections UX.
+### `cl4` done (2026-11-02)
+
+- Apps / Ship: **mark ready** wording (not “connected = has token”).
+- Settings: Live connections docs + **Probe connections** (`GET /api/v2/connections`).
+- App runs: env/file secrets preferred via composite store, memory stub fallback.
+- `.env.example` + GUIDE Connections section.
+
+Next: `cl5` smoke path.
 
 ## Verify
 

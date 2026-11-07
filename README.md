@@ -122,6 +122,7 @@ First dogfood app: **CommunityEngager** (GoStylens community HITL) — workflow 
 
 - **Thesis readiness (intent → Spec → verify → HITL):** [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](.cursor/plans/relay_intent_spec_verify_hitl.plan.md)
 - **Spec → working agentic app (spec-host, reach, Spec v2.1, shadow gate):** [`.cursor/plans/relay_spec_to_working_app.plan.md`](.cursor/plans/relay_spec_to_working_app.plan.md) — forcing fixture [`apps/triage-gen/`](apps/triage-gen/)
+- **App knowledge store + query MCP (act + remember + retrieve; Creatuuls seed dogfood):** [`.cursor/plans/relay_app_knowledge_mcp.plan.md`](.cursor/plans/relay_app_knowledge_mcp.plan.md)
 - Living todo shell (queue UX + in-card HITL): [`.cursor/plans/relay_living_todo_shell.plan.md`](.cursor/plans/relay_living_todo_shell.plan.md)
 - Community HITL runtime + VoltMem: [`.cursor/plans/relay_hitl_community_voltmem.plan.md`](.cursor/plans/relay_hitl_community_voltmem.plan.md)
 

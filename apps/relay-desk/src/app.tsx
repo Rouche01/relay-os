@@ -38,6 +38,7 @@ import {
   openSeatWindow,
 } from "./seat/open-seat.ts";
 import { probeSpecApi } from "./spec/client.ts";
+import { probeConnections } from "./apps/client.ts";
 import { AppsSurface } from "./apps/AppsSurface.tsx";
 import { Workspace } from "./workspace/Workspace.tsx";
 import { SpecsLibrary } from "./specs/SpecsLibrary.tsx";
@@ -74,6 +75,7 @@ export function App() {
   );
   const [hitlProbe, setHitlProbe] = useState("not checked");
   const [specProbe, setSpecProbe] = useState("not checked");
+  const [connectionsProbe, setConnectionsProbe] = useState("not checked");
   const [hitlPending, setHitlPending] = useState<PendingFeedback[]>([]);
   const [hitlError, setHitlError] = useState<string | undefined>();
   const [hitlBusy, setHitlBusy] = useState(false);
@@ -194,6 +196,29 @@ export function App() {
       setSpecProbe(await probeSpecApi(settings));
     } catch (err) {
       setSpecProbe(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onProbeConnections = async () => {
+    setBusy(true);
+    setConnectionsProbe("checking…");
+    try {
+      const res = await probeConnections(settings);
+      if (!res.ok) {
+        setConnectionsProbe(res.error || "probe failed");
+        return;
+      }
+      const rows = res.connections ?? [];
+      const live = rows.filter((c) => c.liveSecret).map((c) => c.id);
+      setConnectionsProbe(
+        live.length
+          ? `live · ${live.join(", ")}`
+          : "no live secrets on Spec API (mark-ready still works for Ship)"
+      );
+    } catch (err) {
+      setConnectionsProbe(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }
@@ -1375,6 +1400,33 @@ export function App() {
                   Probe Spec
                 </button>
                 <span class="hint">{specProbe}</span>
+              </div>
+            </div>
+
+            <div class="drawer-section">
+              <h3>Live connections</h3>
+              <p class="hint">
+                Apps “mark ready” unlocks Ship. Tokens for real API calls belong
+                on the Spec API process — never in the Spec YAML.
+              </p>
+              <p class="hint mono">
+                GITHUB_TOKEN=ghp_… · RELAY_CONNECTIONS=
+                {`{"github:default":{"type":"bearer","token":"env:GITHUB_TOKEN"}}`}
+              </p>
+              <p class="hint">
+                Or RELAY_CONNECTIONS_FILE → see apps/relay-shell/.env.example and
+                packages/spec-host/CONNECTIONS.md
+              </p>
+              <div class="cta-row">
+                <button
+                  type="button"
+                  class="cta ghost"
+                  disabled={busy}
+                  onClick={() => void onProbeConnections()}
+                >
+                  Probe connections
+                </button>
+                <span class="hint">{connectionsProbe}</span>
               </div>
             </div>
 
