@@ -223,7 +223,9 @@ function bindHardCheckPaths(
       if (path.endsWith(".text") || path === "text") {
         assignPath(scope, path, vals.text);
       } else {
-        assignPath(scope, path, vals.draft);
+        // Never assign the shared `draft` object — e.g. ${draft.channel_name}
+        // would set draft.channel_name = draft and break JSON.stringify.
+        assignPath(scope, path, { text: vals.text });
       }
     }
   }

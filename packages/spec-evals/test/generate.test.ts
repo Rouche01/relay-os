@@ -59,4 +59,31 @@ describe("generateEvalFixtures", () => {
     assert.equal(report.passed, true, JSON.stringify(report.errors));
     assert.doesNotThrow(() => assertEvalsGate(report));
   });
+
+  it("does not create circular JSON when hard refs use non-.text fields", () => {
+    const spec: SpecV2Body = {
+      goal: "Classify creators",
+      budget: { dryRun: true, maxJobs: 2 },
+      rules: [
+        {
+          id: "no_bad_channel",
+          kind: "hard",
+          check: {
+            notMatches: "${draft.channel_name}",
+            pattern: "spam",
+          },
+        },
+      ],
+      steps: [
+        {
+          id: "draft",
+          use: "llm.generate",
+          args: { prompt: "Name" },
+          enforce: ["no_bad_channel"],
+        },
+      ],
+    };
+    const pack = generateEvalFixtures(spec);
+    assert.doesNotThrow(() => JSON.stringify(pack));
+  });
 });
