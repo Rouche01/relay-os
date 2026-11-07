@@ -15,7 +15,7 @@ todos:
     content: "Scaffold/needs inference — if API/MCP unavailable, propose computer/browser or human.approve-only path instead of inventing fake api.request"
     status: pending
   - id: os4-mcp-as-binding
-    content: MCP as optional binding behind descriptors (not a second runtime); document where MCP cannot replace shared act / Seats
+    content: MCP as optional inbound binding behind descriptors (not a second runtime); document where MCP cannot replace shared act / Seats; outbound app MCP/API stays in knowledge plan (opt-in owner export)
     status: pending
   - id: os5-computer-path
     content: First-class computer/browser binding for UI-only vendors (CE Reddit lesson); shadow evidence still required before live
@@ -28,7 +28,7 @@ isProject: true
 
 # Open services platform (long-term)
 
-Sibling of short-term [`relay_desk_closed_loop_asap.plan.md`](./relay_desk_closed_loop_asap.plan.md). Design and product direction — **do not block** the ASAP closed loop.
+Sibling of short-term [`relay_desk_closed_loop_asap.plan.md`](./relay_desk_closed_loop_asap.plan.md) and medium-term [`relay_app_knowledge_mcp.plan.md`](./relay_app_knowledge_mcp.plan.md). Design and product direction — **do not block** the ASAP closed loop.
 
 ## Why this exists
 
@@ -86,15 +86,24 @@ Never auto-enable irreversible live writes without shadow evidence + connection.
 
 ## MCP’s place
 
-- **Yes:** import tools → operations; run as one binding behind the host.
-- **No:** replace Spec-as-law, schedules, evidence, or shared desktop act/HITL.
+Two directions — do not collapse them:
+
+| Direction | This plan | Knowledge plan |
+|-----------|-----------|----------------|
+| **Inbound** | MCP as a **binding** — Relay calls external tools via imported ops | — |
+| **Outbound** | — | Owner **opt-in** exposes selected app knowledge / side effects as MCP/API for other clients |
+
+- **Yes (here):** import tools → operations; run as one binding behind the host.
+- **No (here):** replace Spec-as-law, schedules, evidence, or shared desktop act/HITL.
 - **Unavailable:** many UI-only or ToS-blocked surfaces → computer/browser or human-only.
+- **Not this plan:** auto-publishing every Spec as a public service. Default app stays run-only; see [`relay_app_knowledge_mcp.plan.md`](./relay_app_knowledge_mcp.plan.md).
 
 ## Out of scope until Services rail exists
 
 - Building a full freight product UI
 - Pre-shipping dozens of logistics connectors
 - Replacing ASAP closed-loop work
+- App-as-service / knowledge export surface (owned by knowledge plan)
 
 ## Phasing (suggested)
 
@@ -107,6 +116,8 @@ Never auto-enable irreversible live writes without shadow evidence + connection.
 
 ## Related
 
+- [`relay_app_knowledge_mcp.plan.md`](./relay_app_knowledge_mcp.plan.md) — outbound opt-in app MCP/API + knowledge store
+- [`relay_desk_closed_loop_asap.plan.md`](./relay_desk_closed_loop_asap.plan.md) — short-term closed loop
 - [`docs/manifesto-v2.md`](../../docs/manifesto-v2.md) — MCP vs acting
 - [`ARCHITECTURE.md`](../../ARCHITECTURE.md) — API engine / MCP checkbox
 - [`packages/protocol/src/service-descriptor.ts`](../../packages/protocol/src/service-descriptor.ts)
