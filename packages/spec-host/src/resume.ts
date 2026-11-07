@@ -154,10 +154,12 @@ export async function resumeSpec(
   let nextCheckpoint: SpecRunCheckpoint | undefined;
 
   if (store) {
+    // Keep checkpoint.specHash (hosts may re-key after live budget override so
+    // Apps/Seats filters still match the installed Spec hash).
     nextCheckpoint = buildRunRecord({
       runId: checkpoint.runId,
       specId: prepared.frozen.id,
-      specHash: prepared.lowered.specHash,
+      specHash: checkpoint.specHash,
       mode: prepared.mode,
       status: statusFromRuntimeState(state),
       stageIndex: runtime.getCurrentStageIndex(),
@@ -184,7 +186,7 @@ export async function resumeSpec(
     ok: state === "COMPLETE",
     state,
     specId: prepared.frozen.id,
-    specHash: prepared.lowered.specHash,
+    specHash: checkpoint.specHash,
     frozen: prepared.frozen,
     lowered: prepared.lowered,
     evidence,

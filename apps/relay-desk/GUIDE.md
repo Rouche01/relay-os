@@ -29,6 +29,24 @@ Settings (footer of the sidebar) stores connection URLs and tokens. Those stay o
 
 ---
 
+## What works today (ASAP)
+
+This is the closed loop you can trust right now. Longer “any service” work is out of scope here.
+
+| Works | Honest limit |
+|-------|----------------|
+| **GitHub triage** preset → Verify → Ship → Apps **Run once** → Seats Approve → run finishes | Desk Spec API still **blocks network** and uses **fixtures** for GitHub list/comment unless you open network later |
+| **Mark ready** `github:default` on Ship/Apps | Mark ready ≠ token. Live secrets go in Spec API `.env` (`GITHUB_TOKEN` + `RELAY_CONNECTIONS`) |
+| **Enable** schedule after evidence approve | Separate from Run once; cron ticks need Spec API kept running |
+| Catalog scaffold (github / reddit demo / generic HITL) | Unknown services show **Needs[]** — no invented APIs |
+| Fanout HITL pauses parent → Seats | Rebuild `@relay/runtime` + restart Spec API after pulling runtime fixes |
+
+**Not ASAP success:** Reddit/CE fashion **write**, freight wedge, customer-authored services, My Desk.
+
+Manual UI checklist: [`SMOKE.md`](./SMOKE.md). Automated: `pnpm --filter @relay/apps-relay-shell test` (`closed-loop-smoke.test.ts`).
+
+---
+
 ## A typical first journey
 
 **ASAP dogfood path:** use the **GitHub triage** preset (repo `acme/widgets`, connection `github:default`). CE fashion / Reddit write is a demo only — not the success bar.
@@ -37,9 +55,9 @@ Settings (footer of the sidebar) stores connection URLs and tokens. Those stay o
 2. Keep **GitHub triage** (or write a catalog-only intent) → **Create draft**.  
 3. You land in **Design**: see the flow as a diagram; tweak the plan in YAML if you need to.  
 4. Go to **Verify** → **Run checks**. Fix anything that fails (jump back to the exact YAML line).  
-5. Go to **Ship**. Walk the checklist: freeze → install → connect secrets → **shadow run** (rehearsal) → approve evidence → **Enable** (schedule) and/or leave schedule off and use **Run once** later.  
-6. The app appears under **Apps**. You can **Run once** on demand, and/or **Enable** so schedules fire.  
-7. When a run pauses for you (including Run once HITL), **Activity** or Apps → **Open Seats** → Approve or Abort.
+5. Go to **Ship**. Walk the checklist: freeze → install → **mark** `github:default` → **shadow run** (rehearsal) → approve evidence → optional **Enable**, or leave schedule off and use **Run once**.  
+6. The app appears under **Apps**. **Run once** → Confirm → expect HITL pause.  
+7. **Activity** or Apps → **Open Seats** → Approve or Abort → run completes under Apps → Runs.
 
 That’s the whole product loop: **design → prove → ship → operate → attend**.
 
@@ -146,7 +164,9 @@ RELAY_CONNECTIONS={"github:default":{"type":"bearer","token":"env:GITHUB_TOKEN"}
 
 Or `RELAY_CONNECTIONS_FILE` pointing at JSON like [`packages/spec-host/connections.example.json`](../../packages/spec-host/connections.example.json). Details: [`CONNECTIONS.md`](../../packages/spec-host/CONNECTIONS.md).
 
-**Settings → Live connections → Probe connections** reports which curated refs have a live secret (never shows the token). Desk dogfood still uses offline fixtures for many runs; marking ready is enough to finish Ship.
+**Settings → Live connections → Probe connections** reports which curated refs have a live secret (never shows the token).
+
+**Today’s Desk dogfood:** Apps Run once / shadow run with `blockNetwork: true` and fixture issue bodies. Marking ready is enough to finish Ship and prove HITL. Putting a real `GITHUB_TOKEN` in Spec API env prepares you for a later live-network dogfood; it does not by itself turn fixture runs into GitHub.com traffic while network stays blocked.
 
 ---
 
@@ -219,6 +239,9 @@ After changing runtime / engines packages locally: `pnpm --filter @relay/runtime
 
 ## Related
 
+- ASAP closed loop: [`.cursor/plans/relay_desk_closed_loop_asap.plan.md`](../../.cursor/plans/relay_desk_closed_loop_asap.plan.md)  
+- Smoke checklist: [`SMOKE.md`](./SMOKE.md)  
 - Product UX plan: [`.cursor/plans/desk_spec_workspace_ux.plan.md`](../../.cursor/plans/desk_spec_workspace_ux.plan.md)  
 - Intent → Spec thesis: [`.cursor/plans/relay_intent_spec_verify_hitl.plan.md`](../../.cursor/plans/relay_intent_spec_verify_hitl.plan.md)  
+- Long-term open services: [`.cursor/plans/relay_open_services_platform.plan.md`](../../.cursor/plans/relay_open_services_platform.plan.md)  
 - My Desk (backlog): [`.cursor/plans/desk_my_desk.plan.md`](../../.cursor/plans/desk_my_desk.plan.md)  

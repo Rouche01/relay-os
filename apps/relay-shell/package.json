@@ -11,7 +11,7 @@
     "api": "tsx server/api.ts",
     "start": "RELAY_SHELL_SERVE_UI=1 tsx server/api.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p server/tsconfig.json",
-    "test": "tsx --test server/installed-apps.test.ts server/stub-spec.test.ts"
+    "test": "tsx --test server/installed-apps.test.ts server/stub-spec.test.ts server/closed-loop-smoke.test.ts"
   },
   "dependencies": {
     "@relay/engines-decide": "workspace:*",

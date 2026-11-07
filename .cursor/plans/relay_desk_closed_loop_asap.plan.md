@@ -16,10 +16,10 @@ todos:
     status: completed
   - id: cl5-smoke-script
     content: One smoke path — New spec → Verify → Ship gate → Apps Run once → Seats Approve/Abort → run completes; Enable schedule optional second check
-    status: pending
+    status: completed
   - id: cl6-guide
     content: GUIDE.md — ASAP loop only; honest limits (fixtures vs live, which services work)
-    status: pending
+    status: completed
 isProject: true
 ---
 
@@ -86,16 +86,24 @@ Sibling of long-term [`relay_open_services_platform.plan.md`](./relay_open_servi
 - App runs: env/file secrets preferred via composite store, memory stub fallback.
 - `.env.example` + GUIDE Connections section.
 
-Next: `cl5` smoke path.
+### `cl5` done (2026-11-07)
+
+- Automated: `apps/relay-shell/server/closed-loop-smoke.test.ts` (stub → install → mark → shadow → approve → Run once → resume → Enable).
+- Manual: [`apps/relay-desk/SMOKE.md`](../../apps/relay-desk/SMOKE.md).
+- Fixes for the loop: resume honors checkpoint `dryRun` (live Run once); stub LLM returns `issue_number` for GitHub; resume preserves re-keyed `specHash` so completed runs stay under Apps.
+
+### `cl6` done (2026-11-07)
+
+- GUIDE: **What works today (ASAP)** table — fixtures + blocked network vs mark-ready vs live secrets; smoke links; not Reddit write / open services.
 
 ## Verify
 
-- [ ] Intent using only catalog services scaffolds without fake ops
-- [ ] Ship checklist completes
-- [ ] Run once appears under app runs (correct specHash)
-- [ ] HITL appears on Seats and resume finishes the run
-- [ ] Enable schedule still separate from Run once
-- [ ] GUIDE matches what actually works
+- [x] Intent using only catalog services scaffolds without fake ops
+- [x] Ship checklist completes
+- [x] Run once appears under app runs (correct specHash)
+- [x] HITL appears on Seats and resume finishes the run
+- [x] Enable schedule still separate from Run once
+- [x] GUIDE matches what actually works
 
 ## Related
 

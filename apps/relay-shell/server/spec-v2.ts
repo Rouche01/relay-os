@@ -130,11 +130,19 @@ export function buildDeskApiFixtures(
 
 function deskFixtureApi() {
   const services = loadV2Services();
+  // All curated refs get a Desk stub token so resume works for github ASAP path
+  // (live secrets still win via deskAppConnectionStore on Apps Run once).
+  const connectionStore = createMemoryConnectionStore(
+    Object.fromEntries(
+      deskKnownConnections().map((id) => [
+        id,
+        { type: "bearer" as const, token: "desk-dry-run" },
+      ])
+    )
+  );
   return {
     services,
-    connectionStore: createMemoryConnectionStore({
-      "reddit:default": { type: "bearer", token: "desk-dry-run" },
-    }),
+    connectionStore,
     apiFixtures: buildDeskApiFixtures(services),
   };
 }
@@ -511,6 +519,18 @@ export function runtimeStubLlm(): LlmClient {
         } catch {
           item = {};
         }
+      }
+      // Match schema shape: GitHub triage wants issue_number; CE reddit wants thing_id.
+      if ("issue_number" in props) {
+        const n = Number(item.number ?? item.issue_number ?? 1);
+        return {
+          text: JSON.stringify({
+            text: `Thanks for the report on "${String(item.title ?? "this issue")}". Can you share repro steps or logs? Next: I'll reproduce locally.`,
+            issue_number: Number.isFinite(n) ? n : 1,
+          }),
+          provider: "gemini",
+          model: "desk-stub",
+        };
       }
       const rawId = String(item.id ?? "t3_desk");
       const thing_id = rawId.startsWith("t3_") ? rawId : `t3_${rawId}`;
@@ -1233,7 +1253,7 @@ export async function handleResumeRun(
       connectionStore,
       llmClient: runtimeStubLlm(),
       apiFixtures,
-      dryRun: true,
+      // Honor checkpoint mode/dryRun (Apps Run once is live + dryRun false).
       blockNetwork: true,
       hitl: {
         autoApprove: false,
