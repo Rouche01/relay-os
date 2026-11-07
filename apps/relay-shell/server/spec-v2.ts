@@ -203,9 +203,11 @@ export function deskKnownConnections(): string[] {
 /** Which offline stub to emit when LLM scaffold is unavailable. */
 export function stubKindFromIntent(
   intent: string
-): "github" | "reddit" | "generic" {
+): "github" | "reddit" | "youtube" | "generic" {
   const t = intent.trim();
   if (/\bgithub\b/i.test(t) || /\bacme\/widgets\b/i.test(t)) return "github";
+  if (/\byoutube\b/i.test(t) || /\byt\s+creator/i.test(t) || /\byoutuber/i.test(t))
+    return "youtube";
   if (/\breddit\b/i.test(t) || /\bsubreddit\b/i.test(t)) return "reddit";
   return "generic";
 }
@@ -350,6 +352,8 @@ function stubRedditFashion(intent: string): SpecV2Body {
         id: "scout",
         use: "api.request",
         args: {
+          // slot drives Ship swaps; service is draft preferred (overwritten on resolve).
+          slot: "reddit.read",
           service: "reddit-public",
           operation: "listNew",
           params: { subreddit: "malefashionadvice", limit: 10 },
@@ -397,6 +401,74 @@ function stubRedditFashion(intent: string): SpecV2Body {
             text: "${item.text}",
             api_type: "json",
           },
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * YouTube creator discovery — capability-slot dogfood (cs5).
+ * Official API blocked; Ship picks computer / degraded http-fetch / human.
+ * Steps use args.slot so binding swaps without rewriting Spec law.
+ */
+function stubYouTubeDiscover(intent: string): SpecV2Body {
+  return {
+    goal: goalFromIntent(
+      intent,
+      "Find YouTube creators by niche and audience signals"
+    ),
+    connections: [],
+    services: ["http-fetch"],
+    trigger: { manual: true },
+    budget: { dryRun: true, maxJobs: 3 },
+    rules: [
+      {
+        id: "no_promo_links",
+        kind: "hard",
+        check: { notMatches: "${draft.text}", pattern: "https?://" },
+      },
+    ],
+    steps: [
+      {
+        id: "scout",
+        // Placeholder use — Ship resolve remaps to computer.observe / api.request / human.edit.
+        use: "computer.observe",
+        args: {
+          slot: "youtube.discover",
+          query:
+            "Discover YouTube creators matching the intent niche and audience",
+          operation: "get",
+          params: {
+            url: "https://www.youtube.com/results?search_query=creators",
+          },
+          show: "Paste a short list of creator channels for this niche",
+          prompt: "Supply creator candidates?",
+          url: "https://www.youtube.com/results?search_query=creators",
+        },
+        outputs: ["body"],
+      },
+      {
+        id: "summarize",
+        use: "llm.generate",
+        args: {
+          prompt:
+            "Turn scout findings into a short creator shortlist. No URLs. Return JSON with text.",
+          input: "${steps.scout.output}",
+          schema: {
+            type: "object",
+            properties: { text: { type: "string" } },
+            required: ["text"],
+          },
+        },
+        enforce: ["no_promo_links"],
+      },
+      {
+        id: "approve",
+        use: "human.approve",
+        args: {
+          show: "${steps.summarize.output}",
+          prompt: "Approve this creator shortlist?",
         },
       },
     ],
@@ -464,9 +536,11 @@ export function stubSpecFromIntent(
   const raw =
     kind === "github"
       ? stubGithubTriage(intent)
-      : kind === "reddit"
-        ? stubRedditFashion(intent)
-        : stubGenericHitl(intent);
+      : kind === "youtube"
+        ? stubYouTubeDiscover(intent)
+        : kind === "reddit"
+          ? stubRedditFashion(intent)
+          : stubGenericHitl(intent);
   return withSlotsFromIntent(raw, {
     intent,
     catalog: opts?.services ?? loadV2Services(),
@@ -622,9 +696,11 @@ export async function handleScaffold(input: {
       note:
         stubKindFromIntent(intent) === "github"
           ? "Offline stub: GitHub triage (ASAP dogfood). Connect github:default before live Run once."
-          : stubKindFromIntent(intent) === "reddit"
-            ? "Offline stub: CE fashion (demo). ASAP success bar is GitHub triage."
-            : "Offline stub: HITL-only plan (no API). Name a curated service in the intent for api.request.",
+          : stubKindFromIntent(intent) === "youtube"
+            ? "Offline stub: YouTube discover (capability slots). Resolve youtube.discover on Ship — no Spec rewrite when binding swaps."
+            : stubKindFromIntent(intent) === "reddit"
+              ? "Offline stub: CE fashion with reddit.read slot. Resolve binding on Ship; ASAP success bar is GitHub triage."
+              : "Offline stub: HITL-only plan (no API). Name a curated service in the intent for api.request.",
     };
   }
 

@@ -185,10 +185,20 @@ const API_REQUEST_ARGS: CapabilityArgSchema = {
     type: "string",
     description: "Connection ref (e.g. reddit:default); never a secret",
   },
+  slot: {
+    type: "string",
+    description:
+      "Capability slot id — service/connection filled at Ship resolve (args.slot)",
+  },
 };
 
 const BROWSER_NAVIGATE_ARGS: CapabilityArgSchema = {
   url: { type: "string", required: true, description: "Absolute URL" },
+  slot: {
+    type: "string",
+    description:
+      "Capability slot id — binding filled at Ship resolve (args.slot)",
+  },
 };
 
 const BROWSER_READ_ARGS: CapabilityArgSchema = {
@@ -240,6 +250,11 @@ const COMPUTER_OBSERVE_ARGS: CapabilityArgSchema = {
     type: "string",
     description: "Optional focus hint for the observation",
   },
+  slot: {
+    type: "string",
+    description:
+      "Capability slot id — binding filled at Ship resolve (args.slot)",
+  },
 };
 
 const COMPUTER_ACT_ARGS: CapabilityArgSchema = {
@@ -287,6 +302,11 @@ const HUMAN_EDIT_ARGS: CapabilityArgSchema = {
     description: "Draft or artifact to edit",
   },
   prompt: { type: "string", description: "Optional edit prompt" },
+  slot: {
+    type: "string",
+    description:
+      "Capability slot id — binding filled at Ship resolve (args.slot)",
+  },
 };
 
 const HUMAN_CHOOSE_ARGS: CapabilityArgSchema = {

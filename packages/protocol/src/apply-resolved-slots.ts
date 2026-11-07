@@ -48,8 +48,8 @@ export function getResolvedCandidate(
 
 /**
  * Map binding → engine use id for steps that declare `args.slot`.
- * Non-API bindings are only applied when the step already uses a compatible engine
- * (or human.*); swapping api.request → computer is left to Spec authoring / cs5+.
+ * Prefer keeping a compatible use; otherwise remap so Ship can swap
+ * official → degraded → computer → human without rewriting Spec law.
  */
 function useForBinding(
   binding: BindingCandidate["binding"],
@@ -62,19 +62,13 @@ function useForBinding(
       return { use: "api.request" };
     case "human":
       if (currentUse.startsWith("human.")) return { use: currentUse };
-      return {
-        error: `binding "human" cannot drive ${JSON.stringify(currentUse)} — keep a human.* step or pick an API candidate`,
-      };
+      return { use: "human.edit" };
     case "browser":
       if (currentUse.startsWith("browser.")) return { use: currentUse };
-      return {
-        error: `binding "browser" cannot drive ${JSON.stringify(currentUse)} — use browser.* steps or pick an API candidate`,
-      };
+      return { use: "browser.navigate" };
     case "computer":
       if (currentUse.startsWith("computer.")) return { use: currentUse };
-      return {
-        error: `binding "computer" cannot drive ${JSON.stringify(currentUse)} — use computer.* steps or pick an API candidate`,
-      };
+      return { use: "computer.observe" };
     default:
       return { error: `unsupported binding ${JSON.stringify(binding)}` };
   }
@@ -173,6 +167,22 @@ export function applyResolvedSlots(body: SpecV2Body): ApplyResolvedSlotsResult {
         nextArgs.connection = candidate.connection;
       } else {
         delete nextArgs.connection;
+      }
+    } else {
+      delete nextArgs.service;
+      delete nextArgs.connection;
+      if (mapped.use === "human.edit" || mapped.use === "human.approve") {
+        if (nextArgs.show === undefined) {
+          nextArgs.show =
+            nextArgs.query ??
+            `Operator input for capability slot ${slotId}`;
+        }
+      }
+      if (mapped.use === "browser.navigate" && nextArgs.url === undefined) {
+        errors.push(
+          `steps.${step.id}: slot ${JSON.stringify(slotId)} browser binding needs args.url`
+        );
+        return step;
       }
     }
 

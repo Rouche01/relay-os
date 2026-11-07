@@ -11,10 +11,16 @@ describe("stubSpecFromIntent (catalog-constrained)", () => {
   const services = loadCuratedServices();
   const known = curatedKnownConnections();
 
-  it("detects github vs reddit vs generic", () => {
+  it("detects github vs youtube vs reddit vs generic", () => {
     assert.equal(
       stubKindFromIntent("Every weekday triage GitHub bugs in acme/widgets"),
       "github"
+    );
+    assert.equal(
+      stubKindFromIntent(
+        "Every day find YouTube creators with Nigerian audience by niche"
+      ),
+      "youtube"
     );
     assert.equal(
       stubKindFromIntent("Help fashion subreddits on Reddit"),
@@ -39,13 +45,15 @@ describe("stubSpecFromIntent (catalog-constrained)", () => {
     assert.equal(v.ok, true, JSON.stringify(v.errors, null, 2));
   });
 
-  it("YouTube stub emits youtube.discover slot without inventing YouTube API steps", () => {
+  it("YouTube stub emits youtube.discover slot + args.slot without inventing YouTube API service", () => {
     const body = stubSpecFromIntent(
       "Every day find YouTube creators with Nigerian audience by niche",
       { services, knownConnections: known }
     );
     assert.ok(body.slots?.some((s) => s.id === "youtube.discover"));
     assert.ok(!(body.services ?? []).includes("youtube-data"));
+    const scout = body.steps.find((s) => s.id === "scout");
+    assert.equal((scout?.args as { slot?: string } | undefined)?.slot, "youtube.discover");
     const v = validateSpecV2(body, { services, knownConnections: known });
     assert.equal(v.ok, true, JSON.stringify(v.errors, null, 2));
   });

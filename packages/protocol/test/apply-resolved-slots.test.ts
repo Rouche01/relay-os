@@ -128,15 +128,60 @@ describe("applyResolvedSlots (cs4)", () => {
     assert.ok(out.errors.some((e) => /not resolved/i.test(e)));
   });
 
-  it("fails when human binding is applied to api.request", () => {
+  it("remaps human binding onto human.edit without rewriting Spec law", () => {
     const slot = scmSlot({
       resolved: "binding:human",
       preferredCandidateIndex: 2,
     });
     const out = applyResolvedSlots(triageBody(slot));
-    assert.equal(out.ok, false);
-    if (out.ok) return;
-    assert.ok(out.errors.some((e) => /human/i.test(e)));
+    assert.equal(out.ok, true);
+    if (!out.ok) return;
+    assert.equal(out.body.steps[0]!.use, "human.edit");
+    assert.equal(out.body.goal, "Triage bugs");
+    assert.deepEqual(
+      out.body.steps.map((s) => s.id),
+      ["scout", "approve"]
+    );
+    const args = out.body.steps[0]!.args as Record<string, unknown>;
+    assert.equal(args.slot, "scm.issues");
+    assert.ok(args.show);
+    assert.equal(args.service, undefined);
+  });
+
+  it("remaps computer binding onto computer.observe", () => {
+    const slot: CapabilitySlot = {
+      id: "youtube.discover",
+      needs: ["search creators"],
+      candidates: [
+        {
+          binding: "computer",
+          status: "available",
+          rank: 40,
+        },
+      ],
+      resolved: "binding:computer",
+      preferredCandidateIndex: 0,
+    };
+    const body: SpecV2Body = {
+      goal: "Find creators",
+      slots: [slot],
+      steps: [
+        {
+          id: "scout",
+          use: "api.request",
+          args: {
+            slot: "youtube.discover",
+            operation: "get",
+            params: { url: "https://www.youtube.com" },
+          },
+        },
+      ],
+    };
+    const out = applyResolvedSlots(body);
+    assert.equal(out.ok, true);
+    if (!out.ok) return;
+    assert.equal(out.body.steps[0]!.use, "computer.observe");
+    assert.equal(out.body.goal, "Find creators");
   });
 
   it("getResolvedCandidate prefers preferredCandidateIndex", () => {

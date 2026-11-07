@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: cs5-dogfood
     content: Dogfood — Reddit-style or YouTube-style intent scaffolds with slots + alternatives (official / degraded / computer / human); operator picks without Spec rewrite
-    status: pending
+    status: completed
   - id: cs6-docs-link
     content: Document CE lesson + link from open-services plan; GUIDE note that ASAP still uses concrete catalog services until this lands
     status: pending
@@ -130,9 +130,8 @@ Spec (future slots[])
 
 ## Suggested sequencing
 
-1. ~~`cs0`–`cs4`~~  
-2. `cs5` — dogfood  
-3. `cs6` — docs / cross-links  
+1. ~~`cs0`–`cs5`~~  
+2. `cs6` — docs / cross-links  
 
 ### `cs0`–`cs3` done (2026-11-07)
 
@@ -143,7 +142,13 @@ Spec (future slots[])
 - `applyResolvedSlots` in `@relay/protocol` — steps with `args.slot` get service/connection from Ship resolution; swap candidate without changing goal/step ids.
 - `prepareSpecRun` applies slots before validate/lower; unresolved slot refs fail closed.
 - ASAP concrete steps (no `args.slot`) still run; sidecar slots alone do not block.
-- Next: `cs5` dogfood Spec that uses `args.slot` end-to-end.
+
+### `cs5` done (2026-11-07)
+
+- YouTube stub (`stubYouTubeDiscover`) + Reddit scout use `args.slot`; Ship resolve remaps computer / degraded http-fetch / human / notify without rewriting goal or step ids.
+- `applyResolvedSlots` remaps binding → `computer.observe` / `api.request` / `human.edit` / `browser.navigate`.
+- Smoke: `apps/relay-shell/server/slots-dogfood.test.ts`.
+- Next: `cs6` docs / GUIDE + open-services cross-link.
 
 ## Links
 

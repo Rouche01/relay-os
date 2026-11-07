@@ -214,8 +214,18 @@ function checkCapabilities(ctx: Ctx): void {
     const cap = parsed.capability;
     // Required args present (literals or refs both count as present)
     const args = step.args ?? {};
+    const slotBound =
+      typeof args.slot === "string" && args.slot.trim().length > 0;
     for (const [name, def] of Object.entries(cap.args)) {
       if (!def.required) continue;
+      // Slot-bound api.request: service/connection filled at Ship resolve.
+      if (
+        slotBound &&
+        cap.id === "api.request" &&
+        (name === "service" || name === "connection")
+      ) {
+        continue;
+      }
       if (!(name in args) || args[name] === undefined || args[name] === null) {
         err(ctx, {
           code: "missing_capability_arg",
