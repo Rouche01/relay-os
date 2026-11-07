@@ -1,6 +1,6 @@
 ---
 name: Desk closed loop ASAP
-overview: "Short-term. Prove Relay Desk as a usable product with the few services already in catalog — plain intent → Spec → Ship → Apps Run once / schedule → Seats HITL — without inventing a general service marketplace yet."
+overview: "COMPLETE (2026-11-07). Short-term. Prove Relay Desk as a usable product with the few services already in catalog — plain intent → Spec → Ship → Apps Run once / schedule → Seats HITL — without inventing a general service marketplace yet. Next medium-term for brittle service pick: relay_capability_slots.plan.md."
 todos:
   - id: cl1-pick-path
     content: Lock dogfood path — GitHub triage (preferred live) and/or curated fashion/CE read path (fixtures OK); refuse Reddit write as ASAP success criteria
@@ -25,7 +25,9 @@ isProject: true
 
 # Desk — closed loop ASAP (short-term)
 
-Sibling of long-term [`relay_open_services_platform.plan.md`](./relay_open_services_platform.plan.md). Does **not** invent customer-authored services, MCP marketplace, or logistics domain packs.
+**Status: complete** — all `cl1`–`cl6` todos done; smoke + GUIDE in place.
+
+Sibling of long-term [`relay_open_services_platform.plan.md`](./relay_open_services_platform.plan.md) and medium-term [`relay_capability_slots.plan.md`](./relay_capability_slots.plan.md). Does **not** invent customer-authored services, MCP marketplace, or logistics domain packs.
 
 **Goal:** One trustworthy loop operators can feel: *say what you want → prove it → run it → interrupt when needed.*
 
@@ -108,5 +110,7 @@ Sibling of long-term [`relay_open_services_platform.plan.md`](./relay_open_servi
 ## Related
 
 - [`apps/relay-desk/GUIDE.md`](../../apps/relay-desk/GUIDE.md)
+- [`relay_capability_slots.plan.md`](./relay_capability_slots.plan.md) — next for service/binding choice
+- [`relay_open_services_platform.plan.md`](./relay_open_services_platform.plan.md)
 - [`relay_spec_to_working_app.plan.md`](./relay_spec_to_working_app.plan.md)
 - [`desk_spec_workspace_ux.plan.md`](./desk_spec_workspace_ux.plan.md)

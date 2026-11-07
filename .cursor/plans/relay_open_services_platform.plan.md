@@ -12,7 +12,7 @@ todos:
     content: Desk Services navigation — catalog, add-from-words draft, import OpenAPI, import MCP tool list, attach connection, test call
     status: pending
   - id: os3-infer-binding
-    content: "Scaffold/needs inference — if API/MCP unavailable, propose computer/browser or human.approve-only path instead of inventing fake api.request"
+    content: "Scaffold/needs inference — if API/MCP unavailable, propose computer/browser or human.approve-only path instead of inventing fake api.request; detail in relay_capability_slots.plan.md"
     status: pending
   - id: os4-mcp-as-binding
     content: MCP as optional inbound binding behind descriptors (not a second runtime); document where MCP cannot replace shared act / Seats; outbound app MCP/API stays in knowledge plan (opt-in owner export)
@@ -28,7 +28,7 @@ isProject: true
 
 # Open services platform (long-term)
 
-Sibling of short-term [`relay_desk_closed_loop_asap.plan.md`](./relay_desk_closed_loop_asap.plan.md) and medium-term [`relay_app_knowledge_mcp.plan.md`](./relay_app_knowledge_mcp.plan.md). Design and product direction — **do not block** the ASAP closed loop.
+Sibling of short-term [`relay_desk_closed_loop_asap.plan.md`](./relay_desk_closed_loop_asap.plan.md) (done), medium-term [`relay_capability_slots.plan.md`](./relay_capability_slots.plan.md) (scaffold slots + alternatives), and [`relay_app_knowledge_mcp.plan.md`](./relay_app_knowledge_mcp.plan.md). Design and product direction — **do not block** the ASAP closed loop.
 
 ## Why this exists
 
@@ -116,8 +116,9 @@ Two directions — do not collapse them:
 
 ## Related
 
+- [`relay_capability_slots.plan.md`](./relay_capability_slots.plan.md) — capability slots + ranked binding alternatives (scaffold contract)
 - [`relay_app_knowledge_mcp.plan.md`](./relay_app_knowledge_mcp.plan.md) — outbound opt-in app MCP/API + knowledge store
-- [`relay_desk_closed_loop_asap.plan.md`](./relay_desk_closed_loop_asap.plan.md) — short-term closed loop
+- [`relay_desk_closed_loop_asap.plan.md`](./relay_desk_closed_loop_asap.plan.md) — short-term closed loop (complete)
 - [`docs/manifesto-v2.md`](../../docs/manifesto-v2.md) — MCP vs acting
 - [`ARCHITECTURE.md`](../../ARCHITECTURE.md) — API engine / MCP checkbox
 - [`packages/protocol/src/service-descriptor.ts`](../../packages/protocol/src/service-descriptor.ts)

@@ -28,7 +28,7 @@ isProject: true
 
 # App knowledge store + query MCP (medium-term)
 
-Sibling of long-term [`relay_open_services_platform.plan.md`](./relay_open_services_platform.plan.md) and short-term [`relay_desk_closed_loop_asap.plan.md`](./relay_desk_closed_loop_asap.plan.md). Does **not** replace ASAP closed loop.
+Sibling of long-term [`relay_open_services_platform.plan.md`](./relay_open_services_platform.plan.md), medium-term [`relay_capability_slots.plan.md`](./relay_capability_slots.plan.md) (how YouTube/discover bindings may resolve), and completed short-term [`relay_desk_closed_loop_asap.plan.md`](./relay_desk_closed_loop_asap.plan.md). Does **not** replace ASAP closed loop.
 
 ## Thesis
 
