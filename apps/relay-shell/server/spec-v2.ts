@@ -720,6 +720,106 @@ export function handleValidate(input: { yaml?: string; body?: SpecV2Body }) {
   };
 }
 
+/**
+ * Ship (cs3): operator picks a binding candidate for a capability slot.
+ * Never auto-selects degraded — caller must pass candidateIndex explicitly.
+ */
+export function handleResolveSlot(input: {
+  yaml?: string;
+  body?: SpecV2Body;
+  slotId?: string;
+  candidateIndex?: number;
+}) {
+  const slotId = String(input.slotId ?? "").trim();
+  if (!slotId) {
+    return { ok: false as const, status: 400, error: "slotId required" };
+  }
+  if (
+    typeof input.candidateIndex !== "number" ||
+    !Number.isInteger(input.candidateIndex) ||
+    input.candidateIndex < 0
+  ) {
+    return {
+      ok: false as const,
+      status: 400,
+      error: "candidateIndex must be a non-negative integer",
+    };
+  }
+  let body: SpecV2Body;
+  try {
+    body = resolveBody(input);
+  } catch (err) {
+    return {
+      ok: false as const,
+      status: 400,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const slots = body.slots ?? [];
+  const slotIdx = slots.findIndex((s) => s.id === slotId);
+  if (slotIdx < 0) {
+    return {
+      ok: false as const,
+      status: 404,
+      error: `Unknown slot ${JSON.stringify(slotId)}`,
+    };
+  }
+  const slot = slots[slotIdx]!;
+  const candidate = slot.candidates[input.candidateIndex];
+  if (!candidate) {
+    return {
+      ok: false as const,
+      status: 400,
+      error: `candidateIndex ${input.candidateIndex} out of range for ${slotId}`,
+    };
+  }
+  if (candidate.status === "blocked") {
+    return {
+      ok: false as const,
+      status: 422,
+      error: `Candidate is blocked${candidate.reason ? ` — ${candidate.reason}` : ""}`,
+    };
+  }
+
+  const resolved =
+    candidate.connection?.trim() ||
+    (candidate.service
+      ? `${candidate.service}:slot`
+      : `binding:${candidate.binding}`);
+  const degraded = candidate.status === "degraded";
+  const nextSlot = {
+    ...slot,
+    preferredCandidateIndex: input.candidateIndex,
+    resolved,
+  };
+  const nextSlots = slots.map((s, i) => (i === slotIdx ? nextSlot : s));
+  const connections = [...(body.connections ?? [])];
+  if (
+    candidate.connection &&
+    !connections.includes(candidate.connection)
+  ) {
+    connections.push(candidate.connection);
+  }
+  const nextBody: SpecV2Body = {
+    ...body,
+    slots: nextSlots,
+    connections: connections.length ? connections : body.connections,
+  };
+
+  return {
+    ok: true as const,
+    status: 200,
+    body: nextBody,
+    yaml: specBodyToYaml(nextBody),
+    slot: nextSlot,
+    candidate,
+    degraded,
+    note: degraded
+      ? `Resolved ${slotId} → ${candidate.binding}${candidate.service ? ` / ${candidate.service}` : ""} (degraded — ${candidate.reason ?? "limited path"}). Mark ready + shadow before live writes.`
+      : `Resolved ${slotId} → ${candidate.binding}${candidate.service ? ` / ${candidate.service}` : ""}${candidate.connection ? ` · ${candidate.connection}` : ""}. Mark ready if needed, then shadow before live writes.`,
+  };
+}
+
 export function handleLower(input: { yaml?: string; body?: SpecV2Body }) {
   const body = resolveBody(input);
   const validation = validateSpecV2(body, {

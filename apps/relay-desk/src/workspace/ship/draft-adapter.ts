@@ -4,6 +4,7 @@ import {
   enableSchedule,
   exportBundle,
   freezeSpec,
+  resolveSlot,
   runSpec,
 } from "../../spec/client.ts";
 import {
@@ -22,29 +23,112 @@ import type {
   ShipAction,
   ShipAdapter,
   ShipChecklist,
+  ShipSlot,
   ShipStep,
 } from "./types.ts";
 
-function requiredConnections(draft: DraftRecord): string[] {
+function readSlots(draft: DraftRecord): ShipSlot[] {
+  const raw = draft.body?.slots;
+  if (!Array.isArray(raw)) return [];
+  const out: ShipSlot[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const s = item as Record<string, unknown>;
+    if (typeof s.id !== "string" || !s.id.trim()) continue;
+    const needs = Array.isArray(s.needs)
+      ? s.needs.filter((n): n is string => typeof n === "string")
+      : [];
+    const candidatesRaw = Array.isArray(s.candidates) ? s.candidates : [];
+    const preferred =
+      typeof s.preferredCandidateIndex === "number"
+        ? s.preferredCandidateIndex
+        : undefined;
+    const resolved =
+      s.resolved === null || typeof s.resolved === "string"
+        ? (s.resolved as string | null)
+        : null;
+    const candidates = candidatesRaw.flatMap((c, index) => {
+      if (!c || typeof c !== "object" || Array.isArray(c)) return [];
+      const cand = c as Record<string, unknown>;
+      if (typeof cand.binding !== "string" || typeof cand.status !== "string") {
+        return [];
+      }
+      return [
+        {
+          index,
+          binding: cand.binding,
+          status: cand.status,
+          service: typeof cand.service === "string" ? cand.service : undefined,
+          connection:
+            typeof cand.connection === "string" ? cand.connection : undefined,
+          reason: typeof cand.reason === "string" ? cand.reason : undefined,
+          preferred: preferred === index,
+          selected: false,
+        },
+      ];
+    });
+    if (resolved != null && typeof preferred === "number" && candidates[preferred]) {
+      for (const c of candidates) c.selected = c.index === preferred;
+    }
+    out.push({
+      id: s.id,
+      needs,
+      resolved,
+      preferredCandidateIndex: preferred,
+      candidates,
+    });
+  }
+  return out;
+}
+
+function connectionRefsFromSlots(slots: ShipSlot[]): string[] {
+  const refs: string[] = [];
+  for (const slot of slots) {
+    if (slot.resolved == null) continue;
+    const sel =
+      slot.candidates.find((c) => c.selected) ??
+      (typeof slot.preferredCandidateIndex === "number"
+        ? slot.candidates[slot.preferredCandidateIndex]
+        : undefined);
+    if (sel?.connection) refs.push(sel.connection);
+  }
+  return [...new Set(refs)];
+}
+
+function requiredConnections(draft: DraftRecord, slots: ShipSlot[]): string[] {
   const body = draft.body;
   const raw = body?.connections;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((c): c is string => typeof c === "string" && c.trim().length > 0);
+  const fromBody = Array.isArray(raw)
+    ? raw.filter((c): c is string => typeof c === "string" && c.trim().length > 0)
+    : [];
+  return [...new Set([...fromBody, ...connectionRefsFromSlots(slots)])];
 }
 
 function buildChecklist(
   draft: DraftRecord,
-  connections: Array<{ id: string; connected: boolean }>
+  connections: Array<{ id: string; connected: boolean }>,
+  slots: ShipSlot[]
 ): ShipChecklist {
   const frozen = draft.status === "frozen" || Boolean(draft.frozenId);
   const installed = Boolean(draft.installedAppId);
+  const slotsResolved =
+    slots.length === 0 || slots.every((s) => s.resolved != null && s.resolved !== "");
   const allConnected =
     connections.length === 0 || connections.every((c) => c.connected);
+  const connectedDone =
+    slotsResolved &&
+    allConnected &&
+    (connections.length === 0 || installed || slots.length > 0);
   const shadowed = Boolean(draft.lastShadowRunId || draft.lastShadow?.runId);
   const approved =
     draft.evidenceApproved === true ||
     Boolean(draft.lastShadow?.evidenceApproval?.approvedAt);
   const enabled = draft.scheduleEnabled === true;
+
+  const slotDetail =
+    slots.length === 0
+      ? null
+      : `${slots.filter((s) => s.resolved).length}/${slots.length} slots resolved`;
 
   const steps: ShipStep[] = [
     {
@@ -69,12 +153,18 @@ function buildChecklist(
     },
     {
       id: "connected",
-      label: "Connected",
+      label: slots.length ? "Bindings" : "Connected",
       detail:
-        connections.length === 0
-          ? "No connections required"
-          : `${connections.filter((c) => c.connected).length}/${connections.length} ready`,
-      done: allConnected && (connections.length === 0 || installed),
+        slots.length > 0
+          ? `${slotDetail}${
+              connections.length
+                ? ` · ${connections.filter((c) => c.connected).length}/${connections.length} ready`
+                : ""
+            }`
+          : connections.length === 0
+            ? "No connections required"
+            : `${connections.filter((c) => c.connected).length}/${connections.length} ready`,
+      done: connectedDone && (connections.length === 0 || installed || slotsResolved),
       actionLabel: undefined,
     },
     {
@@ -86,7 +176,8 @@ function buildChecklist(
       done: shadowed,
       actionLabel:
         frozen &&
-        (connections.length === 0 || (installed && allConnected)) &&
+        connectedDone &&
+        (connections.length === 0 || installed) &&
         !shadowed
           ? "Shadow run"
           : undefined,
@@ -117,6 +208,7 @@ function buildChecklist(
     canEnable: approved && !enabled,
     note: draft.lastShadow?.note,
     connections,
+    slots,
     evidence: {
       runId: draft.lastShadowRunId ?? draft.lastShadow?.runId,
       evidenceCount: draft.lastShadow?.evidenceCount,
@@ -143,9 +235,10 @@ export function createDraftShipAdapter(opts: {
   };
 
   const loadConnections = async (
-    draft: DraftRecord
+    draft: DraftRecord,
+    slots: ShipSlot[]
   ): Promise<Array<{ id: string; connected: boolean }>> => {
-    const required = requiredConnections(draft);
+    const required = requiredConnections(draft, slots);
     if (!required.length) return [];
     if (!draft.installedAppId) {
       return required.map((id) => ({ id, connected: false }));
@@ -160,13 +253,14 @@ export function createDraftShipAdapter(opts: {
 
   const refresh = async (): Promise<ShipChecklist> => {
     const draft = getDraft();
-    const connections = await loadConnections(draft);
-    return buildChecklist(draft, connections);
+    const slots = readSlots(draft);
+    const connections = await loadConnections(draft, slots);
+    return buildChecklist(draft, connections, slots);
   };
 
   const run = async (
     action: ShipAction,
-    actionOpts?: { connection?: string }
+    actionOpts?: { connection?: string; slotId?: string; candidateIndex?: number }
   ): Promise<{ checklist: ShipChecklist; note?: string }> => {
     let draft = getDraft();
     let note: string | undefined;
@@ -212,6 +306,43 @@ export function createDraftShipAdapter(opts: {
         const res = await connectApp(settings, draft.installedAppId, conn, true);
         if (!res.ok) throw new Error(res.error || "Connect failed");
         note = res.note ?? `Connected · ${conn}`;
+        break;
+      }
+      case "resolve_slot": {
+        const slotId = actionOpts?.slotId;
+        const candidateIndex = actionOpts?.candidateIndex;
+        if (!slotId || candidateIndex === undefined) {
+          throw new Error("Pick a slot candidate");
+        }
+        const res = await resolveSlot(settings, {
+          yaml: draft.yaml,
+          body: draft.body,
+          slotId,
+          candidateIndex,
+        });
+        if (!res.ok || !res.yaml || !res.body) {
+          throw new Error(res.error || "Resolve slot failed");
+        }
+        draft = persist({
+          yaml: res.yaml,
+          body: res.body,
+        });
+        note = res.note;
+        const connection =
+          typeof res.candidate?.connection === "string"
+            ? res.candidate.connection
+            : undefined;
+        if (connection && draft.installedAppId) {
+          const connRes = await connectApp(
+            settings,
+            draft.installedAppId,
+            connection,
+            true
+          );
+          if (connRes.ok) {
+            note = `${note ?? ""} · marked ${connection} ready`.trim();
+          }
+        }
         break;
       }
       case "shadow": {

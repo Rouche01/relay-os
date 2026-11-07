@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: cs3-ship-resolve
     content: Ship / Connections UX — pick or accept top live candidate; never silent degraded; mark ready on resolved connection; shadow before irreversible writes
-    status: pending
+    status: completed
   - id: cs4-runtime-resolve
     content: Host resolves slot → binding at run time from install state; swap binding without re-scaffolding Spec
     status: pending
@@ -130,25 +130,20 @@ Spec (future slots[])
 
 ## Suggested sequencing
 
-1. ~~`cs0` thesis~~ · ~~`cs1` types + vocabulary~~ · ~~`cs2` scaffold emit~~  
-2. `cs3` — Ship resolve UX  
-3. `cs4` — runtime resolve  
-4. `cs5` — dogfood  
-5. `cs6` — docs / cross-links  
+1. ~~`cs0`–`cs3`~~  
+2. `cs4` — runtime resolve  
+3. `cs5` — dogfood  
+4. `cs6` — docs / cross-links  
 
-### `cs0` done (2026-11-07)
+### `cs0`–`cs2` done (2026-11-07)
 
-- Thesis + non-negotiables locked in this plan.
+- Thesis, types/vocab, scaffold emit — see earlier notes.
 
-### `cs1` done (2026-11-07)
+### `cs3` done (2026-11-07)
 
-- `@relay/protocol` — `CapabilitySlot` / `BindingCandidate` / vocab seed + shape helpers + tests.
-
-### `cs2` done (2026-11-07)
-
-- Optional `SpecV2Body.slots`; scaffold/stub attach unresolved slots from intent.
-- `needsFromIntent`: Needs only when a slot has zero viable candidates; non-vocab hints (gmail/stripe) still Needs; slotted services are not double-flagged.
-- Next: `cs3` — Ship resolve UX.
+- `POST /api/v2/slots/resolve` — explicit candidate pick; blocked refused; degraded flagged in note.
+- Desk Ship **Bindings** step lists slot candidates; click resolves + mark-ready when connection present; shadow still gates live writes.
+- Next: `cs4` — runtime resolves slot → binding from install/Spec state.
 
 ## Links
 

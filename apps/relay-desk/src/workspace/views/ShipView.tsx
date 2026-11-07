@@ -67,11 +67,14 @@ export function ShipView({
   }, [refresh, draft.id, draft.status, draft.installedAppId, draft.evidenceApproved, draft.scheduleEnabled]);
 
   const runAction = useCallback(
-    async (action: ShipAction, connection?: string) => {
+    async (
+      action: ShipAction,
+      opts?: { connection?: string; slotId?: string; candidateIndex?: number }
+    ) => {
       setBusy(true);
       setError(undefined);
       try {
-        const res = await adapter.run(action, { connection });
+        const res = await adapter.run(action, opts);
         setChecklist(res.checklist);
         setNote(res.note);
         if (action === "enable") onEnabled?.();
@@ -121,8 +124,9 @@ export function ShipView({
               : "Ship checklist"}
           </h2>
           <p class="tile-meta">
-            Freeze → install → connect → shadow → approve → enable. Enable stays
-            locked until shadow evidence is approved.
+            Freeze → install → resolve bindings → mark ready → shadow → approve →
+            enable. Degraded paths must be chosen explicitly. Enable stays locked
+            until shadow evidence is approved.
           </p>
           {note ? <p class="tile-meta mono">{note}</p> : null}
           {error ? <p class="error">{error}</p> : null}
@@ -149,22 +153,84 @@ export function ShipView({
                     <span class="tile-meta mono">{step.detail}</span>
                   ) : null}
                 </div>
-                {step.id === "connected" &&
-                (checklist?.connections?.length ?? 0) > 0 ? (
-                  <div class="ship-conn-row">
-                    {checklist!.connections!.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        class="cta ghost"
-                        disabled={busy || !draft.installedAppId}
-                        title="Mark ready for Ship (tokens stay on Spec API env)"
-                        onClick={() => void runAction("connect", c.id)}
-                      >
-                        {c.connected ? "✓ ready · " : "mark · "}
-                        {c.id}
-                      </button>
-                    ))}
+                {step.id === "connected" ? (
+                  <div class="ship-bind-stack">
+                    {(checklist?.slots?.length ?? 0) > 0 ? (
+                      <div class="ship-slots">
+                        {checklist!.slots!.map((slot) => (
+                          <div key={slot.id} class="ship-slot">
+                            <p class="ship-slot-id mono">
+                              {slot.id}
+                              {slot.resolved
+                                ? ` · resolved ${slot.resolved}`
+                                : " · pick a binding"}
+                            </p>
+                            {slot.needs.length ? (
+                              <p class="tile-meta">{slot.needs.join(" · ")}</p>
+                            ) : null}
+                            <div class="ship-conn-row">
+                              {slot.candidates.map((c) => {
+                                const blocked = c.status === "blocked";
+                                const degraded = c.status === "degraded";
+                                const label = [
+                                  c.selected ? "✓" : c.preferred ? "prefer" : "use",
+                                  c.binding,
+                                  c.service,
+                                  c.status,
+                                  degraded ? "(degraded)" : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ");
+                                return (
+                                  <button
+                                    key={`${slot.id}-${c.index}`}
+                                    type="button"
+                                    class="cta ghost"
+                                    data-degraded={degraded ? "1" : "0"}
+                                    data-selected={c.selected ? "1" : "0"}
+                                    disabled={busy || blocked}
+                                    title={
+                                      blocked
+                                        ? c.reason ?? "Blocked"
+                                        : degraded
+                                          ? `Degraded: ${c.reason ?? "limited path"} — click to accept explicitly`
+                                          : c.reason ?? "Resolve this binding"
+                                    }
+                                    onClick={() =>
+                                      void runAction("resolve_slot", {
+                                        slotId: slot.id,
+                                        candidateIndex: c.index,
+                                      })
+                                    }
+                                  >
+                                    {label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    {(checklist?.connections?.length ?? 0) > 0 ? (
+                      <div class="ship-conn-row">
+                        {checklist!.connections!.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            class="cta ghost"
+                            disabled={busy || !draft.installedAppId}
+                            title="Mark ready for Ship (tokens stay on Spec API env)"
+                            onClick={() =>
+                              void runAction("connect", { connection: c.id })
+                            }
+                          >
+                            {c.connected ? "✓ ready · " : "mark · "}
+                            {c.id}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </li>

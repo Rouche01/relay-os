@@ -1131,6 +1131,34 @@ body {
   margin-top: 0.15rem;
 }
 
+.ship-bind-stack {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
+  width: 100%;
+}
+
+.ship-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.ship-slot-id {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.ship-conn-row .cta.ghost[data-degraded="1"] {
+  border-color: color-mix(in srgb, var(--warn, #b45309) 55%, transparent);
+}
+
+.ship-conn-row .cta.ghost[data-selected="1"] {
+  font-weight: 600;
+}
+
 .spec-surface .spec-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

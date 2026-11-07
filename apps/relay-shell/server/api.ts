@@ -59,6 +59,7 @@ import {
   handleReplayRun,
   handleResumeRun,
   handleRun,
+  handleResolveSlot,
   handleScaffold,
   handleValidate,
 } from "./spec-v2.js";
@@ -191,6 +192,7 @@ async function main(): Promise<void> {
           endpoints: [
             "POST /api/v2/scaffold",
             "POST /api/v2/validate",
+            "POST /api/v2/slots/resolve",
             "POST /api/v2/lower",
             "POST /api/v2/evals",
             "POST /api/v2/freeze",
@@ -237,6 +239,28 @@ async function main(): Promise<void> {
         const raw = await readBody(req);
         const body = raw ? (JSON.parse(raw) as { yaml?: string; body?: unknown }) : {};
         const out = handleValidate(body as { yaml?: string; body?: never });
+        sendJson(res, out.status, out);
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/v2/slots/resolve") {
+        const raw = await readBody(req);
+        const body = raw
+          ? (JSON.parse(raw) as {
+              yaml?: string;
+              body?: unknown;
+              slotId?: string;
+              candidateIndex?: number;
+            })
+          : {};
+        const out = handleResolveSlot(
+          body as {
+            yaml?: string;
+            body?: never;
+            slotId?: string;
+            candidateIndex?: number;
+          }
+        );
         sendJson(res, out.status, out);
         return;
       }

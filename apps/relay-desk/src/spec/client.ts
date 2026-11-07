@@ -154,6 +154,30 @@ export async function validateSpec(
   return parseJson<ValidateResponse>(res.body);
 }
 
+/** Ship cs3 — pick a capability-slot candidate (never silent degraded). */
+export async function resolveSlot(
+  settings: DeskSettings,
+  input: {
+    yaml?: string;
+    body?: Record<string, unknown>;
+    slotId: string;
+    candidateIndex: number;
+  }
+): Promise<{
+  ok: boolean;
+  status?: number;
+  error?: string;
+  note?: string;
+  yaml?: string;
+  body?: Record<string, unknown>;
+  degraded?: boolean;
+  slot?: Record<string, unknown>;
+  candidate?: Record<string, unknown>;
+}> {
+  const res = await specHttp(settings, "POST", "/api/v2/slots/resolve", input);
+  return { ...parseJson(res.body), status: res.status };
+}
+
 export async function lowerSpec(
   settings: DeskSettings,
   yaml: string
