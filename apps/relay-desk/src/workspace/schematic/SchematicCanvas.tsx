@@ -33,6 +33,10 @@ import {
 } from "./flow-model.ts";
 import { allNodesMeasured, layoutVerticalSpine } from "./layout.ts";
 import { NodeMeasureProvider } from "./measure-context.tsx";
+import {
+  SchematicActionsProvider,
+  type SchematicActions,
+} from "./schematic-actions.tsx";
 
 export type SchematicCanvasProps = {
   model: SchematicModel;
@@ -40,6 +44,7 @@ export type SchematicCanvasProps = {
   onSelect: (id: string | undefined) => void;
   inspector: ComponentChildren;
   footer?: ComponentChildren;
+  actions: SchematicActions;
 };
 
 const nodeTypes: NodeTypes = {
@@ -62,6 +67,7 @@ function SchematicCanvasInner({
   onSelect,
   inspector,
   footer,
+  actions,
 }: SchematicCanvasProps) {
   const { fitView } = useReactFlow();
   const selectedRef = useRef(selectedId);
@@ -158,38 +164,58 @@ function SchematicCanvasInner({
   const onSelectionChange = useCallback(
     ({ nodes: selected }: OnSelectionChangeParams) => {
       const next = selected[0]?.id;
-      if (next !== selectedRef.current) onSelect(next);
+      if (next !== selectedRef.current) {
+        onSelect(next);
+        if (actions.bindingOpenId && actions.bindingOpenId !== next) {
+          actions.setBindingOpenId(undefined);
+        }
+      }
     },
-    [onSelect]
+    [onSelect, actions]
+  );
+
+  const onNodeDoubleClick = useCallback(
+    (_: unknown, node: { id: string; data: RelayFlowNode["data"] }) => {
+      const kind = node.data.schematic.kind;
+      if (kind === "step" || kind === "hitl") {
+        actions.onJumpToYaml(node.id);
+      }
+    },
+    [actions]
   );
 
   return (
-    <NodeMeasureProvider report={reportSize}>
-      <div className="sch-viewport sch-viewport-flow">
-        <div className="sch-flow-main">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onSelectionChange={onSelectionChange}
-            onPaneClick={() => onSelect(undefined)}
-            minZoom={0.3}
-            maxZoom={1.8}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable
-            selectNodesOnDrag={false}
-            panOnScroll
-            zoomOnScroll
-            zoomOnPinch
-            panOnDrag
-            preventScrolling
-            proOptions={{ hideAttribution: true }}
-            defaultEdgeOptions={{ type: "smoothstep" }}
-            onlyRenderVisibleElements={false}
-          >
+    <SchematicActionsProvider value={actions}>
+      <NodeMeasureProvider report={reportSize}>
+        <div className="sch-viewport sch-viewport-flow">
+          <div className="sch-flow-main">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onSelectionChange={onSelectionChange}
+              onNodeDoubleClick={onNodeDoubleClick}
+              onPaneClick={() => {
+                onSelect(undefined);
+                actions.setBindingOpenId(undefined);
+              }}
+              minZoom={0.3}
+              maxZoom={1.8}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              elementsSelectable
+              selectNodesOnDrag={false}
+              panOnScroll
+              zoomOnScroll
+              zoomOnPinch
+              panOnDrag
+              preventScrolling
+              proOptions={{ hideAttribution: true }}
+              defaultEdgeOptions={{ type: "smoothstep" }}
+              onlyRenderVisibleElements={false}
+            >
             <Background
               variant={BackgroundVariant.Dots}
               gap={16}
@@ -222,11 +248,12 @@ function SchematicCanvasInner({
                 {footer}
               </Panel>
             ) : null}
-          </ReactFlow>
+            </ReactFlow>
+          </div>
+          <div className="sch-inspector-dock">{inspector}</div>
         </div>
-        <div className="sch-inspector-dock">{inspector}</div>
-      </div>
-    </NodeMeasureProvider>
+      </NodeMeasureProvider>
+    </SchematicActionsProvider>
   );
 }
 

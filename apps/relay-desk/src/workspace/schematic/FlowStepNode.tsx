@@ -15,6 +15,7 @@ import {
   type RelayFlowNode,
 } from "./flow-model.ts";
 import { useReportNodeSize } from "./measure-context.tsx";
+import { useSchematicActions } from "./schematic-actions.tsx";
 
 function quietBadges(node: SchematicNode, selected: boolean): SchematicBadge[] {
   const out: SchematicBadge[] = [];
@@ -71,6 +72,13 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
   const rootRef = useRef<HTMLDivElement>(null);
   const reportSize = useReportNodeSize();
   const updateNodeInternals = useUpdateNodeInternals();
+  const actions = useSchematicActions();
+
+  const pickerOpen = Boolean(
+    actions && node.slotId && actions.bindingOpenId === id
+  );
+  const candidates =
+    pickerOpen && node.slotId ? actions!.getCandidates(node.slotId) : [];
 
   useEffect(() => {
     const el = rootRef.current;
@@ -88,7 +96,27 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
     const ro = new ResizeObserver(() => publish());
     ro.observe(el);
     return () => ro.disconnect();
-  }, [id, reportSize, updateNodeInternals, selected, fanOut, slotLine]);
+  }, [
+    id,
+    reportSize,
+    updateNodeInternals,
+    selected,
+    fanOut,
+    slotLine,
+    pickerOpen,
+    candidates.length,
+  ]);
+
+  const onBindClick = (e: {
+    stopPropagation: () => void;
+    preventDefault: () => void;
+  }) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!actions || !node.slotId) return;
+    actions.onSelectStep(id);
+    actions.setBindingOpenId(actions.bindingOpenId === id ? undefined : id);
+  };
 
   return (
     <div
@@ -97,6 +125,7 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
       data-kind={kind}
       data-selected={selected ? "1" : "0"}
       data-irreversible={node.irreversible ? "1" : "0"}
+      data-bind-open={pickerOpen ? "1" : "0"}
     >
       <Handle
         type="target"
@@ -115,14 +144,75 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
       {node.kind === "hitl" ? (
         <span className="sch-node-support">{hitlSupportingLine(node)}</span>
       ) : null}
-      {slotLine ? (
-        <span
-          className="sch-node-bind"
-          data-slot-state={node.slot?.state}
-          data-degraded={node.slot?.degraded ? "1" : undefined}
-        >
-          {slotLine}
-        </span>
+      {slotLine && node.slot ? (
+        <div className="sch-node-bind-wrap">
+          <button
+            type="button"
+            className="sch-node-bind nodrag nopan"
+            data-slot-state={node.slot.state}
+            data-degraded={node.slot.degraded ? "1" : undefined}
+            data-open={pickerOpen ? "1" : "0"}
+            aria-expanded={pickerOpen}
+            aria-haspopup="listbox"
+            title="Change binding"
+            onClick={onBindClick}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <span>{slotLine}</span>
+            <span className="sch-node-bind-chevron" aria-hidden="true">
+              {pickerOpen ? "▴" : "▾"}
+            </span>
+          </button>
+          {pickerOpen ? (
+            <div
+              className="sch-bind-picker sch-node-bind-picker nodrag nopan"
+              role="listbox"
+              aria-label="Binding"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {candidates.length === 0 ? (
+                <p className="tile-meta muted">No candidates on this Spec</p>
+              ) : (
+                candidates.map((c) => {
+                  const blocked = c.status === "blocked";
+                  const degraded = c.status === "degraded";
+                  return (
+                    <button
+                      key={c.index}
+                      type="button"
+                      className="sch-bind-option"
+                      role="option"
+                      aria-selected={c.selected}
+                      data-selected={c.selected ? "1" : "0"}
+                      data-degraded={degraded ? "1" : "0"}
+                      disabled={Boolean(actions?.busy) || blocked}
+                      title={
+                        blocked
+                          ? c.reason ?? "Blocked"
+                          : c.reason ?? c.label
+                      }
+                      onClick={() => {
+                        if (!node.slotId || !actions) return;
+                        actions.onPickCandidate(node.slotId, c.index);
+                        actions.setBindingOpenId(undefined);
+                      }}
+                    >
+                      <span>{c.label}</span>
+                      <span className="mono muted">
+                        {c.selected
+                          ? "selected"
+                          : degraded
+                            ? "degraded"
+                            : c.status}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          ) : null}
+        </div>
       ) : null}
       {node.kind === "trigger" && node.label ? (
         <span className="sch-node-svc mono">{node.label}</span>

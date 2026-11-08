@@ -20,6 +20,7 @@ import {
 } from "../../specs/draft-store.ts";
 import { SchematicCanvas } from "../schematic/SchematicCanvas.tsx";
 import { humanStepTitle } from "../schematic/flow-model.ts";
+import type { SchematicActions } from "../schematic/schematic-actions.tsx";
 
 export type DesignViewProps = {
   draft: DraftRecord;
@@ -109,6 +110,7 @@ export function DesignView({
   const [mode, setMode] = useState<CanvasMode>("schematic");
   const [yamlDraft, setYamlDraft] = useState(draft.yaml);
   const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [bindingOpenId, setBindingOpenId] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [note, setNote] = useState<string | undefined>();
@@ -283,6 +285,28 @@ export function DesignView({
   }, [focusIssue, yamlDraft, onFocusIssueConsumed]);
 
   const orphans = orphanSlots(schematic.slots, schematic.steps);
+
+  const canvasActions = useMemo<SchematicActions>(
+    () => ({
+      busy,
+      bindingOpenId,
+      setBindingOpenId,
+      getCandidates: (slotId) =>
+        candidatesForSlot(body, slotId).map((c) => ({
+          index: c.index,
+          label: candidatePlainLabel(c),
+          status: c.status,
+          reason: c.reason,
+          selected: c.selected,
+        })),
+      onPickCandidate: (slotId, candidateIndex) => {
+        void onPickCandidate(slotId, candidateIndex);
+      },
+      onJumpToYaml: jumpToStepYaml,
+      onSelectStep: setSelectedId,
+    }),
+    [busy, bindingOpenId, body, onPickCandidate, jumpToStepYaml]
+  );
 
   const inspector = (
     <aside class="sch-inspector" aria-label="Step inspector">
@@ -535,9 +559,15 @@ export function DesignView({
             <SchematicCanvas
               model={schematic}
               selectedId={selectedId}
-              onSelect={setSelectedId}
+              onSelect={(id) => {
+                setSelectedId(id);
+                if (bindingOpenId && bindingOpenId !== id) {
+                  setBindingOpenId(undefined);
+                }
+              }}
               inspector={inspector}
               footer={canvasFooter}
+              actions={canvasActions}
             />
           ) : (
             <div class="sch-viewport sch-viewport-empty">

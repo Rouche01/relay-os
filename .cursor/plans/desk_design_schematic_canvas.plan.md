@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: sc4-binding-cta
     content: Uses GitHub (slot bind control) on the node is the primary CTA — click opens binding picker (inspector can stay secondary); double-click node → Jump to YAML
-    status: pending
+    status: completed
   - id: sc5-preact-guardrails
     content: Document Preact island rules for xyflow (hooks from react/compat only, className, stable nodeTypes, single fitView per signature); optional Design smoke assert nodes rendered
     status: pending
@@ -87,3 +87,4 @@ w6 shipped a readable schematic; xyflow then gave pan/zoom/fit. Remaining gaps a
 - 2026-11-08 — Plan opened from Design canvas review (auto-layout, measure, quiet chrome, binding CTA, Preact guardrails; gated Spec edit later). sc0 baseline already in tree.
 - 2026-11-08 — sc2+sc1: `@dagrejs/dagre` TB layout (`layout.ts`); ResizeObserver + `useUpdateNodeInternals` via `measure-context`; fitView once after measure settles (`SchematicCanvas`).
 - 2026-11-08 — sc3: MiniMap gated at ≥8 steps; forEach/once/when/retry badges + edge ref labels only when connected step selected; Controls + Rules panel unchanged.
+- 2026-11-08 — sc4: slot bind control on node opens inline picker (`schematic-actions`); inspector picker secondary; double-click step/HITL → Jump to YAML.

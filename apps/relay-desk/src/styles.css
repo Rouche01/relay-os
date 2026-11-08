@@ -1220,19 +1220,55 @@ body {
   color: var(--muted);
 }
 
+.sch-node-bind-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  align-self: stretch;
+  margin-top: 0.05rem;
+  max-width: 100%;
+}
+
 .sch-node-bind,
 .sch-node-slot {
   display: inline-flex;
   align-self: flex-start;
+  align-items: center;
+  gap: 0.35rem;
   font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 500;
   color: var(--signal);
   background: color-mix(in srgb, var(--signal) 12%, transparent);
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 0.35rem;
   padding: 0.2rem 0.45rem;
   margin-top: 0.05rem;
+  cursor: pointer;
+  text-align: left;
+  max-width: 100%;
+}
+
+button.sch-node-bind:hover {
+  border-color: color-mix(in srgb, var(--signal) 35%, var(--line));
+  background: color-mix(in srgb, var(--signal) 18%, transparent);
+}
+
+button.sch-node-bind[data-open="1"] {
+  border-color: color-mix(in srgb, var(--signal) 45%, var(--line));
+}
+
+.sch-node-bind-chevron {
+  opacity: 0.75;
+  font-size: 0.6rem;
+  line-height: 1;
+}
+
+.sch-node-bind-picker {
+  width: 100%;
+  margin: 0;
+  pointer-events: all;
 }
 
 .sch-node-bind[data-slot-state="unresolved"],
