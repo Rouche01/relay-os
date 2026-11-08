@@ -14,15 +14,89 @@ export type SchematicRunState =
   | "pending"
   | "error";
 
+export type SchematicSlotState = "unresolved" | "preferred" | "resolved";
+
 export type SchematicBadge =
   | { kind: "forEach"; itemsRef: string }
   | { kind: "once"; key: string }
   | { kind: "when"; summary: string }
   | { kind: "retry"; max: number }
   | { kind: "irreversible" }
-  | { kind: "hitl" };
+  | { kind: "hitl" }
+  | {
+      kind: "slot";
+      slotId: string;
+      state: SchematicSlotState;
+      binding?: string;
+      service?: string;
+      degraded?: boolean;
+    };
 
 export type SchematicNodeKind = "trigger" | "step" | "hitl" | "rules";
+
+export type SchematicSlotSummary = {
+  id: string;
+  state: SchematicSlotState;
+  binding?: string;
+  service?: string;
+  connection?: string;
+  degraded?: boolean;
+  reason?: string;
+  /** How many binding alternatives Ship can pick from. */
+  candidateCount: number;
+};
+
+/** Operator-facing service name (GitHub, not github). */
+export function formatServiceDisplayName(service?: string): string {
+  if (!service?.trim()) return "";
+  const id = service.trim();
+  const known: Record<string, string> = {
+    github: "GitHub",
+    "reddit-public": "Reddit (public)",
+    "reddit-oauth": "Reddit",
+    "http-fetch": "HTTP fetch",
+    slack: "Slack",
+    notion: "Notion",
+    rss: "RSS",
+    "youtube-data": "YouTube",
+  };
+  if (known[id]) return known[id];
+  return id
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/**
+ * Plain-language binding line for Design nodes / badges.
+ * e.g. "Uses GitHub", "Prefers computer · confirm on Ship".
+ */
+export function slotBindingPlainLabel(
+  slot: Pick<
+    SchematicSlotSummary,
+    "state" | "binding" | "service" | "degraded"
+  >
+): string {
+  if (slot.state === "unresolved") return "Pick a service on Ship";
+
+  let target: string;
+  if (slot.binding === "human") target = "you (HITL)";
+  else if (slot.binding === "computer") target = "computer";
+  else if (slot.binding === "browser") target = "browser";
+  else {
+    target =
+      formatServiceDisplayName(slot.service) ||
+      slot.binding ||
+      "a service";
+  }
+
+  const limited = slot.degraded ? " (limited)" : "";
+  if (slot.state === "preferred") {
+    return `Prefers ${target}${limited} · confirm on Ship`;
+  }
+  return `Uses ${target}${limited}`;
+}
 
 export type SchematicNode = {
   id: string;
@@ -33,6 +107,10 @@ export type SchematicNode = {
   use?: string;
   service?: string;
   operation?: string;
+  /** Capability slot id when step.args.slot is set. */
+  slotId?: string;
+  /** Resolved / preferred binding summary for Design canvas + inspector. */
+  slot?: SchematicSlotSummary;
   badges: SchematicBadge[];
   irreversible: boolean;
   /** Rule ids from step.enforce. */
@@ -73,6 +151,11 @@ export type SchematicModel = {
   edges: SchematicEdge[];
   /** Ordered canvas nodes: trigger → steps (HITL steps already in steps). */
   nodes: SchematicNode[];
+  /**
+   * Spec-level capability slots (from body.slots), including sidecars not
+   * referenced by any step.args.slot — shown as a Design strip.
+   */
+  slots: SchematicSlotSummary[];
 };
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -264,6 +347,173 @@ function rulesFromBody(
   return [...byId.values()];
 }
 
+type BodySlotInfo = {
+  id: string;
+  resolved: string | null;
+  preferredCandidateIndex?: number;
+  candidates: Array<{
+    binding: string;
+    status: string;
+    service?: string;
+    connection?: string;
+    reason?: string;
+  }>;
+};
+
+function parseBodySlots(raw: unknown): Map<string, BodySlotInfo> {
+  const map = new Map<string, BodySlotInfo>();
+  if (!Array.isArray(raw)) return map;
+  for (const item of raw) {
+    const o = asRecord(item);
+    const id = asString(o?.id);
+    if (!id || !o) continue;
+    const candidatesRaw = Array.isArray(o.candidates) ? o.candidates : [];
+    const candidates = candidatesRaw.flatMap((c) => {
+      const cand = asRecord(c);
+      const binding = asString(cand?.binding);
+      const status = asString(cand?.status);
+      if (!binding || !status) return [];
+      return [
+        {
+          binding,
+          status,
+          service: asString(cand?.service),
+          connection: asString(cand?.connection),
+          reason: asString(cand?.reason),
+        },
+      ];
+    });
+    const resolved =
+      o.resolved === null
+        ? null
+        : typeof o.resolved === "string"
+          ? o.resolved
+          : null;
+    const preferredCandidateIndex =
+      typeof o.preferredCandidateIndex === "number"
+        ? o.preferredCandidateIndex
+        : undefined;
+    map.set(id, {
+      id,
+      resolved,
+      preferredCandidateIndex,
+      candidates,
+    });
+  }
+  return map;
+}
+
+function slotSummaryForStep(
+  slotId: string,
+  info: BodySlotInfo | undefined
+): SchematicSlotSummary {
+  const candidateCount = info?.candidates.length ?? 0;
+  const resolved =
+    info?.resolved != null && String(info.resolved).trim() !== "";
+  const idx = info?.preferredCandidateIndex;
+  const preferred =
+    typeof idx === "number" &&
+    info &&
+    idx >= 0 &&
+    idx < info.candidates.length
+      ? info.candidates[idx]
+      : undefined;
+
+  if (resolved && preferred) {
+    return {
+      id: slotId,
+      state: "resolved",
+      binding: preferred.binding,
+      service: preferred.service,
+      connection: preferred.connection,
+      degraded: preferred.status === "degraded",
+      reason: preferred.reason,
+      candidateCount,
+    };
+  }
+  if (preferred) {
+    return {
+      id: slotId,
+      state: "preferred",
+      binding: preferred.binding,
+      service: preferred.service,
+      connection: preferred.connection,
+      degraded: preferred.status === "degraded",
+      reason: preferred.reason,
+      candidateCount,
+    };
+  }
+  return {
+    id: slotId,
+    state: "unresolved",
+    candidateCount,
+  };
+}
+
+/** Prefer args.slot; else match step.service to a slot candidate (old drafts). */
+function slotIdForStep(
+  step: SchematicNode,
+  slotsById: Map<string, BodySlotInfo>
+): string | undefined {
+  const explicit = asString(step.args?.slot)?.trim();
+  if (explicit) return explicit;
+  const service = step.service?.trim();
+  if (!service) return undefined;
+  for (const [id, info] of slotsById) {
+    if (info.candidates.some((c) => c.service === service)) return id;
+  }
+  return undefined;
+}
+
+/**
+ * Attach slot summaries onto steps that declare args.slot, or whose
+ * service matches a Spec.slots candidate (so Design shows "Uses GitHub"
+ * even on drafts scaffolded before args.slot landed).
+ */
+function enrichStepsWithSlots(
+  steps: SchematicNode[],
+  slotsById: Map<string, BodySlotInfo>
+): SchematicNode[] {
+  if (!slotsById.size) return steps;
+  return steps.map((step) => {
+    const explicitSlot = asString(step.args?.slot)?.trim();
+    const slotId = slotIdForStep(step, slotsById);
+    if (!slotId) return step;
+    let summary = slotSummaryForStep(slotId, slotsById.get(slotId));
+    // Old drafts hardcode service without args.slot — step already uses it.
+    if (
+      !explicitSlot &&
+      step.service &&
+      (summary.state === "preferred" || summary.state === "unresolved")
+    ) {
+      summary = {
+        ...summary,
+        state: "resolved",
+        binding: summary.binding ?? "api",
+        service: step.service,
+      };
+    }
+    const badge: SchematicBadge = {
+      kind: "slot",
+      slotId,
+      state: summary.state,
+      binding: summary.binding,
+      service: summary.service,
+      degraded: summary.degraded,
+    };
+    const badges = [
+      badge,
+      ...step.badges.filter((b) => b.kind !== "slot"),
+    ];
+    return {
+      ...step,
+      slotId,
+      slot: summary,
+      badges,
+    };
+  });
+}
+
 function buildEdges(
   trigger: SchematicNode | undefined,
   steps: SchematicNode[]
@@ -429,15 +679,21 @@ export function deriveSchematic(input: DeriveSchematicInput): SchematicModel {
   let steps = rawSteps
     .map(stepNodeFromBody)
     .filter((n): n is SchematicNode => Boolean(n));
+  const slotsById = parseBodySlots(body.slots);
+  steps = enrichStepsWithSlots(steps, slotsById);
   steps = applyManifestIrreversible(steps, input.manifest);
   const rules = rulesFromBody(body.rules, steps);
   const edges = buildEdges(trigger, steps);
+  const slots: SchematicSlotSummary[] = [...slotsById.values()].map((info) =>
+    slotSummaryForStep(info.id, info)
+  );
   const base: SchematicModel = {
     goal,
     trigger,
     steps,
     rules,
     edges,
+    slots,
     nodes: [...(trigger ? [trigger] : []), ...steps],
   };
   return applyRunOverlay(base, input.run);

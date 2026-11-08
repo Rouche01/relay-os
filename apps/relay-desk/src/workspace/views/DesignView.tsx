@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { DeskSettings } from "../../gateway/types.ts";
-import { lowerSpec, validateSpec } from "../../spec/client.ts";
+import {
+  lowerSpec,
+  resolveSlot,
+  validateSpec,
+} from "../../spec/client.ts";
 import {
   deriveSchematic,
-  type SchematicBadge,
+  formatServiceDisplayName,
+  slotBindingPlainLabel,
   type SchematicNode,
+  type SchematicSlotSummary,
 } from "../../spec/schematic.ts";
 import { focusYamlLine, findYamlIssueLine } from "../../spec/yaml-focus.ts";
 import type { SpecValidationIssue } from "../../spec/types.ts";
@@ -12,6 +18,8 @@ import {
   updateDraft,
   type DraftRecord,
 } from "../../specs/draft-store.ts";
+import { SchematicCanvas } from "../schematic/SchematicCanvas.tsx";
+import { humanStepTitle } from "../schematic/flow-model.ts";
 
 export type DesignViewProps = {
   draft: DraftRecord;
@@ -25,69 +33,69 @@ export type DesignViewProps = {
 
 type CanvasMode = "schematic" | "manifest" | "yaml";
 
-function badgeLabel(b: SchematicBadge): string {
-  switch (b.kind) {
-    case "forEach":
-      return `×N · ${b.itemsRef}`;
-    case "once":
-      return `once · ${b.key}`;
-    case "when":
-      return `when · ${b.summary}`;
-    case "retry":
-      return `retry ×${b.max}`;
-    case "irreversible":
-      return "irreversible";
-    case "hitl":
-      return "HITL";
-  }
+type SlotCandidateRow = {
+  index: number;
+  binding: string;
+  status: string;
+  service?: string;
+  reason?: string;
+  selected: boolean;
+};
+
+function orphanSlots(
+  slots: SchematicSlotSummary[],
+  steps: SchematicNode[]
+): SchematicSlotSummary[] {
+  const used = new Set(
+    steps.map((s) => s.slotId).filter((id): id is string => Boolean(id))
+  );
+  return slots.filter((s) => !used.has(s.id));
 }
 
-function NodeCard({
-  node,
-  selected,
-  onSelect,
-}: {
-  node: SchematicNode;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const shape =
-    node.kind === "hitl"
-      ? "diamond"
-      : node.kind === "trigger"
-        ? "trigger"
-        : "step";
-  return (
-    <button
-      type="button"
-      class="sch-node"
-      data-kind={shape}
-      data-selected={selected ? "1" : "0"}
-      data-irreversible={node.irreversible ? "1" : "0"}
-      onClick={onSelect}
-    >
-      <span class="sch-node-label">{node.label}</span>
-      {node.use ? <span class="sch-node-use mono">{node.use}</span> : null}
-      {node.service || node.operation ? (
-        <span class="sch-node-svc mono">
-          {[node.service, node.operation].filter(Boolean).join(" · ")}
-        </span>
-      ) : null}
-      {node.badges.length ? (
-        <span class="sch-badges">
-          {node.badges.map((b) => (
-            <span
-              key={b.kind + badgeLabel(b)}
-              class="sch-badge"
-              data-kind={b.kind}
-            >
-              {badgeLabel(b)}
-            </span>
-          ))}
-        </span>
-      ) : null}
-    </button>
-  );
+function candidatesForSlot(
+  body: Record<string, unknown> | undefined,
+  slotId: string
+): SlotCandidateRow[] {
+  const raw = body?.slots;
+  if (!Array.isArray(raw)) return [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const s = item as Record<string, unknown>;
+    if (s.id !== slotId) continue;
+    const preferred =
+      typeof s.preferredCandidateIndex === "number"
+        ? s.preferredCandidateIndex
+        : undefined;
+    const list = Array.isArray(s.candidates) ? s.candidates : [];
+    return list.flatMap((c, index) => {
+      if (!c || typeof c !== "object" || Array.isArray(c)) return [];
+      const cand = c as Record<string, unknown>;
+      if (typeof cand.binding !== "string" || typeof cand.status !== "string") {
+        return [];
+      }
+      return [
+        {
+          index,
+          binding: cand.binding,
+          status: cand.status,
+          service:
+            typeof cand.service === "string" ? cand.service : undefined,
+          reason: typeof cand.reason === "string" ? cand.reason : undefined,
+          selected: preferred === index,
+        },
+      ];
+    });
+  }
+  return [];
+}
+
+function candidatePlainLabel(c: SlotCandidateRow): string {
+  if (c.binding === "human") return "You (HITL)";
+  if (c.binding === "computer") return "Computer";
+  if (c.binding === "browser") return "Browser";
+  const svc = formatServiceDisplayName(c.service);
+  if (svc) return `${svc} (${c.binding})`;
+  return c.binding;
 }
 
 export function DesignView({
@@ -103,6 +111,9 @@ export function DesignView({
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [note, setNote] = useState<string | undefined>();
+  const [intentExpanded, setIntentExpanded] = useState(false);
+  const [intentClamped, setIntentClamped] = useState(false);
   const [body, setBody] = useState<Record<string, unknown> | undefined>(
     draft.body
   );
@@ -110,13 +121,30 @@ export function DesignView({
     draft.manifest
   );
   const yamlRef = useRef<HTMLTextAreaElement>(null);
+  const intentTextRef = useRef<HTMLParagraphElement>(null);
   const yamlDirty = yamlDraft !== draft.yaml;
 
   useEffect(() => {
     setYamlDraft(draft.yaml);
     setBody(draft.body);
     setManifest(draft.manifest);
+    setIntentExpanded(false);
   }, [draft.id, draft.yaml, draft.body, draft.manifest]);
+
+  useEffect(() => {
+    const el = intentTextRef.current;
+    if (!el || intentExpanded) {
+      setIntentClamped(false);
+      return;
+    }
+    const measure = () => {
+      setIntentClamped(el.scrollHeight > el.clientHeight + 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [draft.intent, intentExpanded]);
 
   const refreshBody = useCallback(
     async (yaml: string) => {
@@ -153,21 +181,30 @@ export function DesignView({
     [settings, draft.id, draft.body, draft.goal, onDraftUpdated]
   );
 
-  useEffect(() => {
-    if (!body && draft.yaml.trim()) {
-      void refreshBody(draft.yaml);
-    }
-  }, [draft.id]);
+  const onSaveYaml = useCallback(async () => {
+    await refreshBody(yamlDraft);
+  }, [refreshBody, yamlDraft]);
 
-  useEffect(() => {
-    if (!focusIssue) return;
-    setMode("yaml");
-    const line = findYamlIssueLine(yamlDraft, focusIssue);
-    requestAnimationFrame(() => {
-      focusYamlLine(yamlRef.current, yamlDraft, line);
-      onFocusIssueConsumed?.();
-    });
-  }, [focusIssue, yamlDraft, onFocusIssueConsumed]);
+  const onCompileManifest = useCallback(async () => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      const res = await lowerSpec(settings, draft.yaml);
+      if (!res.ok) {
+        setError(res.error ?? "Compile failed");
+        return;
+      }
+      setManifest(res.manifest);
+      const updated = updateDraft(draft.id, {
+        manifest: res.manifest,
+      });
+      if (updated) onDraftUpdated(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, [settings, draft.yaml, draft.id, onDraftUpdated]);
 
   const schematic = useMemo(
     () => deriveSchematic({ body, manifest }),
@@ -178,44 +215,10 @@ export function DesignView({
     schematic.nodes.find((n) => n.id === selectedId) ??
     schematic.steps.find((n) => n.id === selectedId);
 
-  const onSaveYaml = useCallback(async () => {
-    await refreshBody(yamlDraft);
-  }, [refreshBody, yamlDraft]);
-
-  const onCompileManifest = useCallback(async () => {
-    const yaml = yamlDirty ? yamlDraft : draft.yaml;
-    setBusy(true);
-    setError(undefined);
-    try {
-      if (yamlDirty) await refreshBody(yaml);
-      const res = await lowerSpec(settings, yaml);
-      if (!res.ok || !res.manifest) {
-        throw new Error(res.error || "Lower failed");
-      }
-      setManifest(res.manifest);
-      const updated = updateDraft(draft.id, {
-        yaml,
-        manifest: res.manifest,
-        body: body ?? draft.body,
-      });
-      if (updated) onDraftUpdated(updated);
-      setMode("manifest");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    yamlDirty,
-    yamlDraft,
-    draft.yaml,
-    draft.id,
-    draft.body,
-    body,
-    settings,
-    refreshBody,
-    onDraftUpdated,
-  ]);
+  const slotCandidates = useMemo(() => {
+    if (!selected?.slotId) return [];
+    return candidatesForSlot(body, selected.slotId);
+  }, [body, selected?.slotId]);
 
   const jumpToStepYaml = useCallback(
     (stepId: string) => {
@@ -228,20 +231,253 @@ export function DesignView({
     [yamlDraft]
   );
 
+  const onPickCandidate = useCallback(
+    async (slotId: string, candidateIndex: number) => {
+      setBusy(true);
+      setError(undefined);
+      setNote(undefined);
+      try {
+        const res = await resolveSlot(settings, {
+          body: body ?? draft.body,
+          yaml: yamlDraft || draft.yaml,
+          slotId,
+          candidateIndex,
+        });
+        if (!res.ok) {
+          setError(res.error ?? "Could not resolve binding");
+          return;
+        }
+        if (res.body) setBody(res.body);
+        if (res.yaml) setYamlDraft(res.yaml);
+        const updated = updateDraft(draft.id, {
+          yaml: res.yaml ?? draft.yaml,
+          body: res.body ?? draft.body,
+        });
+        if (updated) onDraftUpdated(updated);
+        setNote(res.note ?? "Binding updated — Spec law unchanged.");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [
+      settings,
+      body,
+      draft.body,
+      draft.yaml,
+      draft.id,
+      yamlDraft,
+      onDraftUpdated,
+    ]
+  );
+
+  useEffect(() => {
+    if (!focusIssue) return;
+    setMode("yaml");
+    const line = findYamlIssueLine(yamlDraft, focusIssue);
+    requestAnimationFrame(() => {
+      focusYamlLine(yamlRef.current, yamlDraft, line);
+      onFocusIssueConsumed?.();
+    });
+  }, [focusIssue, yamlDraft, onFocusIssueConsumed]);
+
+  const orphans = orphanSlots(schematic.slots, schematic.steps);
+
+  const inspector = (
+    <aside class="sch-inspector" aria-label="Step inspector">
+      <p class="tile-label">Step inspector</p>
+      {selected ? (
+        <>
+          <h2 class="tile-title">{humanStepTitle(selected)}</h2>
+          {selected.slot ? (
+            <>
+              <p class="tile-meta">{slotBindingPlainLabel(selected.slot)}</p>
+              <p class="tile-meta">
+                slot · <span class="mono">{selected.slot.id}</span>
+              </p>
+              <p class="tile-meta muted">
+                Binding swaps without rewriting the Spec.
+              </p>
+              {slotCandidates.length > 0 ? (
+                <div class="sch-bind-picker" role="list">
+                  <p class="tile-label">Binding</p>
+                  {slotCandidates.map((c) => {
+                    const blocked = c.status === "blocked";
+                    const degraded = c.status === "degraded";
+                    return (
+                      <button
+                        key={c.index}
+                        type="button"
+                        class="sch-bind-option"
+                        role="listitem"
+                        data-selected={c.selected ? "1" : "0"}
+                        data-degraded={degraded ? "1" : "0"}
+                        disabled={busy || blocked}
+                        title={
+                          blocked
+                            ? c.reason ?? "Blocked"
+                            : c.reason ?? candidatePlainLabel(c)
+                        }
+                        onClick={() =>
+                          void onPickCandidate(selected.slotId!, c.index)
+                        }
+                      >
+                        <span>{candidatePlainLabel(c)}</span>
+                        <span class="mono muted">
+                          {c.selected
+                            ? "selected"
+                            : degraded
+                              ? "degraded"
+                              : c.status}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </>
+          ) : null}
+          {selected.use ? <p class="mono muted">{selected.use}</p> : null}
+          {selected.forEach ? (
+            <p class="tile-meta">
+              forEach · <span class="mono">{selected.forEach}</span>
+            </p>
+          ) : null}
+          {selected.once ? (
+            <p class="tile-meta">
+              once · <span class="mono">{selected.once}</span>
+            </p>
+          ) : null}
+          {selected.enforce.length ? (
+            <p class="tile-meta">
+              enforce ·{" "}
+              <span class="mono">{selected.enforce.join(", ")}</span>
+            </p>
+          ) : null}
+          {selected.kind === "step" || selected.kind === "hitl" ? (
+            <button
+              type="button"
+              class="cta linkish"
+              onClick={() => jumpToStepYaml(selected.id)}
+            >
+              Jump to YAML
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <p class="tile-meta">
+            Select a step · binding swaps without rewriting the Spec.
+          </p>
+          <p class="tile-meta mono muted">YAML remains source of truth</p>
+        </>
+      )}
+    </aside>
+  );
+
+  const canvasFooter = (
+    <div class="sch-canvas-meta">
+      {orphans.length ? (
+        <div class="sch-slots" aria-label="Unused capability slots">
+          <span class="tile-label">Other capabilities</span>
+          <div class="sch-slots-chips">
+            {orphans.map((s) => (
+              <span
+                key={s.id}
+                class="sch-badge"
+                data-kind="slot"
+                data-slot-state={s.state}
+                data-degraded={s.degraded ? "1" : undefined}
+                title={`${s.id}${s.reason ? ` — ${s.reason}` : ""}`}
+              >
+                {slotBindingPlainLabel(s)}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {schematic.rules.length ? (
+        <div class="sch-rules" aria-label="Rules">
+          <span class="tile-label">Rules</span>
+          <div class="sch-rules-chips">
+            {schematic.rules.map((r) => (
+              <span key={r.id} class="sch-rule-chip mono">
+                {r.id}
+                <span class="muted"> · {r.kind}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <p class="sch-footer mono">
+        Read-only schematic · bindings are swappable · Spec law stays
+      </p>
+    </div>
+  );
+
   return (
     <div class="design-view">
-      <div class="design-intent-row">
-        <p class="tile-label">Your intent</p>
-        <button
-          type="button"
-          class="cta ghost design-redraft"
-          disabled={busy}
-          onClick={onReDraft}
+      <div class="design-intent">
+        <div class="design-intent-row">
+          <p class="tile-label">Your intent</p>
+          <div class="design-intent-actions">
+            {intentClamped || intentExpanded ? (
+              <button
+                type="button"
+                class="design-intent-expand"
+                aria-expanded={intentExpanded}
+                aria-label={
+                  intentExpanded ? "Collapse intent" : "Expand intent"
+                }
+                title={intentExpanded ? "Collapse" : "Show full intent"}
+                onClick={() => setIntentExpanded((v) => !v)}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  {intentExpanded ? (
+                    <path
+                      d="M4 10.5 8 6.5l4 4"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  ) : (
+                    <path
+                      d="M4 6.5 8 10.5l4-4"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  )}
+                </svg>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              class="cta ghost design-redraft"
+              disabled={busy}
+              onClick={onReDraft}
+            >
+              Re-draft
+            </button>
+          </div>
+        </div>
+        <p
+          ref={intentTextRef}
+          class="design-intent-text"
+          data-expanded={intentExpanded ? "1" : "0"}
         >
-          Re-draft
-        </button>
+          {draft.intent || "—"}
+        </p>
       </div>
-      <p class="design-intent-text">{draft.intent || "—"}</p>
 
       <div class="design-toolbar">
         <p class="tile-label">Flow</p>
@@ -291,114 +527,27 @@ export function DesignView({
       </div>
 
       {error ? <p class="error design-error">{error}</p> : null}
+      {note ? <p class="hint mono design-note">{note}</p> : null}
 
       <div class="design-main" data-mode={mode}>
         {mode === "schematic" ? (
-          <div class="design-split">
-            <div class="sch-canvas" aria-label="Schematic">
-              {schematic.trigger ? (
-                <NodeCard
-                  node={schematic.trigger}
-                  selected={selectedId === schematic.trigger.id}
-                  onSelect={() => setSelectedId(schematic.trigger!.id)}
-                />
-              ) : null}
-              {schematic.steps.map((step, i) => (
-                <div key={step.id} class="sch-flow">
-                  {i > 0 || schematic.trigger ? (
-                    <span class="sch-edge" aria-hidden="true">
-                      ↓
-                      {step.forEach ? (
-                        <span class="sch-edge-ref mono">{step.forEach}</span>
-                      ) : null}
-                    </span>
-                  ) : null}
-                  <NodeCard
-                    node={step}
-                    selected={selectedId === step.id}
-                    onSelect={() => setSelectedId(step.id)}
-                  />
-                </div>
-              ))}
-              {schematic.rules.length ? (
-                <div class="sch-rules" aria-label="Rules">
-                  <span class="tile-label">Rules</span>
-                  <div class="sch-rules-chips">
-                    {schematic.rules.map((r) => (
-                      <span key={r.id} class="sch-rule-chip mono">
-                        {r.id}
-                        <span class="muted"> · {r.kind}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {!schematic.nodes.length ? (
-                <p class="tile-meta">
-                  {busy
-                    ? "Reading Spec…"
-                    : "No steps yet — save YAML or create a draft."}
-                </p>
-              ) : null}
+          schematic.nodes.length ? (
+            <SchematicCanvas
+              model={schematic}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              inspector={inspector}
+              footer={canvasFooter}
+            />
+          ) : (
+            <div class="sch-viewport sch-viewport-empty">
+              <p class="tile-meta">
+                {busy
+                  ? "Reading Spec…"
+                  : "No steps yet — save YAML or create a draft."}
+              </p>
             </div>
-            <aside class="sch-inspector" aria-label="Inspector">
-              <p class="tile-label">Inspector</p>
-              {selected ? (
-                <>
-                  <h2 class="tile-title">{selected.label}</h2>
-                  {selected.use ? (
-                    <p class="mono muted">{selected.use}</p>
-                  ) : null}
-                  {selected.forEach ? (
-                    <p class="tile-meta">
-                      forEach · <span class="mono">{selected.forEach}</span>
-                    </p>
-                  ) : null}
-                  {selected.once ? (
-                    <p class="tile-meta">
-                      once · <span class="mono">{selected.once}</span>
-                    </p>
-                  ) : null}
-                  {selected.enforce.length ? (
-                    <p class="tile-meta">
-                      enforce ·{" "}
-                      <span class="mono">{selected.enforce.join(", ")}</span>
-                    </p>
-                  ) : null}
-                  {selected.outputs.length ? (
-                    <p class="tile-meta">
-                      outputs ·{" "}
-                      <span class="mono">{selected.outputs.join(", ")}</span>
-                    </p>
-                  ) : null}
-                  {selected.schema ? (
-                    <pre class="spec-pre sch-pre">
-                      {JSON.stringify(selected.schema, null, 2)}
-                    </pre>
-                  ) : null}
-                  {selected.args && Object.keys(selected.args).length ? (
-                    <pre class="spec-pre sch-pre">
-                      {JSON.stringify(selected.args, null, 2)}
-                    </pre>
-                  ) : null}
-                  {selected.kind === "step" || selected.kind === "hitl" ? (
-                    <button
-                      type="button"
-                      class="cta linkish"
-                      onClick={() => jumpToStepYaml(selected.id)}
-                    >
-                      Jump to YAML
-                    </button>
-                  ) : null}
-                </>
-              ) : (
-                <p class="tile-meta">
-                  Select a step to see its settings · YAML is the source of
-                  truth
-                </p>
-              )}
-            </aside>
-          </div>
+          )
         ) : null}
 
         {mode === "manifest" ? (
@@ -421,7 +570,6 @@ export function DesignView({
             <textarea
               ref={yamlRef}
               class="spec-textarea mono design-yaml-editor"
-              rows={22}
               value={yamlDraft}
               spellcheck={false}
               disabled={busy}
@@ -430,7 +578,9 @@ export function DesignView({
               }
             />
             {yamlDirty ? (
-              <p class="hint mono">Unsaved — Save YAML to refresh the schematic</p>
+              <p class="hint mono design-yaml-hint">
+                Unsaved — Save YAML to refresh the schematic
+              </p>
             ) : null}
           </div>
         ) : null}

@@ -252,6 +252,7 @@ function stubGithubTriage(intent: string): SpecV2Body {
         id: "scout",
         use: "api.request",
         args: {
+          slot: "scm.issues",
           service: "github",
           operation: "issuesListForRepo",
           connection: "github:default",
@@ -298,6 +299,7 @@ function stubGithubTriage(intent: string): SpecV2Body {
         forEach: "${steps.draft.output}",
         once: "${item.issue_number}",
         args: {
+          slot: "scm.issues",
           service: "github",
           operation: "issuesCreateComment",
           connection: "github:default",
@@ -525,6 +527,37 @@ function stubGenericHitl(intent: string): SpecV2Body {
  * Offline / fallback Spec from intent — only curated catalog shapes.
  * ASAP default: GitHub triage when intent mentions GitHub.
  */
+/**
+ * ASAP path: accept preferred non-blocked candidates so args.slot runs
+ * without a Ship click; operator can still re-resolve on Ship.
+ */
+function withPreferredSlotsResolved(body: SpecV2Body): SpecV2Body {
+  const slots = body.slots;
+  if (!slots?.length) return body;
+  const next = slots.map((slot) => {
+    if (slot.resolved != null && String(slot.resolved).trim() !== "") {
+      return slot;
+    }
+    const idx =
+      typeof slot.preferredCandidateIndex === "number"
+        ? slot.preferredCandidateIndex
+        : 0;
+    const cand = slot.candidates[idx];
+    if (!cand || cand.status === "blocked") return slot;
+    const resolved =
+      cand.connection?.trim() ||
+      (cand.service
+        ? `${cand.service}:slot`
+        : `binding:${cand.binding}`);
+    return {
+      ...slot,
+      preferredCandidateIndex: idx,
+      resolved,
+    };
+  });
+  return { ...body, slots: next };
+}
+
 export function stubSpecFromIntent(
   intent: string,
   opts?: {
@@ -541,11 +574,14 @@ export function stubSpecFromIntent(
         : kind === "reddit"
           ? stubRedditFashion(intent)
           : stubGenericHitl(intent);
-  return withSlotsFromIntent(raw, {
+  const withSlots = withSlotsFromIntent(raw, {
     intent,
     catalog: opts?.services ?? loadV2Services(),
     knownConnections: opts?.knownConnections ?? deskKnownConnections(),
   });
+  // GitHub ASAP: pre-resolve preferred so closed-loop smoke / Run once work;
+  // Design still shows slot · scm.issues. YouTube/Reddit stay Ship-confirm.
+  return kind === "github" ? withPreferredSlotsResolved(withSlots) : withSlots;
 }
 
 function resolveBody(input: {

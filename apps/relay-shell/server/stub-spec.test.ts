@@ -40,7 +40,12 @@ describe("stubSpecFromIntent (catalog-constrained)", () => {
     assert.deepEqual(body.services, ["github"]);
     assert.equal(body.connections?.[0], "github:default");
     assert.ok(body.slots?.some((s) => s.id === "scm.issues"));
-    assert.equal(body.slots?.[0]?.resolved ?? null, null);
+    const scm = body.slots?.find((s) => s.id === "scm.issues");
+    assert.ok(scm?.resolved, "ASAP pre-resolves preferred github binding");
+    const scout = body.steps.find((s) => s.id === "scout");
+    const post = body.steps.find((s) => s.id === "post");
+    assert.equal((scout?.args as { slot?: string })?.slot, "scm.issues");
+    assert.equal((post?.args as { slot?: string })?.slot, "scm.issues");
     const v = validateSpecV2(body, { services, knownConnections: known });
     assert.equal(v.ok, true, JSON.stringify(v.errors, null, 2));
   });

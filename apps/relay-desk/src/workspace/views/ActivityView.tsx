@@ -12,6 +12,7 @@ import {
   deriveSchematic,
   type SchematicNode,
   type SchematicRunState,
+  slotBindingPlainLabel,
 } from "../../spec/schematic.ts";
 import type { OutcomeFollowUp, RunResponse } from "../../spec/types.ts";
 import {
@@ -111,11 +112,16 @@ function NodeRun({ node }: { node: SchematicNode }) {
   return (
     <div
       class="sch-node sch-node-static"
-      data-kind={node.kind === "hitl" ? "diamond" : node.kind}
+      data-kind={node.kind === "hitl" ? "hitl" : node.kind}
       data-run={node.runState ?? "pending"}
     >
       <span class="sch-node-label">{node.label}</span>
       {node.use ? <span class="sch-node-use mono">{node.use}</span> : null}
+      {node.slot ? (
+        <span class="sch-node-slot" data-slot-state={node.slot.state}>
+          {slotBindingPlainLabel(node.slot)}
+        </span>
+      ) : null}
       <span class="sch-badge" data-kind={node.runState === "waiting" ? "hitl" : "once"}>
         {runStateLabel(node.runState)}
       </span>

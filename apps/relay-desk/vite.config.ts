@@ -5,6 +5,19 @@ const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
   plugins: [preact()],
+  // @xyflow/react imports `react`; run it through Preact compat.
+  resolve: {
+    alias: [
+      { find: "react-dom/test-utils", replacement: "preact/test-utils" },
+      { find: "react-dom", replacement: "preact/compat" },
+      { find: "react/jsx-runtime", replacement: "preact/jsx-runtime" },
+      { find: "react/jsx-dev-runtime", replacement: "preact/jsx-dev-runtime" },
+      { find: "react", replacement: "preact/compat" },
+    ],
+  },
+  optimizeDeps: {
+    include: ["@xyflow/react", "preact/compat"],
+  },
   clearScreen: false,
   server: {
     port: 1420,
