@@ -12,6 +12,7 @@ import {
 } from "../../spec/schematic.ts";
 import {
   hitlSupportingLine,
+  type NodeSize,
   type RelayFlowNode,
 } from "./flow-model.ts";
 import { useReportNodeSize } from "./measure-context.tsx";
@@ -80,6 +81,8 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
   const candidates =
     pickerOpen && node.slotId ? actions!.getCandidates(node.slotId) : [];
 
+  const lastSizeRef = useRef<NodeSize | null>(null);
+
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
@@ -88,7 +91,20 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
       const width = Math.ceil(el.offsetWidth);
       const height = Math.ceil(el.offsetHeight);
       if (width <= 0 || height <= 0) return;
-      reportSize(id, { width, height });
+      const prev = lastSizeRef.current;
+      const same =
+        prev &&
+        Math.abs(prev.width - width) < 1 &&
+        Math.abs(prev.height - height) < 1;
+      if (same) return;
+      lastSizeRef.current = { width, height };
+      // Quiet sizes are preferred for dagre; after settle, non-baseline
+      // reports are ignored so selection chrome doesn’t reflow the spine.
+      reportSize(
+        id,
+        { width, height },
+        { baseline: !selected && !pickerOpen }
+      );
       updateNodeInternals(id);
     };
 
@@ -96,16 +112,7 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
     const ro = new ResizeObserver(() => publish());
     ro.observe(el);
     return () => ro.disconnect();
-  }, [
-    id,
-    reportSize,
-    updateNodeInternals,
-    selected,
-    fanOut,
-    slotLine,
-    pickerOpen,
-    candidates.length,
-  ]);
+  }, [id, reportSize, updateNodeInternals, selected, pickerOpen]);
 
   const onBindClick = (e: {
     stopPropagation: () => void;
@@ -222,9 +229,6 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
       ) : null}
       {fanOut ? (
         <span className="sch-node-fanout mono">fan-out · forEach</span>
-      ) : null}
-      {selected && node.use ? (
-        <span className="sch-node-use mono">{node.use}</span>
       ) : null}
       {badges.length ? (
         <span className="sch-badges">

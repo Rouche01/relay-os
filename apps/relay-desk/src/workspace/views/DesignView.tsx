@@ -114,8 +114,9 @@ export function DesignView({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [note, setNote] = useState<string | undefined>();
-  const [intentExpanded, setIntentExpanded] = useState(false);
+  const [intentDialogOpen, setIntentDialogOpen] = useState(false);
   const [intentClamped, setIntentClamped] = useState(false);
+  const [intentEdit, setIntentEdit] = useState(draft.intent || "");
   const [body, setBody] = useState<Record<string, unknown> | undefined>(
     draft.body
   );
@@ -123,19 +124,32 @@ export function DesignView({
     draft.manifest
   );
   const yamlRef = useRef<HTMLTextAreaElement>(null);
-  const intentTextRef = useRef<HTMLParagraphElement>(null);
+  const intentTextRef = useRef<HTMLTextAreaElement>(null);
+  const intentDialogBodyRef = useRef<HTMLTextAreaElement>(null);
   const yamlDirty = yamlDraft !== draft.yaml;
 
+  // Sync Spec projection — do NOT close the intent dialog here.
+  // draft.body / manifest are new object refs on many parent re-renders
+  // (especially Tauri), which was instantly dismissing the dialog.
   useEffect(() => {
     setYamlDraft(draft.yaml);
     setBody(draft.body);
     setManifest(draft.manifest);
-    setIntentExpanded(false);
   }, [draft.id, draft.yaml, draft.body, draft.manifest]);
 
   useEffect(() => {
+    if (!intentDialogOpen) {
+      setIntentEdit(draft.intent || "");
+    }
+  }, [draft.id, draft.intent, intentDialogOpen]);
+
+  useEffect(() => {
+    setIntentDialogOpen(false);
+  }, [draft.id]);
+
+  useEffect(() => {
     const el = intentTextRef.current;
-    if (!el || intentExpanded) {
+    if (!el) {
       setIntentClamped(false);
       return;
     }
@@ -146,7 +160,38 @@ export function DesignView({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [draft.intent, intentExpanded]);
+  }, [draft.intent]);
+
+  useEffect(() => {
+    if (!intentDialogOpen) return;
+    const t = window.setTimeout(() => intentDialogBodyRef.current?.focus(), 0);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIntentDialogOpen(false);
+        setIntentEdit(draft.intent || "");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [intentDialogOpen, draft.intent]);
+
+  const closeIntentDialog = useCallback(() => {
+    setIntentDialogOpen(false);
+    setIntentEdit(draft.intent || "");
+  }, [draft.intent]);
+
+  const saveIntentAndRedraft = useCallback(() => {
+    const nextIntent = intentEdit.trim();
+    const updated = updateDraft(draft.id, {
+      intent: nextIntent || draft.intent,
+    });
+    if (updated) onDraftUpdated(updated);
+    setIntentDialogOpen(false);
+    onReDraft();
+  }, [intentEdit, draft.id, draft.intent, onDraftUpdated, onReDraft]);
 
   const refreshBody = useCallback(
     async (yaml: string) => {
@@ -286,6 +331,14 @@ export function DesignView({
 
   const orphans = orphanSlots(schematic.slots, schematic.steps);
 
+  const onCanvasSelect = useCallback(
+    (id: string | undefined) => {
+      setSelectedId(id);
+      setBindingOpenId((open) => (open && open !== id ? undefined : open));
+    },
+    []
+  );
+
   const canvasActions = useMemo<SchematicActions>(
     () => ({
       busy,
@@ -308,11 +361,47 @@ export function DesignView({
     [busy, bindingOpenId, body, onPickCandidate, jumpToStepYaml]
   );
 
+  const rulesBlock =
+    schematic.rules.length > 0 ? (
+      <div class="sch-inspector-rules" aria-label="Rules">
+        <p class="tile-label">Rules</p>
+        <div class="sch-rules-chips">
+          {schematic.rules.map((r) => (
+            <span key={r.id} class="sch-rule-chip mono" title={r.kind}>
+              {r.id}
+              <span class="muted"> · {r.kind}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+    ) : null;
+
+  const orphansBlock =
+    orphans.length > 0 ? (
+      <div class="sch-inspector-slots" aria-label="Unused capability slots">
+        <p class="tile-label">Other capabilities</p>
+        <div class="sch-slots-chips">
+          {orphans.map((s) => (
+            <span
+              key={s.id}
+              class="sch-badge"
+              data-kind="slot"
+              data-slot-state={s.state}
+              data-degraded={s.degraded ? "1" : undefined}
+              title={`${s.id}${s.reason ? ` — ${s.reason}` : ""}`}
+            >
+              {slotBindingPlainLabel(s)}
+            </span>
+          ))}
+        </div>
+      </div>
+    ) : null;
+
   const inspector = (
     <aside class="sch-inspector" aria-label="Step inspector">
-      <p class="tile-label">Step inspector</p>
       {selected ? (
         <>
+          <p class="tile-label">Step</p>
           <h2 class="tile-title">{humanStepTitle(selected)}</h2>
           {selected.slot ? (
             <>
@@ -388,74 +477,46 @@ export function DesignView({
               Jump to YAML
             </button>
           ) : null}
+          {rulesBlock ? (
+            <div class="sch-inspector-meta">{rulesBlock}</div>
+          ) : null}
         </>
       ) : (
         <>
+          <p class="tile-label">Spec</p>
           <p class="tile-meta">
             Select a step · binding swaps without rewriting the Spec.
           </p>
-          <p class="tile-meta mono muted">YAML remains source of truth</p>
+          {rulesBlock}
+          {orphansBlock}
+          <p class="tile-meta mono muted sch-inspector-law">
+            Spec law stays · YAML is source of truth
+          </p>
         </>
       )}
     </aside>
   );
 
-  const canvasFooter = (
-    <div class="sch-canvas-meta">
-      {orphans.length ? (
-        <div class="sch-slots" aria-label="Unused capability slots">
-          <span class="tile-label">Other capabilities</span>
-          <div class="sch-slots-chips">
-            {orphans.map((s) => (
-              <span
-                key={s.id}
-                class="sch-badge"
-                data-kind="slot"
-                data-slot-state={s.state}
-                data-degraded={s.degraded ? "1" : undefined}
-                title={`${s.id}${s.reason ? ` — ${s.reason}` : ""}`}
-              >
-                {slotBindingPlainLabel(s)}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      {schematic.rules.length ? (
-        <div class="sch-rules" aria-label="Rules">
-          <span class="tile-label">Rules</span>
-          <div class="sch-rules-chips">
-            {schematic.rules.map((r) => (
-              <span key={r.id} class="sch-rule-chip mono">
-                {r.id}
-                <span class="muted"> · {r.kind}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      <p class="sch-footer mono">
-        Read-only schematic · bindings are swappable · Spec law stays
-      </p>
-    </div>
-  );
-
   return (
     <div class="design-view">
       <div class="design-intent">
-        <div class="design-intent-row">
-          <p class="tile-label">Your intent</p>
-          <div class="design-intent-actions">
-            {intentClamped || intentExpanded ? (
+        <p class="tile-label">Your intent</p>
+        <div class="design-intent-field">
+          {intentClamped ? (
+            <div class="design-intent-field-actions">
               <button
                 type="button"
                 class="design-intent-expand"
-                aria-expanded={intentExpanded}
-                aria-label={
-                  intentExpanded ? "Collapse intent" : "Expand intent"
-                }
-                title={intentExpanded ? "Collapse" : "Show full intent"}
-                onClick={() => setIntentExpanded((v) => !v)}
+                aria-haspopup="dialog"
+                aria-expanded={intentDialogOpen}
+                aria-label="Expand intent"
+                title="Show full intent"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIntentEdit(draft.intent || "");
+                  setIntentDialogOpen(true);
+                }}
               >
                 <svg
                   width="14"
@@ -464,44 +525,71 @@ export function DesignView({
                   fill="none"
                   aria-hidden="true"
                 >
-                  {intentExpanded ? (
-                    <path
-                      d="M4 10.5 8 6.5l4 4"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  ) : (
-                    <path
-                      d="M4 6.5 8 10.5l4-4"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  )}
+                  <path
+                    d="M9.5 2.5H13.5V6.5M6.5 13.5H2.5V9.5M13.5 2.5 9 7M2.5 13.5 7 9"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
                 </svg>
               </button>
-            ) : null}
-            <button
-              type="button"
-              class="cta ghost design-redraft"
-              disabled={busy}
-              onClick={onReDraft}
-            >
-              Re-draft
-            </button>
+            </div>
+          ) : null}
+          <textarea
+            ref={intentTextRef}
+            class="design-intent-input"
+            readOnly
+            tabIndex={0}
+            rows={2}
+            value={draft.intent || ""}
+            placeholder="No intent captured yet"
+            aria-label="Your intent"
+          />
+        </div>
+      </div>
+
+      {intentDialogOpen ? (
+        <div class="design-intent-backdrop" role="presentation">
+          <div
+            class="design-intent-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="design-intent-dialog-title"
+          >
+            <p id="design-intent-dialog-title" class="tile-label">
+              Your intent
+            </p>
+            <textarea
+              ref={intentDialogBodyRef}
+              class="design-intent-dialog-body"
+              value={intentEdit}
+              rows={12}
+              aria-label="Edit intent"
+              onInput={(e) =>
+                setIntentEdit((e.target as HTMLTextAreaElement).value)
+              }
+            />
+            <div class="design-intent-dialog-foot">
+              <button
+                type="button"
+                class="cta ghost"
+                onClick={closeIntentDialog}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="cta"
+                disabled={busy || !intentEdit.trim()}
+                onClick={saveIntentAndRedraft}
+              >
+                Re-draft
+              </button>
+            </div>
           </div>
         </div>
-        <p
-          ref={intentTextRef}
-          class="design-intent-text"
-          data-expanded={intentExpanded ? "1" : "0"}
-        >
-          {draft.intent || "—"}
-        </p>
-      </div>
+      ) : null}
 
       <div class="design-toolbar">
         <p class="tile-label">Flow</p>
@@ -554,19 +642,23 @@ export function DesignView({
       {note ? <p class="hint mono design-note">{note}</p> : null}
 
       <div class="design-main" data-mode={mode}>
-        {mode === "schematic" ? (
-          schematic.nodes.length ? (
+        {/*
+          Keep SchematicCanvas mounted and sized. Manifest/YAML are opaque
+          covers on top — never visibility:hidden (poisons RF) and never
+          remount-on-tab (flickers).
+        */}
+        <div
+          class="design-schematic-layer"
+          data-covered={mode === "schematic" ? "0" : "1"}
+          aria-hidden={mode !== "schematic"}
+        >
+          {schematic.nodes.length ? (
             <SchematicCanvas
+              key={draft.id}
               model={schematic}
               selectedId={selectedId}
-              onSelect={(id) => {
-                setSelectedId(id);
-                if (bindingOpenId && bindingOpenId !== id) {
-                  setBindingOpenId(undefined);
-                }
-              }}
+              onSelect={onCanvasSelect}
               inspector={inspector}
-              footer={canvasFooter}
               actions={canvasActions}
             />
           ) : (
@@ -577,11 +669,11 @@ export function DesignView({
                   : "No steps yet — save YAML or create a draft."}
               </p>
             </div>
-          )
-        ) : null}
+          )}
+        </div>
 
         {mode === "manifest" ? (
-          <div class="design-manifest">
+          <div class="design-cover-layer design-manifest" aria-label="Manifest">
             {manifest ? (
               <pre class="spec-pre sch-pre">
                 {JSON.stringify(manifest, null, 2)}
@@ -596,7 +688,11 @@ export function DesignView({
         ) : null}
 
         {mode === "yaml" ? (
-          <div class="design-yaml" data-spec-step="yaml">
+          <div
+            class="design-cover-layer design-yaml"
+            data-spec-step="yaml"
+            aria-label="YAML"
+          >
             <textarea
               ref={yamlRef}
               class="spec-textarea mono design-yaml-editor"

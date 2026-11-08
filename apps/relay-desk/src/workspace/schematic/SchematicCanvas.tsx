@@ -1,7 +1,11 @@
 /**
  * Zoomable Design schematic via @xyflow/react (Preact compat).
  * Spec / YAML remains source of truth — canvas is a projection.
- * sc1/sc2: measure → dagre TB → fitView once. sc3: quiet chrome.
+ *
+ * Permanent visibility rule: mount this only while the Schematic tab is
+ * active. Keeping RF alive under visibility:hidden poisons viewport size
+ * and makes subsequent visits look empty. Remount + size-aware fitView
+ * is the reliable fix.
  */
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -10,7 +14,6 @@ import {
   BackgroundVariant,
   Controls,
   MiniMap,
-  Panel,
   ReactFlow,
   ReactFlowProvider,
   useEdgesState,
@@ -43,13 +46,15 @@ export type SchematicCanvasProps = {
   selectedId?: string;
   onSelect: (id: string | undefined) => void;
   inspector: ComponentChildren;
-  footer?: ComponentChildren;
   actions: SchematicActions;
 };
 
 const nodeTypes: NodeTypes = {
   [FLOW_STEP_TYPE]: FlowStepNode,
 };
+
+const FIT_PADDING = 0.16;
+const MIN_HOST = 48;
 
 function withSelection(
   nodes: RelayFlowNode[],
@@ -61,22 +66,66 @@ function withSelection(
   }));
 }
 
+function patchNodeData(
+  prev: RelayFlowNode[],
+  nextNodes: RelayFlowNode[],
+  selectedId: string | undefined
+): RelayFlowNode[] {
+  if (prev.length !== nextNodes.length) {
+    return withSelection(nextNodes, selectedId);
+  }
+  const byId = new Map(nextNodes.map((n) => [n.id, n]));
+  let changed = false;
+  const out = prev.map((n) => {
+    const fresh = byId.get(n.id);
+    if (!fresh) {
+      changed = true;
+      return n;
+    }
+    const selected = Boolean(selectedId && n.id === selectedId);
+    if (
+      n.data.schematic === fresh.data.schematic &&
+      n.data.label === fresh.data.label &&
+      n.selected === selected
+    ) {
+      return n;
+    }
+    changed = true;
+    return { ...n, data: fresh.data, selected };
+  });
+  return changed ? out : prev;
+}
+
 function SchematicCanvasInner({
   model,
   selectedId,
   onSelect,
   inspector,
-  footer,
   actions,
 }: SchematicCanvasProps) {
   const { fitView } = useReactFlow();
   const selectedRef = useRef(selectedId);
   selectedRef.current = selectedId;
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
+  const fitViewRef = useRef(fitView);
+  fitViewRef.current = fitView;
+
   const sizesRef = useRef<Record<string, NodeSize>>({});
-  const layoutPassRef = useRef<string>("");
+  const settledSignatureRef = useRef<string>("");
+  const fittedKeyRef = useRef<string>("");
   const layoutTimerRef = useRef<number>(0);
+  const signatureRef = useRef<string>("");
+  const flowHostRef = useRef<HTMLDivElement>(null);
 
   const elements = useMemo(() => schematicToFlowElements(model), [model]);
+  const elementsRef = useRef(elements);
+  elementsRef.current = elements;
+  const signature = elements.signature;
+  signatureRef.current = signature;
+
   const showMiniMap = elements.nodes.length >= MINIMAP_MIN_STEPS;
   const [nodes, setNodes, onNodesChange] = useNodesState(
     withSelection(elements.nodes, selectedId)
@@ -85,36 +134,48 @@ function SchematicCanvasInner({
     withSelectionEdgeLabels(elements.edges, selectedId)
   );
 
-  const runLayout = useCallback(
-    (reason: "measure" | "signature") => {
-      const ids = elements.nodes.map((n) => n.id);
-      const measured = allNodesMeasured(ids, sizesRef.current);
-      // Prefer full measure; still layout with fallbacks on signature so first paint isn’t stacked.
-      if (!measured && reason === "measure") return;
-
-      const laidOut = layoutVerticalSpine(
-        elements.nodes,
-        elements.edges,
-        sizesRef.current
-      );
+  const applyLayout = useCallback(
+    (sizes: Readonly<Record<string, NodeSize>>) => {
+      const els = elementsRef.current;
+      const laidOut = layoutVerticalSpine(els.nodes, els.edges, sizes);
       setNodes(withSelection(laidOut, selectedRef.current));
-      setEdges(
-        withSelectionEdgeLabels(elements.edges, selectedRef.current)
-      );
-
-      const passKey = `${elements.signature}::${measured ? "m" : "f"}`;
-      if (layoutPassRef.current === passKey) return;
-      layoutPassRef.current = passKey;
-
-      window.requestAnimationFrame(() => {
-        void fitView({ padding: 0.2, duration: 0 });
-      });
+      setEdges(withSelectionEdgeLabels(els.edges, selectedRef.current));
     },
-    [elements, setNodes, setEdges, fitView]
+    [setNodes, setEdges]
   );
 
+  const tryFitView = useCallback((force = false) => {
+    const host = flowHostRef.current;
+    if (!host) return false;
+    const { width, height } = host.getBoundingClientRect();
+    if (width < MIN_HOST || height < MIN_HOST) return false;
+
+    const key = `${signatureRef.current}:${Math.round(width)}x${Math.round(height)}`;
+    if (!force && fittedKeyRef.current === key) return true;
+
+    fittedKeyRef.current = key;
+    window.requestAnimationFrame(() => {
+      void fitViewRef.current({ padding: FIT_PADDING, duration: 0 });
+    });
+    return true;
+  }, []);
+
+  const settleMeasuredLayout = useCallback(() => {
+    const els = elementsRef.current;
+    const ids = els.nodes.map((n) => n.id);
+    if (!allNodesMeasured(ids, sizesRef.current)) return;
+
+    settledSignatureRef.current = els.signature;
+    applyLayout(sizesRef.current);
+    tryFitView(true);
+  }, [applyLayout, tryFitView]);
+
   const reportSize = useCallback(
-    (id: string, size: NodeSize) => {
+    (id: string, size: NodeSize, opts?: { baseline?: boolean }) => {
+      const sig = signatureRef.current;
+      const settled = settledSignatureRef.current === sig;
+      if (settled && !opts?.baseline) return;
+
       const prev = sizesRef.current[id];
       if (
         prev &&
@@ -124,28 +185,42 @@ function SchematicCanvasInner({
         return;
       }
       sizesRef.current = { ...sizesRef.current, [id]: size };
+      if (settled) return;
+
       window.clearTimeout(layoutTimerRef.current);
       layoutTimerRef.current = window.setTimeout(() => {
-        runLayout("measure");
+        settleMeasuredLayout();
       }, 48);
     },
-    [runLayout]
+    [settleMeasuredLayout]
   );
 
+  // Fresh mount / signature change → layout immediately, then fit when sized.
   useEffect(() => {
     sizesRef.current = {};
-    layoutPassRef.current = "";
-    setNodes(withSelection(elements.nodes, selectedRef.current));
+    settledSignatureRef.current = "";
+    fittedKeyRef.current = "";
+    applyLayout({});
+    const t0 = window.setTimeout(() => tryFitView(true), 0);
+    const t1 = window.setTimeout(() => tryFitView(true), 50);
+    return () => {
+      window.clearTimeout(t0);
+      window.clearTimeout(t1);
+      window.clearTimeout(layoutTimerRef.current);
+    };
+  }, [signature, applyLayout, tryFitView]);
+
+  useEffect(() => {
+    if (settledSignatureRef.current && settledSignatureRef.current !== signature) {
+      return;
+    }
+    setNodes((prev) =>
+      patchNodeData(prev, elements.nodes, selectedRef.current)
+    );
     setEdges(
       withSelectionEdgeLabels(elements.edges, selectedRef.current)
     );
-    // Placeholder stack until measures arrive; also layout with fallbacks so edges exist.
-    const t = window.setTimeout(() => runLayout("signature"), 0);
-    return () => {
-      window.clearTimeout(t);
-      window.clearTimeout(layoutTimerRef.current);
-    };
-  }, [elements.signature, elements, setNodes, setEdges, runLayout]);
+  }, [elements, signature, setNodes, setEdges]);
 
   useEffect(() => {
     setNodes((prev: RelayFlowNode[]) => {
@@ -158,37 +233,68 @@ function SchematicCanvasInner({
       });
       return changed ? next : prev;
     });
-    setEdges(withSelectionEdgeLabels(elements.edges, selectedId));
-  }, [selectedId, setNodes, setEdges, elements.edges]);
+    setEdges((prev) => {
+      const next = withSelectionEdgeLabels(
+        elementsRef.current.edges,
+        selectedId
+      );
+      if (
+        prev.length === next.length &&
+        prev.every(
+          (e, i) => e.label === next[i]?.label && e.id === next[i]?.id
+        )
+      ) {
+        return prev;
+      }
+      return next;
+    });
+  }, [selectedId, setNodes, setEdges]);
+
+  useEffect(() => {
+    const host = flowHostRef.current;
+    if (!host || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      tryFitView(false);
+    });
+    ro.observe(host);
+    tryFitView(true);
+    return () => ro.disconnect();
+  }, [tryFitView, signature]);
 
   const onSelectionChange = useCallback(
     ({ nodes: selected }: OnSelectionChangeParams) => {
       const next = selected[0]?.id;
       if (next !== selectedRef.current) {
-        onSelect(next);
-        if (actions.bindingOpenId && actions.bindingOpenId !== next) {
-          actions.setBindingOpenId(undefined);
+        onSelectRef.current(next);
+        const a = actionsRef.current;
+        if (a.bindingOpenId && a.bindingOpenId !== next) {
+          a.setBindingOpenId(undefined);
         }
       }
     },
-    [onSelect, actions]
+    []
   );
 
   const onNodeDoubleClick = useCallback(
     (_: unknown, node: { id: string; data: RelayFlowNode["data"] }) => {
       const kind = node.data.schematic.kind;
       if (kind === "step" || kind === "hitl") {
-        actions.onJumpToYaml(node.id);
+        actionsRef.current.onJumpToYaml(node.id);
       }
     },
-    [actions]
+    []
   );
+
+  const onPaneClick = useCallback(() => {
+    onSelectRef.current(undefined);
+    actionsRef.current.setBindingOpenId(undefined);
+  }, []);
 
   return (
     <SchematicActionsProvider value={actions}>
       <NodeMeasureProvider report={reportSize}>
         <div className="sch-viewport sch-viewport-flow">
-          <div className="sch-flow-main">
+          <div className="sch-flow-main" ref={flowHostRef}>
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -197,10 +303,7 @@ function SchematicCanvasInner({
               onEdgesChange={onEdgesChange}
               onSelectionChange={onSelectionChange}
               onNodeDoubleClick={onNodeDoubleClick}
-              onPaneClick={() => {
-                onSelect(undefined);
-                actions.setBindingOpenId(undefined);
-              }}
+              onPaneClick={onPaneClick}
               minZoom={0.3}
               maxZoom={1.8}
               nodesDraggable={false}
@@ -215,39 +318,31 @@ function SchematicCanvasInner({
               proOptions={{ hideAttribution: true }}
               defaultEdgeOptions={{ type: "smoothstep" }}
               onlyRenderVisibleElements={false}
+              fitView={false}
             >
-            <Background
-              variant={BackgroundVariant.Dots}
-              gap={16}
-              size={1}
-              color="var(--line)"
-            />
-            <Controls showInteractive={false} position="top-left" />
-            {showMiniMap ? (
-              <MiniMap
-                pannable
-                zoomable
-                position="bottom-right"
-                maskColor="color-mix(in srgb, var(--void) 70%, transparent)"
-                nodeColor={(n) => {
-                  const kind = (n.data as { schematic?: { kind?: string } })
-                    ?.schematic?.kind;
-                  if (kind === "hitl") {
-                    return "color-mix(in srgb, var(--signal) 55%, var(--panel-2))";
-                  }
-                  return "color-mix(in srgb, var(--signal) 30%, var(--panel-2))";
-                }}
+              <Background
+                variant={BackgroundVariant.Dots}
+                gap={16}
+                size={1}
+                color="var(--line)"
               />
-            ) : null}
-            {footer ? (
-              <Panel
-                position="bottom-left"
-                className="sch-flow-meta-panel"
-                aria-label="Schematic meta"
-              >
-                {footer}
-              </Panel>
-            ) : null}
+              <Controls showInteractive={false} position="top-left" />
+              {showMiniMap ? (
+                <MiniMap
+                  pannable
+                  zoomable
+                  position="bottom-right"
+                  maskColor="color-mix(in srgb, var(--void) 70%, transparent)"
+                  nodeColor={(n) => {
+                    const kind = (n.data as { schematic?: { kind?: string } })
+                      ?.schematic?.kind;
+                    if (kind === "hitl") {
+                      return "color-mix(in srgb, var(--signal) 55%, var(--panel-2))";
+                    }
+                    return "color-mix(in srgb, var(--signal) 30%, var(--panel-2))";
+                  }}
+                />
+              ) : null}
             </ReactFlow>
           </div>
           <div className="sch-inspector-dock">{inspector}</div>

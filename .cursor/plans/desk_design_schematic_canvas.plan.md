@@ -88,3 +88,9 @@ w6 shipped a readable schematic; xyflow then gave pan/zoom/fit. Remaining gaps a
 - 2026-11-08 — sc2+sc1: `@dagrejs/dagre` TB layout (`layout.ts`); ResizeObserver + `useUpdateNodeInternals` via `measure-context`; fitView once after measure settles (`SchematicCanvas`).
 - 2026-11-08 — sc3: MiniMap gated at ≥8 steps; forEach/once/when/retry badges + edge ref labels only when connected step selected; Controls + Rules panel unchanged.
 - 2026-11-08 — sc4: slot bind control on node opens inline picker (`schematic-actions`); inspector picker secondary; double-click step/HITL → Jump to YAML.
+- 2026-11-08 — Stability: freeze dagre+fitView after first baseline measure per signature (selection/picker height ignored); asymmetric fit padding clears Rules panel; slightly larger ranksep.
+- 2026-11-08 — Flicker: layout reset was keyed off full `elements` (re-ran on slot/label churn); removed fallback layout flash; stable size reporter; patch `node.data` in place when signature unchanged; skip no-op `updateNodeInternals`.
+- 2026-11-08 — Tab flicker: keep Schematic/Manifest/YAML panes mounted (visibility stack) so React Flow isn’t remounted on mode switch.
+- 2026-11-08 — Reverted schematic keep-alive: remount canvas when Schematic tab/Design stage is shown; size-keyed fitView. Hidden RF was leaving empty viewport on re-entry.
+- 2026-11-08 — Cover mount: keep Design/SchematicCanvas always sized underneath opaque Manifest/YAML and Verify/Ship/Activity overlays (no remount flicker, no visibility:hidden).
+- 2026-11-08 — Rules/meta: leave RF Panel overlay; compact rail under the canvas column (inspector still full-height).

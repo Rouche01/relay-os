@@ -11,9 +11,9 @@ import {
   type RelayFlowNode,
 } from "./flow-model.ts";
 
-const RANK_SEP = 48;
+const RANK_SEP = 56;
 const NODE_SEP = 32;
-const MARGIN = 40;
+const MARGIN = 48;
 const FALLBACK_HEIGHT = 112;
 
 export function layoutVerticalSpine(

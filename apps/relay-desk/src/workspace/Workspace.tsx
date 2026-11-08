@@ -110,30 +110,6 @@ export function Workspace({
         }
       />
 
-      <nav class="ws-journey-bar" aria-label="Journey">
-        <ol class="ws-journey-bar-list">
-          {steps.map((step, i) => (
-            <li key={step.id} class="ws-journey-bar-item">
-              {i > 0 ? (
-                <span class="ws-journey-bar-sep" aria-hidden="true">
-                  ──
-                </span>
-              ) : null}
-              <button
-                type="button"
-                class="ws-journey-bar-step"
-                data-status={step.status}
-                aria-current={step.status === "current" ? "page" : undefined}
-                onClick={() => onViewChange(step.id)}
-              >
-                <span aria-hidden="true">{stageMark(step.status)}</span>{" "}
-                {step.label}
-              </button>
-            </li>
-          ))}
-        </ol>
-      </nav>
-
       <div class="ws-body">
         <nav class="ws-stage-rail" aria-label="Stages">
           {steps.map((step) => (
@@ -145,44 +121,67 @@ export function Workspace({
               aria-current={step.status === "current" ? "page" : undefined}
               onClick={() => onViewChange(step.id)}
             >
-              <span aria-hidden="true">{stageMark(step.status)}</span>{" "}
-              {step.label}
+              <span class="ws-stage-mark" aria-hidden="true">
+                {stageMark(step.status)}
+              </span>
+              <span class="ws-stage-label">{step.label}</span>
             </button>
           ))}
         </nav>
 
         <div class="ws-panel" aria-label={VIEW_LABEL[view]}>
-          {view === "design" && liveDraft && settings ? (
-            <DesignView
-              draft={liveDraft}
-              settings={settings}
-              onDraftUpdated={handleDraftUpdated}
-              onReDraft={() => onReDraft?.()}
-              focusIssue={focusIssue}
-              onFocusIssueConsumed={() => setFocusIssue(undefined)}
-            />
-          ) : view === "verify" && liveDraft && settings ? (
-            <VerifyView
-              draft={liveDraft}
-              settings={settings}
-              onDraftUpdated={handleDraftUpdated}
-              onJumpToDesign={jumpToDesign}
-            />
-          ) : view === "ship" && liveDraft && settings ? (
-            <ShipView
-              draft={liveDraft}
-              settings={settings}
-              onDraftUpdated={handleDraftUpdated}
-              onEnabled={() => onShipped?.()}
-            />
-          ) : view === "activity" && liveDraft && settings ? (
-            <ActivityView
-              draft={liveDraft}
-              settings={settings}
-              onDraftUpdated={handleDraftUpdated}
-              onOpenSeats={() => onOpenSeats?.()}
-              onEditSpec={() => onViewChange("design")}
-            />
+          {liveDraft && settings ? (
+            <>
+              {/*
+                Keep Design (and its React Flow canvas) mounted under stage
+                overlays. Remounting flickers; visibility:hidden empties RF.
+              */}
+              <div
+                class="ws-stage-layer ws-stage-design"
+                data-active={view === "design" ? "1" : "0"}
+                aria-hidden={view !== "design"}
+              >
+                <DesignView
+                  draft={liveDraft}
+                  settings={settings}
+                  onDraftUpdated={handleDraftUpdated}
+                  onReDraft={() => onReDraft?.()}
+                  focusIssue={focusIssue}
+                  onFocusIssueConsumed={() => setFocusIssue(undefined)}
+                />
+              </div>
+              {view === "verify" ? (
+                <div class="ws-stage-layer ws-stage-overlay">
+                  <VerifyView
+                    draft={liveDraft}
+                    settings={settings}
+                    onDraftUpdated={handleDraftUpdated}
+                    onJumpToDesign={jumpToDesign}
+                  />
+                </div>
+              ) : null}
+              {view === "ship" ? (
+                <div class="ws-stage-layer ws-stage-overlay">
+                  <ShipView
+                    draft={liveDraft}
+                    settings={settings}
+                    onDraftUpdated={handleDraftUpdated}
+                    onEnabled={() => onShipped?.()}
+                  />
+                </div>
+              ) : null}
+              {view === "activity" ? (
+                <div class="ws-stage-layer ws-stage-overlay">
+                  <ActivityView
+                    draft={liveDraft}
+                    settings={settings}
+                    onDraftUpdated={handleDraftUpdated}
+                    onOpenSeats={() => onOpenSeats?.()}
+                    onEditSpec={() => onViewChange("design")}
+                  />
+                </div>
+              ) : null}
+            </>
           ) : (
             <p class="tile-meta">Draft not found on this Desk.</p>
           )}
