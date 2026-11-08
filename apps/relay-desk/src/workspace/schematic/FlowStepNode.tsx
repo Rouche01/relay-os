@@ -20,14 +20,15 @@ function quietBadges(node: SchematicNode, selected: boolean): SchematicBadge[] {
   const out: SchematicBadge[] = [];
   for (const b of node.badges) {
     if (b.kind === "slot" || b.kind === "hitl") continue;
-    if (b.kind === "forEach") {
-      out.push({ kind: "forEach", itemsRef: "×N items" });
-      continue;
-    }
+    // forEach / once / when / retry refs stay off the card until selected (sc3).
     if (
-      (b.kind === "once" || b.kind === "when" || b.kind === "retry") &&
-      !selected
+      b.kind === "forEach" ||
+      b.kind === "once" ||
+      b.kind === "when" ||
+      b.kind === "retry"
     ) {
+      if (!selected) continue;
+      out.push(b);
       continue;
     }
     out.push(b);

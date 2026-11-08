@@ -1,7 +1,7 @@
 /**
  * Zoomable Design schematic via @xyflow/react (Preact compat).
  * Spec / YAML remains source of truth — canvas is a projection.
- * sc1/sc2: measure node boxes → dagre TB layout → fitView once.
+ * sc1/sc2: measure → dagre TB → fitView once. sc3: quiet chrome.
  */
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -25,7 +25,9 @@ import type { SchematicModel } from "../../spec/schematic.ts";
 import { FlowStepNode } from "./FlowStepNode.tsx";
 import {
   FLOW_STEP_TYPE,
+  MINIMAP_MIN_STEPS,
   schematicToFlowElements,
+  withSelectionEdgeLabels,
   type NodeSize,
   type RelayFlowNode,
 } from "./flow-model.ts";
@@ -69,10 +71,13 @@ function SchematicCanvasInner({
   const layoutTimerRef = useRef<number>(0);
 
   const elements = useMemo(() => schematicToFlowElements(model), [model]);
+  const showMiniMap = elements.nodes.length >= MINIMAP_MIN_STEPS;
   const [nodes, setNodes, onNodesChange] = useNodesState(
     withSelection(elements.nodes, selectedId)
   );
-  const [edges, setEdges, onEdgesChange] = useEdgesState(elements.edges);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(
+    withSelectionEdgeLabels(elements.edges, selectedId)
+  );
 
   const runLayout = useCallback(
     (reason: "measure" | "signature") => {
@@ -87,7 +92,9 @@ function SchematicCanvasInner({
         sizesRef.current
       );
       setNodes(withSelection(laidOut, selectedRef.current));
-      setEdges(elements.edges);
+      setEdges(
+        withSelectionEdgeLabels(elements.edges, selectedRef.current)
+      );
 
       const passKey = `${elements.signature}::${measured ? "m" : "f"}`;
       if (layoutPassRef.current === passKey) return;
@@ -123,7 +130,9 @@ function SchematicCanvasInner({
     sizesRef.current = {};
     layoutPassRef.current = "";
     setNodes(withSelection(elements.nodes, selectedRef.current));
-    setEdges(elements.edges);
+    setEdges(
+      withSelectionEdgeLabels(elements.edges, selectedRef.current)
+    );
     // Placeholder stack until measures arrive; also layout with fallbacks so edges exist.
     const t = window.setTimeout(() => runLayout("signature"), 0);
     return () => {
@@ -143,7 +152,8 @@ function SchematicCanvasInner({
       });
       return changed ? next : prev;
     });
-  }, [selectedId, setNodes]);
+    setEdges(withSelectionEdgeLabels(elements.edges, selectedId));
+  }, [selectedId, setNodes, setEdges, elements.edges]);
 
   const onSelectionChange = useCallback(
     ({ nodes: selected }: OnSelectionChangeParams) => {
@@ -187,20 +197,22 @@ function SchematicCanvasInner({
               color="var(--line)"
             />
             <Controls showInteractive={false} position="top-left" />
-            <MiniMap
-              pannable
-              zoomable
-              position="bottom-right"
-              maskColor="color-mix(in srgb, var(--void) 70%, transparent)"
-              nodeColor={(n) => {
-                const kind = (n.data as { schematic?: { kind?: string } })
-                  ?.schematic?.kind;
-                if (kind === "hitl") {
-                  return "color-mix(in srgb, var(--signal) 55%, var(--panel-2))";
-                }
-                return "color-mix(in srgb, var(--signal) 30%, var(--panel-2))";
-              }}
-            />
+            {showMiniMap ? (
+              <MiniMap
+                pannable
+                zoomable
+                position="bottom-right"
+                maskColor="color-mix(in srgb, var(--void) 70%, transparent)"
+                nodeColor={(n) => {
+                  const kind = (n.data as { schematic?: { kind?: string } })
+                    ?.schematic?.kind;
+                  if (kind === "hitl") {
+                    return "color-mix(in srgb, var(--signal) 55%, var(--panel-2))";
+                  }
+                  return "color-mix(in srgb, var(--signal) 30%, var(--panel-2))";
+                }}
+              />
+            ) : null}
             {footer ? (
               <Panel
                 position="bottom-left"

@@ -962,6 +962,14 @@ body {
   stroke-width: 1.5;
 }
 
+.sch-flow-main .react-flow__edge-text {
+  font-size: 0.7rem;
+}
+
+.sch-flow-main .react-flow__edge-textbg {
+  fill: var(--panel-2);
+}
+
 .sch-flow-main .react-flow__node {
   font-size: inherit;
 }

@@ -3,25 +3,25 @@ name: Desk Design schematic canvas
 overview: "Polish Design Schematic into a stable, zoomable Spec projection (xyflow + Preact): auto-layout, measured nodes, quiet chrome, binding-on-node CTA — without freeform graph edit. Spec/YAML stays source of truth."
 todos:
   - id: sc0-baseline
-    content: "Baseline locked — @xyflow/react via Preact compat; custom relayStep nodes; floating Rules/meta Panel; Controls top-left; fitView once per flow signature; inspector dock; no freeform connect/drag"
+    content: Baseline locked — @xyflow/react via Preact compat; custom relayStep nodes; floating Rules/meta Panel; Controls top-left; fitView once per flow signature; inspector dock; no freeform connect/drag
     status: completed
   - id: sc1-auto-layout
-    content: "Auto-layout vertical spine with dagre or ELK after node measure — replace fixed NODE_STRIDE_Y; fitView once after layout settles"
+    content: Auto-layout vertical spine with dagre or ELK after node measure — replace fixed NODE_STRIDE_Y; fitView once after layout settles
     status: completed
   - id: sc2-measure-nodes
-    content: "Measure real node heights (ResizeObserver / useUpdateNodeInternals) so HITL / fan-out cards don’t overlap edges or confuse fitView"
+    content: Measure real node heights (ResizeObserver / useUpdateNodeInternals) so HITL / fan-out cards don’t overlap edges or confuse fitView
     status: completed
   - id: sc3-quiet-chrome
-    content: "Hide MiniMap until step count ≥ ~8; keep Controls + sticky Rules/meta; optional edge/ref labels only when a step is selected"
-    status: pending
+    content: Hide MiniMap until step count ≥ ~8; keep Controls + sticky Rules/meta; optional edge/ref labels only when a step is selected
+    status: completed
   - id: sc4-binding-cta
-    content: "Uses GitHub (slot bind control) on the node is the primary CTA — click opens binding picker (inspector can stay secondary); double-click node → Jump to YAML"
+    content: Uses GitHub (slot bind control) on the node is the primary CTA — click opens binding picker (inspector can stay secondary); double-click node → Jump to YAML
     status: pending
   - id: sc5-preact-guardrails
-    content: "Document Preact island rules for xyflow (hooks from react/compat only, className, stable nodeTypes, single fitView per signature); optional Design smoke assert nodes rendered"
+    content: Document Preact island rules for xyflow (hooks from react/compat only, className, stable nodeTypes, single fitView per signature); optional Design smoke assert nodes rendered
     status: pending
   - id: sc6-gated-edit-later
-    content: "Later — insert/reorder steps only via Spec patches (validate → refresh canvas). Out of scope until sc1–sc5 stable; never free wiring that invents engine verbs"
+    content: Later — insert/reorder steps only via Spec patches (validate → refresh canvas). Out of scope until sc1–sc5 stable; never free wiring that invents engine verbs
     status: pending
 isProject: true
 ---
@@ -86,3 +86,4 @@ w6 shipped a readable schematic; xyflow then gave pan/zoom/fit. Remaining gaps a
 
 - 2026-11-08 — Plan opened from Design canvas review (auto-layout, measure, quiet chrome, binding CTA, Preact guardrails; gated Spec edit later). sc0 baseline already in tree.
 - 2026-11-08 — sc2+sc1: `@dagrejs/dagre` TB layout (`layout.ts`); ResizeObserver + `useUpdateNodeInternals` via `measure-context`; fitView once after measure settles (`SchematicCanvas`).
+- 2026-11-08 — sc3: MiniMap gated at ≥8 steps; forEach/once/when/retry badges + edge ref labels only when connected step selected; Controls + Rules panel unchanged.

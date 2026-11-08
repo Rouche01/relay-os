@@ -9,6 +9,9 @@ export const FLOW_STEP_TYPE = "relayStep" as const;
 
 export const NODE_WIDTH = 280;
 
+/** MiniMap only helps once the spine is long enough to lose place (sc3). */
+export const MINIMAP_MIN_STEPS = 8;
+
 export type NodeSize = { width: number; height: number };
 
 export type FlowStepData = {
@@ -69,6 +72,7 @@ export function schematicToFlowElements(model: SchematicModel): {
   for (let i = 1; i < ordered.length; i++) {
     const from = ordered[i - 1]!;
     const to = ordered[i]!;
+    const ref = to.fromRef ?? to.forEach;
     edges.push({
       id: `e-${from.id}-${to.id}`,
       source: from.id,
@@ -76,6 +80,7 @@ export function schematicToFlowElements(model: SchematicModel): {
       type: "smoothstep",
       selectable: false,
       focusable: false,
+      data: ref ? { ref } : undefined,
     });
   }
 
@@ -84,4 +89,48 @@ export function schematicToFlowElements(model: SchematicModel): {
     edges,
     signature: ordered.map((n) => n.id).join(">"),
   };
+}
+
+/**
+ * Edge / forEach ref labels stay hidden until a connected step is selected (sc3).
+ */
+export function withSelectionEdgeLabels(
+  edges: Edge[],
+  selectedId: string | undefined
+): Edge[] {
+  return edges.map((edge) => {
+    const ref =
+      typeof edge.data === "object" &&
+      edge.data &&
+      "ref" in edge.data &&
+      typeof (edge.data as { ref?: unknown }).ref === "string"
+        ? (edge.data as { ref: string }).ref
+        : undefined;
+    const show =
+      Boolean(selectedId) &&
+      Boolean(ref) &&
+      (edge.source === selectedId || edge.target === selectedId);
+    const nextLabel = show ? ref : undefined;
+    if (edge.label === nextLabel) return edge;
+    return {
+      ...edge,
+      label: nextLabel,
+      labelShowBg: show,
+      labelStyle: show
+        ? {
+            fill: "var(--ink)",
+            fontSize: 11,
+            fontFamily: "var(--mono, ui-monospace, monospace)",
+          }
+        : undefined,
+      labelBgStyle: show
+        ? {
+            fill: "var(--panel-2)",
+            fillOpacity: 0.92,
+          }
+        : undefined,
+      labelBgPadding: show ? ([4, 6] as [number, number]) : undefined,
+      labelBgBorderRadius: show ? 4 : undefined,
+    };
+  });
 }
