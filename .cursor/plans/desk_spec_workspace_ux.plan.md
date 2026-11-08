@@ -177,7 +177,7 @@ Already available: `/api/v2/scaffold|validate|lower|evals|freeze|run`, `/api/v2/
 - 2026-11-02 — **w10 done:** Apps Manage only — removed shadow/approve/refreeze authoring; Edit spec thaws → Build Design; HITL runs → Seats; hash `#/apps/:id`.
 - 2026-11-02 — **w11 done:** `useWorkspaceDraft`; deleted `SpecSurface.tsx`; narrow-window workspace/apps styles; sidebar collapse already persisted.
 - 2026-11-02 — **w12 done:** Desk `tsc`+`vite build` pass; `installed-apps.test.ts` pass; DESIGN.md Flowstep screens marked implemented; manual E2E checklist in plan; linked from `relay_spec_to_working_app`.
-
+- 2026-11-08 — Design schematic polish (xyflow layout/measure/binding CTA) tracked in follow-on [`desk_design_schematic_canvas.plan.md`](./desk_design_schematic_canvas.plan.md); this plan stays complete (w0–w12).
 
 
 

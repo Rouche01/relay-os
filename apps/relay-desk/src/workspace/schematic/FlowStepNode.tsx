@@ -1,5 +1,10 @@
-import { memo } from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { memo, useEffect, useRef } from "react";
+import {
+  Handle,
+  Position,
+  useUpdateNodeInternals,
+  type NodeProps,
+} from "@xyflow/react";
 import {
   slotBindingPlainLabel,
   type SchematicBadge,
@@ -9,6 +14,7 @@ import {
   hitlSupportingLine,
   type RelayFlowNode,
 } from "./flow-model.ts";
+import { useReportNodeSize } from "./measure-context.tsx";
 
 function quietBadges(node: SchematicNode, selected: boolean): SchematicBadge[] {
   const out: SchematicBadge[] = [];
@@ -48,7 +54,7 @@ function badgeLabel(b: SchematicBadge): string {
   }
 }
 
-function FlowStepNodeImpl({ data, selected }: NodeProps<RelayFlowNode>) {
+function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
   const node = data.schematic;
   const title = data.label;
   const slotLine = node.slot ? slotBindingPlainLabel(node.slot) : undefined;
@@ -61,8 +67,31 @@ function FlowStepNodeImpl({ data, selected }: NodeProps<RelayFlowNode>) {
         ? "trigger"
         : "step";
 
+  const rootRef = useRef<HTMLDivElement>(null);
+  const reportSize = useReportNodeSize();
+  const updateNodeInternals = useUpdateNodeInternals();
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+
+    const publish = () => {
+      const width = Math.ceil(el.offsetWidth);
+      const height = Math.ceil(el.offsetHeight);
+      if (width <= 0 || height <= 0) return;
+      reportSize(id, { width, height });
+      updateNodeInternals(id);
+    };
+
+    publish();
+    const ro = new ResizeObserver(() => publish());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [id, reportSize, updateNodeInternals, selected, fanOut, slotLine]);
+
   return (
     <div
+      ref={rootRef}
       className={`sch-node sch-flow-node${fanOut ? " sch-flow-node-fanout" : ""}`}
       data-kind={kind}
       data-selected={selected ? "1" : "0"}

@@ -7,6 +7,10 @@ import type { SchematicModel, SchematicNode } from "../../spec/schematic.ts";
 
 export const FLOW_STEP_TYPE = "relayStep" as const;
 
+export const NODE_WIDTH = 280;
+
+export type NodeSize = { width: number; height: number };
+
 export type FlowStepData = {
   schematic: SchematicNode;
   label: string;
@@ -14,8 +18,8 @@ export type FlowStepData = {
 
 export type RelayFlowNode = Node<FlowStepData, typeof FLOW_STEP_TYPE>;
 
-const NODE_WIDTH = 280;
-const NODE_STRIDE_Y = 160;
+/** Initial stack before measure + dagre (sc1/sc2). */
+const PLACEHOLDER_STRIDE_Y = 140;
 const START_X = 80;
 const START_Y = 40;
 
@@ -49,7 +53,7 @@ export function schematicToFlowElements(model: SchematicModel): {
     type: FLOW_STEP_TYPE,
     position: {
       x: START_X,
-      y: START_Y + index * NODE_STRIDE_Y,
+      y: START_Y + index * PLACEHOLDER_STRIDE_Y,
     },
     data: {
       schematic,

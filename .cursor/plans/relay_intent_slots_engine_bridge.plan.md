@@ -129,3 +129,5 @@ Intent
 - Desk GUIDE: [`apps/relay-desk/GUIDE.md`](../../apps/relay-desk/GUIDE.md)  
 - Vocab + apply: [`packages/protocol/src/capability-slots.ts`](../../packages/protocol/src/capability-slots.ts), [`apply-resolved-slots.ts`](../../packages/protocol/src/apply-resolved-slots.ts)  
 - Scaffold slots: [`packages/spec-scaffold/src/slots.ts`](../../packages/spec-scaffold/src/slots.ts)  
+- Design canvas polish (xyflow layout / binding-on-node): [`desk_design_schematic_canvas.plan.md`](./desk_design_schematic_canvas.plan.md) — separate from `is2`+; Spec stays truth  
+
