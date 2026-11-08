@@ -401,8 +401,22 @@ export function DesignView({
     <aside class="sch-inspector" aria-label="Step inspector">
       {selected ? (
         <>
-          <p class="tile-label">Step</p>
+          <p class="tile-label">
+            {selected.kind === "trigger"
+              ? "Trigger"
+              : selected.kind === "hitl"
+                ? "Gate"
+                : "Step"}
+          </p>
           <h2 class="tile-title">{humanStepTitle(selected)}</h2>
+          {selected.kind === "trigger" && selected.label ? (
+            <p class="tile-meta mono">{selected.label}</p>
+          ) : null}
+          {selected.kind === "trigger" ? (
+            <p class="tile-meta muted">
+              Wraps when this flow runs — not a step in the spine.
+            </p>
+          ) : null}
           {selected.slot ? (
             <>
               <p class="tile-meta">{slotBindingPlainLabel(selected.slot)}</p>

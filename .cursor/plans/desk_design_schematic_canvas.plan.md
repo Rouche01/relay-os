@@ -94,3 +94,5 @@ w6 shipped a readable schematic; xyflow then gave pan/zoom/fit. Remaining gaps a
 - 2026-11-08 — Reverted schematic keep-alive: remount canvas when Schematic tab/Design stage is shown; size-keyed fitView. Hidden RF was leaving empty viewport on re-entry.
 - 2026-11-08 — Cover mount: keep Design/SchematicCanvas always sized underneath opaque Manifest/YAML and Verify/Ship/Activity overlays (no remount flicker, no visibility:hidden).
 - 2026-11-08 — Rules/meta: leave RF Panel overlay; compact rail under the canvas column (inspector still full-height).
+- 2026-11-08 — Shapes: HITL diamond gate; capability steps stay rounded rects; trigger/schedule is a dashed frame wrapping the spine (not step 0).
+- 2026-11-08 — Fan-out stack: opaque top-peek via box-shadow only (no extra DOM/padding) so measure stays quiet and the deck isn’t see-through.

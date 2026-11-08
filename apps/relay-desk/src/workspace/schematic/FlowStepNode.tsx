@@ -11,6 +11,7 @@ import {
   type SchematicNode,
 } from "../../spec/schematic.ts";
 import {
+  HITL_SIZE,
   hitlSupportingLine,
   type NodeSize,
   type RelayFlowNode,
@@ -63,12 +64,8 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
   const slotLine = node.slot ? slotBindingPlainLabel(node.slot) : undefined;
   const badges = quietBadges(node, Boolean(selected));
   const fanOut = Boolean(node.forEach);
-  const kind =
-    node.kind === "hitl"
-      ? "hitl"
-      : node.kind === "trigger"
-        ? "trigger"
-        : "step";
+  const kind = node.kind === "hitl" ? "hitl" : "step";
+  const isHitl = kind === "hitl";
 
   const rootRef = useRef<HTMLDivElement>(null);
   const reportSize = useReportNodeSize();
@@ -88,8 +85,12 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
     if (!el) return;
 
     const publish = () => {
-      const width = Math.ceil(el.offsetWidth);
-      const height = Math.ceil(el.offsetHeight);
+      // HITL is a fixed AABB so handles stay on the tips; other nodes
+      // use layout-box measure (not getBoundingClientRect — zoom skews it).
+      // Select/unselect badge chrome must report so the card (and fan-out
+      // deck shadow) snaps to the new content box.
+      const width = isHitl ? HITL_SIZE : Math.ceil(el.offsetWidth);
+      const height = isHitl ? HITL_SIZE : Math.ceil(el.offsetHeight);
       if (width <= 0 || height <= 0) return;
       const prev = lastSizeRef.current;
       const same =
@@ -98,13 +99,7 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
         Math.abs(prev.height - height) < 1;
       if (same) return;
       lastSizeRef.current = { width, height };
-      // Quiet sizes are preferred for dagre; after settle, non-baseline
-      // reports are ignored so selection chrome doesn’t reflow the spine.
-      reportSize(
-        id,
-        { width, height },
-        { baseline: !selected && !pickerOpen }
-      );
+      reportSize(id, { width, height });
       updateNodeInternals(id);
     };
 
@@ -112,7 +107,7 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
     const ro = new ResizeObserver(() => publish());
     ro.observe(el);
     return () => ro.disconnect();
-  }, [id, reportSize, updateNodeInternals, selected, pickerOpen]);
+  }, [id, isHitl, reportSize, updateNodeInternals, selected, pickerOpen]);
 
   const onBindClick = (e: {
     stopPropagation: () => void;
@@ -125,30 +120,17 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
     actions.setBindingOpenId(actions.bindingOpenId === id ? undefined : id);
   };
 
-  return (
-    <div
-      ref={rootRef}
-      className={`sch-node sch-flow-node${fanOut ? " sch-flow-node-fanout" : ""}`}
-      data-kind={kind}
-      data-selected={selected ? "1" : "0"}
-      data-irreversible={node.irreversible ? "1" : "0"}
-      data-bind-open={pickerOpen ? "1" : "0"}
-    >
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="sch-handle"
-        isConnectable={false}
-      />
+  const body = (
+    <>
       <div className="sch-node-top">
         <span className="sch-node-label">{title}</span>
-        {node.kind === "hitl" ? (
+        {isHitl ? (
           <span className="sch-badge" data-kind="hitl">
             Needs you
           </span>
         ) : null}
       </div>
-      {node.kind === "hitl" ? (
+      {isHitl ? (
         <span className="sch-node-support">{hitlSupportingLine(node)}</span>
       ) : null}
       {slotLine && node.slot ? (
@@ -221,10 +203,7 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
           ) : null}
         </div>
       ) : null}
-      {node.kind === "trigger" && node.label ? (
-        <span className="sch-node-svc mono">{node.label}</span>
-      ) : null}
-      {node.operation && node.kind !== "hitl" ? (
+      {node.operation && !isHitl ? (
         <span className="sch-node-svc mono">{node.operation}</span>
       ) : null}
       {fanOut ? (
@@ -243,6 +222,33 @@ function FlowStepNodeImpl({ id, data, selected }: NodeProps<RelayFlowNode>) {
           ))}
         </span>
       ) : null}
+    </>
+  );
+
+  return (
+    <div
+      ref={rootRef}
+      className={`sch-node sch-flow-node${fanOut ? " sch-flow-node-fanout" : ""}${isHitl ? " sch-flow-node-hitl" : ""}`}
+      data-kind={kind}
+      data-selected={selected ? "1" : "0"}
+      data-irreversible={node.irreversible ? "1" : "0"}
+      data-bind-open={pickerOpen ? "1" : "0"}
+    >
+      <Handle
+        type="target"
+        position={Position.Top}
+        className="sch-handle"
+        isConnectable={false}
+      />
+      {isHitl ? (
+        <div className="sch-hitl-diamond">
+          <div className="sch-hitl-diamond-face">
+            <div className="sch-hitl-diamond-inner">{body}</div>
+          </div>
+        </div>
+      ) : (
+        body
+      )}
       <Handle
         type="source"
         position={Position.Bottom}

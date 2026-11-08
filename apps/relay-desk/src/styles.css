@@ -1083,12 +1083,50 @@ body {
   cursor: pointer;
 }
 
-.sch-flow-node-fanout {
-  box-shadow:
-    6px -6px 0 -1px color-mix(in srgb, var(--panel-2) 70%, transparent),
-    6px -6px 0 0 var(--line),
-    11px -11px 0 -1px color-mix(in srgb, var(--panel-2) 45%, transparent),
-    11px -11px 0 0 color-mix(in srgb, var(--line) 70%, transparent);
+/* Trigger / schedule wraps the spine — not a peer step. */
+.sch-flow-main .react-flow__node-relayFrame {
+  pointer-events: all;
+  z-index: -1 !important;
+  overflow: visible;
+}
+
+.sch-flow-frame {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border: 1px dashed color-mix(in srgb, var(--signal) 40%, var(--line));
+  border-radius: calc(var(--radius) + 2px);
+  background: color-mix(in srgb, var(--panel) 35%, transparent);
+  pointer-events: none;
+}
+
+.sch-flow-frame[data-selected="1"] {
+  border-color: color-mix(in srgb, var(--signal) 75%, var(--line));
+  background: color-mix(in srgb, var(--signal) 6%, transparent);
+}
+
+.sch-flow-frame-head {
+  pointer-events: auto;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  padding: 0.55rem 0.85rem 0.45rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--signal) 22%, var(--line));
+  cursor: pointer;
+}
+
+.sch-flow-frame-kind {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--signal) 70%, var(--ink));
+}
+
+.sch-flow-frame-detail {
+  font-size: 0.68rem;
+  color: var(--muted);
 }
 
 .sch-handle {
@@ -1255,14 +1293,8 @@ body {
   box-sizing: border-box;
 }
 
-.sch-node[data-kind="trigger"] {
-  border-style: solid;
-}
-
-.sch-node[data-kind="hitl"],
-.sch-node[data-kind="diamond"] {
-  border-color: color-mix(in srgb, var(--signal) 70%, var(--line));
-  background: color-mix(in srgb, var(--signal) 7%, var(--panel-2));
+.sch-node[data-kind="step"] {
+  border-radius: var(--radius);
 }
 
 .sch-node[data-irreversible="1"] {
@@ -1272,6 +1304,150 @@ body {
 .sch-node[data-selected="1"] {
   box-shadow: inset 0 0 0 1px var(--signal);
   border-color: color-mix(in srgb, var(--signal) 75%, var(--line));
+}
+
+/*
+  Fan-out stack = paint-only opaque cards peeking above the face.
+  After .sch-node[data-selected] so selection doesn’t wipe the deck.
+  box-shadow does not affect layout/measure → no RO/dagre flicker.
+*/
+.sch-flow-node.sch-flow-node-fanout {
+  --sch-fanout-edge: var(--line);
+  box-shadow:
+    5px -5px 0 0 var(--panel-2),
+    5px -5px 0 1px var(--sch-fanout-edge),
+    10px -10px 0 0 var(--panel-2),
+    10px -10px 0 1px var(--sch-fanout-edge);
+}
+
+.sch-flow-node.sch-flow-node-fanout[data-irreversible="1"] {
+  --sch-fanout-edge: color-mix(in srgb, var(--danger) 65%, var(--line));
+}
+
+.sch-flow-node.sch-flow-node-fanout[data-selected="1"] {
+  box-shadow:
+    inset 0 0 0 1px var(--signal),
+    5px -5px 0 0 var(--panel-2),
+    5px -5px 0 1px var(--sch-fanout-edge),
+    10px -10px 0 0 var(--panel-2),
+    10px -10px 0 1px var(--sch-fanout-edge);
+}
+
+/*
+  HITL diamond — must follow .sch-node so padding/width/gap aren't
+  overridden (that was leaving handles floating off the tips).
+*/
+.sch-flow-node.sch-flow-node-hitl {
+  /* 200px — keep in sync with HITL_SIZE in flow-model.ts */
+  --sch-hitl-side: 200px;
+  position: relative;
+  width: var(--sch-hitl-side) !important;
+  height: var(--sch-hitl-side) !important;
+  min-height: var(--sch-hitl-side);
+  padding: 0 !important;
+  gap: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  align-items: stretch;
+  overflow: visible;
+}
+
+.sch-flow-node.sch-flow-node-hitl[data-selected="1"] {
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+.sch-hitl-diamond {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  background: color-mix(in srgb, var(--signal) 70%, var(--line));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5px;
+  pointer-events: none;
+}
+
+.sch-hitl-diamond-face {
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  background: color-mix(in srgb, var(--signal) 9%, var(--panel-2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.sch-flow-node.sch-flow-node-hitl[data-selected="1"] .sch-hitl-diamond {
+  background: var(--signal);
+}
+
+.sch-flow-node.sch-flow-node-hitl[data-irreversible="1"] .sch-hitl-diamond {
+  background: color-mix(in srgb, var(--danger) 70%, var(--line));
+}
+
+.sch-hitl-diamond-inner {
+  width: 7.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  text-align: center;
+}
+
+.sch-hitl-diamond-inner .sch-node-top {
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
+.sch-hitl-diamond-inner .sch-node-label {
+  font-size: 0.82rem;
+}
+
+.sch-hitl-diamond-inner .sch-node-support {
+  font-size: 0.62rem;
+  line-height: 1.2;
+  max-height: 2.4em;
+  overflow: hidden;
+}
+
+.sch-hitl-diamond-inner .sch-node-bind-wrap {
+  width: 100%;
+}
+
+.sch-hitl-diamond-inner .sch-node-bind {
+  justify-content: center;
+  font-size: 0.62rem;
+}
+
+/* Tiny handles centered on tips — large dots read as floating off a point. */
+.sch-flow-main .react-flow__node .sch-flow-node-hitl .sch-handle.react-flow__handle-top,
+.sch-flow-main .react-flow__node .sch-flow-node-hitl .sch-handle[data-handlepos="top"] {
+  top: 0 !important;
+  left: 50% !important;
+  width: 6px !important;
+  height: 6px !important;
+  z-index: 3;
+  transform: translate(-50%, -50%) !important;
+}
+
+.sch-flow-main .react-flow__node .sch-flow-node-hitl .sch-handle.react-flow__handle-bottom,
+.sch-flow-main .react-flow__node .sch-flow-node-hitl .sch-handle[data-handlepos="bottom"] {
+  top: auto !important;
+  bottom: 0 !important;
+  left: 50% !important;
+  width: 6px !important;
+  height: 6px !important;
+  z-index: 3;
+  transform: translate(-50%, 50%) !important;
 }
 
 .sch-node-top {
