@@ -68,6 +68,27 @@ function draft(overrides: Partial<CommunityDraft> = {}): CommunityDraft {
   };
 }
 
+describe("listingPostsToDrafts kind", () => {
+  it("defaults skeletons to help", () => {
+    const [mapped] = listingPostsToDrafts(
+      [listingPost({ selftext: "Looking for a simple system that works together." })],
+      3
+    );
+    assert.ok(mapped);
+    assert.equal(mapped.kind, "help");
+  });
+
+  it("stamps opts.kind when provided", () => {
+    const [mapped] = listingPostsToDrafts(
+      [listingPost({ selftext: "Looking for a simple system that works together." })],
+      3,
+      { kind: "presence" }
+    );
+    assert.ok(mapped);
+    assert.equal(mapped.kind, "presence");
+  });
+});
+
 describe("listingPostsToDrafts opText", () => {
   it("copies a trimmed selftext onto the draft", () => {
     const [mapped] = listingPostsToDrafts(

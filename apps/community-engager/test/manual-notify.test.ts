@@ -40,6 +40,7 @@ describe("formatManualPostNotify", () => {
   it("includes permalink and copy block without Approve jargon", () => {
     const text = formatManualPostNotify(sampleDraft());
     assert.match(text, /Post on Reddit · r\/femalefashionadvice/);
+    assert.match(text, /lane help/);
     assert.match(text, /score 7\/8/);
     assert.match(text, /help-only/);
     assert.match(
@@ -90,6 +91,9 @@ describe("draftToFeedbackContext postMode=manual", () => {
       },
     });
     assert.equal(ctx.meta?.postMode, "manual");
+    assert.ok(ctx.details?.some((d) => d.label === "Lane"));
+    assert.equal(ctx.details?.find((d) => d.label === "Lane")?.value, "help");
+    assert.equal(ctx.meta?.engageKind, "help");
     assert.ok(ctx.details?.some((d) => d.label === "Subreddit"));
     assert.ok(ctx.details?.some((d) => d.label === "Score"));
     assert.ok(ctx.details?.some((d) => d.label === "Warmup"));
@@ -98,6 +102,15 @@ describe("draftToFeedbackContext postMode=manual", () => {
     assert.ok(!ctx.details?.some((d) => d.label === "Post mode"));
     assert.ok(!ctx.details?.some((d) => d.label === "Cadence"));
     assert.ok(!ctx.details?.some((d) => d.label === "Model"));
+  });
+
+  it("surfaces presence lane on card when draft.kind is set", () => {
+    const ctx = draftToFeedbackContext(
+      sampleDraft({ kind: "presence" }),
+      { postMode: "manual" }
+    );
+    assert.equal(ctx.details?.find((d) => d.label === "Lane")?.value, "presence");
+    assert.equal(ctx.meta?.engageKind, "presence");
   });
 
   it("adds Model detail when draftProvider/draftModel are set", () => {

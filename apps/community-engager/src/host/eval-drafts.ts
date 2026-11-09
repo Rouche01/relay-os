@@ -34,6 +34,7 @@ function caseToSkeleton(c: DraftEvalCase): CommunityDraft {
     subreddit: c.subreddit,
     threadUrl: `https://reddit.com/r/${c.subreddit}/comments/eval/${c.id}`,
     threadTitle: c.threadTitle,
+    kind: "help",
     opText: c.opText,
     ...(c.opMediaHint ? { opMediaHint: c.opMediaHint } : {}),
     draftText: "",

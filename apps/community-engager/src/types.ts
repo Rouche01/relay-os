@@ -14,6 +14,33 @@ export type PromoIntensity = 0 | 1 | 2;
 export type CommunityPlatform = "reddit";
 
 /**
+ * Engagement lane. Scout/draft/cadence are single-kind per entrypoint.
+ * Missing/`undefined` on older drafts → treat as {@link DEFAULT_ENGAGE_KIND}.
+ */
+export type EngageKind = "help" | "presence" | "create";
+
+export const DEFAULT_ENGAGE_KIND: EngageKind = "help";
+
+const ENGAGE_KINDS = new Set<EngageKind>(["help", "presence", "create"]);
+
+/** Parse lane kind; unknown / empty → help. */
+export function normalizeEngageKind(raw?: string | null): EngageKind {
+  const v = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  return ENGAGE_KINDS.has(v as EngageKind)
+    ? (v as EngageKind)
+    : DEFAULT_ENGAGE_KIND;
+}
+
+/** Resolve kind on a draft (back-compat default help). */
+export function engageKindOf(draft: {
+  kind?: EngageKind | string | null;
+}): EngageKind {
+  return normalizeEngageKind(draft.kind);
+}
+
+/**
  * Opportunity score dimensions (equal weight 1 each).
  * Actionable when {@link scoreTotal} ≥ {@link ACTIONABLE_SCORE_MIN} (5/8).
  */
@@ -54,6 +81,11 @@ export interface CommunityDraft {
   subreddit: string;
   threadUrl: string;
   threadTitle: string;
+  /**
+   * Lane this opportunity belongs to. Default {@link DEFAULT_ENGAGE_KIND}
+   * when omitted (legacy fixtures / older runs).
+   */
+  kind?: EngageKind;
   /** OP body (selftext), trimmed and capped. Empty when the listing had none. */
   opText?: string;
   /**
@@ -77,6 +109,30 @@ export interface CommunityDraft {
   draftProvider?: DraftProvider;
   /** Versioned model id (e.g. gemini-2.5-flash) or "stub". */
   draftModel?: string;
+}
+
+/**
+ * Top-level original-post proposal (create lane). Distinct from reply drafts;
+ * pipeline lands in a later slice — shape is locked here for HITL/evidence.
+ */
+export interface CreateProposal {
+  id: string;
+  kind: "create";
+  platform: CommunityPlatform;
+  subreddit: string;
+  title: string;
+  body: string;
+  /** Short pattern extracted from winner source(s). */
+  patternSummary: string;
+  /** Reddit fullnames (t3_…) for remodel sources. */
+  sourcePostIds: string[];
+  /** Permalinks for HITL / audit. */
+  sourcePermalinks: string[];
+  status: ActionStatus;
+  createdAt: string;
+  draftProvider?: DraftProvider;
+  draftModel?: string;
+  rationale?: string;
 }
 
 export function scoreTotal(score: OpportunityScore): number {

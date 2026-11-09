@@ -87,6 +87,7 @@ export function fixtureToDraftSkeleton(thread: FixtureThread): Omit<
     subreddit: thread.subreddit,
     threadUrl: thread.threadUrl,
     threadTitle: thread.threadTitle,
+    kind: "help",
     opText: thread.opText,
     draftText: "",
     intensity: thread.intensity,

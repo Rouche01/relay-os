@@ -1,7 +1,9 @@
-import type { CommunityDraft } from "../../types.js";
+import type { CommunityDraft, EngageKind } from "../../types.js";
 import {
   ACTIONABLE_SCORE_MIN,
+  DEFAULT_ENGAGE_KIND,
   isActionable,
+  normalizeEngageKind,
   scoreTotal,
 } from "../../types.js";
 import {
@@ -43,6 +45,12 @@ export interface ListingPostsToDraftsOptions {
   maxAgeHours?: number;
   /** Clock override for age filter (tests). */
   nowMs?: number;
+  /**
+   * Lane stamped on each skeleton. Default {@link DEFAULT_ENGAGE_KIND}.
+   * Presence/create entrypoints pass their kind; scoring still help-only until
+   * the presence scorer lands.
+   */
+  kind?: EngageKind;
 }
 
 function playbookForSub(
@@ -60,6 +68,7 @@ export function listingPostsToDrafts(
 ): CommunityDraft[] {
   const exclude = opts?.excludeIds;
   const nowMs = opts?.nowMs ?? Date.now();
+  const kind = normalizeEngageKind(opts?.kind ?? DEFAULT_ENGAGE_KIND);
   const maxAgeHours =
     opts?.maxAgeHours !== undefined
       ? opts.maxAgeHours
@@ -125,6 +134,7 @@ export function listingPostsToDrafts(
       subreddit: post.subreddit,
       threadUrl: post.permalink,
       threadTitle: post.title,
+      kind,
       opText,
       ...(media.hint ? { opMediaHint: media.hint } : {}),
       ...(distinctMediaUrl ? { postUrl: distinctMediaUrl } : {}),

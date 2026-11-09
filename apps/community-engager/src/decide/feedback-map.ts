@@ -1,6 +1,6 @@
 import type { FeedbackContext, FeedbackDetail } from "@relay/protocol";
 import type { CommunityDraft } from "../types.js";
-import { SCORE_MAX, scoreTotal } from "../types.js";
+import { engageKindOf, SCORE_MAX, scoreTotal } from "../types.js";
 import type { CadenceStatus } from "../policy/cadence.js";
 import type { PromoRatioStatus } from "../policy/promo-ratio.js";
 import type { WarmupStatus } from "../policy/warmup.js";
@@ -40,7 +40,9 @@ export function draftToFeedbackContext(
   }
 ): FeedbackContext {
   const manual = opts?.postMode === "manual";
+  const kind = engageKindOf(draft);
   const details: FeedbackDetail[] = [
+    { label: "Lane", value: kind },
     { label: "Subreddit", value: `r/${draft.subreddit}` },
     { label: "Score", value: `${scoreTotal(draft.score)}/${SCORE_MAX}` },
   ];
@@ -96,6 +98,7 @@ export function draftToFeedbackContext(
     details,
     meta: {
       kind: "draft",
+      engageKind: kind,
       platform: draft.platform,
       intensity: draft.intensity,
       score: draft.score,

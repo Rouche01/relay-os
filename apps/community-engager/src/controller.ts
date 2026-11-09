@@ -116,7 +116,13 @@ import {
 } from "./reddit/interstitial/interstitial-session.js";
 import { scoutOpportunities } from "./stages/scout/scout.js";
 import type { CommunityDraft } from "./types.js";
-import { ACTIONABLE_SCORE_MIN, isActionable, SCORE_MAX, scoreTotal } from "./types.js";
+import {
+  ACTIONABLE_SCORE_MIN,
+  engageKindOf,
+  isActionable,
+  SCORE_MAX,
+  scoreTotal,
+} from "./types.js";
 import {
   draftPreview,
   type DiscoverEvidence,
@@ -2934,9 +2940,11 @@ export class CommunityEngagerController implements AppController {
     });
     const preview = draftPreview(drafted.draftText);
     const draftModel = drafted.draftModel;
+    const draftKind = engageKindOf(drafted);
     const draftEvidence: DraftEvidence = {
       id: drafted.id,
       subreddit: drafted.subreddit,
+      kind: draftKind,
       scoreTotal: scoreTotal(drafted.score),
       intensity: drafted.intensity,
       memoryUsed: Boolean(memoryBlock),
@@ -2960,7 +2968,7 @@ export class CommunityEngagerController implements AppController {
       draft: draftEvidence,
     };
     console.log(
-      `[draft] pending_approval id=${drafted.id} intensity=${drafted.intensity} provider=${provider}` +
+      `[draft] pending_approval id=${drafted.id} kind=${draftKind} intensity=${drafted.intensity} provider=${provider}` +
         (draftModel ? ` model=${draftModel}` : "") +
         ` chars=${drafted.draftText.length}` +
         (forceIntensity0 ? " helpOnly=1" : "") +

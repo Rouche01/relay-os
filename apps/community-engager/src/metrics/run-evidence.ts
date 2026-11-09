@@ -1,7 +1,11 @@
-import type { DraftProvider, PromoIntensity } from "../types.js";
+import type {
+  DraftProvider,
+  EngageKind,
+  PromoIntensity,
+} from "../types.js";
 import type { ScoutReport } from "../stages/scout/scout-report.js";
 
-export type { DraftProvider };
+export type { DraftProvider, EngageKind };
 
 /** Parent-run session stage evidence. */
 export interface SessionEvidence {
@@ -39,6 +43,8 @@ export interface DiscoverEvidence {
 export interface DraftEvidence {
   id: string;
   subreddit: string;
+  /** Engagement lane (help / presence / create). */
+  kind: EngageKind;
   scoreTotal: number;
   intensity: PromoIntensity;
   memoryUsed: boolean;

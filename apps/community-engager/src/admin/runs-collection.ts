@@ -21,6 +21,7 @@ type RunJob = {
   error?: string;
   postedUrl?: string;
   draft?: {
+    kind?: string;
     intensity?: number;
     provider?: string;
     model?: string;
@@ -212,6 +213,10 @@ function buildRunDebugViz(data: RunRecord): RunDebugViz {
     stages,
     jobs: jobs.map((j, i) => {
       const model = formatDraftModelLabel(j.draft?.provider, j.draft?.model);
+      const kind =
+        typeof j.draft?.kind === "string" && j.draft.kind.trim()
+          ? j.draft.kind.trim()
+          : undefined;
       return {
         id: j.id ?? `job-${i}`,
         outcome: j.outcome ?? "unknown",
@@ -219,6 +224,7 @@ function buildRunDebugViz(data: RunRecord): RunDebugViz {
         title: j.threadTitle,
         error: j.error ?? j.execute?.error,
         postedUrl: j.postedUrl ?? j.execute?.postedUrl,
+        ...(kind ? { kind } : {}),
         ...(model ? { model } : {}),
       };
     }),

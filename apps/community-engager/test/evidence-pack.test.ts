@@ -14,6 +14,7 @@ function draft(partial: Partial<CommunityDraft> = {}): CommunityDraft {
     subreddit: "malefashionadvice",
     threadUrl: "https://reddit.com/r/x/comments/1",
     threadTitle: "fit check",
+    kind: "help",
     draftText: "Helpful reply",
     intensity: 0,
     status: "approved",

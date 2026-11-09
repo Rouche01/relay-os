@@ -1,5 +1,5 @@
 import type { CommunityDraft } from "../../types.js";
-import { SCORE_MAX, scoreTotal } from "../../types.js";
+import { engageKindOf, SCORE_MAX, scoreTotal } from "../../types.js";
 
 const TITLE_MAX = 120;
 
@@ -18,6 +18,7 @@ export function formatManualPostNotify(draft: CommunityDraft): string {
   const score = scoreTotal(draft.score);
   const title = truncateTitle(draft.threadTitle);
   const permalink = draft.threadUrl.trim();
+  const kind = engageKindOf(draft);
   const tone =
     draft.intensity === 0
       ? "help-only"
@@ -34,6 +35,6 @@ export function formatManualPostNotify(draft: CommunityDraft): string {
     `${draft.draftText.trim()}\n` +
     `────────\n\n` +
     `Paste it yourself — nothing is posted automatically.\n` +
-    `(score ${score}/${SCORE_MAX} · ${tone})`
+    `(lane ${kind} · score ${score}/${SCORE_MAX} · ${tone})`
   );
 }
