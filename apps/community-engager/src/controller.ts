@@ -118,8 +118,9 @@ import { scoutOpportunities } from "./stages/scout/scout.js";
 import type { CommunityDraft } from "./types.js";
 import {
   ACTIONABLE_SCORE_MIN,
+  draftScoreSummary,
   engageKindOf,
-  isActionable,
+  isDraftActionable,
   SCORE_MAX,
   scoreTotal,
 } from "./types.js";
@@ -2941,11 +2942,12 @@ export class CommunityEngagerController implements AppController {
     const preview = draftPreview(drafted.draftText);
     const draftModel = drafted.draftModel;
     const draftKind = engageKindOf(drafted);
+    const laneScore = draftScoreSummary(drafted);
     const draftEvidence: DraftEvidence = {
       id: drafted.id,
       subreddit: drafted.subreddit,
       kind: draftKind,
-      scoreTotal: scoreTotal(drafted.score),
+      scoreTotal: laneScore.total,
       intensity: drafted.intensity,
       memoryUsed: Boolean(memoryBlock),
       memoryChars: memoryBlock?.length ?? 0,
@@ -2979,7 +2981,7 @@ export class CommunityEngagerController implements AppController {
   /** Fallback for a single-runtime run (no job queue): take the top opportunity. */
   private pickFromQueue(ctx: AgentContext): CommunityDraft {
     const opportunities = (ctx.opportunities as CommunityDraft[] | undefined) ?? [];
-    const top = opportunities.find((d) => isActionable(d.score));
+    const top = opportunities.find((d) => isDraftActionable(d));
     if (!top) {
       throw new Error("No actionable opportunity to draft — scout returned none");
     }

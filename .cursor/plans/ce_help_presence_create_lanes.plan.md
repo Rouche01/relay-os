@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: presence-score
     content: Presence scoring dims (fashionFit, takeRoom, competition, freshness, rulesOk, voiceFit); stop HAUL_FLEX hard-kill for presence; playbook megathread opt-in
-    status: pending
+    status: completed
   - id: presence-draft
     content: Presence draft prompt + eval cases (short take / tip / light joke); force intensity 0 until karma/reply thresholds
     status: pending

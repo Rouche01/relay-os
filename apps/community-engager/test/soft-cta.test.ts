@@ -8,6 +8,7 @@ import {
   hasDisallowedIntensity1Link,
   withUtm,
 } from "../src/stages/draft/soft-cta.js";
+import { DEFAULT_PLAYBOOK } from "../src/policy/playbook.js";
 import type { CommunityDraft } from "../src/types.js";
 
 function draft(overrides: Partial<CommunityDraft> = {}): CommunityDraft {
@@ -155,6 +156,7 @@ describe("draftReply soft-CTA stubs", () => {
       intensity: 2,
       lpBaseUrl: "https://gostylens.app/start",
       playbook: {
+        ...DEFAULT_PLAYBOOK,
         rulesSummary: "test",
         plugStyle: "disclose_link",
         megathreadPolicy: "skip",

@@ -1,4 +1,4 @@
-import { isActionable } from "../../types.js";
+import { isDraftActionable } from "../../types.js";
 import type { CommunityDraft } from "../../types.js";
 import { FIXTURE_THREADS, fixtureToDraftSkeleton } from "../../fixtures/threads.js";
 import {
@@ -299,7 +299,7 @@ export async function scoutOpportunities(
   const drafts = FIXTURE_THREADS.map((t) => fixtureToDraftSkeleton(t));
   const filtered = opts.includeRejected
     ? drafts
-    : drafts.filter((d) => isActionable(d.score));
+    : drafts.filter((d) => isDraftActionable(d));
   const fresh = filtered.filter((d) => !exclude.has(d.id));
   return finish(
     "fixtures",

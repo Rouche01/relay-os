@@ -72,6 +72,40 @@ export const SCORE_MAX = 8;
  */
 export const ACTIONABLE_SCORE_MIN = 5;
 
+/**
+ * Presence-lane score (equal weight 1 each).
+ * Actionable when {@link presenceScoreTotal} ≥ {@link PRESENCE_ACTIONABLE_MIN} (4/6).
+ */
+export interface PresenceScore {
+  /** Fit check / outfit / style opinion / tippable fashion */
+  fashionFit: boolean;
+  /** Room for a short concrete take (invite, photo, or substance) */
+  takeRoom: boolean;
+  /** Thread still has room to contribute */
+  competition: boolean;
+  /** Thread is fresh enough */
+  freshnessOk: boolean;
+  /** Allowlisted + playbook.presenceEnabled */
+  rulesOk: boolean;
+  /** Megathread OK for this playbook (or not a megathread) */
+  voiceFit: boolean;
+}
+
+export const PRESENCE_SCORE_MAX = 6;
+export const PRESENCE_ACTIONABLE_MIN = 4;
+
+/** All-false help score placeholder when a draft is presence-only. */
+export const EMPTY_OPPORTUNITY_SCORE: OpportunityScore = {
+  problemFit: false,
+  wantsHelp: false,
+  rulesOk: false,
+  freshnessOk: false,
+  valueWithoutApp: false,
+  competition: false,
+  icpFit: false,
+  plugNaturalness: false,
+};
+
 /** Who produced draftText (LLM provider or stub fallback). */
 export type DraftProvider = "gemini" | "anthropic" | "stub";
 
@@ -97,7 +131,10 @@ export interface CommunityDraft {
   postUrl?: string;
   draftText: string;
   intensity: PromoIntensity;
+  /** Help-lane score (placeholder empty when kind is presence). */
   score: OpportunityScore;
+  /** Presence-lane score when {@link kind} is presence. */
+  presenceScore?: PresenceScore;
   rationale: string;
   /** Mirrors ActionRecord.status when persisted */
   status: ActionStatus;
@@ -151,4 +188,56 @@ export function scoreTotal(score: OpportunityScore): number {
 /** Act only when ≥ {@link ACTIONABLE_SCORE_MIN}/{@link SCORE_MAX}. */
 export function isActionable(score: OpportunityScore): boolean {
   return scoreTotal(score) >= ACTIONABLE_SCORE_MIN;
+}
+
+export function presenceScoreTotal(score: PresenceScore): number {
+  return (
+    Number(score.fashionFit) +
+    Number(score.takeRoom) +
+    Number(score.competition) +
+    Number(score.freshnessOk) +
+    Number(score.rulesOk) +
+    Number(score.voiceFit)
+  );
+}
+
+/**
+ * Act only when ≥ {@link PRESENCE_ACTIONABLE_MIN}/{@link PRESENCE_SCORE_MAX}
+ * and hard gates pass: playbook presence on (`rulesOk`) + voice fit.
+ */
+export function isPresenceActionable(score: PresenceScore): boolean {
+  return (
+    score.rulesOk &&
+    score.voiceFit &&
+    presenceScoreTotal(score) >= PRESENCE_ACTIONABLE_MIN
+  );
+}
+
+/** Lane-aware total + max for HITL / notify / evidence. */
+export function draftScoreSummary(draft: {
+  kind?: EngageKind | string | null;
+  score: OpportunityScore;
+  presenceScore?: PresenceScore;
+}): { total: number; max: number } {
+  if (engageKindOf(draft) === "presence" && draft.presenceScore) {
+    return {
+      total: presenceScoreTotal(draft.presenceScore),
+      max: PRESENCE_SCORE_MAX,
+    };
+  }
+  return { total: scoreTotal(draft.score), max: SCORE_MAX };
+}
+
+/** Lane-aware actionable gate (help score vs presence score). */
+export function isDraftActionable(draft: {
+  kind?: EngageKind | string | null;
+  score: OpportunityScore;
+  presenceScore?: PresenceScore;
+}): boolean {
+  if (engageKindOf(draft) === "presence") {
+    return draft.presenceScore
+      ? isPresenceActionable(draft.presenceScore)
+      : false;
+  }
+  return isActionable(draft.score);
 }

@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   DEFAULT_ENGAGE_KIND,
+  draftScoreSummary,
   engageKindOf,
+  EMPTY_OPPORTUNITY_SCORE,
+  isDraftActionable,
   normalizeEngageKind,
   type CreateProposal,
+  type PresenceScore,
 } from "../src/types.js";
 
 describe("normalizeEngageKind", () => {
@@ -51,5 +55,36 @@ describe("CreateProposal shape", () => {
     };
     assert.equal(proposal.kind, "create");
     assert.equal(proposal.sourcePostIds.length, 1);
+  });
+});
+
+describe("isDraftActionable + draftScoreSummary", () => {
+  const presenceOk: PresenceScore = {
+    fashionFit: true,
+    takeRoom: true,
+    competition: true,
+    freshnessOk: true,
+    rulesOk: true,
+    voiceFit: true,
+  };
+
+  it("uses presence score when kind is presence", () => {
+    const draft = {
+      kind: "presence" as const,
+      score: EMPTY_OPPORTUNITY_SCORE,
+      presenceScore: presenceOk,
+    };
+    assert.equal(isDraftActionable(draft), true);
+    assert.deepEqual(draftScoreSummary(draft), { total: 6, max: 6 });
+  });
+
+  it("rejects presence drafts missing presenceScore", () => {
+    assert.equal(
+      isDraftActionable({
+        kind: "presence",
+        score: EMPTY_OPPORTUNITY_SCORE,
+      }),
+      false
+    );
   });
 });

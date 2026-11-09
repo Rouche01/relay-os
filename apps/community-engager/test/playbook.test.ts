@@ -36,10 +36,18 @@ describe("normalizePlaybook", () => {
       plugStyle: "disclose",
       megathreadPolicy: "help",
       maxPlugsPerWeek: 2,
+      presenceEnabled: "on",
+      allowsOriginalPosts: "yes",
+      createCooldownDays: 14,
     });
     assert.equal(pb.plugStyle, "disclose_link");
     assert.equal(pb.megathreadPolicy, "help_only");
     assert.equal(pb.maxPlugsPerWeek, 2);
+    assert.equal(pb.presenceEnabled, true);
+    assert.equal(pb.allowsOriginalPosts, true);
+    assert.equal(pb.createCooldownDays, 14);
+    assert.equal(DEFAULT_PLAYBOOK.presenceEnabled, false);
+    assert.equal(DEFAULT_PLAYBOOK.allowsOriginalPosts, false);
   });
 });
 

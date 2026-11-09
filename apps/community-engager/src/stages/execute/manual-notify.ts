@@ -1,5 +1,5 @@
 import type { CommunityDraft } from "../../types.js";
-import { engageKindOf, SCORE_MAX, scoreTotal } from "../../types.js";
+import { draftScoreSummary, engageKindOf } from "../../types.js";
 
 const TITLE_MAX = 120;
 
@@ -15,7 +15,7 @@ export function truncateTitle(title: string, max = TITLE_MAX): string {
  * Plain text (CLI / non-Telegram notify). Telegram uses the HITL card instead.
  */
 export function formatManualPostNotify(draft: CommunityDraft): string {
-  const score = scoreTotal(draft.score);
+  const { total: score, max: scoreMax } = draftScoreSummary(draft);
   const title = truncateTitle(draft.threadTitle);
   const permalink = draft.threadUrl.trim();
   const kind = engageKindOf(draft);
@@ -35,6 +35,6 @@ export function formatManualPostNotify(draft: CommunityDraft): string {
     `${draft.draftText.trim()}\n` +
     `────────\n\n` +
     `Paste it yourself — nothing is posted automatically.\n` +
-    `(lane ${kind} · score ${score}/${SCORE_MAX} · ${tone})`
+    `(lane ${kind} · score ${score}/${scoreMax} · ${tone})`
   );
 }

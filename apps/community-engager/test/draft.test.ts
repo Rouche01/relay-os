@@ -13,6 +13,7 @@ import {
   FIXTURE_THREADS,
   fixtureToDraftSkeleton,
 } from "../src/fixtures/threads.js";
+import { DEFAULT_PLAYBOOK } from "../src/policy/playbook.js";
 import type { RedditListingPost } from "../src/reddit/client.js";
 import { listingPostsToDrafts } from "../src/reddit/scout/map-drafts.js";
 import type { CommunityDraft } from "../src/types.js";
@@ -78,14 +79,45 @@ describe("listingPostsToDrafts kind", () => {
     assert.equal(mapped.kind, "help");
   });
 
-  it("stamps opts.kind when provided", () => {
+  it("presence lane maps fit-checks when playbook opts in", () => {
     const [mapped] = listingPostsToDrafts(
-      [listingPost({ selftext: "Looking for a simple system that works together." })],
+      [
+        listingPost({
+          title: "Fit check — dinner outfit",
+          selftext: "Too dressy? Honest thoughts.",
+          url: "https://i.redd.it/abc.jpg",
+          isSelf: false,
+        }),
+      ],
       3,
-      { kind: "presence" }
+      {
+        kind: "presence",
+        playbookFor: () => ({
+          ...DEFAULT_PLAYBOOK,
+          presenceEnabled: true,
+        }),
+      }
     );
     assert.ok(mapped);
     assert.equal(mapped.kind, "presence");
+    assert.ok(mapped.presenceScore);
+    assert.equal(mapped.presenceScore?.fashionFit, true);
+  });
+
+  it("presence lane yields nothing when playbook.presenceEnabled is off", () => {
+    const drafts = listingPostsToDrafts(
+      [
+        listingPost({
+          title: "Fit check — dinner outfit",
+          selftext: "Too dressy?",
+          url: "https://i.redd.it/abc.jpg",
+          isSelf: false,
+        }),
+      ],
+      3,
+      { kind: "presence" }
+    );
+    assert.equal(drafts.length, 0);
   });
 });
 

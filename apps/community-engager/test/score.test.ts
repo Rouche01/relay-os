@@ -1,14 +1,21 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { RedditListingPost } from "../src/reddit/client.js";
+import { DEFAULT_PLAYBOOK } from "../src/policy/playbook.js";
 import {
   COMPETITION_MAX_COMMENTS,
+  PRESENCE_COMPETITION_MAX_COMMENTS,
   scoreCompetition,
+  scorePresencePost,
   scoreRedditPost,
 } from "../src/reddit/scout/score.js";
 import {
   ACTIONABLE_SCORE_MIN,
   isActionable,
+  isPresenceActionable,
+  PRESENCE_ACTIONABLE_MIN,
+  PRESENCE_SCORE_MAX,
+  presenceScoreTotal,
   SCORE_MAX,
   scoreTotal,
 } from "../src/types.js";
@@ -99,5 +106,102 @@ describe("scoreRedditPost richer dimensions", () => {
   it("keeps SCORE_MAX at 8 dimensions", () => {
     assert.equal(SCORE_MAX, 8);
     assert.equal(ACTIONABLE_SCORE_MIN, 5);
+  });
+});
+
+describe("scorePresencePost", () => {
+  const presencePb = {
+    ...DEFAULT_PLAYBOOK,
+    presenceEnabled: true,
+  };
+
+  it("scores a fit-check as actionable under presence (not help)", () => {
+    const fit = post({
+      title: "Fit check — navy trousers + white tee for drinks?",
+      selftext: "Too casual? Honest thoughts welcome.",
+      url: "https://i.redd.it/abc.jpg",
+      isSelf: false,
+      numComments: 4,
+    });
+    const help = scoreRedditPost(fit);
+    assert.ok(!isActionable(help.score), "help lane should reject fit-check ICP");
+
+    const { score, rationale } = scorePresencePost(fit, {
+      playbook: presencePb,
+    });
+    assert.equal(score.fashionFit, true);
+    assert.equal(score.takeRoom, true);
+    assert.equal(score.rulesOk, true);
+    assert.equal(score.voiceFit, true);
+    assert.ok(presenceScoreTotal(score) >= PRESENCE_ACTIONABLE_MIN);
+    assert.ok(isPresenceActionable(score));
+    assert.match(rationale, /lane=presence/);
+    assert.match(rationale, new RegExp(`/${PRESENCE_SCORE_MAX}`));
+  });
+
+  it("rejects when playbook.presenceEnabled is false", () => {
+    const fit = post({
+      title: "Fit check please",
+      selftext: "Does this work for a first date?",
+      isSelf: false,
+      url: "https://i.redd.it/x.jpg",
+    });
+    const { score } = scorePresencePost(fit, {
+      playbook: { ...DEFAULT_PLAYBOOK, presenceEnabled: false },
+    });
+    assert.equal(score.rulesOk, false);
+    assert.ok(!isPresenceActionable(score));
+  });
+
+  it("allows denser threads than help competition cap", () => {
+    const fit = post({
+      title: "Rate my outfit for a wedding guest",
+      selftext: "Thoughts on the silhouette?",
+      isSelf: false,
+      url: "https://i.redd.it/y.jpg",
+      numComments: COMPETITION_MAX_COMMENTS + 3,
+    });
+    assert.equal(scoreCompetition(fit), false);
+    assert.equal(
+      scoreCompetition(fit, PRESENCE_COMPETITION_MAX_COMMENTS),
+      true
+    );
+    const { score } = scorePresencePost(fit, { playbook: presencePb });
+    assert.equal(score.competition, true);
+  });
+
+  it("blocks megathreads unless playbook allows", () => {
+    const mega = post({
+      title: "Daily Questions Thread — fashion chat",
+      selftext: "Fit check dump here",
+    });
+    const skipped = scorePresencePost(mega, {
+      playbook: {
+        ...presencePb,
+        megathreadPolicy: "skip",
+      },
+    });
+    assert.equal(skipped.score.voiceFit, false);
+
+    const allowed = scorePresencePost(mega, {
+      playbook: {
+        ...presencePb,
+        megathreadPolicy: "help_only",
+      },
+    });
+    assert.equal(allowed.score.voiceFit, true);
+  });
+
+  it("denies silent flex with no invite or visual", () => {
+    const flex = post({
+      title: "Just showing my thrift haul",
+      selftext: "Look at this.",
+      isSelf: true,
+      url: "https://www.reddit.com/r/OUTFITS/comments/abc",
+      permalink: "https://www.reddit.com/r/OUTFITS/comments/abc",
+    });
+    const { score } = scorePresencePost(flex, { playbook: presencePb });
+    assert.equal(score.fashionFit, true);
+    assert.equal(score.takeRoom, false);
   });
 });

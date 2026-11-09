@@ -19,6 +19,15 @@ export interface SubredditPlaybook {
   megathreadPolicy: MegathreadPolicy;
   /** Cap intensity ≥1 live posts per rolling 7 days on this sub. */
   maxPlugsPerWeek: number;
+  /**
+   * Opt into presence-lane scout (fit checks / sharp takes).
+   * Default false — operator enables per sub.
+   */
+  presenceEnabled: boolean;
+  /** Opt into create-lane original posts on this sub. Default false. */
+  allowsOriginalPosts: boolean;
+  /** Min days between create posts on this sub. Default 7. */
+  createCooldownDays: number;
 }
 
 export const DEFAULT_PLAYBOOK: SubredditPlaybook = {
@@ -26,6 +35,9 @@ export const DEFAULT_PLAYBOOK: SubredditPlaybook = {
   plugStyle: "mention",
   megathreadPolicy: "skip",
   maxPlugsPerWeek: 1,
+  presenceEnabled: false,
+  allowsOriginalPosts: false,
+  createCooldownDays: 7,
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -36,6 +48,9 @@ export type PlaybookInput = {
   plugStyle?: string | PlugStyle;
   megathreadPolicy?: string | MegathreadPolicy;
   maxPlugsPerWeek?: number;
+  presenceEnabled?: boolean | string;
+  allowsOriginalPosts?: boolean | string;
+  createCooldownDays?: number;
 };
 
 export function normalizePlaybook(
@@ -56,6 +71,14 @@ export function normalizePlaybook(
     megathreadPolicy:
       parseMegathreadPolicy(raw.megathreadPolicy) ?? base.megathreadPolicy,
     maxPlugsPerWeek: nonNegInt(raw.maxPlugsPerWeek, base.maxPlugsPerWeek),
+    presenceEnabled:
+      parseBool(raw.presenceEnabled) ?? base.presenceEnabled,
+    allowsOriginalPosts:
+      parseBool(raw.allowsOriginalPosts) ?? base.allowsOriginalPosts,
+    createCooldownDays: positiveInt(
+      raw.createCooldownDays,
+      base.createCooldownDays
+    ),
   };
 }
 
@@ -159,8 +182,16 @@ export function shouldBlockPlugForWeek(
 export function formatPlaybookSummary(playbook: SubredditPlaybook): string {
   return (
     `plug=${playbook.plugStyle} mega=${playbook.megathreadPolicy} ` +
-    `maxPlugs/wk=${playbook.maxPlugsPerWeek} · ${playbook.rulesSummary}`
+    `maxPlugs/wk=${playbook.maxPlugsPerWeek} ` +
+    `presence=${playbook.presenceEnabled ? "on" : "off"} ` +
+    `create=${playbook.allowsOriginalPosts ? "on" : "off"} ` +
+    `· ${playbook.rulesSummary}`
   );
+}
+
+/** Presence scout only when the sub playbook opts in. */
+export function shouldScoutPresence(playbook: SubredditPlaybook): boolean {
+  return playbook.presenceEnabled === true;
 }
 
 /** Lookup helper for scout mappers (sub names may be prefixed with r/). */
@@ -176,4 +207,21 @@ export function playbookLookup(
 function nonNegInt(raw: unknown, fallback: number): number {
   const n = typeof raw === "number" ? raw : Number(raw);
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
+}
+
+function positiveInt(raw: unknown, fallback: number): number {
+  const n = nonNegInt(raw, fallback);
+  return n >= 1 ? n : fallback;
+}
+
+function parseBool(raw: unknown): boolean | undefined {
+  if (typeof raw === "boolean") return raw;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw !== 0;
+  const v = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (!v) return undefined;
+  if (v === "1" || v === "true" || v === "yes" || v === "on") return true;
+  if (v === "0" || v === "false" || v === "no" || v === "off") return false;
+  return undefined;
 }
