@@ -152,7 +152,12 @@ export function buildConstraints(opts: {
         "REDDIT_DRY_RUN / dry-run: no live write unless Spec thawed and budget flipped",
     });
   }
-  if (opts.entrypoint === "engage" && opts.forceDiscover) {
+  if (
+    (opts.entrypoint === "engage" ||
+      opts.entrypoint === "engage_help" ||
+      opts.entrypoint === "engage_presence") &&
+    opts.forceDiscover
+  ) {
     out.push({
       id: "force_discover",
       description: "Force discover research this run (engage_discover)",

@@ -19,6 +19,7 @@ import {
 import {
   CommunityEngagerManifest,
   CommunityPostWatchManifest,
+  engageKindForEntrypoint,
   manifestForEntrypoint,
   protocolEntrypointName,
   resolveCommunityEntrypoint,
@@ -88,8 +89,11 @@ describe("manifest entrypoints (A1)", () => {
     assert.ok(!names.includes("post_watch"));
   });
 
-  it("declares post_watch on protocol entrypoints map", () => {
+  it("declares lane + post_watch on protocol entrypoints map", () => {
     assert.ok(CommunityEngagerManifest.entrypoints?.post_watch);
+    assert.ok(CommunityEngagerManifest.entrypoints?.engage_help);
+    assert.ok(CommunityEngagerManifest.entrypoints?.engage_presence);
+    assert.ok(CommunityEngagerManifest.entrypoints?.create);
     const ep = CommunityEngagerManifest.entrypoints!.post_watch;
     assert.deepEqual(
       ep.stages.map((s) => s.name),
@@ -102,17 +106,46 @@ describe("manifest entrypoints (A1)", () => {
     );
     assert.deepEqual(listEntrypointNames(CommunityEngagerManifest), [
       DEFAULT_ENTRYPOINT,
+      "engage_help",
+      "engage_presence",
+      "create",
       "post_watch",
     ]);
+    assert.deepEqual(
+      CommunityEngagerManifest.entrypoints!.engage_help.stages.map((s) => s.name),
+      ["ensure_session", "discover", "scout", "jobs"]
+    );
+    assert.deepEqual(
+      CommunityEngagerManifest.entrypoints!.create.stages.map((s) => s.name),
+      ["create", "jobs"]
+    );
   });
 
-  it("resolveEntrypoint default vs post_watch", () => {
+  it("resolveEntrypoint default vs lanes vs post_watch", () => {
     const def = resolveEntrypoint(CommunityEngagerManifest);
     assert.equal(def.name, DEFAULT_ENTRYPOINT);
     assert.deepEqual(
       def.stages.map((s) => s.name),
       ["ensure_session", "discover", "scout", "jobs"]
     );
+
+    const help = resolveCommunityEntrypoint("engage_help");
+    assert.equal(help.name, "engage_help");
+    assert.deepEqual(
+      help.stages.map((s) => s.name),
+      ["ensure_session", "discover", "scout", "jobs"]
+    );
+
+    const presence = resolveCommunityEntrypoint("engage_presence");
+    assert.equal(presence.name, "engage_presence");
+    assert.equal(engageKindForEntrypoint("engage_presence"), "presence");
+    assert.equal(engageKindForEntrypoint("engage_help"), "help");
+    assert.equal(engageKindForEntrypoint("engage"), "help");
+    assert.equal(engageKindForEntrypoint("create"), "create");
+
+    const create = resolveCommunityEntrypoint("create");
+    assert.equal(create.name, "create");
+    assert.deepEqual(create.stages.map((s) => s.name), ["create", "jobs"]);
 
     const watch = resolveCommunityEntrypoint("post_watch");
     assert.equal(watch.name, "post_watch");
@@ -122,6 +155,8 @@ describe("manifest entrypoints (A1)", () => {
     );
 
     assert.equal(protocolEntrypointName("engage"), undefined);
+    assert.equal(protocolEntrypointName("engage_help"), "engage_help");
+    assert.equal(protocolEntrypointName("create"), "create");
     assert.equal(protocolEntrypointName("post_watch"), "post_watch");
   });
 
@@ -130,6 +165,14 @@ describe("manifest entrypoints (A1)", () => {
     assert.deepEqual(
       manifestForEntrypoint("engage").stages.map((s) => s.name),
       ["ensure_session", "discover", "scout", "jobs"]
+    );
+    assert.deepEqual(
+      manifestForEntrypoint("engage_presence").stages.map((s) => s.name),
+      ["ensure_session", "discover", "scout", "jobs"]
+    );
+    assert.deepEqual(
+      manifestForEntrypoint("create").stages.map((s) => s.name),
+      ["create", "jobs"]
     );
     assert.deepEqual(
       manifestForEntrypoint("post_watch").stages.map((s) => s.name),
@@ -217,16 +260,25 @@ describe("manifest entrypoints (A1)", () => {
     );
   });
 
-  it("declares cadence + post_watch schedules", () => {
+  it("declares cadence + presence + create + post_watch schedules", () => {
     const schedules = listSchedules(CommunityEngagerManifest);
-    assert.equal(schedules.length, 2);
+    assert.equal(schedules.length, 4);
     assert.equal(schedules[0]!.id, "cadence");
     assert.equal(schedules[0]!.entrypoint, "default");
     assert.equal(schedules[0]!.cron, "0 9,13,18 * * *");
-    assert.equal(schedules[1]!.id, "post_watch");
-    assert.equal(schedules[1]!.entrypoint, "post_watch");
-    assert.equal(schedules[1]!.every_ms, 60 * 60 * 1000);
-    assert.deepEqual(listEnabledSchedules(CommunityEngagerManifest), schedules);
+    assert.equal(schedules[1]!.id, "engage_presence");
+    assert.equal(schedules[1]!.entrypoint, "engage_presence");
+    assert.equal(schedules[1]!.enabled, false);
+    assert.equal(schedules[2]!.id, "create");
+    assert.equal(schedules[2]!.entrypoint, "create");
+    assert.equal(schedules[2]!.enabled, false);
+    assert.equal(schedules[3]!.id, "post_watch");
+    assert.equal(schedules[3]!.entrypoint, "post_watch");
+    assert.equal(schedules[3]!.every_ms, 60 * 60 * 1000);
+    assert.deepEqual(
+      listEnabledSchedules(CommunityEngagerManifest).map((s) => s.id),
+      ["cadence", "post_watch"]
+    );
     assert.doesNotThrow(() => assertSchedulesValid(CommunityEngagerManifest));
   });
 

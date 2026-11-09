@@ -55,7 +55,7 @@ import {
   processDuePostWatches,
 } from "./stages/post-watch/post-watch.js";
 import {
-  cadenceBlocksIntensity,
+  cadenceBlocksLanePost,
   formatCadenceLog,
   resolveCadenceStatus,
   trimOpportunitiesForCadence,
@@ -115,15 +115,17 @@ import {
   setInterstitialSession,
 } from "./reddit/interstitial/interstitial-session.js";
 import { scoutOpportunities } from "./stages/scout/scout.js";
-import type { CommunityDraft } from "./types.js";
+import type { CommunityDraft, EngageKind } from "./types.js";
 import {
   ACTIONABLE_SCORE_MIN,
   draftScoreSummary,
   engageKindOf,
   isDraftActionable,
+  normalizeEngageKind,
   SCORE_MAX,
   scoreTotal,
 } from "./types.js";
+import { engageKindForEntrypoint } from "./manifest.js";
 import {
   draftPreview,
   type DiscoverEvidence,
@@ -136,6 +138,35 @@ import {
 } from "./metrics/run-evidence.js";
 
 const APP_ID = "community-engager";
+
+/** Lane kind for this run (set on context by CommunityEngagerApp). */
+function resolveEngageKindFromContext(ctx: AgentContext): EngageKind {
+  const engageKind = ctx["engageKind"];
+  if (typeof engageKind === "string" && engageKind.trim()) {
+    return normalizeEngageKind(engageKind);
+  }
+  const entrypoint = ctx["entrypoint"];
+  if (typeof entrypoint === "string") {
+    const ep = entrypoint.trim().toLowerCase();
+    if (
+      ep === "engage" ||
+      ep === "engage_help" ||
+      ep === "engage_presence" ||
+      ep === "create" ||
+      ep === "post_watch"
+    ) {
+      return engageKindForEntrypoint(
+        ep as
+          | "engage"
+          | "engage_help"
+          | "engage_presence"
+          | "create"
+          | "post_watch"
+      );
+    }
+  }
+  return "help";
+}
 
 export interface CommunityControllerOptions {
   store: ActionStore;
@@ -189,6 +220,9 @@ export class CommunityEngagerController implements AppController {
         break;
       case "scout":
         await this.runScout(ctx);
+        break;
+      case "create":
+        await this.runCreate(ctx);
         break;
       case "post_watch":
         await this.runPostWatch(ctx);
@@ -1724,6 +1758,24 @@ export class CommunityEngagerController implements AppController {
     };
   }
 
+  /** Create-lane: winner remodel → one proposal opportunity for jobs HITL. */
+  private async runCreate(ctx: AgentContext): Promise<void> {
+    const { runCreatePipeline } = await import("./stages/create/run-create.js");
+    const result = await runCreatePipeline(ctx);
+    ctx.stageResults = {
+      ...(ctx.stageResults ?? {}),
+      create: {
+        status: result.status,
+        message: result.message,
+        proposalCount: result.proposals.length,
+        titles: result.proposals.map((p) => p.title),
+      },
+    };
+    if (result.status !== "ok") {
+      console.warn(`[create] ${result.message}`);
+    }
+  }
+
   private async runScout(
     ctx: AgentContext,
     opts?: { isFallbackRescout?: boolean }
@@ -1752,10 +1804,12 @@ export class CommunityEngagerController implements AppController {
     });
     const excludeIds = prior.map((r) => r.id);
 
+    const kind = resolveEngageKindFromContext(ctx);
     const result = await scoutOpportunities({
       limit: 5,
       subreddits,
       excludeIds,
+      kind,
     });
     await this.applyScoutResult(ctx, result, excludeIds.length);
 
@@ -2092,10 +2146,15 @@ export class CommunityEngagerController implements AppController {
       cadence: {
         enabled: cadence.enabled,
         dayKey: cadence.dayKey,
+        weekKey: cadence.weekKey,
         helpPostedToday: cadence.helpPostedToday,
+        presencePostedToday: cadence.presencePostedToday,
         promoPostedToday: cadence.promoPostedToday,
+        createPostedThisWeek: cadence.createPostedThisWeek,
         helpRemaining: cadence.helpRemaining,
+        presenceRemaining: cadence.presenceRemaining,
         promoRemaining: cadence.promoRemaining,
+        createRemaining: cadence.createRemaining,
         dayExhausted: cadence.dayExhausted,
         trimmedFrom: before.length,
         trimmedTo: after.length,
@@ -2151,6 +2210,7 @@ export class CommunityEngagerController implements AppController {
         limit: 5,
         subreddits,
         excludeIds,
+        kind: resolveEngageKindFromContext(ctx),
         adopt,
         skipLoginHitlSubs: [...skipHitl],
       });
@@ -2823,7 +2883,23 @@ export class CommunityEngagerController implements AppController {
       (await resolveCadenceStatus(runtimeCfg));
     ctx.cadenceStatus = cadence;
     console.log(formatCadenceLog(cadence));
-    if (cadence.enabled && cadence.dayExhausted) {
+    const draftKind = engageKindOf(top);
+    if (cadence.enabled && draftKind === "presence" && cadence.presenceExhausted) {
+      throw new Error(
+        `cadence presence exhausted — ${cadence.presencePostedToday}/${cadence.maxPresencePerDay} (day ${cadence.dayKey})`
+      );
+    }
+    if (cadence.enabled && draftKind === "create" && cadence.createExhausted) {
+      throw new Error(
+        `cadence create exhausted — ${cadence.createPostedThisWeek}/${cadence.maxCreatePerWeek} (week ${cadence.weekKey})`
+      );
+    }
+    if (
+      cadence.enabled &&
+      draftKind !== "presence" &&
+      draftKind !== "create" &&
+      cadence.dayExhausted
+    ) {
       throw new Error(
         `cadence day exhausted — help ${cadence.helpPostedToday}/${cadence.maxHelpPerDay}, ` +
           `promo ${cadence.promoPostedToday}/${cadence.maxPromoPerDay} (day ${cadence.dayKey})`
@@ -2831,6 +2907,8 @@ export class CommunityEngagerController implements AppController {
     }
     if (
       cadence.enabled &&
+      draftKind !== "presence" &&
+      draftKind !== "create" &&
       cadence.helpExhausted &&
       cadence.promoExhausted === false
     ) {
@@ -2890,7 +2968,18 @@ export class CommunityEngagerController implements AppController {
     };
     let drafted: CommunityDraft;
     let provider: DraftProvider = "stub";
-    if (engine?.type === "llm") {
+    // Create-lane already remodeled title+body in the parent create stage.
+    if (draftKind === "create" && top.draftText?.trim()) {
+      drafted = {
+        ...top,
+        intensity: 0,
+        status: "pending_approval",
+        draftProvider: top.draftProvider ?? "stub",
+        draftModel: top.draftModel ?? "stub",
+      };
+      provider = drafted.draftProvider ?? "stub";
+      console.log("[draft] create lane — keeping remodeled body (skip reply LLM)");
+    } else if (engine?.type === "llm") {
       const result = await engine.execute({
         type: "draft_reply",
         params: {
@@ -2941,12 +3030,12 @@ export class CommunityEngagerController implements AppController {
     });
     const preview = draftPreview(drafted.draftText);
     const draftModel = drafted.draftModel;
-    const draftKind = engageKindOf(drafted);
+    const draftedKind = engageKindOf(drafted);
     const laneScore = draftScoreSummary(drafted);
     const draftEvidence: DraftEvidence = {
       id: drafted.id,
       subreddit: drafted.subreddit,
-      kind: draftKind,
+      kind: draftedKind,
       scoreTotal: laneScore.total,
       intensity: drafted.intensity,
       memoryUsed: Boolean(memoryBlock),
@@ -2970,7 +3059,7 @@ export class CommunityEngagerController implements AppController {
       draft: draftEvidence,
     };
     console.log(
-      `[draft] pending_approval id=${drafted.id} kind=${draftKind} intensity=${drafted.intensity} provider=${provider}` +
+      `[draft] pending_approval id=${drafted.id} kind=${draftedKind} intensity=${drafted.intensity} provider=${provider}` +
         (draftModel ? ` model=${draftModel}` : "") +
         ` chars=${drafted.draftText.length}` +
         (forceIntensity0 ? " helpOnly=1" : "") +
@@ -3005,7 +3094,8 @@ export class CommunityEngagerController implements AppController {
 
     const runtimeCfg = getCommunityConfig();
 
-    if (runtimeCfg.postMode === "manual") {
+    // Create lane is notify-only in v1 (no automated top-level submit).
+    if (runtimeCfg.postMode === "manual" || engageKindOf(draft) === "create") {
       await this.runManualPostNotify(ctx, draft);
       return;
     }
@@ -3031,7 +3121,10 @@ export class CommunityEngagerController implements AppController {
       dryRun: specBindings?.dryRun,
       warmupActive: warmup.active,
       promoBlocked: promo.blockPromo || specBindings?.allowPromo === false,
-      cadenceBlocked: cadenceBlocksIntensity(cadence, draft.intensity),
+      cadenceBlocked: cadenceBlocksLanePost(cadence, {
+        kind: engageKindOf(draft),
+        intensity: draft.intensity,
+      }),
       computerEngine: this.options.computerEngine,
       computerRun: this.options.computerRun,
     });
@@ -3079,10 +3172,11 @@ export class CommunityEngagerController implements AppController {
             intensity: draft.intensity,
             jobId: result.jobId,
             subreddit: draft.subreddit,
+            kind: engageKindOf(draft),
             windowDays: runtimeCfg.promo.windowDays,
           });
           console.log(
-            `[promo] ledger recorded intensity=${draft.intensity} (windowEntries=${n})`
+            `[promo] ledger recorded intensity=${draft.intensity} kind=${engageKindOf(draft)} (windowEntries=${n})`
           );
         } catch (err) {
           console.warn("[promo] failed to record ledger entry:", err);
@@ -3124,6 +3218,7 @@ export class CommunityEngagerController implements AppController {
                 threadUrl: draft.threadUrl,
                 threadTitle: draft.threadTitle,
                 intensity: draft.intensity,
+                kind: engageKindOf(draft),
                 note: `visibility=${visibility.status}`,
               });
             } catch (tagErr) {
@@ -3143,6 +3238,7 @@ export class CommunityEngagerController implements AppController {
               threadTitle: draft.threadTitle,
               draftId: draft.id,
               jobId: result.jobId,
+              kind: engageKindOf(draft),
               firstCheckAfterHours: runtimeCfg.postWatch.firstCheckAfterHours,
               maxAgeHours: runtimeCfg.postWatch.maxAgeHours,
             });

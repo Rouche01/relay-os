@@ -146,41 +146,10 @@ export const CommunityPostWatchManifest: AgenticAppManifest = {
 };
 
 /**
- * Parent engage manifest: session + discover + scout, then fan out jobs.
- * Named `post_watch` entrypoint drains the watch queue without scout.
+ * Parent engage stages (help + presence lanes share this pipeline;
+ * lane kind is stamped via entrypoint → scout).
  */
-export const CommunityEngagerManifest: AgenticAppManifest = {
-  name: "CommunityEngager",
-  version: "0.6.0",
-  description:
-    "Discover fashion/styling subs (HITL promote), scout postable allowlist, run one isolated HITL job per opportunity.",
-  author: "Relay OS Built-in",
-
-  triggers: [
-    {
-      pattern: "engage community",
-      description: "Run the community engagement HITL loop",
-      examples: ["engage community", "scout reddit for gostylens"],
-    },
-    {
-      pattern: "scout reddit",
-      description: "Scout allowlisted subs and draft replies for approval",
-      examples: ["scout reddit", "find reddit opportunities"],
-    },
-  ],
-
-  capabilities: [
-    "community.discover",
-    "community.scout",
-    "community.draft",
-    "community.approve",
-    "community.execute",
-  ],
-  engines_required: ["browser", "llm", "data"],
-  engines_optional: ["api", "computer"],
-  permissions: ["community.reddit.read", "community.reddit.write"],
-
-  stages: [
+const engageParentStages: AgenticAppManifest["stages"] = [
     {
       name: "ensure_session",
       description:
@@ -274,8 +243,93 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
       ],
     },
     jobsFanoutStage,
+];
+
+/** Create-lane: remodel winners → jobs HITL (notify-only submit). */
+const createParentStages: AgenticAppManifest["stages"] = [
+  {
+    name: "create",
+    description:
+      "Scout winners on allowsOriginalPosts subs, extract pattern, remodel title+body",
+    engine: "llm",
+  },
+  jobsFanoutStage,
+];
+
+/**
+ * Parent engage manifest: session + discover + scout, then fan out jobs.
+ * Named `post_watch` entrypoint drains the watch queue without scout.
+ * Lane entrypoints: engage_help / engage_presence (same stages) + create.
+ */
+export const CommunityEngagerManifest: AgenticAppManifest = {
+  name: "CommunityEngager",
+  version: "0.7.0",
+  description:
+    "Discover fashion/styling subs (HITL promote), scout postable allowlist, run one isolated HITL job per opportunity.",
+  author: "Relay OS Built-in",
+
+  triggers: [
+    {
+      pattern: "engage community",
+      description: "Run the community engagement HITL loop",
+      examples: ["engage community", "scout reddit for gostylens"],
+    },
+    {
+      pattern: "scout reddit",
+      description: "Scout allowlisted subs and draft replies for approval",
+      examples: ["scout reddit", "find reddit opportunities"],
+    },
   ],
+
+  capabilities: [
+    "community.discover",
+    "community.scout",
+    "community.draft",
+    "community.approve",
+    "community.execute",
+  ],
+  engines_required: ["browser", "llm", "data"],
+  engines_optional: ["api", "computer"],
+  permissions: ["community.reddit.read", "community.reddit.write"],
+
+  stages: engageParentStages,
   entrypoints: {
+    engage_help: {
+      description:
+        "Help-lane engage: advice/systems threads only (same pipeline as default engage).",
+      stages: engageParentStages,
+      triggers: [
+        {
+          pattern: "engage help",
+          description: "One-off help-lane engage",
+          examples: ["engage help", "help lane engage"],
+        },
+      ],
+    },
+    engage_presence: {
+      description:
+        "Presence-lane engage: fit checks / sharp takes (presence score + draft).",
+      stages: engageParentStages,
+      triggers: [
+        {
+          pattern: "engage presence",
+          description: "One-off presence-lane engage",
+          examples: ["engage presence", "presence lane engage"],
+        },
+      ],
+    },
+    create: {
+      description:
+        "Create-lane: propose original posts from remodeled winners (notify-only submit).",
+      stages: createParentStages,
+      triggers: [
+        {
+          pattern: "create propose",
+          description: "One-off create proposal",
+          examples: ["create propose", "propose original post"],
+        },
+      ],
+    },
     post_watch: {
       description: CommunityPostWatchManifest.description,
       stages: CommunityPostWatchManifest.stages,
@@ -284,7 +338,7 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
   },
   /**
    * Read by `@relay/scheduler` (`pnpm scheduler`) and the admin Schedules collection.
-   * Cadence schedule invokes default (engage) under daily help/promo caps — no second cron.
+   * One host; per-lane crons. Presence/create default off until config arms them.
    * Escape hatches: `pnpm start` / `pnpm watch:posts`.
    */
   schedules: [
@@ -294,7 +348,23 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
       cron: "0 9,13,18 * * *",
       enabled: true,
       description:
-        "Human-like engage (morning / midday / evening). Daily help/promo caps still gate posts; per-fire jobs via cadence.maxJobsPerRun.",
+        "Help-lane engage (morning / midday / evening). Daily help/promo caps gate posts; per-fire jobs via cadence.maxJobsPerRun.",
+    },
+    {
+      id: "engage_presence",
+      entrypoint: "engage_presence",
+      cron: "0 11,16 * * *",
+      enabled: false,
+      description:
+        "Presence-lane engage (default off). Caps via cadence.maxPresencePerDay / maxJobsPerRunPresence.",
+    },
+    {
+      id: "create",
+      entrypoint: "create",
+      cron: "0 10 * * 3",
+      enabled: false,
+      description:
+        "Create-lane proposal (default off; weekly). Caps via cadence.maxCreatePerWeek / maxJobsPerRunCreate.",
     },
     {
       id: "post_watch",
@@ -317,16 +387,66 @@ export const CommunityEngagerManifest: AgenticAppManifest = {
   composes_with: ["CommunityEngagerJob", "CommunityPostWatch"],
 };
 
-/** App CLI / host names; `engage` maps to protocol default (root `stages`). */
-export type CommunityEntrypoint = "engage" | "post_watch";
+/**
+ * App CLI / host names.
+ * - `engage` — alias for help lane (protocol default / root stages)
+ * - `engage_help` / `engage_presence` — single-kind engage pipelines
+ * - `create` — original-post proposals
+ * - `post_watch` — post-watch drain
+ */
+export type CommunityEntrypoint =
+  | "engage"
+  | "engage_help"
+  | "engage_presence"
+  | "create"
+  | "post_watch";
+
+const ENGAGE_LANE_ENTRYPOINTS = new Set<CommunityEntrypoint>([
+  "engage",
+  "engage_help",
+  "engage_presence",
+]);
+
+/** Normalize aliases (`engage` → engage_help for kind purposes stays help). */
+export function normalizeCommunityEntrypoint(
+  raw: string | undefined | null
+): CommunityEntrypoint | undefined {
+  const v = String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, "_");
+  if (!v || v === "default" || v === "engage") return "engage";
+  if (v === "engage_help" || v === "help") return "engage_help";
+  if (v === "engage_presence" || v === "presence") return "engage_presence";
+  if (v === "create" || v === "create_propose") return "create";
+  if (v === "post_watch" || v === "postwatch" || v === "watch") return "post_watch";
+  return undefined;
+}
+
+/** Lane kind stamped on scout drafts for this entrypoint. */
+export function engageKindForEntrypoint(
+  entrypoint: CommunityEntrypoint
+): "help" | "presence" | "create" {
+  if (entrypoint === "engage_presence") return "presence";
+  if (entrypoint === "create") return "create";
+  return "help";
+}
+
+export function isEngageLaneEntrypoint(
+  entrypoint: CommunityEntrypoint
+): boolean {
+  return ENGAGE_LANE_ENTRYPOINTS.has(entrypoint);
+}
 
 /**
  * Protocol entrypoint key for AgentRuntime (`undefined` = root stages).
+ * Help/presence named entrypoints resolve to their map keys (same stage list).
  */
 export function protocolEntrypointName(
   entrypoint: CommunityEntrypoint = "engage"
 ): string | undefined {
-  return entrypoint === "engage" ? undefined : entrypoint;
+  if (entrypoint === "engage") return undefined;
+  return entrypoint;
 }
 
 /**

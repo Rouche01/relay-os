@@ -46,6 +46,26 @@ describe("parseOpsIntent", () => {
       kind: "one_off",
       entrypoint: "post_watch",
     });
+    assert.deepEqual(parseOpsIntent("engage help", m), {
+      kind: "one_off",
+      entrypoint: "engage_help",
+    });
+    assert.deepEqual(parseOpsIntent("engage presence", m), {
+      kind: "one_off",
+      entrypoint: "engage_presence",
+    });
+    assert.deepEqual(parseOpsIntent("create propose", m), {
+      kind: "one_off",
+      entrypoint: "create",
+    });
+    assert.deepEqual(parseOpsIntent("start presence", m), {
+      kind: "start_schedule",
+      scheduleId: "engage_presence",
+    });
+    assert.deepEqual(parseOpsIntent("run create now", m), {
+      kind: "trigger",
+      scheduleId: "create",
+    });
   });
 
   it("parses schedule start/stop/trigger before short aliases", () => {
@@ -148,6 +168,18 @@ describe("parseOpsIntent", () => {
     assert.deepEqual(parseOpsIntent("/engage", m), {
       kind: "one_off",
       entrypoint: "engage",
+    });
+    assert.deepEqual(parseOpsIntent("/engage_help", m), {
+      kind: "one_off",
+      entrypoint: "engage_help",
+    });
+    assert.deepEqual(parseOpsIntent("/engage_presence@RelayBot", m), {
+      kind: "one_off",
+      entrypoint: "engage_presence",
+    });
+    assert.deepEqual(parseOpsIntent("/create_propose", m), {
+      kind: "one_off",
+      entrypoint: "create",
     });
     assert.deepEqual(parseOpsIntent("/engage_discover", m), {
       kind: "one_off",

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   cadenceBlocksIntensity,
+  cadenceBlocksLanePost,
   countPostedToday,
   evaluateCadence,
   formatCadenceLog,
@@ -13,11 +14,13 @@ import type { PromoLedgerEntry } from "../src/policy/promo-ratio.js";
 function entry(
   hoursAgo: number,
   intensity: 0 | 1 | 2,
-  nowMs: number
+  nowMs: number,
+  kind?: "help" | "presence" | "create"
 ): PromoLedgerEntry {
   return {
     postedAt: new Date(nowMs - hoursAgo * 60 * 60 * 1000).toISOString(),
     intensity,
+    ...(kind ? { kind } : {}),
   };
 }
 
@@ -34,6 +37,18 @@ describe("localDayKey / countPostedToday", () => {
     assert.equal(dayKey, localDayKey(nowMs));
     assert.equal(help, 1);
     assert.equal(promo, 1);
+  });
+
+  it("counts presence separately from help", () => {
+    const entries = [
+      entry(1, 0, nowMs, "help"),
+      entry(1, 0, nowMs, "presence"),
+      entry(1, 0, nowMs, "presence"),
+    ];
+    const { help, presence, promo } = countPostedToday(entries, nowMs);
+    assert.equal(help, 1);
+    assert.equal(presence, 2);
+    assert.equal(promo, 0);
   });
 });
 
@@ -98,6 +113,25 @@ describe("evaluateCadence", () => {
     });
     assert.equal(status.dayExhausted, false);
     assert.equal(cadenceBlocksIntensity(status, 0), false);
+  });
+
+  it("exhausts presence without exhausting help", () => {
+    const entries = [
+      entry(1, 0, nowMs, "presence"),
+      entry(1, 0, nowMs, "presence"),
+    ];
+    const status = evaluateCadence({
+      enabled: true,
+      maxHelpPerDay: 5,
+      maxPresencePerDay: 2,
+      maxPromoPerDay: 1,
+      entries,
+      nowMs,
+    });
+    assert.equal(status.presenceExhausted, true);
+    assert.equal(status.helpExhausted, false);
+    assert.equal(cadenceBlocksLanePost(status, { kind: "presence", intensity: 0 }), true);
+    assert.equal(cadenceBlocksLanePost(status, { kind: "help", intensity: 0 }), false);
   });
 });
 

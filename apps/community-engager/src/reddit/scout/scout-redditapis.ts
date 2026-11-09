@@ -1,6 +1,6 @@
 import { getAllowlistStore } from "../../policy/allowlist-store.js";
 import { playbookLookup } from "../../policy/playbook.js";
-import type { CommunityDraft } from "../../types.js";
+import type { CommunityDraft, EngageKind } from "../../types.js";
 import { RedditApisClient } from "../redditapis/client.js";
 import {
   allowlistedSubNames,
@@ -19,6 +19,8 @@ export interface RedditApisScoutOptions {
   delayMs?: number;
   /** Injected client (tests). */
   client?: RedditApisClient;
+  /** Lane for listingPostsToDrafts scoring. Default help. */
+  kind?: EngageKind;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -65,6 +67,7 @@ export async function scoutRedditApis(
     const mapped = listingPostsToDrafts(posts, limit - drafts.length, {
       excludeIds,
       playbookFor,
+      kind: opts.kind ?? "help",
     });
     for (const d of mapped) excludeIds.add(d.id);
     drafts.push(...mapped);

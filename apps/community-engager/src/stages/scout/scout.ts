@@ -1,5 +1,8 @@
-import { isDraftActionable } from "../../types.js";
-import type { CommunityDraft } from "../../types.js";
+import {
+  isDraftActionable,
+  type CommunityDraft,
+  type EngageKind,
+} from "../../types.js";
 import { FIXTURE_THREADS, fixtureToDraftSkeleton } from "../../fixtures/threads.js";
 import {
   allowlistedSubNames,
@@ -47,6 +50,11 @@ export interface ScoutOptions {
   adopt?: { engine: PlaywrightEngine; storagePath: string };
   /** Subs already login-HITL'd this run — skip re-prompt, continue allowlist. */
   skipLoginHitlSubs?: string[];
+  /**
+   * Lane for scoring/draft skeletons. Default help.
+   * Presence uses presence scorer; create is not scouted here.
+   */
+  kind?: EngageKind;
 }
 
 export interface ScoutResult {
@@ -123,6 +131,16 @@ export async function scoutOpportunities(
     opts.subreddits?.length ? [...opts.subreddits] : allowlistedSubNames();
   const subreddits = opts.subreddits;
   const excludeIds = opts.excludeIds;
+  const kind = opts.kind ?? "help";
+  if (kind === "create") {
+    console.warn(
+      "[scout] kind=create is not a reply scout — returning 0 opportunities"
+    );
+    return finish("fixtures", plannedSubs, [], blocked, timedOut);
+  }
+  if (kind === "presence") {
+    console.log("[scout] lane=presence (presence score + draft)");
+  }
   if (subreddits?.length) {
     console.log(
       `[scout] subs=${subreddits.map((s) => `r/${s}`).join(", ")}`
@@ -155,6 +173,7 @@ export async function scoutOpportunities(
         cfg,
         subreddits,
         excludeIds,
+        kind,
       });
       if (live.length > 0) {
         return finish(
@@ -190,6 +209,7 @@ export async function scoutOpportunities(
         cfg,
         subreddits,
         excludeIds,
+        kind,
         adopt: opts.adopt,
         skipLoginHitlSubs: opts.skipLoginHitlSubs,
       });
@@ -249,6 +269,7 @@ export async function scoutOpportunities(
         cfg,
         subreddits,
         excludeIds,
+        kind,
       });
       if (live.length > 0) {
         return finish("json", planned, live, blocked, timedOut, undefined, browserOutcomes);
@@ -281,6 +302,7 @@ export async function scoutOpportunities(
         cfg,
         subreddits,
         excludeIds,
+        kind,
       });
       if (live.length > 0) {
         return finish("oauth", planned, live, blocked, timedOut, undefined, browserOutcomes);
@@ -296,7 +318,27 @@ export async function scoutOpportunities(
 
   console.log("[scout] source=fixtures");
   const exclude = new Set(excludeIds ?? []);
-  const drafts = FIXTURE_THREADS.map((t) => fixtureToDraftSkeleton(t));
+  const drafts = FIXTURE_THREADS.map((t) => {
+    const skeleton = fixtureToDraftSkeleton(t);
+    if (kind !== "presence") return { ...skeleton, kind: "help" as const };
+    // Presence fixtures: stamp lane; haul/flex becomes the dogfood target.
+    const presenceScore =
+      t.id === "fx-spammy-haul"
+        ? {
+            fashionFit: true,
+            takeRoom: true,
+            competition: true,
+            freshnessOk: true,
+            rulesOk: true,
+            voiceFit: true,
+          }
+        : undefined;
+    return {
+      ...skeleton,
+      kind: "presence" as const,
+      ...(presenceScore ? { presenceScore } : {}),
+    };
+  });
   const filtered = opts.includeRejected
     ? drafts
     : drafts.filter((d) => isDraftActionable(d));

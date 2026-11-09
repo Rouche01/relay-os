@@ -8,11 +8,27 @@ First Relay dogfood app: discover fashion/styling subreddits (HITL promote onto 
 
 Related plans:
 
+- [Help / Presence / Create lanes](../../.cursor/plans/ce_help_presence_create_lanes.plan.md) — per-lane entrypoints, schedules, create remodel
 - [Notify-only + redditapis scout](../../.cursor/plans/notify_only_redditapis_scout.plan.md) — manual post mode + read-only third-party listings
 - [HITL + CommunityEngager + VoltMem](../../.cursor/plans/relay_hitl_community_voltmem.plan.md) — Phase 6 discovery + nested fanout
 - [Reddit browser / scrape transport](../../.cursor/plans/relay_reddit_browser.plan.md) — browser scout, ensure_session, interstitial HITL
 - [Authority + metrics](../../.cursor/plans/community_engager_authority_metrics.plan.md) — warmup, promo-ratio, post-watch, north-star metrics
 - [ThinkPad deploy](../../.cursor/plans/relay_thinkpad_deploy.plan.md) · runbook [`deploy/README.md`](../../deploy/README.md) · [`deploy/SMOKE.md`](../../deploy/SMOKE.md)
+
+## Lanes (help / presence / create)
+
+One scheduler/ops host; **independent entrypoints** (no mixed-lane scout):
+
+| Entrypoint | Ops | Schedule id (default) |
+|------------|-----|------------------------|
+| `engage` / `engage_help` | `/engage` · `/engage_help` | `cadence` (on) |
+| `engage_presence` | `/engage_presence` | `engage_presence` (**off**) |
+| `create` | `/create_propose` | `create` (**off**) |
+| `post_watch` | `/watch_posts` | `post_watch` (on) |
+
+Cadence budgets (`config/default.json` → `cadence`): `maxHelpPerDay`, `maxPresencePerDay`, `maxPromoPerDay`, `maxCreatePerWeek`, plus per-lane cron / `maxJobsPerRun*` / schedule enable flags. Env mirrors: `COMMUNITY_CADENCE_MAX_PRESENCE_PER_DAY`, `COMMUNITY_CADENCE_SCHEDULE_PRESENCE_ENABLED`, etc.
+
+Presence requires playbook `presenceEnabled`. Create requires `allowsOriginalPosts` + cooldown; remodel is notify-only (always skip automated submit).
 
 ## Notify-only mode (recommended deploy)
 
@@ -224,7 +240,8 @@ Pause state is process-local on the daemon; evidence under `{REDDIT_DATA_DIR}/sc
 | Post-watch (24–72h) | Live execute enrolls; separate `watch:posts` entrypoint polls + follow-up jobs |
 | Soft-CTA drafts | Help first; intensity 0 = no product; 1 = name mention only; 2 = disclose + one LP link (`product.lpBaseUrl` / `GOSTYLENS_LP_BASE_URL`) |
 | Sub playbooks | Per-allowlist `playbook`: rules summary, `plugStyle`, `megathreadPolicy`, `maxPlugsPerWeek` — clamps draft intensity and megathread scout |
-| Daily cadence | Caps live help/promo posts per local day; `pnpm scheduler` arms `cadence` (engage) + `post_watch` via `@relay/scheduler` |
+| Daily cadence | Caps help/presence/promo per day + create per week; `pnpm scheduler` arms help `cadence` + optional presence/create + `post_watch` |
+| Lane kinds | Outcomes / post-watch tagged `kind=help\|presence\|create`; `got_upvote` when score rises on poll |
 | Visibility check | After live execute, logged-out permalink fetch; flags removal / missing (shadowban-adjacent) |
 | Job UTM attribution | LP links: `utm_medium=community-engager`, `utm_campaign=community_<sub>`, `utm_content=<jobId>`; attribution ledger |
 

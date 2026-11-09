@@ -60,10 +60,18 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
     cadence: {
       enabled: false,
       maxHelpPerDay: 5,
+      maxPresencePerDay: 2,
       maxPromoPerDay: 1,
+      maxCreatePerWeek: 1,
       scheduleEnabled: false,
       scheduleCron: "0 9,13,18 * * *",
       maxJobsPerRun: 2,
+      schedulePresenceEnabled: false,
+      schedulePresenceCron: "0 11,16 * * *",
+      maxJobsPerRunPresence: 1,
+      scheduleCreateEnabled: false,
+      scheduleCreateCron: "0 10 * * 3",
+      maxJobsPerRunCreate: 1,
     },
     visibility: {
       enabled: true,

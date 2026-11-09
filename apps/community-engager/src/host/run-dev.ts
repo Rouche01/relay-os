@@ -40,7 +40,7 @@ function applyDiscoverCliFlags(argv: string[]): void {
 
 /**
  * CLI entrypoint selection:
- * - `--entrypoint engage` (default) | `--entrypoint post_watch`
+ * - `--entrypoint engage` (default) | `engage_help` | `engage_presence` | `create` | `post_watch`
  * - aliases: `watch posts`, `--watch-posts`
  */
 function parseEntrypoint(argv: string[]): CommunityEntrypoint {
@@ -52,13 +52,24 @@ function parseEntrypoint(argv: string[]): CommunityEntrypoint {
     if (arg === "watch" && argv[i + 1] === "posts") {
       return "post_watch";
     }
-    const m = /^--entrypoint=(engage|post_watch)$/i.exec(arg);
+    const m =
+      /^--entrypoint=(engage|engage_help|engage_presence|create|post_watch)$/i.exec(
+        arg
+      );
     if (m?.[1]) {
       return m[1].toLowerCase() as CommunityEntrypoint;
     }
     if (arg === "--entrypoint") {
-      const next = argv[i + 1]?.toLowerCase();
-      if (next === "engage" || next === "post_watch") return next;
+      const next = argv[i + 1]?.toLowerCase().replace(/-/g, "_");
+      if (
+        next === "engage" ||
+        next === "engage_help" ||
+        next === "engage_presence" ||
+        next === "create" ||
+        next === "post_watch"
+      ) {
+        return next;
+      }
     }
   }
   return "engage";

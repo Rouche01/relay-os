@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { getAllowlistStore } from "../../policy/allowlist-store.js";
 import { playbookLookup } from "../../policy/playbook.js";
-import type { CommunityDraft } from "../../types.js";
+import type { CommunityDraft, EngageKind } from "../../types.js";
 import { RedditClient } from "../client.js";
 import {
   allowlistedSubNames,
@@ -16,6 +16,8 @@ export interface LiveScoutOptions {
   cfg?: CommunityRuntimeConfig;
   /** Already-seen draft ids — skipped so `limit` is fresh for this run. */
   excludeIds?: Iterable<string>;
+  /** Lane for listingPostsToDrafts scoring. Default help. */
+  kind?: EngageKind;
 }
 
 /**
@@ -49,6 +51,7 @@ export async function scoutRedditLive(
     const mapped = listingPostsToDrafts(posts, limit - drafts.length, {
       excludeIds,
       playbookFor,
+      kind: opts.kind ?? "help",
     });
     for (const d of mapped) excludeIds.add(d.id);
     drafts.push(...mapped);

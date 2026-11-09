@@ -241,13 +241,21 @@ export interface PostWatchRuntimeConfig {
 export interface CadenceRuntimeConfig {
   enabled: boolean;
   maxHelpPerDay: number;
+  maxPresencePerDay: number;
   maxPromoPerDay: number;
-  /** When false, the `cadence` schedule stays disarmed. */
+  maxCreatePerWeek: number;
+  /** When false, the help `cadence` schedule stays disarmed. */
   scheduleEnabled: boolean;
-  /** Cron expression for scheduled engage fires. */
+  /** Cron expression for scheduled help engage fires. */
   scheduleCron: string;
-  /** Fanout maxJobs for each cadence schedule fire. */
+  /** Fanout maxJobs for each help cadence schedule fire. */
   maxJobsPerRun: number;
+  schedulePresenceEnabled: boolean;
+  schedulePresenceCron: string;
+  maxJobsPerRunPresence: number;
+  scheduleCreateEnabled: boolean;
+  scheduleCreateCron: string;
+  maxJobsPerRunCreate: number;
 }
 
 /** Immediate logged-out permalink check after live execute. */
@@ -649,10 +657,22 @@ export function getCommunityConfig(
         policy.cadence.maxHelpPerDay,
         { allowZero: true }
       ),
+      maxPresencePerDay: envNumber(
+        env,
+        "COMMUNITY_CADENCE_MAX_PRESENCE_PER_DAY",
+        policy.cadence.maxPresencePerDay,
+        { allowZero: true }
+      ),
       maxPromoPerDay: envNumber(
         env,
         "COMMUNITY_CADENCE_MAX_PROMO_PER_DAY",
         policy.cadence.maxPromoPerDay,
+        { allowZero: true }
+      ),
+      maxCreatePerWeek: envNumber(
+        env,
+        "COMMUNITY_CADENCE_MAX_CREATE_PER_WEEK",
+        policy.cadence.maxCreatePerWeek,
         { allowZero: true }
       ),
       scheduleEnabled: envBool(
@@ -669,6 +689,38 @@ export function getCommunityConfig(
         env,
         "COMMUNITY_CADENCE_MAX_JOBS_PER_RUN",
         policy.cadence.maxJobsPerRun,
+        { allowZero: false }
+      ),
+      schedulePresenceEnabled: envBool(
+        env,
+        "COMMUNITY_CADENCE_SCHEDULE_PRESENCE_ENABLED",
+        policy.cadence.schedulePresenceEnabled
+      ),
+      schedulePresenceCron: envString(
+        env,
+        "COMMUNITY_CADENCE_SCHEDULE_PRESENCE_CRON",
+        policy.cadence.schedulePresenceCron
+      ),
+      maxJobsPerRunPresence: envNumber(
+        env,
+        "COMMUNITY_CADENCE_MAX_JOBS_PER_RUN_PRESENCE",
+        policy.cadence.maxJobsPerRunPresence,
+        { allowZero: false }
+      ),
+      scheduleCreateEnabled: envBool(
+        env,
+        "COMMUNITY_CADENCE_SCHEDULE_CREATE_ENABLED",
+        policy.cadence.scheduleCreateEnabled
+      ),
+      scheduleCreateCron: envString(
+        env,
+        "COMMUNITY_CADENCE_SCHEDULE_CREATE_CRON",
+        policy.cadence.scheduleCreateCron
+      ),
+      maxJobsPerRunCreate: envNumber(
+        env,
+        "COMMUNITY_CADENCE_MAX_JOBS_PER_RUN_CREATE",
+        policy.cadence.maxJobsPerRunCreate,
         { allowZero: false }
       ),
     },

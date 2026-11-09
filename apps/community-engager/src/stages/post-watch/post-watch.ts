@@ -40,6 +40,8 @@ export interface PostWatchEntry {
   commentId?: string;
   draftId?: string;
   jobId?: string;
+  /** Engagement lane at enroll time (help|presence|create). */
+  kind?: string;
   status: PostWatchStatus;
   lastCheckedAt?: string;
   replyCount?: number;
@@ -223,6 +225,7 @@ export async function enrollPostWatch(
     threadTitle: string;
     draftId?: string;
     jobId?: string;
+    kind?: string;
     /** Hours until first look (preferred). */
     firstCheckAfterHours?: number;
     /** @deprecated Alias for firstCheckAfterHours. */
@@ -250,6 +253,7 @@ export async function enrollPostWatch(
     commentId: commentIdFromPermalink(input.postedUrl),
     draftId: input.draftId,
     jobId: input.jobId,
+    kind: input.kind,
     status: "pending",
   };
 
@@ -358,6 +362,7 @@ export async function processDuePostWatches(
       userAgent: cfg.reddit.userAgent,
     });
     const snap = candidateSnapshot(fetched);
+    const scoreBeforeFetch = watch.lastScore;
     if (fetched.source || fetched.comment) {
       applyWatchFetchDenorm(watch, fetched);
     }
@@ -424,6 +429,28 @@ export async function processDuePostWatches(
 
     const replies = comment.replies;
     watch.replyCount = replies.length;
+    const nextScore =
+      typeof comment.score === "number" && Number.isFinite(comment.score)
+        ? comment.score
+        : undefined;
+    if (
+      nextScore != null &&
+      scoreBeforeFetch != null &&
+      nextScore > scoreBeforeFetch
+    ) {
+      result.outcomeHints.push({
+        tag: "got_upvote",
+        meta: {
+          draftId: watch.draftId,
+          jobId: watch.jobId,
+          subreddit: watch.subreddit,
+          threadUrl: watch.threadUrl,
+          threadTitle: watch.threadTitle,
+          kind: watch.kind,
+          note: `score ${scoreBeforeFetch}→${nextScore}; phase=${phase}`,
+        },
+      });
+    }
 
     if (replies.length > 0) {
       watch.status = "replied";
@@ -441,6 +468,7 @@ export async function processDuePostWatches(
           subreddit: watch.subreddit,
           threadUrl: watch.threadUrl,
           threadTitle: watch.threadTitle,
+          kind: watch.kind,
           note: `replies=${replies.length}; phase=${phase}`,
         },
       });
@@ -453,6 +481,7 @@ export async function processDuePostWatches(
             subreddit: watch.subreddit,
             threadUrl: watch.threadUrl,
             threadTitle: watch.threadTitle,
+            kind: watch.kind,
             note: "reply text suggests DM/private follow-up",
           },
         });
@@ -612,6 +641,7 @@ function removedHint(
       subreddit: watch.subreddit,
       threadUrl: watch.threadUrl,
       threadTitle: watch.threadTitle,
+      kind: watch.kind,
       note,
     },
   };

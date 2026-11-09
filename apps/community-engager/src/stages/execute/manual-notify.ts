@@ -19,6 +19,21 @@ export function formatManualPostNotify(draft: CommunityDraft): string {
   const title = truncateTitle(draft.threadTitle);
   const permalink = draft.threadUrl.trim();
   const kind = engageKindOf(draft);
+
+  if (kind === "create") {
+    return (
+      `Create original post · r/${draft.subreddit}\n` +
+      `Title: ${title}\n\n` +
+      `Copy this body:\n` +
+      `────────\n` +
+      `${draft.draftText.trim()}\n` +
+      `────────\n\n` +
+      (draft.opText ? `${draft.opText.trim()}\n\n` : "") +
+      `Submit yourself on Reddit — nothing is posted automatically.\n` +
+      `(lane create · notify-only)`
+    );
+  }
+
   const tone =
     draft.intensity === 0
       ? "help-only"

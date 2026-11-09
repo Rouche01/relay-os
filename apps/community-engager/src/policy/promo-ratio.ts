@@ -5,7 +5,8 @@ import {
   type CommunityRuntimeConfig,
   type PromoOnExceed,
 } from "../reddit/config.js";
-import type { PromoIntensity } from "../types.js";
+import type { EngageKind, PromoIntensity } from "../types.js";
+import { normalizeEngageKind } from "../types.js";
 
 export interface PromoLedgerEntry {
   postedAt: string;
@@ -13,6 +14,8 @@ export interface PromoLedgerEntry {
   jobId?: string;
   /** Subreddit name (for per-sub playbook plugs/week). */
   subreddit?: string;
+  /** Engagement lane (help|presence|create). Legacy rows omit → help. */
+  kind?: EngageKind;
 }
 
 export interface PromoLedgerState {
@@ -94,6 +97,7 @@ export async function recordPromoLedgerPost(
     intensity: PromoIntensity;
     jobId?: string;
     subreddit?: string;
+    kind?: EngageKind | string | null;
     windowDays: number;
     postedAt?: string;
     nowMs?: number;
@@ -106,6 +110,7 @@ export async function recordPromoLedgerPost(
     intensity: input.intensity,
     jobId: input.jobId,
     subreddit: input.subreddit?.replace(/^r\//i, "").trim() || undefined,
+    kind: normalizeEngageKind(input.kind),
   });
   state.entries = pruneEntries(
     state.entries,
@@ -251,6 +256,10 @@ function normalizeEntry(raw: unknown): PromoLedgerEntry | null {
     subreddit:
       typeof row.subreddit === "string" && row.subreddit.trim()
         ? row.subreddit.replace(/^r\//i, "").trim()
+        : undefined,
+    kind:
+      typeof row.kind === "string" && row.kind.trim()
+        ? normalizeEngageKind(row.kind)
         : undefined,
   };
 }

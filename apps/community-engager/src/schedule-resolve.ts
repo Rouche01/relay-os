@@ -6,12 +6,14 @@ import {
 } from "@relay/protocol";
 import type { CommunityRuntimeConfig } from "./reddit/config.js";
 
-/** Manifest schedule id for human-like engage runs (A5). */
+/** Manifest schedule id for help-lane engage runs (legacy name). */
 export const CADENCE_SCHEDULE_ID = "cadence";
+export const PRESENCE_SCHEDULE_ID = "engage_presence";
+export const CREATE_SCHEDULE_ID = "create";
 
 /**
  * Merge manifest `schedules[]` with runtime cadence knobs.
- * Cadence schedule uses `@relay/scheduler` — no app-local cron.
+ * Cadence / lane schedules use `@relay/scheduler` — no app-local cron.
  */
 export function resolveCommunitySchedules(
   manifest: AgenticAppManifest,
@@ -32,7 +34,36 @@ export function resolveCommunitySchedules(
           cfg.cadence.scheduleEnabled,
         description:
           s.description ??
-          "Human-like engage under daily help/promo cadence caps",
+          "Help-lane engage under daily help/promo cadence caps",
+      });
+      continue;
+    }
+
+    if (s.id === PRESENCE_SCHEDULE_ID) {
+      out.push({
+        ...s,
+        entrypoint: "engage_presence",
+        cron: cfg.cadence.schedulePresenceCron?.trim() || s.cron,
+        every_ms: undefined,
+        enabled:
+          cfg.cadence.enabled && cfg.cadence.schedulePresenceEnabled,
+        description:
+          s.description ??
+          "Presence-lane engage under daily presence cadence caps",
+      });
+      continue;
+    }
+
+    if (s.id === CREATE_SCHEDULE_ID) {
+      out.push({
+        ...s,
+        entrypoint: "create",
+        cron: cfg.cadence.scheduleCreateCron?.trim() || s.cron,
+        every_ms: undefined,
+        enabled: cfg.cadence.enabled && cfg.cadence.scheduleCreateEnabled,
+        description:
+          s.description ??
+          "Create-lane proposals under weekly create cadence caps",
       });
       continue;
     }
@@ -62,13 +93,19 @@ export function resolveEnabledCommunitySchedules(
   return listEnabledSchedules({ ...manifest, schedules });
 }
 
-/** Per-fire job budget for a schedule id (cadence uses tighter caps). */
+/** Per-fire job budget for a schedule id (lane cadences use tighter caps). */
 export function maxJobsForSchedule(
   scheduleId: string,
   cfg: Pick<CommunityRuntimeConfig, "cadence" | "jobs">
 ): number | undefined {
   if (scheduleId === CADENCE_SCHEDULE_ID) {
     return cfg.cadence.maxJobsPerRun;
+  }
+  if (scheduleId === PRESENCE_SCHEDULE_ID) {
+    return cfg.cadence.maxJobsPerRunPresence;
+  }
+  if (scheduleId === CREATE_SCHEDULE_ID) {
+    return cfg.cadence.maxJobsPerRunCreate;
   }
   return undefined;
 }

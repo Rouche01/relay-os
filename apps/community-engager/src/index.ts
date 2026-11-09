@@ -36,6 +36,8 @@ import { watchComputerChallengeCleared } from "./reddit/write/computer-challenge
 import { formatRunSummary, runSummaryFromFanout, type RunSummary } from "./metrics/job-queue.js";
 import {
   CommunityEngagerManifest,
+  engageKindForEntrypoint,
+  isEngageLaneEntrypoint,
   protocolEntrypointName,
   type CommunityEntrypoint,
 } from "./manifest.js";
@@ -285,11 +287,12 @@ export class CommunityEngagerApp implements FanoutHost {
     await this.persistSpecBundle(runSpec);
     const activeSpec = activateSpecForRun(runSpec);
     const bindings = bindingsFromSpec(activeSpec);
+    const engageKind = engageKindForEntrypoint(this.entrypoint);
     const forceDiscover =
-      this.entrypoint === "engage" &&
+      isEngageLaneEntrypoint(this.entrypoint) &&
       (Boolean(this.options.forceDiscover) || Boolean(bindings?.forceDiscover));
     console.log(
-      `[run] entrypoint=${this.entrypoint}` +
+      `[run] entrypoint=${this.entrypoint} kind=${engageKind}` +
         (forceDiscover ? " forceDiscover=1" : "") +
         (activeSpec
           ? ` spec=${activeSpec.id}:${activeSpec.status}` +
@@ -305,6 +308,8 @@ export class CommunityEngagerApp implements FanoutHost {
       memoryHealthy = false;
     }
 
+    this.runtime.getContext().entrypoint = this.entrypoint;
+    this.runtime.getContext().engageKind = engageKind;
     if (forceDiscover) {
       this.runtime.getContext().forceDiscover = true;
     }

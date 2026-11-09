@@ -12,6 +12,7 @@ import { SchedulerHost } from "@relay/scheduler";
 import { CommunityEngagerApp } from "../index.js";
 import {
   CommunityEngagerManifest,
+  normalizeCommunityEntrypoint,
   type CommunityEntrypoint,
 } from "../manifest.js";
 import { handleOpsWithAck, OpsController } from "../ops/index.js";
@@ -35,10 +36,10 @@ and type the same intents on stdin (CLI adapter).
 }
 
 function toCommunityEntrypoint(name: string): CommunityEntrypoint {
-  if (name === "post_watch") return "post_watch";
-  if (name === "default" || name === "engage") return "engage";
+  const ep = normalizeCommunityEntrypoint(name);
+  if (ep) return ep;
   throw new Error(
-    `Scheduler entrypoint "${name}" is not a CommunityEngager entrypoint (engage|post_watch)`
+    `Scheduler entrypoint "${name}" is not a CommunityEngager entrypoint (engage|engage_help|engage_presence|create|post_watch)`
   );
 }
 

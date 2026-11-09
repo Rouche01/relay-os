@@ -1,5 +1,8 @@
 import type { IntentSlots } from "@relay/protocol";
-import type { CommunityEntrypoint } from "../manifest.js";
+import {
+  normalizeCommunityEntrypoint,
+  type CommunityEntrypoint,
+} from "../manifest.js";
 
 /** Stable app id for Spec.procedure.appId */
 export const COMMUNITY_ENGAGER_APP_ID = "community-engager";
@@ -76,17 +79,23 @@ export function resolveEntrypoint(
   if (pack === "post_watch" || pack === "community_engager/post_watch") {
     return "post_watch";
   }
+  if (pack === "engage_presence" || pack === "community_engager/engage_presence") {
+    return "engage_presence";
+  }
+  if (pack === "engage_help" || pack === "community_engager/engage_help") {
+    return "engage_help";
+  }
+  if (pack === "create" || pack === "community_engager/create") {
+    return "create";
+  }
   if (pack === "engage" || pack === "community_engager/engage") {
     return "engage";
   }
 
-  const raw = slotString(slots, "entrypoint")?.toLowerCase().replace(/-/g, "_");
-  if (raw === "post_watch" || raw === "postwatch" || raw === "watch") {
-    return "post_watch";
-  }
-  if (raw === "engage" || raw === "scout" || raw === "community") {
-    return "engage";
-  }
+  const raw = slotString(slots, "entrypoint");
+  const normalized = normalizeCommunityEntrypoint(raw);
+  if (normalized) return normalized;
+  if (raw?.toLowerCase().replace(/-/g, "_") === "scout") return "engage";
   return fallback;
 }
 

@@ -4,8 +4,15 @@ import {
   listEntrypointNames,
   resolveEntrypoint,
 } from "@relay/protocol";
-import type { CommunityEntrypoint } from "../manifest.js";
-import { CADENCE_SCHEDULE_ID } from "../schedule-resolve.js";
+import {
+  normalizeCommunityEntrypoint,
+  type CommunityEntrypoint,
+} from "../manifest.js";
+import {
+  CADENCE_SCHEDULE_ID,
+  CREATE_SCHEDULE_ID,
+  PRESENCE_SCHEDULE_ID,
+} from "../schedule-resolve.js";
 import { OPS_HELP, type OpsCommand } from "./command.js";
 
 const POST_WATCH_SCHEDULE_ID = "post_watch";
@@ -65,14 +72,54 @@ export function parseOpsIntent(
     return { kind: "stop_all" };
   }
 
-  if (n === "start cadence") {
+  if (n === "start cadence" || n === "start help cadence" || n === "start engage help") {
     return { kind: "start_schedule", scheduleId: CADENCE_SCHEDULE_ID };
   }
-  if (n === "stop cadence") {
+  if (n === "stop cadence" || n === "stop help cadence" || n === "stop engage help") {
     return { kind: "stop_schedule", scheduleId: CADENCE_SCHEDULE_ID };
   }
   if (n === "run cadence now" || n === "trigger cadence") {
     return { kind: "trigger", scheduleId: CADENCE_SCHEDULE_ID };
+  }
+
+  if (
+    n === "start presence" ||
+    n === "start engage presence" ||
+    n === "start presence cadence"
+  ) {
+    return { kind: "start_schedule", scheduleId: PRESENCE_SCHEDULE_ID };
+  }
+  if (
+    n === "stop presence" ||
+    n === "stop engage presence" ||
+    n === "stop presence cadence"
+  ) {
+    return { kind: "stop_schedule", scheduleId: PRESENCE_SCHEDULE_ID };
+  }
+  if (
+    n === "run presence now" ||
+    n === "trigger presence" ||
+    n === "run engage presence now"
+  ) {
+    return { kind: "trigger", scheduleId: PRESENCE_SCHEDULE_ID };
+  }
+
+  if (
+    n === "start create" ||
+    n === "start create schedule" ||
+    n === "start create cadence"
+  ) {
+    return { kind: "start_schedule", scheduleId: CREATE_SCHEDULE_ID };
+  }
+  if (
+    n === "stop create" ||
+    n === "stop create schedule" ||
+    n === "stop create cadence"
+  ) {
+    return { kind: "stop_schedule", scheduleId: CREATE_SCHEDULE_ID };
+  }
+  if (n === "run create now" || n === "trigger create") {
+    return { kind: "trigger", scheduleId: CREATE_SCHEDULE_ID };
   }
 
   if (
@@ -105,6 +152,19 @@ export function parseOpsIntent(
     n === "force discover engage"
   ) {
     return { kind: "one_off", entrypoint: "engage", forceDiscover: true };
+  }
+  if (n === "engage help" || n === "engage_help") {
+    return { kind: "one_off", entrypoint: "engage_help" };
+  }
+  if (n === "engage presence" || n === "engage_presence") {
+    return { kind: "one_off", entrypoint: "engage_presence" };
+  }
+  if (
+    n === "create propose" ||
+    n === "create_propose" ||
+    n === "create"
+  ) {
+    return { kind: "one_off", entrypoint: "create" };
   }
   if (
     n === "engage" ||
@@ -159,9 +219,8 @@ function triggerPhrases(
 }
 
 function toCommunityEntrypoint(name: string): CommunityEntrypoint | undefined {
-  if (name === DEFAULT_ENTRYPOINT || name === "engage") return "engage";
-  if (name === "post_watch") return "post_watch";
-  return undefined;
+  if (name === DEFAULT_ENTRYPOINT) return "engage";
+  return normalizeCommunityEntrypoint(name);
 }
 
 /** Human-readable help, optionally noting why parse fell through. */

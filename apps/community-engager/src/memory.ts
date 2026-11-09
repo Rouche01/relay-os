@@ -129,6 +129,8 @@ export const CommunityMemory = {
       threadTitle?: string;
       note?: string;
       intensity?: number;
+      /** Engagement lane for metrics breakdown. */
+      kind?: string;
     }
   ): string {
     const bits = [
@@ -138,6 +140,7 @@ export const CommunityMemory = {
       `r/${meta.subreddit}`,
       outcomeTagLabel(tag),
     ].filter(Boolean) as string[];
+    if (meta.kind) bits.push(`kind=${meta.kind}`);
     if (meta.intensity != null) bits.push(`intensity=${meta.intensity}`);
     if (meta.threadUrl) bits.push(`url=${meta.threadUrl}`);
     const title = clipTitle(meta.threadTitle);
@@ -151,12 +154,14 @@ export const CommunityMemory = {
 /** Post-engagement tags written into `community_outcome`. */
 export type OutcomeTag =
   | "got_reply"
+  | "got_upvote"
   | "removed"
   | "dm_interest"
   | "signup_attributed";
 
 export const OUTCOME_TAGS: readonly OutcomeTag[] = [
   "got_reply",
+  "got_upvote",
   "removed",
   "dm_interest",
   "signup_attributed",
@@ -166,6 +171,8 @@ function outcomeTagLabel(tag: OutcomeTag): string {
   switch (tag) {
     case "got_reply":
       return "thread got a reply after our comment";
+    case "got_upvote":
+      return "comment score increased after post";
     case "removed":
       return "comment removed or not publicly visible";
     case "dm_interest":

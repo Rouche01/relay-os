@@ -100,16 +100,34 @@ export interface PostWatchFileConfig {
 
 export interface CadenceFileConfig {
   enabled?: boolean;
-  /** Max intensity-0 live posts per local calendar day. Default 5. */
+  /** Max help-lane (intensity-0, kind=help) live posts per local day. Default 5. */
   maxHelpPerDay?: number;
+  /** Max presence-lane live posts per local day. Default 2. */
+  maxPresencePerDay?: number;
   /** Max intensity ≥1 live posts per local calendar day. Default 1. */
   maxPromoPerDay?: number;
-  /** Arm the `cadence` schedule in `@relay/scheduler`. Default true. */
+  /** Max create-lane proposals/posts per ISO week. Default 1. */
+  maxCreatePerWeek?: number;
+  /** Arm the help `cadence` schedule in `@relay/scheduler`. Default true. */
   scheduleEnabled?: boolean;
-  /** Cron for scheduled engage (default morning/midday/evening). */
+  /** Alias of scheduleEnabled (help lane). */
+  scheduleHelpEnabled?: boolean;
+  /** Cron for scheduled help engage (default morning/midday/evening). */
   scheduleCron?: string;
-  /** Max fanout jobs per scheduled cadence fire. Default 2. */
+  /** Alias of scheduleCron (help lane). */
+  scheduleHelpCron?: string;
+  /** Max fanout jobs per help cadence fire. Default 2. */
   maxJobsPerRun?: number;
+  /** Alias of maxJobsPerRun (help lane). */
+  maxJobsPerRunHelp?: number;
+  /** Arm engage_presence schedule. Default false. */
+  schedulePresenceEnabled?: boolean;
+  schedulePresenceCron?: string;
+  maxJobsPerRunPresence?: number;
+  /** Arm create schedule. Default false. */
+  scheduleCreateEnabled?: boolean;
+  scheduleCreateCron?: string;
+  maxJobsPerRunCreate?: number;
 }
 
 export interface VisibilityFileConfig {
@@ -141,10 +159,18 @@ export interface CommunityAppConfig {
   cadence: {
     enabled: boolean;
     maxHelpPerDay: number;
+    maxPresencePerDay: number;
     maxPromoPerDay: number;
+    maxCreatePerWeek: number;
     scheduleEnabled: boolean;
     scheduleCron: string;
     maxJobsPerRun: number;
+    schedulePresenceEnabled: boolean;
+    schedulePresenceCron: string;
+    maxJobsPerRunPresence: number;
+    scheduleCreateEnabled: boolean;
+    scheduleCreateCron: string;
+    maxJobsPerRunCreate: number;
   };
   visibility: {
     enabled: boolean;
@@ -235,10 +261,18 @@ const BUILTIN_DEFAULTS: CommunityAppConfig = {
   cadence: {
     enabled: true,
     maxHelpPerDay: 5,
+    maxPresencePerDay: 2,
     maxPromoPerDay: 1,
+    maxCreatePerWeek: 1,
     scheduleEnabled: true,
     scheduleCron: "0 9,13,18 * * *",
     maxJobsPerRun: 2,
+    schedulePresenceEnabled: false,
+    schedulePresenceCron: "0 11,16 * * *",
+    maxJobsPerRunPresence: 1,
+    scheduleCreateEnabled: false,
+    scheduleCreateCron: "0 10 * * 3",
+    maxJobsPerRunCreate: 1,
   },
   visibility: {
     enabled: true,
@@ -387,6 +421,9 @@ export function mergeConfig(
 function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
   const firstCheck = resolveFirstCheckHours(raw.postWatch);
   const maxAge = nonNegInt(raw.postWatch?.maxAgeHours, 72);
+  /** File aliases may still be present after merge via pickDefined. */
+  const cadenceIn = raw.cadence as CommunityAppConfig["cadence"] &
+    CadenceFileConfig;
   return {
     warmup: {
       mode: String(raw.warmup.mode ?? "auto"),
@@ -411,14 +448,40 @@ function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
       ),
     },
     cadence: {
-      enabled: Boolean(raw.cadence?.enabled ?? true),
-      maxHelpPerDay: nonNegInt(raw.cadence?.maxHelpPerDay, 5),
-      maxPromoPerDay: nonNegInt(raw.cadence?.maxPromoPerDay, 1),
-      scheduleEnabled: Boolean(raw.cadence?.scheduleEnabled ?? true),
-      scheduleCron: String(
-        raw.cadence?.scheduleCron?.trim() || "0 9,13,18 * * *"
+      enabled: Boolean(cadenceIn?.enabled ?? true),
+      maxHelpPerDay: nonNegInt(cadenceIn?.maxHelpPerDay, 5),
+      maxPresencePerDay: nonNegInt(cadenceIn?.maxPresencePerDay, 2),
+      maxPromoPerDay: nonNegInt(cadenceIn?.maxPromoPerDay, 1),
+      maxCreatePerWeek: nonNegInt(cadenceIn?.maxCreatePerWeek, 1),
+      scheduleEnabled: Boolean(
+        cadenceIn?.scheduleHelpEnabled ?? cadenceIn?.scheduleEnabled ?? true
       ),
-      maxJobsPerRun: positiveInt(raw.cadence?.maxJobsPerRun, 2),
+      scheduleCron: String(
+        cadenceIn?.scheduleHelpCron?.trim() ||
+          cadenceIn?.scheduleCron?.trim() ||
+          "0 9,13,18 * * *"
+      ),
+      maxJobsPerRun: positiveInt(
+        cadenceIn?.maxJobsPerRunHelp ?? cadenceIn?.maxJobsPerRun,
+        2
+      ),
+      schedulePresenceEnabled: Boolean(
+        cadenceIn?.schedulePresenceEnabled ?? false
+      ),
+      schedulePresenceCron: String(
+        cadenceIn?.schedulePresenceCron?.trim() || "0 11,16 * * *"
+      ),
+      maxJobsPerRunPresence: positiveInt(
+        cadenceIn?.maxJobsPerRunPresence,
+        1
+      ),
+      scheduleCreateEnabled: Boolean(
+        cadenceIn?.scheduleCreateEnabled ?? false
+      ),
+      scheduleCreateCron: String(
+        cadenceIn?.scheduleCreateCron?.trim() || "0 10 * * 3"
+      ),
+      maxJobsPerRunCreate: positiveInt(cadenceIn?.maxJobsPerRunCreate, 1),
     },
     visibility: {
       enabled: Boolean(raw.visibility?.enabled ?? true),

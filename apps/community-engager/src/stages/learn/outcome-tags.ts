@@ -19,6 +19,8 @@ export interface OutcomeTagMeta {
   threadTitle?: string;
   note?: string;
   intensity?: number;
+  /** help | presence | create */
+  kind?: string;
 }
 
 export interface OutcomeTagHint {

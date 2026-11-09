@@ -13,16 +13,16 @@ todos:
     status: completed
   - id: lane-entrypoints
     content: Three entrypoints engage_help|engage_presence|create (+ keep engage alias→help); no mixed-lane scout/job picker
-    status: pending
+    status: completed
   - id: lane-schedules-ops
     content: Per-lane cadence crons + ops intents (/engage_help, /engage_presence, /create_propose); shared host mutex + ledger budgets
-    status: pending
+    status: completed
   - id: create-remodel
     content: Winner scout → pattern extract → CreateProposal draft (title+body); playbook allowsOriginalPosts; notify-only submit first
-    status: pending
+    status: completed
   - id: metrics-voltmem
     content: Authority/post-watch tags by kind; got_upvotes; optional follower snapshot; README + config knobs default conservative
-    status: pending
+    status: completed
 isProject: true
 ---
 

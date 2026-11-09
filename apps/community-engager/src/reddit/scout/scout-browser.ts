@@ -5,7 +5,7 @@ import type { PlaywrightEngine } from "@relay/engines-browser";
 import { detectInterstitialDecided } from "../../decide/interstitial-decide.js";
 import { getAllowlistStore } from "../../policy/allowlist-store.js";
 import { playbookLookup } from "../../policy/playbook.js";
-import type { CommunityDraft } from "../../types.js";
+import type { CommunityDraft, EngageKind } from "../../types.js";
 import { scoreTotal } from "../../types.js";
 import type { RedditListingPost } from "../client.js";
 import {
@@ -90,6 +90,8 @@ export interface BrowserScoutOptions {
   limit?: number;
   subreddits?: string[];
   cfg?: CommunityRuntimeConfig;
+  /** Lane for listingPostsToDrafts scoring. Default help. */
+  kind?: EngageKind;
   /** Base delay between subreddit navigations (ms). */
   delayMs?: number;
   /** Load cookie jar if present (default true). */
@@ -512,6 +514,7 @@ export async function scoutRedditBrowser(
         const mapped = listingPostsToDrafts(posts, take, {
           excludeIds,
           playbookFor,
+          kind: opts.kind ?? "help",
         });
         for (const d of mapped) excludeIds.add(d.id);
         drafts.push(...mapped);

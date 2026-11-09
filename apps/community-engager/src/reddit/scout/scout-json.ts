@@ -1,4 +1,4 @@
-import type { CommunityDraft } from "../../types.js";
+import type { CommunityDraft, EngageKind } from "../../types.js";
 import type { RedditListingPost } from "../client.js";
 import { createRedditBrowserEngine } from "../session/browser-session.js";
 import {
@@ -23,6 +23,8 @@ export interface JsonScoutOptions {
   playwrightFallback?: boolean;
   /** Already-seen draft ids — skipped so `limit` is fresh for this run. */
   excludeIds?: Iterable<string>;
+  /** Lane for listingPostsToDrafts scoring. Default help. */
+  kind?: EngageKind;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -37,16 +39,51 @@ function jsonUserAgent(cfg: CommunityRuntimeConfig): string {
 
 export function publicListingUrls(
   subreddit: string,
-  sort: "new" | "hot" = "new",
+  sort: "new" | "hot" | "top" = "new",
   limit = 25
 ): string[] {
   const sub = subreddit.replace(/^r\//i, "");
-  const q = `limit=${limit}&raw_json=1`;
+  const q =
+    sort === "top"
+      ? `limit=${limit}&raw_json=1&t=week`
+      : `limit=${limit}&raw_json=1`;
   return [
     `https://www.reddit.com/r/${encodeURIComponent(sub)}/${sort}.json?${q}`,
     `https://www.reddit.com/r/${encodeURIComponent(sub)}/${sort}/.json?${q}`,
     `https://old.reddit.com/r/${encodeURIComponent(sub)}/${sort}.json?${q}`,
   ];
+}
+
+/** Public JSON listing for create winner-scout (top/hot/new). */
+export async function fetchJsonListing(
+  subreddit: string,
+  sort: "new" | "hot" | "top" = "new",
+  opts?: { cfg?: CommunityRuntimeConfig; playwrightFallback?: boolean }
+): Promise<RedditListingPost[]> {
+  const cfg = opts?.cfg ?? getCommunityConfig();
+  const playwrightFallback = opts?.playwrightFallback ?? true;
+  const ua = jsonUserAgent(cfg);
+  const urls = publicListingUrls(subreddit, sort, 25);
+  let lastErr: string | undefined;
+
+  for (const url of urls) {
+    const result = await fetchJsonHttp(url, ua);
+    if (result.ok) {
+      return parseListingJson(result.json, subreddit);
+    }
+    lastErr = `HTTP ${result.status} via ${url}`;
+    console.warn(`[scout:json] ${lastErr}`);
+  }
+
+  if (playwrightFallback) {
+    console.warn(
+      `[create/json] r/${subreddit} bare fetch blocked; retrying via Playwright…`
+    );
+    const json = await fetchJsonViaPlaywright(urls[0]!, cfg);
+    return parseListingJson(json, subreddit);
+  }
+
+  throw new Error(lastErr ?? `r/${subreddit} json listing failed`);
 }
 
 function mapListingChildren(
@@ -208,6 +245,7 @@ export async function scoutRedditJson(
       const mapped = listingPostsToDrafts(posts, limit - drafts.length, {
         excludeIds,
         playbookFor,
+        kind: opts.kind ?? "help",
       });
       for (const d of mapped) excludeIds.add(d.id);
       drafts.push(...mapped);
