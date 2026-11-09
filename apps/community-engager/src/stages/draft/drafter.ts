@@ -3,6 +3,7 @@ import {
   draftLlmConfigured,
   generateDraftViaLlm,
   prefersHelpFirstMemory,
+  presenceForcesIntensity0,
   PRODUCT_RE,
   resolveDraftLlmProvider,
 } from "./draft-llm.js";
@@ -64,10 +65,12 @@ export async function draftReply(
 ): Promise<DraftReplyOutcome> {
   const fixture = FIXTURE_THREADS.find((t) => t.id === draft.id);
   const playbook = overrides?.playbook ?? DEFAULT_PLAYBOOK;
+  const presenceLane = presenceForcesIntensity0(draft);
   const forceIntensity0 = Boolean(
     overrides?.warmupActive ||
       overrides?.forceIntensity0 ||
-      overrides?.plugsWeekBlocked
+      overrides?.plugsWeekBlocked ||
+      presenceLane
   );
   let intensity = clampIntensity(overrides?.intensity ?? draft.intensity);
   intensity = clampIntensityToPlaybook(intensity, playbook, {
@@ -105,7 +108,7 @@ export async function draftReply(
           {
             ...draft,
             draftText: llm.draftText,
-            intensity: llm.intensity,
+            intensity: presenceLane ? 0 : llm.intensity,
             status: "pending_approval",
             draftProvider: provider,
             draftModel,
@@ -123,16 +126,22 @@ export async function draftReply(
 
   const text =
     overrides?.text ??
-    buildStubDraft({
-      title: draft.threadTitle,
-      opText: draft.opText ?? fixture?.opText ?? "",
-      intensity: forceIntensity0 ? 0 : intensity,
-      subreddit: draft.subreddit,
-      memoryHint: Boolean(memoryBlock),
-      lpBaseUrl,
-      campaign: draft.utmCampaign,
-      mediaLed: Boolean(draft.opMediaHint),
-    });
+    (presenceLane
+      ? buildPresenceStubDraft({
+          title: draft.threadTitle,
+          opText: draft.opText ?? fixture?.opText ?? "",
+          mediaLed: Boolean(draft.opMediaHint),
+        })
+      : buildStubDraft({
+          title: draft.threadTitle,
+          opText: draft.opText ?? fixture?.opText ?? "",
+          intensity: forceIntensity0 ? 0 : intensity,
+          subreddit: draft.subreddit,
+          memoryHint: Boolean(memoryBlock),
+          lpBaseUrl,
+          campaign: draft.utmCampaign,
+          mediaLed: Boolean(draft.opMediaHint),
+        }));
 
   return {
     provider: "stub",
@@ -207,14 +216,20 @@ export function applyWarmupClamp(
     return { ...draft, intensity: 0 };
   }
   const title = stubCtx?.title ?? draft.threadTitle;
-  const helpOnly = buildStubDraft({
-    title,
-    opText: stubCtx?.opText ?? draft.opText ?? "",
-    intensity: 0,
-    subreddit: stubCtx?.subreddit ?? draft.subreddit,
-    memoryHint: stubCtx?.memoryHint ?? true,
-    lpBaseUrl: stubCtx?.lpBaseUrl,
-  });
+  const helpOnly = presenceForcesIntensity0(draft)
+    ? buildPresenceStubDraft({
+        title,
+        opText: stubCtx?.opText ?? draft.opText ?? "",
+        mediaLed: Boolean(draft.opMediaHint),
+      })
+    : buildStubDraft({
+        title,
+        opText: stubCtx?.opText ?? draft.opText ?? "",
+        intensity: 0,
+        subreddit: stubCtx?.subreddit ?? draft.subreddit,
+        memoryHint: stubCtx?.memoryHint ?? true,
+        lpBaseUrl: stubCtx?.lpBaseUrl,
+      });
   return {
     ...draft,
     intensity: 0,
@@ -270,5 +285,31 @@ function buildStubDraft(input: {
     helpFirst +
     ` Full disclosure: I'm the founder of GoStylens. If a lightweight system helper sounds useful: ${lp}` +
     memoryNote
+  );
+}
+
+/** Short presence-lane stub (intensity 0, no product). */
+export function buildPresenceStubDraft(input: {
+  title: string;
+  opText: string;
+  mediaLed?: boolean;
+}): string {
+  const title = input.title.trim() || "this look";
+  if (input.mediaLed) {
+    return (
+      `On “${title}” I'd push one notch dressier or more relaxed so it reads on purpose. ` +
+      `Mixed signals are what make a look feel unfinished.`
+    );
+  }
+  const body = input.opText.trim();
+  if (body.length > 40) {
+    return (
+      `On “${title}” I'd keep the strongest note from what you wrote and quiet the rest. ` +
+      `That usually fixes the almost-there feeling faster than adding more.`
+    );
+  }
+  return (
+    `For “${title}” my take is commit to one note (sharp, soft, or loud) and drop whatever fights it. ` +
+    `Mixed signals are what make fits feel off.`
   );
 }

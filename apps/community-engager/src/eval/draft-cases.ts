@@ -3,12 +3,16 @@
  * Built from fixtures plus a few media / thin-body / product-tempting posts.
  */
 
+import type { EngageKind } from "../types.js";
+
 export interface DraftEvalCase {
   id: string;
   subreddit: string;
   threadTitle: string;
   opText: string;
   opMediaHint?: string;
+  /** Lane — presence uses short-take voice + intensity 0. Default help. */
+  kind?: EngageKind;
   /** Distinctive tokens that should show up (title paraphrase is enough). */
   mustGroundIn: string[];
   /** Extra bans beyond the shared AI-tell list. */
@@ -106,6 +110,44 @@ export const DRAFT_EVAL_CASES: DraftEvalCase[] = [
     opText: "Walking a lot for commute. Prefer leather or leather-like.",
     mustGroundIn: ["sneaker", "100"],
     bannedPhrases: ["check out", "game changer"],
+    maxIntensity: 0,
+    forceIntensity0: true,
+    intensity: 0,
+  },
+  {
+    id: "presence-fit-check",
+    kind: "presence",
+    subreddit: "malefashionadvice",
+    threadTitle: "Fit check — navy trousers + white tee for drinks?",
+    opText: "Too casual? Honest thoughts welcome.",
+    opMediaHint:
+      "OP included photo(s) on the thread. Ground the reply in the title/body; you cannot see the pixels.",
+    mustGroundIn: ["drink", "tee"],
+    bannedPhrases: ["gostylens", "happy to help", "from the pic"],
+    maxIntensity: 0,
+    forceIntensity0: true,
+    intensity: 0,
+  },
+  {
+    id: "presence-rate-outfit",
+    kind: "presence",
+    subreddit: "fashion",
+    threadTitle: "Rate the outfit — wedding guest, outdoor",
+    opText: "Semi-formal outdoor wedding. Does the silhouette work?",
+    mustGroundIn: ["wedding", "outdoor"],
+    bannedPhrases: ["gostylens", "game changer", "check out"],
+    maxIntensity: 0,
+    forceIntensity0: true,
+    intensity: 0,
+  },
+  {
+    id: "presence-hot-take",
+    kind: "presence",
+    subreddit: "femalefashionadvice",
+    threadTitle: "Are oversized blazers over for work or still fine?",
+    opText: "Office dressy-casual. Curious what people are actually wearing.",
+    mustGroundIn: ["blazer", "work"],
+    bannedPhrases: ["gostylens", "simple approach", "feel free to"],
     maxIntensity: 0,
     forceIntensity0: true,
     intensity: 0,

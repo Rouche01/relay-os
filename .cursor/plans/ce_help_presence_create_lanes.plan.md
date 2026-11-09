@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: presence-draft
     content: Presence draft prompt + eval cases (short take / tip / light joke); force intensity 0 until karma/reply thresholds
-    status: pending
+    status: completed
   - id: lane-entrypoints
     content: Three entrypoints engage_help|engage_presence|create (+ keep engage alias→help); no mixed-lane scout/job picker
     status: pending

@@ -95,11 +95,14 @@ export function scoreDraft(
   }
 
   const sentences = approxSentenceCount(text);
-  if (sentences < 2 || sentences > 5) {
+  const presence = evalCase.kind === "presence";
+  const minSentences = presence ? 1 : 2;
+  const maxSentences = presence ? 3 : 5;
+  if (sentences < minSentences || sentences > maxSentences) {
     findings.push({
       id: "length",
       severity: "warn",
-      message: `sentence count ${sentences} outside soft 2–5 band`,
+      message: `sentence count ${sentences} outside soft ${minSentences}–${maxSentences} band`,
     });
   }
 

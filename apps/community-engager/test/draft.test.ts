@@ -4,9 +4,11 @@ import { draftReply, stripEmDashes } from "../src/stages/draft/drafter.js";
 import type { LlmClient } from "@relay/llm";
 import {
   buildDraftPrompt,
+  buildPresenceDraftPrompt,
   clampModelIntensity,
   generateDraftViaLlm,
   parseDraftModelJson,
+  presenceForcesIntensity0,
   resolveDraftLlmProvider,
 } from "../src/stages/draft/draft-llm.js";
 import {
@@ -353,5 +355,68 @@ describe("draftReply stub fallback", () => {
     assert.equal(outcome.draft.draftModel, "stub");
     assert.equal(outcome.draft.draftText, "Edited by the human, still casual.");
     assert.doesNotMatch(outcome.draft.draftText, /[—–]/);
+  });
+
+  it("presence lane uses short stub and forces intensity 0", async () => {
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    const outcome = await draftReply(
+      draft({
+        kind: "presence",
+        threadTitle: "Fit check — navy trousers + white tee for drinks?",
+        intensity: 1,
+        opMediaHint: "OP included photo(s).",
+      })
+    );
+    assert.equal(outcome.provider, "stub");
+    assert.equal(outcome.draft.intensity, 0);
+    assert.match(outcome.draft.draftText, /drinks/i);
+    assert.doesNotMatch(outcome.draft.draftText, /GoStylens/i);
+    assert.ok(presenceForcesIntensity0(outcome.draft));
+  });
+});
+
+describe("buildPresenceDraftPrompt", () => {
+  it("requires intensity 0 and bans product plugs", () => {
+    const prompt = buildPresenceDraftPrompt(
+      draft({
+        kind: "presence",
+        threadTitle: "Rate my outfit",
+        opText: "Wedding guest look.",
+      })
+    );
+    assert.match(prompt, /PRESENCE MODE/);
+    assert.match(prompt, /Intensity must be 0/);
+    assert.match(prompt, /Do not mention GoStylens/);
+    assert.match(prompt, /1-3 short sentences/);
+    assert.doesNotMatch(prompt, /Soft-CTA pattern/);
+  });
+
+  it("generateDraftViaLlm routes presence prompts", async () => {
+    const fake: LlmClient = {
+      provider: "gemini",
+      async completeJson(req) {
+        const content = req.messages.map((m) => String(m.content)).join("");
+        assert.match(content, /PRESENCE MODE/);
+        assert.match(content, /Fit check/);
+        return {
+          text: JSON.stringify({
+            draftText: "That tee + trousers for drinks works if you keep shoes sharp.",
+            intensity: 1,
+          }),
+          provider: "gemini",
+          model: "gemini-2.5-flash",
+        };
+      },
+    };
+    const parsed = await generateDraftViaLlm({
+      draft: draft({
+        kind: "presence",
+        threadTitle: "Fit check for drinks",
+      }),
+      client: fake,
+    });
+    assert.equal(parsed.intensity, 0);
+    assert.match(parsed.draftText, /drinks/);
   });
 });

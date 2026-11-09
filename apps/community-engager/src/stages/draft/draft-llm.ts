@@ -7,7 +7,11 @@ import {
   type LlmProviderId,
 } from "@relay/llm";
 import type { SubredditPlaybook } from "../../policy/playbook.js";
-import type { CommunityDraft, PromoIntensity } from "../../types.js";
+import {
+  engageKindOf,
+  type CommunityDraft,
+  type PromoIntensity,
+} from "../../types.js";
 import { inferOpMedia } from "./op-media.js";
 import {
   DISCLOSURE_RE,
@@ -118,6 +122,52 @@ export function prefersHelpFirstMemory(memoryBlock: string): boolean {
   );
 }
 
+/**
+ * Presence lane always ships intensity 0 in v1 (no product plugs).
+ * Help-lane promo stays separate until karma/reply thresholds land later.
+ */
+export function presenceForcesIntensity0(draft: {
+  kind?: string | null;
+}): boolean {
+  return engageKindOf(draft) === "presence";
+}
+
+function sharedThreadContext(
+  draft: CommunityDraft,
+  memoryBlock?: string
+): {
+  opText: string;
+  memorySection: string;
+  mediaSection: string[];
+} {
+  const opText = (draft.opText ?? "").trim().slice(0, OP_TEXT_MAX_CHARS);
+  const memory = (memoryBlock ?? "").trim().slice(0, MEMORY_MAX_CHARS);
+  const memorySection = memory
+    ? `Past human feedback (do not quote it; only become more conservative):\n${memory}`
+    : "Past human feedback: none.";
+  const media =
+    draft.opMediaHint ??
+    inferOpMedia({
+      title: draft.threadTitle,
+      opText,
+      postUrl: draft.postUrl,
+      permalink: draft.threadUrl,
+    }).hint;
+  const mediaSection = media
+    ? [
+        "PHOTO / MEDIA CONSTRAINT (required):",
+        media,
+        "- Briefly note they shared a photo/outfit if it helps, but skip stock openers like \"From the pic, yeah\".",
+        "- Tie the reply to the occasion/goal in the title and any details in the body.",
+        "- Prefer one concrete take grounded in the title/body. Ask at most one question only if fit, rise, budget, or dressiness is missing.",
+        "- Never claim you can see the outfit clearly, and never name colors/fabrics/brands that are not in the text.",
+        "",
+      ]
+    : [];
+  return { opText, memorySection, mediaSection };
+}
+
+/** Help-lane prompt (advice / systems asks). */
 export function buildDraftPrompt(
   draft: CommunityDraft,
   memoryBlock?: string,
@@ -127,11 +177,10 @@ export function buildDraftPrompt(
     playbook?: SubredditPlaybook;
   }
 ): string {
-  const opText = (draft.opText ?? "").trim().slice(0, OP_TEXT_MAX_CHARS);
-  const memory = (memoryBlock ?? "").trim().slice(0, MEMORY_MAX_CHARS);
-  const memorySection = memory
-    ? `Past human feedback (do not quote it; only become more conservative):\n${memory}`
-    : "Past human feedback: none.";
+  const { opText, memorySection, mediaSection } = sharedThreadContext(
+    draft,
+    memoryBlock
+  );
   const lp = normalizeLpBase(opts?.lpBaseUrl ?? "https://gostylens.app");
   const pb = opts?.playbook;
   const playbookSection = pb
@@ -150,26 +199,6 @@ export function buildDraftPrompt(
         "- Intensity must be 0.",
         "- Do not mention GoStylens, any product, or any link.",
         "- Pure concrete help only. This account is still building trust.",
-        "",
-      ]
-    : [];
-
-  const media =
-    draft.opMediaHint ??
-    inferOpMedia({
-      title: draft.threadTitle,
-      opText,
-      postUrl: draft.postUrl,
-      permalink: draft.threadUrl,
-    }).hint;
-  const mediaSection = media
-    ? [
-        "PHOTO / MEDIA CONSTRAINT (required):",
-        media,
-        "- Briefly note they shared a photo/outfit if it helps, but skip stock openers like \"From the pic, yeah\".",
-        "- Tie the reply to the occasion/goal in the title and any details in the body.",
-        "- Prefer one concrete take grounded in the title/body. Ask at most one question only if fit, rise, budget, or dressiness is missing.",
-        "- Never claim you can see the outfit clearly, and never name colors/fabrics/brands that are not in the text.",
         "",
       ]
     : [];
@@ -222,6 +251,85 @@ export function buildDraftPrompt(
 }
 
 /**
+ * Presence-lane prompt: short take / tip / light joke on fashion threads.
+ * Intensity is always 0 (no product, no links).
+ */
+export function buildPresenceDraftPrompt(
+  draft: CommunityDraft,
+  memoryBlock?: string,
+  opts?: { playbook?: SubredditPlaybook }
+): string {
+  const { opText, memorySection, mediaSection } = sharedThreadContext(
+    draft,
+    memoryBlock
+  );
+  const pb = opts?.playbook;
+  const playbookSection = pb
+    ? [
+        "Subreddit playbook (required):",
+        `- Rules: ${pb.rulesSummary}`,
+        `- Megathreads: ${pb.megathreadPolicy}.`,
+        "- Presence lane: never plug a product on this reply.",
+        "",
+      ]
+    : [];
+
+  return [
+    "You write one short Reddit comment as a regular person in a fashion sub — presence lane, not advice-coach mode.",
+    "Goal: a sharp take, tip, or light joke that earns a glance. Sound human, not helpful-bot.",
+    "",
+    "Voice (required):",
+    "- 1-3 short sentences. Contractions fine (I'd / you're / that's).",
+    "- Lead with one concrete opinion or tip grounded in the title/body (fit, proportion, dressiness, vibe).",
+    "- Optional light humor is OK if it lands clean; never mean-spirited roast of OP.",
+    "- Do not open with \"Great question\", \"Happy to help\", \"From the pic\", or coach frameworks.",
+    "- Ban AI/retail tells: numbered lists, \"game changer\", \"feel free to\", \"you'd want\", \"check out X\",",
+    "  bullet templates, capsule sermons, polished catalog copy.",
+    "- Em dashes and en dashes: never. Prefer commas, periods, or parentheses.",
+    "- No markdown headings, no hashtags, no emoji stacks, no links.",
+    "",
+    "PRESENCE MODE (required):",
+    "- Intensity must be 0.",
+    "- Do not mention GoStylens, any product, app, tool, or URL.",
+    "- Do not soft-sell. Pure presence / take only.",
+    "",
+    ...playbookSection,
+    ...mediaSection,
+    "Content rules:",
+    "- React to *this* thread only; ground the take in what OP wrote.",
+    "- If the body is thin and they posted a photo, speak to the occasion/goal in the title — do not invent garments.",
+    "- Do not invent prices, shops, or a personal story you were not given.",
+    "- Keep draftText under 400 characters.",
+    "",
+    `Subreddit: r/${draft.subreddit}`,
+    `Title: ${draft.threadTitle}`,
+    "Original post:",
+    opText ||
+      "(no body; use the title, and respect PHOTO / MEDIA CONSTRAINT if present)",
+    "",
+    memorySection,
+  ].join("\n");
+}
+
+/** Pick help vs presence prompt from draft.kind. */
+export function buildDraftPromptForKind(
+  draft: CommunityDraft,
+  memoryBlock?: string,
+  opts?: {
+    warmupActive?: boolean;
+    lpBaseUrl?: string;
+    playbook?: SubredditPlaybook;
+  }
+): string {
+  if (presenceForcesIntensity0(draft)) {
+    return buildPresenceDraftPrompt(draft, memoryBlock, {
+      playbook: opts?.playbook,
+    });
+  }
+  return buildDraftPrompt(draft, memoryBlock, opts);
+}
+
+/**
  * Parse model JSON and clamp intensity.
  * Intensity 2 survives only when the comment already discloses.
  * Returns null when draftText is missing or too long.
@@ -229,7 +337,7 @@ export function buildDraftPrompt(
 export function parseDraftModelJson(
   raw: string,
   memoryBlock?: string,
-  opts?: { warmupActive?: boolean }
+  opts?: { warmupActive?: boolean; presenceLane?: boolean }
 ): ParsedDraftJson | null {
   let value: unknown;
   try {
@@ -243,8 +351,12 @@ export function parseDraftModelJson(
   if (!draftText || draftText.length > DRAFT_TEXT_MAX_CHARS) return null;
   const helpFirst =
     Boolean(opts?.warmupActive) ||
+    Boolean(opts?.presenceLane) ||
     Boolean(memoryBlock && prefersHelpFirstMemory(memoryBlock));
   if (helpFirst && PRODUCT_RE.test(draftText)) {
+    return null;
+  }
+  if (opts?.presenceLane && draftText.length > 400) {
     return null;
   }
 
@@ -264,9 +376,9 @@ export function clampModelIntensity(
   raw: unknown,
   draftText: string,
   memoryBlock?: string,
-  opts?: { warmupActive?: boolean }
+  opts?: { warmupActive?: boolean; presenceLane?: boolean }
 ): PromoIntensity {
-  if (opts?.warmupActive) return 0;
+  if (opts?.warmupActive || opts?.presenceLane) return 0;
   if (memoryBlock && prefersHelpFirstMemory(memoryBlock)) return 0;
   const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
   if (n === 2) return DISCLOSURE_RE.test(draftText) ? 2 : 1;
@@ -283,19 +395,21 @@ export async function generateDraftViaLlm(input: {
   playbook?: SubredditPlaybook;
   model?: string;
 }): Promise<ParsedDraftJson> {
-  const prompt = buildDraftPrompt(input.draft, input.memoryBlock, {
-    warmupActive: input.warmupActive,
+  const presenceLane = presenceForcesIntensity0(input.draft);
+  const prompt = buildDraftPromptForKind(input.draft, input.memoryBlock, {
+    warmupActive: input.warmupActive || presenceLane,
     lpBaseUrl: input.lpBaseUrl,
     playbook: input.playbook,
   });
   const result = await input.client.completeJson({
     messages: [{ role: "user", content: prompt }],
     schema: DRAFT_JSON_SCHEMA,
-    temperature: 0.4,
+    temperature: presenceLane ? 0.55 : 0.4,
     ...(input.model ? { model: input.model } : {}),
   });
   const parsed = parseDraftModelJson(result.text, input.memoryBlock, {
-    warmupActive: input.warmupActive,
+    warmupActive: input.warmupActive || presenceLane,
+    presenceLane,
   });
   if (!parsed) {
     throw new Error(
@@ -304,6 +418,7 @@ export async function generateDraftViaLlm(input: {
   }
   return {
     ...parsed,
+    intensity: presenceLane ? 0 : parsed.intensity,
     provider: result.provider,
     model: result.model,
   };
