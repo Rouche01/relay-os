@@ -4,6 +4,7 @@ import {
   resolveAnthropicApiKey,
   resolveGeminiApiKey,
   type LlmClient,
+  type LlmContentPart,
   type LlmProviderId,
 } from "@relay/llm";
 import type { SubredditPlaybook } from "../../policy/playbook.js";
@@ -12,6 +13,7 @@ import {
   type CommunityDraft,
   type PromoIntensity,
 } from "../../types.js";
+import { loadDraftOpImage } from "./op-image.js";
 import { inferOpMedia } from "./op-media.js";
 import {
   DISCLOSURE_RE,
@@ -134,7 +136,8 @@ export function presenceForcesIntensity0(draft: {
 
 function sharedThreadContext(
   draft: CommunityDraft,
-  memoryBlock?: string
+  memoryBlock?: string,
+  opts?: { imageAttached?: boolean }
 ): {
   opText: string;
   memorySection: string;
@@ -153,6 +156,23 @@ function sharedThreadContext(
       postUrl: draft.postUrl,
       permalink: draft.threadUrl,
     }).hint;
+
+  if (opts?.imageAttached) {
+    return {
+      opText,
+      memorySection,
+      mediaSection: [
+        "PHOTO / MEDIA (required — the OP image is attached to this message):",
+        "- You can see the outfit image. Ground silhouette, colors, fit, footwear, and proportions in what you see.",
+        "- Still skip stock openers like \"From the pic, yeah\".",
+        "- Tie the reply to the occasion/goal in the title and any details in the body.",
+        "- Prefer one concrete take. Ask at most one question only if fit, rise, budget, or dressiness is missing.",
+        "- Do not invent brands or logos you cannot clearly read in the image.",
+        "",
+      ],
+    };
+  }
+
   const mediaSection = media
     ? [
         "PHOTO / MEDIA CONSTRAINT (required):",
@@ -175,11 +195,14 @@ export function buildDraftPrompt(
     warmupActive?: boolean;
     lpBaseUrl?: string;
     playbook?: SubredditPlaybook;
+    /** True when an OP image is attached as a multimodal part. */
+    imageAttached?: boolean;
   }
 ): string {
   const { opText, memorySection, mediaSection } = sharedThreadContext(
     draft,
-    memoryBlock
+    memoryBlock,
+    { imageAttached: opts?.imageAttached }
   );
   const lp = normalizeLpBase(opts?.lpBaseUrl ?? "https://gostylens.app");
   const pb = opts?.playbook;
@@ -236,7 +259,9 @@ export function buildDraftPrompt(
     "",
     "Content rules:",
     "- Answer *this* thread only; ground every tip in what OP wrote.",
-    "- If the body is empty/thin and the title refers to specific items/photos, do not invent those items.",
+    opts?.imageAttached
+      ? "- The outfit image is attached — ground colors, silhouette, and fit in what you see plus the title/body."
+      : "- If the body is empty/thin and the title refers to specific items/photos, do not invent those items.",
     "- Do not invent prices, shops, or a personal story you were not given.",
     "- Keep draftText under 900 characters.",
     "",
@@ -244,7 +269,9 @@ export function buildDraftPrompt(
     `Title: ${draft.threadTitle}`,
     "Original post:",
     opText ||
-      "(no body; use the title, and respect PHOTO / MEDIA CONSTRAINT if present)",
+      (opts?.imageAttached
+        ? "(no body; use the title and the attached image)"
+        : "(no body; use the title, and respect PHOTO / MEDIA CONSTRAINT if present)"),
     "",
     memorySection,
   ].join("\n");
@@ -257,11 +284,12 @@ export function buildDraftPrompt(
 export function buildPresenceDraftPrompt(
   draft: CommunityDraft,
   memoryBlock?: string,
-  opts?: { playbook?: SubredditPlaybook }
+  opts?: { playbook?: SubredditPlaybook; imageAttached?: boolean }
 ): string {
   const { opText, memorySection, mediaSection } = sharedThreadContext(
     draft,
-    memoryBlock
+    memoryBlock,
+    { imageAttached: opts?.imageAttached }
   );
   const pb = opts?.playbook;
   const playbookSection = pb
@@ -297,7 +325,9 @@ export function buildPresenceDraftPrompt(
     ...mediaSection,
     "Content rules:",
     "- React to *this* thread only; ground the take in what OP wrote.",
-    "- If the body is thin and they posted a photo, speak to the occasion/goal in the title — do not invent garments.",
+    opts?.imageAttached
+      ? "- The outfit image is attached — ground the take in what you see plus the title/body."
+      : "- If the body is thin and they posted a photo, speak to the occasion/goal in the title — do not invent garments.",
     "- Do not invent prices, shops, or a personal story you were not given.",
     "- Keep draftText under 400 characters.",
     "",
@@ -305,7 +335,9 @@ export function buildPresenceDraftPrompt(
     `Title: ${draft.threadTitle}`,
     "Original post:",
     opText ||
-      "(no body; use the title, and respect PHOTO / MEDIA CONSTRAINT if present)",
+      (opts?.imageAttached
+        ? "(no body; use the title and the attached image)"
+        : "(no body; use the title, and respect PHOTO / MEDIA CONSTRAINT if present)"),
     "",
     memorySection,
   ].join("\n");
@@ -319,11 +351,13 @@ export function buildDraftPromptForKind(
     warmupActive?: boolean;
     lpBaseUrl?: string;
     playbook?: SubredditPlaybook;
+    imageAttached?: boolean;
   }
 ): string {
   if (presenceForcesIntensity0(draft)) {
     return buildPresenceDraftPrompt(draft, memoryBlock, {
       playbook: opts?.playbook,
+      imageAttached: opts?.imageAttached,
     });
   }
   return buildDraftPrompt(draft, memoryBlock, opts);
@@ -394,15 +428,46 @@ export async function generateDraftViaLlm(input: {
   lpBaseUrl?: string;
   playbook?: SubredditPlaybook;
   model?: string;
+  /** Injected image fetch (tests). */
+  loadImage?: typeof loadDraftOpImage;
 }): Promise<ParsedDraftJson> {
   const presenceLane = presenceForcesIntensity0(input.draft);
+  const loadImage = input.loadImage ?? loadDraftOpImage;
+  let imageAttached = false;
+  let imageDataUrl: string | undefined;
+  try {
+    const img = await loadImage(input.draft);
+    if (img?.dataUrl) {
+      imageAttached = true;
+      imageDataUrl = img.dataUrl;
+      console.log(
+        `[draft:image] attached ${img.mimeType} ${img.bytes}B from ${img.sourceUrl.slice(0, 80)}`
+      );
+    }
+  } catch (err) {
+    console.warn(
+      `[draft:image] load failed; text-only media hint:`,
+      err instanceof Error ? err.message : err
+    );
+  }
+
   const prompt = buildDraftPromptForKind(input.draft, input.memoryBlock, {
     warmupActive: input.warmupActive || presenceLane,
     lpBaseUrl: input.lpBaseUrl,
     playbook: input.playbook,
+    imageAttached,
   });
+
+  const content: string | LlmContentPart[] =
+    imageAttached && imageDataUrl
+      ? [
+          { type: "text", text: prompt },
+          { type: "image_url", url: imageDataUrl },
+        ]
+      : prompt;
+
   const result = await input.client.completeJson({
-    messages: [{ role: "user", content: prompt }],
+    messages: [{ role: "user", content }],
     schema: DRAFT_JSON_SCHEMA,
     temperature: presenceLane ? 0.55 : 0.4,
     ...(input.model ? { model: input.model } : {}),

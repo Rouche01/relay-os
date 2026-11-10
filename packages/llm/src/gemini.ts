@@ -1,14 +1,17 @@
 import type {
   CreateLlmClientOptions,
   LlmClient,
+  LlmContentPart,
   LlmJsonRequest,
   LlmJsonResult,
   LlmMessage,
 } from "./types.js";
+import { DEFAULT_GEMINI_MODEL, messageText } from "./types.js";
 import {
-  DEFAULT_GEMINI_MODEL,
-  messageText,
-} from "./types.js";
+  asPartArray,
+  parseDataUrl,
+  splitSystemMessages,
+} from "./content-parts.js";
 
 /** Map a JSON Schema fragment into @google/genai Type-tagged schema. */
 export function jsonSchemaToGemini(
@@ -76,22 +79,71 @@ export function jsonSchemaToGemini(
   return { type: Type.STRING };
 }
 
-function splitSystem(messages: LlmMessage[]): {
-  system?: string;
-  contents: string;
-} {
-  const systems: string[] = [];
-  const rest: string[] = [];
-  for (const m of messages) {
-    const text = messageText(m.content).trim();
-    if (!text) continue;
-    if (m.role === "system") systems.push(text);
-    else rest.push(text);
+type GeminiPart =
+  | { text: string }
+  | { inlineData: { mimeType: string; data: string } }
+  | { fileData: { fileUri: string; mimeType?: string } };
+
+function toGeminiParts(content: LlmMessage["content"]): GeminiPart[] {
+  const parts = asPartArray(content);
+  const out: GeminiPart[] = [];
+  for (const p of parts) {
+    if (p.type === "text") {
+      const t = p.text.trim();
+      if (t) out.push({ text: t });
+      continue;
+    }
+    if (p.type === "image_url") {
+      const url = p.url.trim();
+      if (!url) continue;
+      const data = parseDataUrl(url);
+      if (data) {
+        out.push({
+          inlineData: { mimeType: data.mimeType, data: data.data },
+        });
+        continue;
+      }
+      // Remote URL — Gemini fileData when the API can fetch it.
+      out.push({
+        fileData: {
+          fileUri: url,
+          mimeType: guessImageMime(url),
+        },
+      });
+    }
   }
-  return {
-    system: systems.length ? systems.join("\n\n") : undefined,
-    contents: rest.join("\n\n"),
-  };
+  return out;
+}
+
+function guessImageMime(url: string): string | undefined {
+  if (/\.png(\?|$)/i.test(url)) return "image/png";
+  if (/\.webp(\?|$)/i.test(url)) return "image/webp";
+  if (/\.gif(\?|$)/i.test(url)) return "image/gif";
+  if (/\.jpe?g(\?|$)/i.test(url)) return "image/jpeg";
+  return undefined;
+}
+
+function toGeminiContents(
+  messages: LlmMessage[]
+): string | Array<{ role: string; parts: GeminiPart[] }> {
+  const hasParts = messages.some((m) => typeof m.content !== "string");
+  if (!hasParts) {
+    const text = messages
+      .map((m) => messageText(m.content).trim())
+      .filter(Boolean)
+      .join("\n\n");
+    return text;
+  }
+  const contents: Array<{ role: string; parts: GeminiPart[] }> = [];
+  for (const m of messages) {
+    const parts = toGeminiParts(m.content);
+    if (parts.length === 0) continue;
+    contents.push({
+      role: m.role === "assistant" ? "model" : "user",
+      parts,
+    });
+  }
+  return contents;
 }
 
 export class GeminiLlmClient implements LlmClient {
@@ -109,8 +161,12 @@ export class GeminiLlmClient implements LlmClient {
     const { Type, HarmCategory, HarmBlockThreshold } = genai;
     const ai = new genai.GoogleGenAI({ apiKey: this.apiKey });
     const model = req.model?.trim() || this.defaultModel;
-    const { system, contents } = splitSystem(req.messages);
-    if (!contents) {
+    const { system, messages } = splitSystemMessages(req.messages);
+    const contents = toGeminiContents(messages);
+    if (
+      (typeof contents === "string" && !contents.trim()) ||
+      (Array.isArray(contents) && contents.length === 0)
+    ) {
       throw new Error("GeminiLlmClient: no user/assistant content in messages");
     }
 
@@ -164,4 +220,9 @@ export function createGeminiLlmClient(
     throw new Error("GEMINI_API_KEY unset (required for provider=gemini)");
   }
   return new GeminiLlmClient({ apiKey, model: opts.model });
+}
+
+/** @internal test helper */
+export function _toGeminiPartsForTest(parts: LlmContentPart[]): GeminiPart[] {
+  return toGeminiParts(parts);
 }

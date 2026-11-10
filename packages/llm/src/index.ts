@@ -13,6 +13,12 @@ export {
   DEFAULT_GEMINI_MODEL,
   messageText,
 } from "./types.js";
+export {
+  contentHasImage,
+  messagesHaveImage,
+  parseDataUrl,
+  partsText,
+} from "./content-parts.js";
 export { createLlmClient, parseLlmProviderId } from "./create-client.js";
 export {
   AnthropicLlmClient,
