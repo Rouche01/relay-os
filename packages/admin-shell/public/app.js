@@ -789,11 +789,16 @@ function renderDetail(id, data) {
       ? editable
           .map((key) => {
             const val = fieldValue(record, key);
-            const isLong =
-              typeof val === "string" && (val.length > 80 || String(val).includes("\n"));
             if (typeof val === "boolean") {
               return `<div class="field"><label style="text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" data-field="${escapeAttr(key)}" ${val ? "checked" : ""} /> ${escapeHtml(key)}</label></div>`;
             }
+            // Nested objects/arrays (e.g. allowlist playbook) — editable JSON.
+            if (val !== null && typeof val === "object") {
+              const json = JSON.stringify(val, null, 2);
+              return `<div class="field"><label for="f-${escapeAttr(key)}">${escapeHtml(key)} <span class="muted">(JSON)</span></label><textarea id="f-${escapeAttr(key)}" data-field="${escapeAttr(key)}" data-json="1" rows="10" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.85rem">${escapeHtml(json)}</textarea></div>`;
+            }
+            const isLong =
+              typeof val === "string" && (val.length > 80 || String(val).includes("\n"));
             if (isLong || key.toLowerCase().includes("text") || key === "note") {
               return `<div class="field"><label for="f-${escapeAttr(key)}">${escapeHtml(key)}</label><textarea id="f-${escapeAttr(key)}" data-field="${escapeAttr(key)}">${escapeHtml(val ?? "")}</textarea></div>`;
             }
@@ -829,13 +834,37 @@ function renderDetail(id, data) {
     setMsg(msg, "Saving…");
     try {
       const body = {};
-      detailPane.querySelectorAll("[data-field]").forEach((el) => {
+      for (const el of detailPane.querySelectorAll("[data-field]")) {
         const key = el.getAttribute("data-field");
-        if (!key) return;
-        if (el.type === "checkbox") body[key] = el.checked;
-        else if (el.type === "number") body[key] = Number(el.value);
-        else body[key] = el.value;
-      });
+        if (!key) continue;
+        if (el.type === "checkbox") {
+          body[key] = el.checked;
+          continue;
+        }
+        if (el.type === "number") {
+          body[key] = Number(el.value);
+          continue;
+        }
+        if (el.getAttribute("data-json") === "1") {
+          const raw = String(el.value ?? "").trim();
+          if (!raw) {
+            setMsg(msg, `${key}: JSON required`, "error");
+            return;
+          }
+          try {
+            body[key] = JSON.parse(raw);
+          } catch (parseErr) {
+            setMsg(
+              msg,
+              `${key}: invalid JSON — ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
+              "error"
+            );
+            return;
+          }
+          continue;
+        }
+        body[key] = el.value;
+      }
       const next = await api(
         `/api/collections/${encodeURIComponent(collectionId)}/items/${encodeURIComponent(id)}`,
         { method: "PATCH", body: JSON.stringify(body) }
