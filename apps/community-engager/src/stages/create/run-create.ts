@@ -1,4 +1,4 @@
-import type { AgentContext } from "@relay/runtime";
+import type { AgentContext } from "@relay/protocol";
 import type { CreateProposal } from "../../types.js";
 import { remodelWinnersToProposal } from "./remodel.js";
 import { createProposalToDraft } from "./proposal-to-draft.js";
