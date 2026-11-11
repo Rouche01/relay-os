@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: engine-tests
     content: Unit tests for kind on lease body + phone action/observe HTTP mapping
-    status: pending
+    status: completed
   - id: browse-phone-goal
     content: "browse-policy: phone goal/task + system prompt + swipe-heavy actionMix; optional observe observations"
     status: pending

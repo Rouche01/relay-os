@@ -309,6 +309,111 @@ describe("ComputerEngine", () => {
     assert.equal(engine.getSeatId(), null);
   });
 
+  it("forwards phone swipe / ref / launch action payloads unchanged", async () => {
+    const seen: unknown[] = [];
+    const fetchImpl = mockGateway({
+      "POST /v1/sessions": () => ({
+        status: 200,
+        json: { ...leaseJson(), kind: "phone", seat_id: "phone-1" },
+      }),
+      "POST /v1/sessions/sess-1/action": ({ body }) => {
+        seen.push(body);
+        return { status: 200, json: { ok: true } };
+      },
+    });
+
+    const engine = new ComputerEngine({ baseUrl: "http://gw", fetch: fetchImpl });
+    await engine.execute({ type: "lease", params: { kind: "phone" } });
+
+    const swipe = {
+      type: "swipe",
+      x1: 540,
+      y1: 1800,
+      x2: 540,
+      y2: 600,
+      duration_ms: 350,
+    };
+    const tapRef = { type: "click", ref: "e12" };
+    const launch = {
+      type: "launch",
+      package: "com.android.settings",
+      uri: "android.settings.SETTINGS",
+    };
+
+    for (const action of [swipe, tapRef, launch]) {
+      const result = await engine.execute({
+        type: "action",
+        params: { action },
+      });
+      assert.equal(result.success, true);
+    }
+
+    assert.deepEqual(seen, [swipe, tapRef, launch]);
+  });
+
+  it("maps observe to GET /observe with max_elements", async () => {
+    let observedSearch = "";
+    const fetchImpl = mockGateway({
+      "POST /v1/sessions": () => ({
+        status: 200,
+        json: { ...leaseJson(), kind: "phone", seat_id: "phone-1" },
+      }),
+      "GET /v1/sessions/sess-1/observe": ({ search }) => {
+        observedSearch = search;
+        return {
+          status: 200,
+          json: {
+            ok: true,
+            image: "base64png",
+            elements: [
+              {
+                ref: "e1",
+                text: "Settings",
+                content_desc: "Settings",
+                clickable: true,
+              },
+            ],
+            element_count: 1,
+            geometry: { width: 1080, height: 2400 },
+          },
+        };
+      },
+    });
+
+    const engine = new ComputerEngine({ baseUrl: "http://gw", fetch: fetchImpl });
+    await engine.execute({ type: "lease", params: { kind: "phone" } });
+
+    const result = await engine.execute({
+      type: "observe",
+      params: { max_elements: 50 },
+    });
+    assert.equal(result.success, true);
+    assert.match(observedSearch, /max_elements=50/);
+    assert.equal(result.data?.image, "base64png");
+    assert.equal(result.data?.element_count, 1);
+    assert.equal(
+      (result.data?.elements as Array<{ ref?: string }>)?.[0]?.ref,
+      "e1"
+    );
+    assert.deepEqual(result.data?.geometry, { width: 1080, height: 2400 });
+  });
+
+  it("surfaces a clear error when observe returns 404 on desktop", async () => {
+    const fetchImpl = mockGateway({
+      "POST /v1/sessions": () => ({ status: 200, json: leaseJson() }),
+      "GET /v1/sessions/sess-1/observe": () => ({
+        status: 404,
+        json: { detail: "Not Found" },
+      }),
+    });
+
+    const engine = new ComputerEngine({ baseUrl: "http://gw", fetch: fetchImpl });
+    await engine.execute({ type: "lease", params: {} });
+    const result = await engine.execute({ type: "observe", params: {} });
+    assert.equal(result.success, false);
+    assert.match(result.error ?? "", /phone-only/);
+  });
+
   it("returns failure when pool is full", async () => {
     const engine = new ComputerEngine({
       baseUrl: "http://gw",
