@@ -246,6 +246,69 @@ describe("ComputerEngine", () => {
     assert.equal(engine.getParkedSessionId(), "s2");
   });
 
+  it("leases a phone seat with kind and surfaces seat_id / vnc_url", async () => {
+    const fetchImpl = mockGateway({
+      "POST /v1/sessions": ({ body }) => {
+        assert.deepEqual(body, {
+          agent_id: "ce",
+          job_id: "phone-job",
+          ttl_sec: 600,
+          kind: "phone",
+        });
+        return {
+          status: 200,
+          json: {
+            ...leaseJson("phone-sess"),
+            kind: "phone",
+            seat_id: "phone-1",
+            vnc_url: "http://localhost:8000/vnc.html?path=ws",
+          },
+        };
+      },
+    });
+
+    const engine = new ComputerEngine({
+      baseUrl: "http://gw",
+      agentId: "ce",
+      fetch: fetchImpl,
+    });
+
+    const lease = await engine.execute({
+      type: "lease",
+      params: { job_id: "phone-job", kind: "phone" },
+    });
+    assert.equal(lease.success, true);
+    assert.equal(lease.data?.kind, "phone");
+    assert.equal(lease.data?.seat_id, "phone-1");
+    assert.equal(engine.getKind(), "phone");
+    assert.equal(engine.getSeatId(), "phone-1");
+    assert.equal(
+      engine.getVncUrl(),
+      "http://localhost:8000/vnc.html?path=ws"
+    );
+  });
+
+  it("omits kind on lease by default and treats the seat as desktop", async () => {
+    const fetchImpl = mockGateway({
+      "POST /v1/sessions": ({ body }) => {
+        assert.equal(
+          Object.prototype.hasOwnProperty.call(body as object, "kind"),
+          false
+        );
+        return { status: 200, json: leaseJson() };
+      },
+    });
+
+    const engine = new ComputerEngine({
+      baseUrl: "http://gw",
+      fetch: fetchImpl,
+    });
+    const lease = await engine.execute({ type: "lease", params: {} });
+    assert.equal(lease.success, true);
+    assert.equal(engine.getKind(), "desktop");
+    assert.equal(engine.getSeatId(), null);
+  });
+
   it("returns failure when pool is full", async () => {
     const engine = new ComputerEngine({
       baseUrl: "http://gw",

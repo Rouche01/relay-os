@@ -10,10 +10,15 @@ export interface ComputerActionPayload {
   amount?: number;
 }
 
+/** Gateway seat kind — omit / desktop preserves existing desktop-only callers. */
+export type ComputerSeatKind = "desktop" | "phone";
+
 export interface ComputerLeaseParams {
   agent_id?: string;
   job_id?: string;
   ttl_sec?: number;
+  /** Seat kind for POST /v1/sessions. Omit for gateway default (desktop). */
+  kind?: ComputerSeatKind;
 }
 
 export interface ComputerActionParams {
@@ -21,6 +26,8 @@ export interface ComputerActionParams {
   agent_id?: string;
   job_id?: string;
   ttl_sec?: number;
+  /** lease — seat kind (`desktop` | `phone`); omit = desktop */
+  kind?: ComputerSeatKind;
   /**
    * acquire — session to reattach (default: last soft-parked session on this engine).
    */
@@ -59,4 +66,8 @@ export interface ComputerLeaseInfo {
   expires_at: string;
   agent_id?: string | null;
   job_id?: string | null;
+  /** Seat kind from gateway when present (`desktop` | `phone`). */
+  kind?: ComputerSeatKind | null;
+  /** Inventory seat id from gateway when present. */
+  seat_id?: string | null;
 }

@@ -2,6 +2,7 @@ import type { EngineResult, ExecutionEngine } from "@relay/protocol";
 import type {
   ComputerEngineAction,
   ComputerLeaseInfo,
+  ComputerSeatKind,
 } from "./types.js";
 
 export interface ComputerEngineOptions {
@@ -20,10 +21,14 @@ export interface ComputerEngineOptions {
  * Typed client for the Computer Runtime gateway.
  *
  * Session lifecycle (gateway park model):
- * - `lease` — claim a free worker, or reattach a parked slot when `job_id` matches
- * - `release` — soft **park** (keep Firefox warm; clear local claim)
- * - `acquire` — re-lease a parked desktop by `session_id`
- * - `recycle` — wipe Firefox and free the worker
+ * - `lease` — claim a free worker (`kind: "phone"` for phone seats; omit = desktop),
+ *   or reattach a parked slot when `job_id` matches
+ * - `release` — soft **park** (keep worker warm; clear local claim)
+ * - `acquire` — re-lease a parked seat by `session_id`
+ * - `recycle` — wipe worker state and free the seat
+ *
+ * After lease, `getKind()` / `getSeatId()` / `getVncUrl()` surface gateway seat metadata
+ * (HITL: noVNC or scrcpy-web via the same `vnc_url` field).
  *
  * Inference stays outside — this engine only talks HTTP.
  */
@@ -41,10 +46,14 @@ export class ComputerEngine implements ExecutionEngine {
   private apiBase: string | null = null;
   private vncUrl: string | null = null;
   private expiresAt: string | null = null;
+  private kind: ComputerSeatKind | null = null;
+  private seatId: string | null = null;
 
   /** Last soft-parked session (for acquire without re-passing id). */
   private parkedSessionId: string | null = null;
   private parkedVncUrl: string | null = null;
+  private parkedKind: ComputerSeatKind | null = null;
+  private parkedSeatId: string | null = null;
 
   constructor(options: ComputerEngineOptions) {
     if (!options.baseUrl?.trim()) {
@@ -63,6 +72,16 @@ export class ComputerEngine implements ExecutionEngine {
 
   getVncUrl(): string | null {
     return this.vncUrl ?? this.parkedVncUrl;
+  }
+
+  /** Seat kind while leased or after soft park (`desktop` | `phone`). */
+  getKind(): ComputerSeatKind | null {
+    return this.kind ?? this.parkedKind;
+  }
+
+  /** Inventory seat id while leased or after soft park. */
+  getSeatId(): string | null {
+    return this.seatId ?? this.parkedSeatId;
   }
 
   getApiBase(): string | null {
@@ -131,11 +150,19 @@ export class ComputerEngine implements ExecutionEngine {
         error: `already leased session ${this.sessionId}; release first`,
       };
     }
-    const body = {
+    const body: {
+      agent_id?: string;
+      job_id?: string;
+      ttl_sec: number;
+      kind?: ComputerSeatKind;
+    } = {
       agent_id: action.params.agent_id ?? this.agentId,
       job_id: action.params.job_id,
       ttl_sec: action.params.ttl_sec ?? this.defaultTtlSec,
     };
+    if (action.params.kind) {
+      body.kind = action.params.kind;
+    }
     const res = await this.request("POST", "/v1/sessions", body, {
       jobId: action.params.job_id,
     });
@@ -147,17 +174,15 @@ export class ComputerEngine implements ExecutionEngine {
       };
     }
     const lease = (await res.json()) as ComputerLeaseInfo;
-    this.applyLease(lease);
-    this.parkedSessionId = null;
-    this.parkedVncUrl = null;
+    this.applyLease(lease, action.params.kind ?? "desktop");
+    this.clearParked();
     return {
       success: true,
-      data: {
-        session_id: lease.session_id,
-        api_base: lease.api_base,
-        vnc_url: lease.vnc_url,
-        expires_at: lease.expires_at,
-      },
+      data: this.leaseResultData({
+        ...lease,
+        kind: this.kind,
+        seat_id: this.seatId,
+      }),
     };
   }
 
@@ -193,17 +218,15 @@ export class ComputerEngine implements ExecutionEngine {
       };
     }
     const lease = (await res.json()) as ComputerLeaseInfo;
-    this.applyLease(lease);
-    this.parkedSessionId = null;
-    this.parkedVncUrl = null;
+    this.applyLease(lease, this.parkedKind ?? undefined);
+    this.clearParked();
     return {
       success: true,
-      data: {
-        session_id: lease.session_id,
-        api_base: lease.api_base,
-        vnc_url: lease.vnc_url,
-        expires_at: lease.expires_at,
-      },
+      data: this.leaseResultData({
+        ...lease,
+        kind: this.kind,
+        seat_id: this.seatId,
+      }),
     };
   }
 
@@ -269,9 +292,7 @@ export class ComputerEngine implements ExecutionEngine {
     return {
       success: true,
       data: {
-        session_id: lease.session_id,
-        expires_at: lease.expires_at,
-        vnc_url: lease.vnc_url,
+        ...this.leaseResultData(lease),
       },
     };
   }
@@ -322,8 +343,7 @@ export class ComputerEngine implements ExecutionEngine {
       { query: { recycle: "true" } }
     );
     this.clearLease();
-    this.parkedSessionId = null;
-    this.parkedVncUrl = null;
+    this.clearParked();
     if (!res.ok && res.status !== 404) {
       return {
         success: false,
@@ -338,9 +358,13 @@ export class ComputerEngine implements ExecutionEngine {
     const sid = this.sessionId;
     if (!sid) return;
     const vnc = this.vncUrl;
+    const kind = this.kind;
+    const seatId = this.seatId;
     const res = await this.request("DELETE", `/v1/sessions/${sid}`);
     this.parkedSessionId = sid;
     this.parkedVncUrl = vnc;
+    this.parkedKind = kind;
+    this.parkedSeatId = seatId;
     this.clearLease();
     if (!res.ok && res.status !== 404) {
       throw new Error(
@@ -349,11 +373,16 @@ export class ComputerEngine implements ExecutionEngine {
     }
   }
 
-  private applyLease(lease: ComputerLeaseInfo): void {
+  private applyLease(
+    lease: ComputerLeaseInfo,
+    fallbackKind?: ComputerSeatKind
+  ): void {
     this.sessionId = lease.session_id;
     this.apiBase = lease.api_base;
     this.vncUrl = lease.vnc_url;
     this.expiresAt = lease.expires_at;
+    this.kind = lease.kind ?? fallbackKind ?? null;
+    this.seatId = lease.seat_id ?? null;
   }
 
   private clearLease(): void {
@@ -361,6 +390,26 @@ export class ComputerEngine implements ExecutionEngine {
     this.apiBase = null;
     this.vncUrl = null;
     this.expiresAt = null;
+    this.kind = null;
+    this.seatId = null;
+  }
+
+  private clearParked(): void {
+    this.parkedSessionId = null;
+    this.parkedVncUrl = null;
+    this.parkedKind = null;
+    this.parkedSeatId = null;
+  }
+
+  private leaseResultData(lease: ComputerLeaseInfo): Record<string, unknown> {
+    return {
+      session_id: lease.session_id,
+      api_base: lease.api_base,
+      vnc_url: lease.vnc_url,
+      expires_at: lease.expires_at,
+      ...(lease.kind != null ? { kind: lease.kind } : {}),
+      ...(lease.seat_id != null ? { seat_id: lease.seat_id } : {}),
+    };
   }
 
   private requireSession(): string {
