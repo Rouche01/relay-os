@@ -13,7 +13,7 @@ import {
   type CommunityDraft,
   type PromoIntensity,
 } from "../../types.js";
-import { loadDraftOpImage } from "./op-image.js";
+import { loadDraftOpImages, type FetchedOpImage } from "./op-image.js";
 import { inferOpMedia } from "./op-media.js";
 import {
   DISCLOSURE_RE,
@@ -137,7 +137,7 @@ export function presenceForcesIntensity0(draft: {
 function sharedThreadContext(
   draft: CommunityDraft,
   memoryBlock?: string,
-  opts?: { imageAttached?: boolean }
+  opts?: { imageAttached?: boolean; imageCount?: number }
 ): {
   opText: string;
   memorySection: string;
@@ -158,16 +158,26 @@ function sharedThreadContext(
     }).hint;
 
   if (opts?.imageAttached) {
+    const n = Math.max(1, opts.imageCount ?? 1);
+    const slideNote =
+      n > 1
+        ? `- ${n} gallery images are attached in order (slide 1…${n}). Use all of them; later slides are often alt angles or related items.`
+        : "- You can see what they posted (outfit photo, product shot, or a screenshot of a product page).";
     return {
       opText,
       memorySection,
       mediaSection: [
-        "PHOTO / MEDIA (required — the OP image is attached to this message):",
-        "- You can see the outfit image. Ground silhouette, colors, fit, footwear, and proportions in what you see.",
+        n > 1
+          ? `PHOTO / MEDIA (required — ${n} OP images are attached to this message):`
+          : "PHOTO / MEDIA (required — the OP image is attached to this message):",
+        slideNote,
+        "- Ground silhouette, colors, materials, footwear, fit, and proportions in what you see — not a generic answer to the title alone.",
+        "- If the image(s) already show a specific item (style, material, brand, or price), react to THAT item. Do not recommend a different style as if they showed nothing.",
+        "- If a price is readable in an image, do not ask what their budget is.",
         "- Still skip stock openers like \"From the pic, yeah\".",
         "- Tie the reply to the occasion/goal in the title and any details in the body.",
-        "- Prefer one concrete take. Ask at most one question only if fit, rise, budget, or dressiness is missing.",
-        "- Do not invent brands or logos you cannot clearly read in the image.",
+        "- Prefer one concrete take. Ask at most one question only if a key detail is still missing from both image and text.",
+        "- Do not invent brands or logos you cannot clearly read in the image(s).",
         "",
       ],
     };
@@ -177,10 +187,12 @@ function sharedThreadContext(
     ? [
         "PHOTO / MEDIA CONSTRAINT (required):",
         media,
-        "- Briefly note they shared a photo/outfit if it helps, but skip stock openers like \"From the pic, yeah\".",
+        "- They attached photo(s) you cannot see. Do not invent colors, materials, brands, or prices.",
+        "- Do not write a generic shopping recommendation that ignores the photo (e.g. naming a style/material when they may already be showing one).",
+        "- Prefer fit/use advice that works regardless of the specific pair, or ask one short clarifying question about what is in the photo.",
+        "- Briefly note they shared a photo if it helps, but skip stock openers like \"From the pic, yeah\".",
         "- Tie the reply to the occasion/goal in the title and any details in the body.",
-        "- Prefer one concrete take grounded in the title/body. Ask at most one question only if fit, rise, budget, or dressiness is missing.",
-        "- Never claim you can see the outfit clearly, and never name colors/fabrics/brands that are not in the text.",
+        "- Never claim you can see the outfit clearly.",
         "",
       ]
     : [];
@@ -197,12 +209,14 @@ export function buildDraftPrompt(
     playbook?: SubredditPlaybook;
     /** True when an OP image is attached as a multimodal part. */
     imageAttached?: boolean;
+    /** Number of attached gallery / OP images. */
+    imageCount?: number;
   }
 ): string {
   const { opText, memorySection, mediaSection } = sharedThreadContext(
     draft,
     memoryBlock,
-    { imageAttached: opts?.imageAttached }
+    { imageAttached: opts?.imageAttached, imageCount: opts?.imageCount }
   );
   const lp = normalizeLpBase(opts?.lpBaseUrl ?? "https://gostylens.app");
   const pb = opts?.playbook;
@@ -258,11 +272,11 @@ export function buildDraftPrompt(
     "- If past feedback mentions abort, spam, hard sell, or too much promo, intensity must be 0 and GoStylens must not appear.",
     "",
     "Content rules:",
-    "- Answer *this* thread only; ground every tip in what OP wrote.",
+    "- Answer *this* thread only; ground every tip in the title, body, and attached image when present.",
     opts?.imageAttached
-      ? "- The outfit image is attached — ground colors, silhouette, and fit in what you see plus the title/body."
+      ? "- The image is attached — treat it as primary evidence. Do not answer the title in the abstract while ignoring what they showed."
       : "- If the body is empty/thin and the title refers to specific items/photos, do not invent those items.",
-    "- Do not invent prices, shops, or a personal story you were not given.",
+    "- Do not invent prices, shops, or a personal story you were not given (readable text in an attached image is allowed).",
     "- Keep draftText under 900 characters.",
     "",
     `Subreddit: r/${draft.subreddit}`,
@@ -284,12 +298,16 @@ export function buildDraftPrompt(
 export function buildPresenceDraftPrompt(
   draft: CommunityDraft,
   memoryBlock?: string,
-  opts?: { playbook?: SubredditPlaybook; imageAttached?: boolean }
+  opts?: {
+    playbook?: SubredditPlaybook;
+    imageAttached?: boolean;
+    imageCount?: number;
+  }
 ): string {
   const { opText, memorySection, mediaSection } = sharedThreadContext(
     draft,
     memoryBlock,
-    { imageAttached: opts?.imageAttached }
+    { imageAttached: opts?.imageAttached, imageCount: opts?.imageCount }
   );
   const pb = opts?.playbook;
   const playbookSection = pb
@@ -324,11 +342,11 @@ export function buildPresenceDraftPrompt(
     ...playbookSection,
     ...mediaSection,
     "Content rules:",
-    "- React to *this* thread only; ground the take in what OP wrote.",
+    "- React to *this* thread only; ground the take in the title, body, and attached image when present.",
     opts?.imageAttached
-      ? "- The outfit image is attached — ground the take in what you see plus the title/body."
+      ? "- The image is attached — react to what you see (product page screenshots count). Do not ignore the shown item for a generic take."
       : "- If the body is thin and they posted a photo, speak to the occasion/goal in the title — do not invent garments.",
-    "- Do not invent prices, shops, or a personal story you were not given.",
+    "- Do not invent prices, shops, or a personal story you were not given (readable text in an attached image is allowed).",
     "- Keep draftText under 400 characters.",
     "",
     `Subreddit: r/${draft.subreddit}`,
@@ -352,12 +370,14 @@ export function buildDraftPromptForKind(
     lpBaseUrl?: string;
     playbook?: SubredditPlaybook;
     imageAttached?: boolean;
+    imageCount?: number;
   }
 ): string {
   if (presenceForcesIntensity0(draft)) {
     return buildPresenceDraftPrompt(draft, memoryBlock, {
       playbook: opts?.playbook,
       imageAttached: opts?.imageAttached,
+      imageCount: opts?.imageCount,
     });
   }
   return buildDraftPrompt(draft, memoryBlock, opts);
@@ -428,21 +448,35 @@ export async function generateDraftViaLlm(input: {
   lpBaseUrl?: string;
   playbook?: SubredditPlaybook;
   model?: string;
-  /** Injected image fetch (tests). */
-  loadImage?: typeof loadDraftOpImage;
+  /** Injected multi-image fetch (tests). */
+  loadImages?: typeof loadDraftOpImages;
+  /**
+   * Legacy single-image inject — wrapped as a 0–1 gallery.
+   * Prefer {@link loadImages}.
+   */
+  loadImage?: (
+    draft: Pick<CommunityDraft, "postUrl" | "threadUrl" | "imageUrl">
+  ) => Promise<FetchedOpImage | null>;
 }): Promise<ParsedDraftJson> {
   const presenceLane = presenceForcesIntensity0(input.draft);
-  const loadImage = input.loadImage ?? loadDraftOpImage;
-  let imageAttached = false;
-  let imageDataUrl: string | undefined;
+  const loadImages =
+    input.loadImages ??
+    (input.loadImage
+      ? async (d: Pick<CommunityDraft, "postUrl" | "threadUrl" | "imageUrl">) => {
+          const one = await input.loadImage!(d);
+          return one ? [one] : [];
+        }
+      : loadDraftOpImages);
+  let images: FetchedOpImage[] = [];
   try {
-    const img = await loadImage(input.draft);
-    if (img?.dataUrl) {
-      imageAttached = true;
-      imageDataUrl = img.dataUrl;
+    images = await loadImages(input.draft);
+    for (const img of images) {
       console.log(
         `[draft:image] attached ${img.mimeType} ${img.bytes}B from ${img.sourceUrl.slice(0, 80)}`
       );
+    }
+    if (images.length > 1) {
+      console.log(`[draft:image] gallery slides attached=${images.length}`);
     }
   } catch (err) {
     console.warn(
@@ -451,20 +485,24 @@ export async function generateDraftViaLlm(input: {
     );
   }
 
+  const imageAttached = images.length > 0;
+  const imageCount = images.length;
   const prompt = buildDraftPromptForKind(input.draft, input.memoryBlock, {
     warmupActive: input.warmupActive || presenceLane,
     lpBaseUrl: input.lpBaseUrl,
     playbook: input.playbook,
     imageAttached,
+    imageCount,
   });
 
-  const content: string | LlmContentPart[] =
-    imageAttached && imageDataUrl
-      ? [
-          { type: "text", text: prompt },
-          { type: "image_url", url: imageDataUrl },
-        ]
-      : prompt;
+  const content: string | LlmContentPart[] = imageAttached
+    ? [
+        { type: "text", text: prompt },
+        ...images.map(
+          (img): LlmContentPart => ({ type: "image_url", url: img.dataUrl })
+        ),
+      ]
+    : prompt;
 
   const result = await input.client.completeJson({
     messages: [{ role: "user", content }],

@@ -1,4 +1,5 @@
 import type { RedditSessionConfig } from "./config.js";
+import { extractImageUrlFromListingData } from "./listing-image.js";
 
 export interface RedditListingPost {
   id: string;
@@ -21,6 +22,11 @@ export interface RedditListingPost {
    * Used to flag photo-led threads when the CDN URL is missing.
    */
   isSelf?: boolean;
+  /**
+   * Direct image CDN URL when extractable from listing preview /
+   * media_metadata (first gallery slide). Used for multimodal draft.
+   */
+  imageUrl?: string;
 }
 
 /**
@@ -57,6 +63,7 @@ export class RedditClient {
     return children.map((c) => {
       const d = c.data;
       const permalink = String(d.permalink ?? "");
+      const imageUrl = extractImageUrlFromListingData(d);
       return {
         id: String(d.id),
         name: String(d.name),
@@ -72,6 +79,7 @@ export class RedditClient {
         numComments: Number.isFinite(Number(d.num_comments))
           ? Number(d.num_comments)
           : undefined,
+        ...(imageUrl ? { imageUrl } : {}),
       };
     });
   }

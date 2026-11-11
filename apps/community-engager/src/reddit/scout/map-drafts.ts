@@ -194,6 +194,7 @@ export function listingPostsToDrafts(
       opText,
       ...(media.hint ? { opMediaHint: media.hint } : {}),
       ...(distinctMediaUrl ? { postUrl: distinctMediaUrl } : {}),
+      ...(post.imageUrl ? { imageUrl: post.imageUrl } : {}),
       draftText: "",
       // Start help-only; draft stage clamps further via playbook / plugs-week.
       intensity: 0,

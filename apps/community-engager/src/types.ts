@@ -129,6 +129,12 @@ export interface CommunityDraft {
   opMediaHint?: string;
   /** Listing post.url (image CDN / gallery) when different from permalink. */
   postUrl?: string;
+  /**
+   * Direct fetchable OP image (i.redd.it / preview.redd.it) when known —
+   * first gallery slide or listing preview. Preferred over {@link postUrl}
+   * for multimodal draft.
+   */
+  imageUrl?: string;
   draftText: string;
   intensity: PromoIntensity;
   /** Help-lane score (placeholder empty when kind is presence). */

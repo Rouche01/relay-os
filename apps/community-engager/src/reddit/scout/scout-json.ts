@@ -1,5 +1,6 @@
 import type { CommunityDraft, EngageKind } from "../../types.js";
 import type { RedditListingPost } from "../client.js";
+import { extractImageUrlFromListingData } from "../listing-image.js";
 import { createRedditBrowserEngine } from "../session/browser-session.js";
 import {
   allowlistedSubNames,
@@ -100,6 +101,7 @@ function mapListingChildren(
       const href = permalink.startsWith("http")
         ? permalink
         : `https://www.reddit.com${permalink}`;
+      const imageUrl = extractImageUrlFromListingData(d);
       return {
         id,
         name,
@@ -113,6 +115,7 @@ function mapListingChildren(
         numComments: Number.isFinite(Number(d.num_comments))
           ? Number(d.num_comments)
           : undefined,
+        ...(imageUrl ? { imageUrl } : {}),
       };
     })
     .filter((p) => p.id && p.title);
