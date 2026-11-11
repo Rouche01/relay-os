@@ -41,4 +41,41 @@ describe("browse prompts", () => {
     assert.match(user, /scroll/);
     assert.match(user, /iteration 2 of 10/);
   });
+
+  it("phone system prompt uses swipe priors and system chrome keys", () => {
+    const sys = buildBrowseSystemPrompt({
+      text: "Open About phone",
+      seatKind: "phone",
+      actionMix: { swipe: 3, click: 2, launch: 1 },
+    });
+    assert.match(sys, /Android phone/i);
+    assert.match(sys, /back.*home.*recents/i);
+    assert.match(sys, /never desktop chords like ctrl\+l/i);
+    assert.match(sys, /swipe=3/);
+    assert.match(sys, /action\.ref/);
+  });
+
+  it("user prompt includes compact element list when present", () => {
+    const user = buildBrowseUserPrompt({
+      goal: { text: "Open Settings", seatKind: "phone" },
+      observation: {
+        imageBase64: "abc",
+        at: "2020-01-01T00:00:00Z",
+        elements: [
+          {
+            ref: "e1",
+            text: "Settings",
+            content_desc: "Settings",
+            clickable: true,
+          },
+        ],
+      },
+      history: [],
+      iteration: 1,
+      maxIterations: 5,
+    });
+    assert.match(user, /ref=e1/);
+    assert.match(user, /Settings/);
+    assert.match(user, /element list/i);
+  });
 });

@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: browse-phone-goal
     content: "browse-policy: phone goal/task + system prompt + swipe-heavy actionMix; optional observe observations"
-    status: pending
+    status: completed
   - id: dogfood-script
     content: Small runnable dogfood (script or task) — lease phone, print HITL URL, run short goal, park
     status: pending

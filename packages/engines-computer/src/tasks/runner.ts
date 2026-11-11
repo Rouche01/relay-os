@@ -88,12 +88,20 @@ export class ComputerTaskRunner {
     }
 
     if (!hadSession) {
+      const kindFromParams =
+        params.seatKind === "phone" || params.seatKind === "desktop"
+          ? params.seatKind
+          : params.kind === "phone" || params.kind === "desktop"
+            ? params.kind
+            : undefined;
+      const kind = opts.kind ?? kindFromParams;
       const lease = await this.engine.execute({
         type: "lease",
         params: {
           job_id: session.jobId,
           agent_id: session.agentId,
           ttl_sec: opts.ttlSec,
+          ...(kind ? { kind } : {}),
         },
       });
       if (!lease.success) {

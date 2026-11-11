@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
+  ComputerSeatKind,
   ComputerTask,
   ComputerTaskContext,
   ComputerTaskResult,
@@ -10,6 +11,7 @@ import { defaultBrowseTiming } from "./timing.js";
 import type {
   BrowseActionMixPriors,
   BrowseDecider,
+  BrowseObserveMode,
   BrowseTimingConfig,
   BrowseWaitDistribution,
 } from "./types.js";
@@ -66,6 +68,19 @@ export function browseGoalTask(options: BrowseGoalTaskOptions): ComputerTask {
         actionMix = ctx.params.actionMix as BrowseActionMixPriors;
       }
 
+      const seatKindRaw = str(ctx.params.seatKind) ?? str(ctx.params.kind);
+      const seatKind: ComputerSeatKind | undefined =
+        seatKindRaw === "phone" || seatKindRaw === "desktop"
+          ? seatKindRaw
+          : undefined;
+      const observeModeRaw = str(ctx.params.observeMode);
+      const observeMode: BrowseObserveMode | undefined =
+        observeModeRaw === "observe" || observeModeRaw === "screenshot"
+          ? observeModeRaw
+          : undefined;
+      const swipeSettleMs = num(ctx.params.swipeSettleMs);
+      const maxElements = num(ctx.params.maxElements);
+
       const timing: BrowseTimingConfig = {
         ...baseTiming,
         ...(lambda !== undefined ? { actionRateLambda: lambda } : {}),
@@ -84,6 +99,7 @@ export function browseGoalTask(options: BrowseGoalTaskOptions): ComputerTask {
           text: goalText,
           startUrl: url,
           actionMix,
+          seatKind,
           allowedActions: Array.isArray(ctx.params.allowedActions)
             ? (ctx.params.allowedActions as unknown[]).filter(
                 (a): a is string => typeof a === "string"
@@ -93,6 +109,9 @@ export function browseGoalTask(options: BrowseGoalTaskOptions): ComputerTask {
         timing,
         decide: options.decide,
         maxIterations: maxSteps,
+        observeMode,
+        ...(swipeSettleMs !== undefined ? { swipeSettleMs } : {}),
+        ...(maxElements !== undefined ? { maxElements } : {}),
         reuseSession: true, // runner already leased
         jobId: ctx.session.jobId,
         agentId: ctx.session.agentId,
@@ -121,6 +140,9 @@ export function browseGoalTask(options: BrowseGoalTaskOptions): ComputerTask {
           {
             goal: goalText,
             url,
+            seatKind: seatKind ?? "desktop",
+            observeMode:
+              observeMode ?? (seatKind === "phone" ? "observe" : "screenshot"),
             timing,
             stoppedReason: result.stoppedReason,
             steps: result.steps,

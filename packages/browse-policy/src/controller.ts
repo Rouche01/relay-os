@@ -18,12 +18,16 @@ import {
   resolveRefs,
   type WorkflowStepsBag,
 } from "@relay/workflow-runtime";
-import { ComputerEngine } from "@relay/engines-computer";
+import {
+  ComputerEngine,
+  type ComputerSeatKind,
+} from "@relay/engines-computer";
 import { runBrowsePolicyLoop } from "./loop.js";
 import { defaultBrowseTiming } from "./timing.js";
 import type {
   BrowseActionMixPriors,
   BrowseDecider,
+  BrowseObserveMode,
   BrowseTimingConfig,
   BrowseWaitDistribution,
 } from "./types.js";
@@ -154,6 +158,18 @@ export class BrowsePolicyController implements AppController {
     const allowedActions = Array.isArray(args.allowedActions)
       ? args.allowedActions.filter((a): a is string => typeof a === "string")
       : undefined;
+    const seatKindRaw = str(args.seatKind) ?? str(args.kind);
+    const seatKind: ComputerSeatKind | undefined =
+      seatKindRaw === "phone" || seatKindRaw === "desktop"
+        ? seatKindRaw
+        : undefined;
+    const observeModeRaw = str(args.observeMode);
+    const observeMode: BrowseObserveMode | undefined =
+      observeModeRaw === "observe" || observeModeRaw === "screenshot"
+        ? observeModeRaw
+        : undefined;
+    const swipeSettleMs = num(args.swipeSettleMs);
+    const maxElements = num(args.maxElements);
 
     const result = await runBrowsePolicyLoop(computer, {
       goal: {
@@ -161,10 +177,14 @@ export class BrowsePolicyController implements AppController {
         startUrl: url,
         actionMix,
         allowedActions,
+        seatKind,
       },
       timing,
       decide: this.decide,
       maxIterations: maxSteps,
+      observeMode,
+      ...(swipeSettleMs !== undefined ? { swipeSettleMs } : {}),
+      ...(maxElements !== undefined ? { maxElements } : {}),
       reuseSession: Boolean(computer.getSessionId()),
     });
 

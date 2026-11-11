@@ -41,4 +41,6 @@ export interface ComputerTaskRunOptions {
   /** Skip lease if already leased; still release unless holdSession. Default false. */
   reuseSession?: boolean;
   ttlSec?: number;
+  /** Seat kind for a fresh lease (`phone` | `desktop`). Omit = gateway desktop default. */
+  kind?: "desktop" | "phone";
 }

@@ -1,14 +1,112 @@
-import type { ComputerEngine } from "@relay/engines-computer";
+import type {
+  ComputerActionPayload,
+  ComputerEngine,
+  ComputerObserveElement,
+} from "@relay/engines-computer";
 import { navigateToUrl } from "@relay/engines-computer";
 import { sampleWaitMs, shouldExit } from "./timing.js";
 import type {
   BrowseLoopOptions,
   BrowseLoopResult,
   BrowseObservation,
+  BrowseObserveMode,
   BrowseStepRecord,
 } from "./types.js";
 
 const sleepDefault = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function needsPhoneSettle(action: ComputerActionPayload): boolean {
+  return (
+    action.type === "swipe" ||
+    action.type === "long_press" ||
+    action.type === "launch"
+  );
+}
+
+async function openPhoneStartUrl(
+  engine: ComputerEngine,
+  url: string,
+  settleMs: number,
+  sleep: (ms: number) => Promise<void>
+): Promise<{ success: boolean; error?: string }> {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return { success: false, error: "startUrl is empty" };
+  }
+  const launched = await engine.execute({
+    type: "action",
+    params: { action: { type: "launch", uri: trimmed } },
+  });
+  if (!launched.success) {
+    return {
+      success: false,
+      error: launched.error ?? "phone launch(uri) failed",
+    };
+  }
+  if (settleMs > 0) {
+    await sleep(settleMs);
+  }
+  return { success: true };
+}
+
+async function captureObservation(
+  engine: ComputerEngine,
+  mode: BrowseObserveMode,
+  maxElements: number | undefined,
+  iteration: number
+): Promise<
+  | { ok: true; observation: BrowseObservation }
+  | { ok: false; error: string }
+> {
+  if (mode === "observe") {
+    const obs = await engine.execute({
+      type: "observe",
+      params: maxElements != null ? { max_elements: maxElements } : {},
+    });
+    if (!obs.success) {
+      return { ok: false, error: obs.error ?? "observe failed" };
+    }
+    const image =
+      typeof obs.data?.image === "string" ? obs.data.image : "";
+    if (!image) {
+      return { ok: false, error: "observe returned no image" };
+    }
+    const elements = Array.isArray(obs.data?.elements)
+      ? (obs.data.elements as ComputerObserveElement[])
+      : undefined;
+    return {
+      ok: true,
+      observation: {
+        imageBase64: image,
+        at: new Date().toISOString(),
+        elements,
+        meta: {
+          iteration,
+          observeMode: "observe",
+          element_count: obs.data?.element_count,
+          geometry: obs.data?.geometry,
+        },
+      },
+    };
+  }
+
+  const shot = await engine.execute({ type: "screenshot", params: {} });
+  if (!shot.success) {
+    return { ok: false, error: shot.error ?? "screenshot failed" };
+  }
+  const image = typeof shot.data?.image === "string" ? shot.data.image : "";
+  if (!image) {
+    return { ok: false, error: "screenshot returned no image" };
+  }
+  return {
+    ok: true,
+    observation: {
+      imageBase64: image,
+      at: new Date().toISOString(),
+      meta: { iteration, observeMode: "screenshot" },
+    },
+  };
+}
 
 /**
  * Observe → sample human-like wait → vision decide → act, until stop.
@@ -44,7 +142,13 @@ export async function runBrowsePolicyLoop(
       steps,
     };
   }
-  const normalizedGoal = { ...goal, text: goalText };
+  const seatKind = goal.seatKind ?? "desktop";
+  const phone = seatKind === "phone";
+  const observeMode: BrowseObserveMode =
+    options.observeMode ?? (phone ? "observe" : "screenshot");
+  const swipeSettleMs =
+    options.swipeSettleMs ?? (phone ? 450 : 0);
+  const normalizedGoal = { ...goal, text: goalText, seatKind };
 
   const hadSession = Boolean(engine.getSessionId());
   if (hadSession && !reuseSession) {
@@ -66,6 +170,7 @@ export async function runBrowsePolicyLoop(
           job_id: options.jobId,
           agent_id: options.agentId,
           ttl_sec: options.ttlSec,
+          ...(phone ? { kind: "phone" as const } : {}),
         },
       });
       if (!lease.success) {
@@ -80,19 +185,37 @@ export async function runBrowsePolicyLoop(
     }
 
     if (normalizedGoal.startUrl) {
-      const nav = await navigateToUrl(
-        engine,
-        normalizedGoal.startUrl,
-        navigateSettleMs
-      );
-      if (!nav.success) {
-        return {
-          success: false,
-          stoppedReason: "error",
-          error: nav.error ?? "navigate failed",
-          steps,
-          vncUrl: engine.getVncUrl() ?? undefined,
-        };
+      if (phone) {
+        const nav = await openPhoneStartUrl(
+          engine,
+          normalizedGoal.startUrl,
+          navigateSettleMs,
+          sleep
+        );
+        if (!nav.success) {
+          return {
+            success: false,
+            stoppedReason: "error",
+            error: nav.error ?? "phone launch failed",
+            steps,
+            vncUrl: engine.getVncUrl() ?? undefined,
+          };
+        }
+      } else {
+        const nav = await navigateToUrl(
+          engine,
+          normalizedGoal.startUrl,
+          navigateSettleMs
+        );
+        if (!nav.success) {
+          return {
+            success: false,
+            stoppedReason: "error",
+            error: nav.error ?? "navigate failed",
+            steps,
+            vncUrl: engine.getVncUrl() ?? undefined,
+          };
+        }
       }
     }
 
@@ -109,36 +232,23 @@ export async function runBrowsePolicyLoop(
         await sleep(waitedMs);
       }
 
-      const shot = await engine.execute({ type: "screenshot", params: {} });
-      if (!shot.success) {
+      const captured = await captureObservation(
+        engine,
+        observeMode,
+        options.maxElements,
+        iteration
+      );
+      if (!captured.ok) {
         return {
           success: false,
           stoppedReason: "error",
-          error: shot.error ?? "screenshot failed",
+          error: captured.error,
           steps,
           evidencePaths: evidencePaths.length ? evidencePaths : undefined,
           vncUrl: engine.getVncUrl() ?? undefined,
         };
       }
-
-      const image =
-        typeof shot.data?.image === "string" ? shot.data.image : "";
-      if (!image) {
-        return {
-          success: false,
-          stoppedReason: "error",
-          error: "screenshot returned no image",
-          steps,
-          evidencePaths: evidencePaths.length ? evidencePaths : undefined,
-          vncUrl: engine.getVncUrl() ?? undefined,
-        };
-      }
-
-      const observation: BrowseObservation = {
-        imageBase64: image,
-        at: new Date().toISOString(),
-        meta: { iteration },
-      };
+      const observation = captured.observation;
 
       if (onObservation) {
         const path = await onObservation(observation, iteration);
@@ -236,6 +346,10 @@ export async function runBrowsePolicyLoop(
         };
       }
       steps.push(record);
+
+      if (swipeSettleMs > 0 && needsPhoneSettle(decision.action)) {
+        await sleep(swipeSettleMs);
+      }
 
       if (shouldExit(timing.exitRateMu, random)) {
         return {
