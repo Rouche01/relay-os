@@ -322,13 +322,16 @@ export function buildPresenceDraftPrompt(
 
   return [
     "You write one short Reddit comment as a regular person in a fashion sub — presence lane, not advice-coach mode.",
-    "Goal: a sharp take, tip, or light joke that earns a glance. Sound human, not helpful-bot.",
+    "Goal: sound like a friendly scroll-by comment. Prefer a simple compliment or one liked detail. Earn a glance, not a consult.",
     "",
     "Voice (required):",
-    "- 1-3 short sentences. Contractions fine (I'd / you're / that's).",
-    "- Lead with one concrete opinion or tip grounded in the title/body (fit, proportion, dressiness, vibe).",
+    "- 1-2 short sentences (3 only if still casual). Contractions fine (I'd / you're / that's).",
+    "- Default for outfit / OOTD / \"look\" posts: compliment + one concrete detail you actually notice (color, shoes, bag, socks, vibe).",
+    "- Do NOT coach. Ban stylist/systems talk: proportions, silhouette, rotation, anchor piece, mixing textures,",
+    "  building a wardrobe, elevating the look, dressing up/down frameworks, \"if you're building…\".",
+    "- A tip is rare — only when OP clearly asked for feedback. Never unsolicited advice on a flex/OOTD post.",
     "- Optional light humor is OK if it lands clean; never mean-spirited roast of OP.",
-    "- Do not open with \"Great question\", \"Happy to help\", \"From the pic\", or coach frameworks.",
+    "- Do not open with \"Great question\", \"Happy to help\", \"From the pic\", \"Love this\", or coach frameworks.",
     "- Ban AI/retail tells: numbered lists, \"game changer\", \"feel free to\", \"you'd want\", \"check out X\",",
     "  bullet templates, capsule sermons, polished catalog copy.",
     "- Em dashes and en dashes: never. Prefer commas, periods, or parentheses.",
@@ -337,17 +340,17 @@ export function buildPresenceDraftPrompt(
     "PRESENCE MODE (required):",
     "- Intensity must be 0.",
     "- Do not mention GoStylens, any product, app, tool, or URL.",
-    "- Do not soft-sell. Pure presence / take only.",
+    "- Do not soft-sell. Pure presence only.",
     "",
     ...playbookSection,
     ...mediaSection,
     "Content rules:",
-    "- React to *this* thread only; ground the take in the title, body, and attached image when present.",
+    "- React to *this* thread only; ground the comment in the title, body, and attached image when present.",
     opts?.imageAttached
-      ? "- The image is attached — react to what you see (product page screenshots count). Do not ignore the shown item for a generic take."
-      : "- If the body is thin and they posted a photo, speak to the occasion/goal in the title — do not invent garments.",
+      ? "- The image is attached — name something visible you like. Do not ignore the outfit for abstract fashion theory."
+      : "- If the body is thin and they posted a photo, keep it light from the title vibe — do not invent garments.",
     "- Do not invent prices, shops, or a personal story you were not given (readable text in an attached image is allowed).",
-    "- Keep draftText under 400 characters.",
+    "- Keep draftText under 280 characters.",
     "",
     `Subreddit: r/${draft.subreddit}`,
     `Title: ${draft.threadTitle}`,
@@ -410,7 +413,7 @@ export function parseDraftModelJson(
   if (helpFirst && PRODUCT_RE.test(draftText)) {
     return null;
   }
-  if (opts?.presenceLane && draftText.length > 400) {
+  if (opts?.presenceLane && draftText.length > 280) {
     return null;
   }
 
