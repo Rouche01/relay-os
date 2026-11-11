@@ -2,6 +2,7 @@ import type { EngineResult, ExecutionEngine } from "@relay/protocol";
 import type {
   ComputerEngineAction,
   ComputerLeaseInfo,
+  ComputerObserveResult,
   ComputerSeatKind,
 } from "./types.js";
 
@@ -121,6 +122,8 @@ export class ComputerEngine implements ExecutionEngine {
           return await this.acquire(action);
         case "screenshot":
           return await this.screenshot();
+        case "observe":
+          return await this.observe(action);
         case "action":
           return await this.desktopAction(action);
         case "heartbeat":
@@ -243,6 +246,44 @@ export class ComputerEngine implements ExecutionEngine {
       };
     }
     const data = (await res.json()) as { image?: string };
+    return { success: true, data };
+  }
+
+  /**
+   * Phone-only: screenshot + trimmed UIAutomator tree.
+   * Desktop seats return 404 from the gateway — surfaced as a clear error.
+   */
+  private async observe(action: ComputerEngineAction): Promise<EngineResult> {
+    const sid = this.requireSession();
+    const query: Record<string, string> = {};
+    if (
+      action.params.max_elements != null &&
+      Number.isFinite(action.params.max_elements)
+    ) {
+      query.max_elements = String(
+        Math.max(1, Math.min(500, Math.trunc(action.params.max_elements)))
+      );
+    }
+    const res = await this.request(
+      "GET",
+      `/v1/sessions/${sid}/observe`,
+      undefined,
+      { query: Object.keys(query).length > 0 ? query : undefined }
+    );
+    if (res.status === 404) {
+      return {
+        success: false,
+        error:
+          "observe is phone-only (desktop workers return 404); lease kind=phone or use screenshot",
+      };
+    }
+    if (!res.ok) {
+      return {
+        success: false,
+        error: `observe failed (${res.status}): ${await this.readBody(res)}`,
+      };
+    }
+    const data = (await res.json()) as ComputerObserveResult;
     return { success: true, data };
   }
 

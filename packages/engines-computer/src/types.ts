@@ -1,13 +1,46 @@
 import type { EngineAction } from "@relay/protocol";
 
-/** Body forwarded to Computer Runtime POST .../action */
+/** Body forwarded to Computer Runtime POST .../action (desktop + phone). */
 export interface ComputerActionPayload {
   type: string;
   x?: number;
   y?: number;
+  /** swipe start / end (phone) */
+  x1?: number;
+  y1?: number;
+  x2?: number;
+  y2?: number;
   text?: string;
   direction?: string;
   amount?: number;
+  /** swipe / long_press duration (phone) */
+  duration_ms?: number;
+  /** launch — Android package name */
+  package?: string;
+  /** launch — optional am-start uri (http(s) or intent) */
+  uri?: string;
+  /** tap / long_press by observe element ref (phone) */
+  ref?: string;
+}
+
+/** One UIAutomator element from GET .../observe (phone). */
+export interface ComputerObserveElement {
+  ref?: string;
+  text?: string;
+  content_desc?: string;
+  bounds?: string | number[];
+  center?: { x: number; y: number } | [number, number];
+  clickable?: boolean;
+  [key: string]: unknown;
+}
+
+/** Result data from execute type=observe (phone seats). */
+export interface ComputerObserveResult {
+  image?: string;
+  elements?: ComputerObserveElement[];
+  geometry?: { width: number; height: number };
+  element_count?: number;
+  ok?: boolean;
 }
 
 /** Gateway seat kind — omit / desktop preserves existing desktop-only callers. */
@@ -34,6 +67,8 @@ export interface ComputerActionParams {
   session_id?: string;
   /** action — forwarded to gateway */
   action?: ComputerActionPayload;
+  /** observe — cap on UIAutomator elements (gateway default 200, max 500) */
+  max_elements?: number;
 }
 
 /**
@@ -43,11 +78,13 @@ export interface ComputerActionParams {
  * - `recycle` — wipe Firefox and free the worker (DELETE …?recycle=true)
  * - `acquire` — re-lease a parked desktop by session_id
  * - `lease` with the same `job_id` also reattaches a parked slot (gateway-side)
+ * - `observe` — phone: screenshot + UIAutomator elements (desktop workers return 404)
  */
 export type ComputerActionType =
   | "lease"
   | "acquire"
   | "screenshot"
+  | "observe"
   | "action"
   | "heartbeat"
   | "reset"

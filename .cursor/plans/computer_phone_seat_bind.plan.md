@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: engine-phone-actions
     content: Widen ComputerActionPayload for swipe/long_press/launch/ref/duration_ms; add observe execute type
-    status: pending
+    status: completed
   - id: engine-tests
     content: Unit tests for kind on lease body + phone action/observe HTTP mapping
     status: pending
