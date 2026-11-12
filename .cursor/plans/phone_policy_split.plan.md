@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: thin-browse-policy
     content: Revert browse-policy to desktop-browser focus; remove seatKind phone forks (or keep thin deprecated shim that re-exports phone-policy once)
-    status: pending
+    status: completed
   - id: move-dogfood
     content: Move phone-browse-dogfood (Telegram experiment) under phone-policy; engines-computer Settings dogfood stays fixed-step
     status: pending
@@ -128,4 +128,4 @@ Prefer **one new package** over burying shared code inside browse-policy so phon
 
 1. **Package name:** `@relay/phone-policy` vs `@relay/mobile-policy` vs `@relay/computer-phone-policy`
 2. **Shared home:** `@relay/computer-seat-policy` (**chosen** in extract-seat-loop)
-3. **Shim duration:** hard remove phone from browse-policy in same PR vs one release deprecated re-export
+3. **Shim duration:** hard remove (**chosen** in thin-browse-policy); `browse_goal` / `computer.browse` error if `seatKind=phone`

@@ -1,14 +1,13 @@
 # `@relay/browse-policy`
 
-Human-like browse loop for Computer Runtime desks **and phone seats**.
+Human-like browse loop for Computer Runtime **desktop** desks (Firefox).
 
-Shared lease / wait / observe / decide / act / park loop lives in `@relay/computer-seat-policy`; this package adds browse (and temporary phone) prompts + adapters.
+Shared lease / wait / observe / decide / act / park loop lives in `@relay/computer-seat-policy`. Android phone automation lives in `@relay/phone-policy`.
 
 - Waits between actions are sampled from an exponential (or lognormal) distribution.
-- Each turn builds a prompt from a **fixed goal** + recent history + the current screenshot (phone: optional UIAutomator element list via `observe`).
+- Each turn builds a prompt from a **fixed goal** + recent history + the current screenshot.
 - A vision LLM returns the next micro-decision (`act` / `done` / `need_human`).
-- Desktop / phone I/O goes through `@relay/engines-computer` only — no changes in computer-with-agent.
-- Phone: set `seatKind: "phone"` (leases `kind=phone`, skips Firefox navigate, swipe-heavy prompt). Upstream notes: computer-with-agent `AGENTS.md` / `BINDING.md`.
+- Desk I/O goes through `@relay/engines-computer` only.
 
 ## Quick use
 
@@ -34,33 +33,11 @@ await runner.run("browse_goal", {
   url: "https://example.com",
   maxSteps: 12,
 });
-
-// Phone seat (no Firefox address bar — launch / current screen):
-await runner.run(
-  "browse_goal",
-  {
-    goal: "Open Settings and open About phone",
-    seatKind: "phone",
-    maxSteps: 10,
-  },
-  { kind: "phone" }
-);
 ```
 
-Fixed-step (no LLM) phone dogfood: `pnpm --filter @relay/engines-computer dogfood:phone`.
+Phone seats: use `@relay/phone-policy` (`phone_goal` / `runPhonePolicyLoop`). Fixed-step Settings dogfood: `pnpm --filter @relay/engines-computer dogfood:phone`.
 
-Experimental LLM phone goal (Telegram / arbitrary UI):
-
-```bash
-COMPUTER_GATEWAY_URL=http://localhost:9000 \
-COMPUTER_API_TOKEN=dev-token \
-GEMINI_API_KEY=… \
-pnpm --filter @relay/browse-policy dogfood:phone-browse
-```
-
-Default goal opens Telegram, finds chat/channel “Amsterdam”, and tries a ❤️ on the latest message. Override with `--goal "…"`. Watch the physical device (or scrcpy-web on `:6083` if running).
-
-Inference and pacing live here; the gateway only leases, screenshots/observe, and acts.
+Inference and pacing live here; the gateway only leases, screenshots, and acts.
 
 ## Spec v2 (`computer.browse`)
 

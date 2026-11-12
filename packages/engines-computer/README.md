@@ -29,4 +29,4 @@ Pause after lease so you can open the Watch URL or look at the handset:
 pnpm --filter @relay/engines-computer dogfood:phone -- --pause-ms 5000
 ```
 
-For an LLM-driven phone goal loop, use `@relay/browse-policy` with `seatKind: "phone"` (see that package’s README).
+For an LLM-driven phone goal loop, use `@relay/phone-policy` (`phone_goal` / `runPhonePolicyLoop`).

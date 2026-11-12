@@ -1,60 +1,18 @@
-import type {
-  ComputerActionPayload,
-  ComputerEngine,
-} from "@relay/engines-computer";
+import type { ComputerEngine } from "@relay/engines-computer";
 import { navigateToUrl } from "@relay/engines-computer";
 import {
-  captureObserveObservation,
   captureScreenshotObservation,
   runSeatPolicyLoop,
 } from "@relay/computer-seat-policy";
-import type {
-  BrowseLoopOptions,
-  BrowseLoopResult,
-  BrowseObserveMode,
-} from "./types.js";
+import type { BrowseLoopOptions, BrowseLoopResult } from "./types.js";
 
 const sleepDefault = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-function needsPhoneSettle(action: ComputerActionPayload): boolean {
-  return (
-    action.type === "swipe" ||
-    action.type === "long_press" ||
-    action.type === "launch"
-  );
-}
-
-async function openPhoneStartUrl(
-  engine: ComputerEngine,
-  url: string,
-  settleMs: number,
-  sleep: (ms: number) => Promise<void>
-): Promise<{ success: boolean; error?: string }> {
-  const trimmed = url.trim();
-  if (!trimmed) {
-    return { success: false, error: "startUrl is empty" };
-  }
-  const launched = await engine.execute({
-    type: "action",
-    params: { action: { type: "launch", uri: trimmed } },
-  });
-  if (!launched.success) {
-    return {
-      success: false,
-      error: launched.error ?? "phone launch(uri) failed",
-    };
-  }
-  if (settleMs > 0) {
-    await sleep(settleMs);
-  }
-  return { success: true };
-}
-
 /**
- * Observe → sample human-like wait → vision decide → act, until stop.
- * Caller supplies ComputerEngine + BrowseDecider; inference stays outside the gateway.
+ * Screenshot → sample human-like wait → vision decide → act, until stop.
+ * Desktop Firefox desks only. Phone automation: `@relay/phone-policy`.
  *
- * Implementation delegates to `@relay/computer-seat-policy` with browse/phone adapters.
+ * Implementation delegates to `@relay/computer-seat-policy`.
  */
 export async function runBrowsePolicyLoop(
   engine: ComputerEngine,
@@ -84,18 +42,12 @@ export async function runBrowsePolicyLoop(
     };
   }
 
-  const seatKind = goal.seatKind ?? "desktop";
-  const phone = seatKind === "phone";
-  const observeMode: BrowseObserveMode =
-    options.observeMode ?? (phone ? "observe" : "screenshot");
-  const swipeSettleMs = options.swipeSettleMs ?? (phone ? 450 : 0);
-  const normalizedGoal = { ...goal, text: goalText, seatKind };
+  const normalizedGoal = { ...goal, text: goalText };
 
   return runSeatPolicyLoop(engine, {
     goal: normalizedGoal,
     timing,
     decide,
-    leaseKind: phone ? "phone" : undefined,
     maxIterations,
     heartbeatEachIteration,
     recycle,
@@ -107,20 +59,10 @@ export async function runBrowsePolicyLoop(
     random,
     onObservation,
     captureObservation: ({ iteration }) =>
-      observeMode === "observe"
-        ? captureObserveObservation(engine, iteration, options.maxElements)
-        : captureScreenshotObservation(engine, iteration),
+      captureScreenshotObservation(engine, iteration),
     beforeLoop: async () => {
       if (!normalizedGoal.startUrl) {
         return { success: true };
-      }
-      if (phone) {
-        return openPhoneStartUrl(
-          engine,
-          normalizedGoal.startUrl,
-          navigateSettleMs,
-          sleep
-        );
       }
       const nav = await navigateToUrl(
         engine,
@@ -134,11 +76,6 @@ export async function runBrowsePolicyLoop(
         };
       }
       return { success: true };
-    },
-    settleAfterAction: async (action) => {
-      if (swipeSettleMs > 0 && needsPhoneSettle(action)) {
-        await sleep(swipeSettleMs);
-      }
     },
   });
 }

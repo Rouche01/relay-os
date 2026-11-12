@@ -8,7 +8,6 @@ export type {
   BrowseLoopOptions,
   BrowseLoopResult,
   BrowseObservation,
-  BrowseObserveMode,
   BrowseStepRecord,
   BrowseTimingConfig,
   BrowseWaitDistribution,

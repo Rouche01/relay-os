@@ -1,4 +1,3 @@
-import type { ComputerSeatKind } from "@relay/engines-computer";
 import type {
   SeatDecideInput,
   SeatDecider,
@@ -13,9 +12,6 @@ import type {
 
 export type BrowseWaitDistribution = SeatWaitDistribution;
 
-/** How each loop iteration captures the screen. */
-export type BrowseObserveMode = "screenshot" | "observe";
-
 export type BrowseTimingConfig = SeatTimingConfig;
 
 export interface BrowseActionMixPriors {
@@ -24,10 +20,6 @@ export interface BrowseActionMixPriors {
   type?: number;
   key?: number;
   move?: number;
-  /** Phone — vertical/horizontal gestures */
-  swipe?: number;
-  long_press?: number;
-  launch?: number;
 }
 
 export interface BrowseGoal {
@@ -36,12 +28,6 @@ export interface BrowseGoal {
   allowedActions?: string[];
   /** Soft priors injected into the prompt (not hard scripts). */
   actionMix?: BrowseActionMixPriors;
-  /**
-   * Seat kind for lease + prompts. Default `"desktop"`.
-   * `"phone"` skips Firefox navigate and uses phone chrome / swipe priors.
-   * @deprecated Prefer `@relay/phone-policy` once available (see phone_policy_split plan).
-   */
-  seatKind?: ComputerSeatKind;
 }
 
 export type BrowseObservation = SeatObservation;
@@ -65,17 +51,6 @@ export interface BrowseLoopOptions {
   maxIterations?: number;
   /** Navigate settle ms after startUrl (default 2000). */
   navigateSettleMs?: number;
-  /**
-   * Extra settle after phone swipe / long_press / launch (default 450 on phone, 0 on desktop).
-   */
-  swipeSettleMs?: number;
-  /**
-   * `"observe"` = screenshot + UIAutomator elements (phone).
-   * Default: `"observe"` when seatKind is phone, else `"screenshot"`.
-   */
-  observeMode?: BrowseObserveMode;
-  /** Cap elements when observeMode is observe (gateway default 200). */
-  maxElements?: number;
   /** Heartbeat once per iteration (default true). */
   heartbeatEachIteration?: boolean;
   /** Soft-park when finished (default). Set recycle: true to wipe. */
