@@ -44,7 +44,21 @@ const DECISION_SCHEMA: Record<string, unknown> = {
   },
 };
 
-function parseDecision(raw: string): BrowseDecision {
+/** Normalize common model slips (`action` → `act`, etc.). */
+export function normalizeDecisionKind(
+  raw: unknown
+): BrowseDecisionKind | null {
+  if (typeof raw !== "string") return null;
+  const k = raw.trim().toLowerCase().replace(/-/g, "_");
+  if (k === "act" || k === "action") return "act";
+  if (k === "done" || k === "success" || k === "complete") return "done";
+  if (k === "need_human" || k === "needhuman" || k === "human") {
+    return "need_human";
+  }
+  return null;
+}
+
+export function parseDecision(raw: string): BrowseDecision {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -55,9 +69,11 @@ function parseDecision(raw: string): BrowseDecision {
     throw new Error("BrowseDecider: decision must be an object");
   }
   const obj = parsed as Record<string, unknown>;
-  const kind = obj.kind as BrowseDecisionKind;
-  if (kind !== "act" && kind !== "done" && kind !== "need_human") {
-    throw new Error(`BrowseDecider: invalid kind ${String(obj.kind)}`);
+  const kind = normalizeDecisionKind(obj.kind);
+  if (!kind) {
+    throw new Error(
+      `BrowseDecider: invalid kind ${JSON.stringify(obj.kind)} (want act|done|need_human)`
+    );
   }
 
   if (kind === "act") {

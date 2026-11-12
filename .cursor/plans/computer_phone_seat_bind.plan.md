@@ -165,9 +165,15 @@ Tracked here so computer-with-agent HITL can stay Watch-only:
 - [ ] Phone browse goal skips Firefox navigate; prints HITL URL
 - [ ] Soft park leaves app data; recycle still available explicitly
 
+## Follow-ups
+
+- **Desk phone claim/watch:** [`desk_phone_seats.plan.md`](./desk_phone_seats.plan.md)
+- **Policy split (don’t keep stretching browse-policy for Android):** [`phone_policy_split.plan.md`](./phone_policy_split.plan.md)
+- **scrcpy-web on :6083:** computer-with-agent `.cursor/plans/phone_scrcpy_web_hitl.plan.md`
+
 ## Open choices (resolve in first PR)
 
-1. **Default phone observation:** screenshot-only first PR vs observe-from-day-one.
+1. **Default phone observation:** screenshot-only first PR vs observe-from-day-one. *(Shipped: phone default observe in browse-policy fork; revisit under phone-policy.)*
 2. **Dogfood home:** `packages/engines-computer/scripts/…` vs tiny `apps/` CLI — **Desk phone claim/watch is a separate plan:** [`desk_phone_seats.plan.md`](./desk_phone_seats.plan.md).
 3. **navigate on phone:** `launch` package only vs also `am start` http(s) `uri` as “open URL in browser app”.
 

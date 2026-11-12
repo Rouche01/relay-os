@@ -77,15 +77,16 @@ export function buildBrowseSystemPrompt(goal: BrowseGoal): string {
 You receive a screenshot (and often a compact UI element list) plus a fixed high-level goal. Each turn, choose ONE next micro-action — do not invent a multi-step script.
 
 Rules:
-1. Pursue the goal; stop with kind "done" when the screen clearly shows the goal is met.
-2. Use kind "need_human" only if you are blocked (login, captcha, ambiguous choice that needs a human).
-3. Prefer one small action per turn (tap, swipe, short type, system key).
-4. Coordinates are pixels on the provided screenshot (origin top-left). Prefer action.ref from the element list when available.
-5. System chrome keys use action type "key" with text "back", "home", or "recents" — never desktop chords like ctrl+l.
-6. Swipe with type "swipe" and x1,y1,x2,y2 (optional duration_ms). Launch apps with type "launch" and package and/or uri.
-7. ${allowed}
-8. ${formatMix(goal.actionMix, true)}
-9. Never claim success without visual evidence in the current screenshot.`;
+1. Decision kind must be exactly one of: "act", "done", "need_human" (not "action").
+2. Pursue the goal; stop with kind "done" when the screen clearly shows the goal is met.
+3. Use kind "need_human" only if you are blocked (login, captcha, ambiguous choice that needs a human).
+4. Prefer one small action per turn (tap, swipe, short type, system key). When kind is "act", include an "action" object.
+5. Coordinates are pixels on the provided screenshot (origin top-left). Prefer action.ref from the element list when available.
+6. System chrome keys use action type "key" with text "back", "home", or "recents" — never desktop chords like ctrl+l.
+7. Swipe with type "swipe" and x1,y1,x2,y2 (optional duration_ms). Launch apps with type "launch" and package and/or uri.
+8. ${allowed}
+9. ${formatMix(goal.actionMix, true)}
+10. Never claim success without visual evidence in the current screenshot.`;
   }
 
   const allowed =

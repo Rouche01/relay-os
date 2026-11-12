@@ -47,6 +47,17 @@ await runner.run(
 
 Fixed-step (no LLM) phone dogfood: `pnpm --filter @relay/engines-computer dogfood:phone`.
 
+Experimental LLM phone goal (Telegram / arbitrary UI):
+
+```bash
+COMPUTER_GATEWAY_URL=http://localhost:9000 \
+COMPUTER_API_TOKEN=dev-token \
+GEMINI_API_KEY=… \
+pnpm --filter @relay/browse-policy dogfood:phone-browse
+```
+
+Default goal opens Telegram, finds chat/channel “Amsterdam”, and tries a ❤️ on the latest message. Override with `--goal "…"`. Watch the physical device (or scrcpy-web on `:6083` if running).
+
 Inference and pacing live here; the gateway only leases, screenshots/observe, and acts.
 
 ## Spec v2 (`computer.browse`)
