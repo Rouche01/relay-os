@@ -6,6 +6,19 @@ import type {
   ComputerSeatKind,
 } from "./types.js";
 
+/**
+ * Prefer gateway `kind`. If omitted: default desktop for desktop/omit requests;
+ * do not assume phone succeeded when an older gateway ignores the field.
+ */
+function leaseFallbackKind(
+  lease: ComputerLeaseInfo,
+  requested?: ComputerSeatKind
+): ComputerSeatKind | undefined {
+  if (lease.kind != null) return undefined;
+  if (requested === "phone") return undefined;
+  return "desktop";
+}
+
 export interface ComputerEngineOptions {
   /** Gateway origin, e.g. http://localhost:9000 */
   baseUrl: string;
@@ -177,7 +190,10 @@ export class ComputerEngine implements ExecutionEngine {
       };
     }
     const lease = (await res.json()) as ComputerLeaseInfo;
-    this.applyLease(lease, action.params.kind ?? "desktop");
+    // Never invent "phone" from the request — only trust the gateway (or
+    // default desktop when both omit kind). Old gateways ignore `kind` and
+    // return a desktop seat without echoing kind/seat_id.
+    this.applyLease(lease, leaseFallbackKind(lease, action.params.kind));
     this.clearParked();
     return {
       success: true,
@@ -416,7 +432,7 @@ export class ComputerEngine implements ExecutionEngine {
 
   private applyLease(
     lease: ComputerLeaseInfo,
-    fallbackKind?: ComputerSeatKind
+    fallbackKind?: ComputerSeatKind | null
   ): void {
     this.sessionId = lease.session_id;
     this.apiBase = lease.api_base;

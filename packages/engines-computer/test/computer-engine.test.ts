@@ -309,6 +309,29 @@ describe("ComputerEngine", () => {
     assert.equal(engine.getSeatId(), null);
   });
 
+  it("does not invent phone kind when the gateway omits kind on the lease", async () => {
+    const fetchImpl = mockGateway({
+      "POST /v1/sessions": ({ body }) => {
+        assert.equal((body as { kind?: string }).kind, "phone");
+        // Old gateway: ignores kind, returns desktop lease without kind/seat_id
+        return { status: 200, json: leaseJson() };
+      },
+    });
+
+    const engine = new ComputerEngine({
+      baseUrl: "http://gw",
+      fetch: fetchImpl,
+    });
+    const lease = await engine.execute({
+      type: "lease",
+      params: { kind: "phone" },
+    });
+    assert.equal(lease.success, true);
+    assert.equal(engine.getKind(), null);
+    assert.equal(engine.getSeatId(), null);
+    assert.equal(lease.data?.kind, undefined);
+  });
+
   it("forwards phone swipe / ref / launch action payloads unchanged", async () => {
     const seen: unknown[] = [];
     const fetchImpl = mockGateway({

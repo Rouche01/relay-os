@@ -9,7 +9,8 @@
     "dev": "tsc -p tsconfig.build.json -w",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsc -p tsconfig.test.json && node --test dist-test/test/*.test.js",
-    "clean": "rm -rf dist dist-test"
+    "dogfood:phone": "tsc -p tsconfig.scripts.json && node dist-scripts/scripts/phone-dogfood.js",
+    "clean": "rm -rf dist dist-test dist-scripts"
   },
   "dependencies": {
     "@relay/protocol": "workspace:*"

@@ -16,10 +16,10 @@ todos:
     status: completed
   - id: dogfood-script
     content: Small runnable dogfood (script or task) — lease phone, print HITL URL, run short goal, park
-    status: pending
+    status: completed
   - id: docs-note
     content: Package READMEs + pointer back to computer-with-agent AGENTS.md phone bind notes
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -138,6 +138,15 @@ COMPUTER_API_TOKEN=…
 
 Prereq on machine: A55 reachable via ADB to whatever hosts `phone-1` (local uvicorn :8000 or Compose profile `phone`).
 
+## Desk / deploy follow-ons (relay-os owned)
+
+Tracked here so computer-with-agent HITL can stay Watch-only:
+
+| Item | Notes |
+|------|--------|
+| Desk take-over UI | Intervene via gateway `POST …/action` on `need_human`; do not rely on scrcpy-web input (upstream Watch is read-only). |
+| `cu-phone.hsv` Caddy on ThinkPad | Document in `apps/relay-desk/LAPTOP.md` (or deploy Caddyfile): Host → `127.0.0.1:6083`. Upstream ships hsv inventory example + AGENTS snippet only. |
+
 ## Non-goals
 
 - Changing computer-with-agent gateway/worker contracts
@@ -145,6 +154,7 @@ Prereq on machine: A55 reachable via ADB to whatever hosts `phone-1` (local uvic
 - Wiring CommunityEngager or Reddit flows to phone
 - Auto CAPTCHA / 2FA
 - Requiring scrcpy-web before dogfood (physical screen is enough)
+- Implementing Desk take-over or live ThinkPad Caddy in the computer-with-agent scrcpy Compose PR
 
 ## Dogfood checklist
 
