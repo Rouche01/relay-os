@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: move-dogfood
     content: Move phone-browse-dogfood (Telegram experiment) under phone-policy; engines-computer Settings dogfood stays fixed-step
-    status: pending
+    status: completed
   - id: decide-robustness
     content: Keep/port kind aliases (action→act) + phone-native decision wording in phone-policy prompts/schema
     status: completed

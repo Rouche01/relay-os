@@ -40,3 +40,22 @@ await runner.run(
 ```
 
 Helpers: `launchPackage`, `openUri`, `launchApp`, `runPhonePolicyLoop`.
+
+## Dogfood
+
+Fixed-step Settings (no LLM):
+
+```bash
+pnpm --filter @relay/engines-computer dogfood:phone
+```
+
+LLM Telegram experiment (Amsterdam ❤️):
+
+```bash
+COMPUTER_GATEWAY_URL=http://localhost:9000 \
+COMPUTER_API_TOKEN=dev-token \
+GEMINI_API_KEY=… \
+pnpm --filter @relay/phone-policy dogfood:phone-browse
+```
+
+Override with `--goal "…"`. Watch the physical device (or scrcpy-web on `:6083` if running).
