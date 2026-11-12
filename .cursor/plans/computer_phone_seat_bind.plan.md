@@ -158,7 +158,7 @@ Prereq on machine: A55 reachable via ADB to whatever hosts `phone-1` (local uvic
 ## Open choices (resolve in first PR)
 
 1. **Default phone observation:** screenshot-only first PR vs observe-from-day-one.
-2. **Dogfood home:** `packages/engines-computer/scripts/…` vs tiny `apps/` CLI vs Desk button later.
+2. **Dogfood home:** `packages/engines-computer/scripts/…` vs tiny `apps/` CLI — **Desk phone claim/watch is a separate plan:** [`desk_phone_seats.plan.md`](./desk_phone_seats.plan.md).
 3. **navigate on phone:** `launch` package only vs also `am start` http(s) `uri` as “open URL in browser app”.
 
 ## Implementation order
