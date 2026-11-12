@@ -35,9 +35,14 @@ await runner.run("browse_goal", {
 });
 ```
 
-Phone seats: use `@relay/phone-policy` (`phone_goal` / `runPhonePolicyLoop`). Fixed-step Settings dogfood: `pnpm --filter @relay/engines-computer dogfood:phone`.
+Phone seats: [`@relay/phone-policy`](../phone-policy) (`phone_goal` / `runPhonePolicyLoop`). Fixed-step Settings: `pnpm --filter @relay/engines-computer dogfood:phone`.
+
+`seatKind: "phone"` on browse APIs is removed — callers get an explicit error pointing at phone-policy.
+
+CommunityEngager does **not** use this package for phone; CE computer paths stay desktop evidence-only.
 
 Inference and pacing live here; the gateway only leases, screenshots, and acts.
+
 
 ## Spec v2 (`computer.browse`)
 

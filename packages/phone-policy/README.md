@@ -7,7 +7,9 @@ Android phone seat policy on top of `@relay/computer-seat-policy`.
 - Actions: tap / swipe / long_press / launch / system keys (`back`/`home`/`recents`)
 - **No** Firefox navigate or `ctrl+l`
 
-Desktop browsing stays in `@relay/browse-policy`. Fixed-step Settings dogfood stays in `@relay/engines-computer dogfood:phone`.
+Desktop browsing stays in [`@relay/browse-policy`](../browse-policy). Shared loop: [`@relay/computer-seat-policy`](../computer-seat-policy). Fixed-step Settings dogfood stays in `@relay/engines-computer dogfood:phone`.
+
+CommunityEngager stays **desktop evidence-only** — do not wire CE / Reddit execute to phone seats here. Desk HITL claim/watch is a separate plan ([`desk_phone_seats.plan.md`](../../.cursor/plans/desk_phone_seats.plan.md)).
 
 ## Quick use
 

@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: docs-pointers
     content: READMEs + pointer from computer_phone_seat_bind / desk_phone_seats; note CE stays desktop evidence-only
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -87,7 +87,7 @@ Prefer **one new package** over burying shared code inside browse-policy so phon
 - Decider schema: same act/done/need_human, with aliases (`action`→`act`) and phone action fields first-class
 - Helpers: `launchPackage`, optional “open uri”
 - Task: `phone_goal` (mirror `browse_goal` but phone-native)
-- Script: move [`phone-browse-dogfood.ts`](packages/browse-policy/scripts/phone-browse-dogfood.ts) here; default Telegram experiment goal stays optional `--goal`
+- Script: [`phone-browse-dogfood.ts`](packages/phone-policy/scripts/phone-browse-dogfood.ts) (moved); default Telegram experiment goal stays optional `--goal`
 
 ## Phase 3 — Thin browse-policy
 
@@ -95,11 +95,12 @@ Prefer **one new package** over burying shared code inside browse-policy so phon
 - Desktop tests stay green; phone tests move to phone-policy
 - README: browse = desks; link phone-policy for Android
 
-## Phase 4 — Docs & pointers
+## Phase 4 — Docs & pointers (**done**)
 
-- Update engines-computer README dogfood section
-- Link from `computer_phone_seat_bind` “follow-up: policy split”
-- Desk phone seats plan unchanged (HITL URL only)
+- engines-computer / browse / phone / computer-seat-policy READMEs cross-link dogfood + pack roles
+- `computer_phone_seat_bind` follow-up marks policy split **done**; package table points at `@relay/phone-policy`
+- `desk_phone_seats` stays HITL-only; notes phone-policy vs CE desktop evidence-only
+- CE README related-plans pointer: no phone wiring
 - Upstream scrcpy-web plan remains computer-with-agent
 
 ## Non-goals
@@ -126,6 +127,6 @@ Prefer **one new package** over burying shared code inside browse-policy so phon
 
 ## Open choices
 
-1. **Package name:** `@relay/phone-policy` vs `@relay/mobile-policy` vs `@relay/computer-phone-policy`
+1. **Package name:** `@relay/phone-policy` (**chosen**)
 2. **Shared home:** `@relay/computer-seat-policy` (**chosen** in extract-seat-loop)
 3. **Shim duration:** hard remove (**chosen** in thin-browse-policy); `browse_goal` / `computer.browse` error if `seatKind=phone`

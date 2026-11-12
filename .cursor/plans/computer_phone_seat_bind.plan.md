@@ -1,6 +1,6 @@
 ---
 name: Computer Phone Seat Bind
-overview: Extend @relay/engines-computer and @relay/browse-policy to lease and drive computer-with-agent phone seats (kind=phone, swipe/observe/ref) while keeping desktop behavior unchanged—so agents can run a watchable phone flow against the same gateway.
+overview: Extend @relay/engines-computer to lease and drive computer-with-agent phone seats (kind=phone, swipe/observe/ref). LLM phone goals later moved to @relay/phone-policy (see phone_policy_split); browse-policy is desktop-only again.
 todos:
   - id: engine-kind-lease
     content: "ComputerEngine: lease kind (desktop|phone), surface kind/seat_id/vnc_url; default desktop"
@@ -36,7 +36,7 @@ isProject: false
 - Park soft force-stop / recycle `pm clear` on the phone worker
 - HITL via lease `vnc_url` (scrcpy-web when configured; physical device OK for dogfood)
 
-Relay today: [`@relay/engines-computer`](packages/engines-computer) leases **desktop-only** (no `kind`); [`@relay/browse-policy`](packages/browse-policy) assumes Firefox navigate + click/scroll/type/key.
+*(Historical.)* At plan start: engines leased desktop-only; browse-policy was Firefox-only. **Now:** engines support `kind=phone`; LLM phone goals live in [`@relay/phone-policy`](packages/phone-policy); browse-policy is desktop-only again ([`phone_policy_split.plan.md`](./phone_policy_split.plan.md)).
 
 ## Repo decision (locked)
 
@@ -45,8 +45,9 @@ Relay today: [`@relay/engines-computer`](packages/engines-computer) leases **des
 | Package | Role |
 |---------|------|
 | `@relay/engines-computer` | Typed gateway client — lease kind, actions, observe |
-| `@relay/browse-policy` | Phone-aware goal loop / prompts / action-mix |
-| Apps (optional dogfood) | Thin script or CE preview — not CommunityEngager phone transport yet |
+| `@relay/browse-policy` | *(Superseded for phone)* desktop Firefox only — see `@relay/phone-policy` |
+| `@relay/phone-policy` | Phone goal loop / prompts / dogfood (after [`phone_policy_split.plan.md`](./phone_policy_split.plan.md)) |
+| Apps | Optional dogfood only — **CommunityEngager stays desktop evidence-only** |
 
 CommunityEngager stays **desktop evidence-only** unless a later explicit phone transport is designed.
 
@@ -162,24 +163,24 @@ Tracked here so computer-with-agent HITL can stay Watch-only:
 - [ ] Desktop lease callers unchanged (no kind → desktop)
 - [ ] Swipe + home key + launch Settings succeed through engine
 - [ ] `observe` returns elements; tap by `ref` works
-- [ ] Phone browse goal skips Firefox navigate; prints HITL URL
+- [x] Phone goal skips Firefox navigate; prints HITL URL *(via `@relay/phone-policy` / engines dogfood)*
 - [ ] Soft park leaves app data; recycle still available explicitly
 
 ## Follow-ups
 
-- **Desk phone claim/watch:** [`desk_phone_seats.plan.md`](./desk_phone_seats.plan.md)
-- **Policy split (don’t keep stretching browse-policy for Android):** [`phone_policy_split.plan.md`](./phone_policy_split.plan.md)
-- **scrcpy-web on :6083:** computer-with-agent `.cursor/plans/phone_scrcpy_web_hitl.plan.md`
+- **Desk phone claim/watch:** [`desk_phone_seats.plan.md`](./desk_phone_seats.plan.md) (HITL URL / claim only — unchanged by policy split)
+- **Policy split (done):** [`phone_policy_split.plan.md`](./phone_policy_split.plan.md) — `@relay/computer-seat-policy` + `@relay/phone-policy`; browse-policy thinned
+- **scrcpy-web on :6083:** computer-with-agent `.cursor/plans/phone_scrcpy_web_hitl.plan.md` (upstream; not CE)
 
 ## Open choices (resolve in first PR)
 
-1. **Default phone observation:** screenshot-only first PR vs observe-from-day-one. *(Shipped: phone default observe in browse-policy fork; revisit under phone-policy.)*
-2. **Dogfood home:** `packages/engines-computer/scripts/…` vs tiny `apps/` CLI — **Desk phone claim/watch is a separate plan:** [`desk_phone_seats.plan.md`](./desk_phone_seats.plan.md).
-3. **navigate on phone:** `launch` package only vs also `am start` http(s) `uri` as “open URL in browser app”.
+1. **Default phone observation:** observe-from-day-one (**chosen** under `@relay/phone-policy`).
+2. **Dogfood home:** fixed-step in `packages/engines-computer/scripts/…`; LLM Telegram experiment in `@relay/phone-policy dogfood:phone-browse`. Desk claim/watch: [`desk_phone_seats.plan.md`](./desk_phone_seats.plan.md).
+3. **navigate on phone:** `launch` package and/or uri via phone-policy helpers (`launchPackage` / `openUri`).
 
 ## Implementation order
 
 1. Engine types + lease `kind` + tests
 2. Observe + payload fields + tests
-3. browse-policy phone prompt/task
+3. ~~browse-policy phone prompt/task~~ → moved to `@relay/phone-policy` (policy split)
 4. Dogfood script + README notes

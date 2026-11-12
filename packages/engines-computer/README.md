@@ -6,7 +6,17 @@ Supports seat **`kind: "desktop" | "phone"`**. Omit `kind` on lease for desktop 
 
 Upstream contract notes: `computer-with-agent` `AGENTS.md` / `BINDING.md` (phone actions, observe, inventory).
 
-## Phone dogfood
+## Dogfood
+
+| Path | Package | What |
+|------|---------|------|
+| Fixed-step Settings | this package `dogfood:phone` | Lease phone → launch Settings → observe → park (no LLM) |
+| LLM phone goal | [`@relay/phone-policy`](../phone-policy) `dogfood:phone-browse` | Telegram / custom goal via `runPhonePolicyLoop` |
+| Desktop browse | [`@relay/browse-policy`](../browse-policy) | Firefox desks only (`computer.browse` / `browse_goal`) |
+
+Shared loop chassis: [`@relay/computer-seat-policy`](../computer-seat-policy). CommunityEngager computer transport stays **desktop evidence-only** (not phone).
+
+### Phone Settings (fixed-step)
 
 Requires a free phone seat in the gateway inventory and an ADB-reachable device.
 
@@ -23,10 +33,17 @@ What it does:
 3. Launch Settings → observe → optional swipe / tap About → home
 4. Soft-park (pass `--recycle` to wipe)
 
-Pause after lease so you can open the Watch URL or look at the handset:
-
 ```bash
 pnpm --filter @relay/engines-computer dogfood:phone -- --pause-ms 5000
 ```
 
-For an LLM-driven phone goal loop, use `@relay/phone-policy` (`phone_goal` / `runPhonePolicyLoop`).
+### LLM phone goal
+
+```bash
+COMPUTER_GATEWAY_URL=http://localhost:9000 \
+COMPUTER_API_TOKEN=dev-token \
+GEMINI_API_KEY=… \
+pnpm --filter @relay/phone-policy dogfood:phone-browse
+```
+
+See `@relay/phone-policy` README (`phone_goal` / `runPhonePolicyLoop`).

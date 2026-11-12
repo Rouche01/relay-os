@@ -1,6 +1,6 @@
 ---
 name: Desk Phone Seats
-overview: Teach Relay Desk’s Seats console to claim, watch, and inventory computer-with-agent phone seats (kind=phone, scrcpy-web vnc_url) without changing CommunityEngager or browse-policy—operators can HITL phone the same way they do desktop.
+overview: Teach Relay Desk’s Seats console to claim, watch, and inventory computer-with-agent phone seats (kind=phone, scrcpy-web vnc_url) without changing CommunityEngager, browse-policy, or phone-policy—operators can HITL phone the same way they do desktop.
 todos:
   - id: desk-types-lease-kind
     content: "Gateway types + leaseSession(kind); surface kind/seat_id on ComputerLease, GatewaySeat, SeatState"
@@ -24,7 +24,7 @@ isProject: false
 
 ## Context
 
-Sibling to [`computer_phone_seat_bind.plan.md`](./computer_phone_seat_bind.plan.md) (engines + browse-policy — mostly done). That plan left Desk as **“Desk button later.”**
+Sibling to [`computer_phone_seat_bind.plan.md`](./computer_phone_seat_bind.plan.md) (engines phone bind — done) and [`phone_policy_split.plan.md`](./phone_policy_split.plan.md) (LLM phone goals in `@relay/phone-policy`, browse-policy desktop-only). This plan is **Desk HITL only** — claim/watch/inventory; not CE or policy packs.
 
 Gateway already returns `kind` + `seat_id` on lease and `GET /v1/seats`, and `/ready` exposes `free_desktop` / `free_phone`. Desk today:
 
@@ -42,7 +42,7 @@ Watch / HITL auto-open already open whatever `vnc_url` is present — so **agent
 
 - **Work in `apps/relay-desk` only** (plus tiny type docs if needed).
 - Do **not** change computer-with-agent unless a Desk contract bug is found.
-- Do **not** wire CommunityEngager or Spec “Computer” binding to phone in this plan.
+- Do **not** wire CommunityEngager or Spec “Computer” binding to phone in this plan (CE remains desktop evidence-only; agent automation uses `@relay/phone-policy` / engines dogfood separately).
 - Default claim remains **desktop** so existing muscle memory is unchanged.
 
 ## Architecture
