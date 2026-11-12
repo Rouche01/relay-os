@@ -5,10 +5,11 @@
  *   COMPUTER_API_TOKEN=dev-token \
  *   pnpm --filter @relay/engines-computer dogfood:phone
  *
- * Gateway inventory must include a free `kind=phone` seat (ADB device up).
- * Soft-parks by default; pass --recycle to wipe. Physical screen is enough if
- * scrcpy-web is not configured — print Watch URL either way.
+ * Needs a free or soft-parked `kind=phone` seat (ADB device up). Soft-parks by
+ * default; pass --recycle to wipe. Physical screen is enough if scrcpy-web is
+ * not configured — print Watch URL either way.
  */
+import { claimPhoneSeat } from "../src/claim-phone-seat.js";
 import { ComputerEngine } from "../src/computer-engine.js";
 import type { ComputerActionPayload } from "../src/types.js";
 
@@ -27,6 +28,8 @@ function parseArgs(argv: string[]) {
   let settleMs = Number(env("PHONE_DOGFOOD_SETTLE_MS") ?? "800");
   let settingsPackage =
     env("PHONE_DOGFOOD_SETTINGS_PACKAGE") ?? "com.android.settings";
+  let sessionId = env("COMPUTER_SESSION_ID");
+  let seatId = env("COMPUTER_SEAT_ID");
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
@@ -38,6 +41,10 @@ function parseArgs(argv: string[]) {
       settleMs = Number(argv[++i]);
     } else if (a === "--settings-package" && argv[i + 1]) {
       settingsPackage = argv[++i]!;
+    } else if (a === "--session-id" && argv[i + 1]) {
+      sessionId = argv[++i]!;
+    } else if (a === "--seat-id" && argv[i + 1]) {
+      seatId = argv[++i]!;
     } else if (a === "--help" || a === "-h") {
       console.log(`Usage: phone-dogfood [options]
 
@@ -46,10 +53,13 @@ Options:
   --pause-ms <n>         Wait after lease so you can open Watch (default 2500)
   --settle-ms <n>        Settle after launch/swipe (default 800)
   --settings-package <p> Android package to launch (default com.android.settings)
+  --session-id <id>      Acquire this parked session (skip free lease)
+  --seat-id <id>         Prefer this seat when resuming a parked phone
 
 Env:
   COMPUTER_GATEWAY_URL   required (e.g. http://localhost:9000)
   COMPUTER_API_TOKEN     optional bearer
+  COMPUTER_SESSION_ID / COMPUTER_SEAT_ID
   PHONE_DOGFOOD_*        same as flags above
 `);
       process.exit(0);
@@ -59,7 +69,7 @@ Env:
   if (!Number.isFinite(pauseMs) || pauseMs < 0) pauseMs = 2500;
   if (!Number.isFinite(settleMs) || settleMs < 0) settleMs = 800;
 
-  return { recycle, pauseMs, settleMs, settingsPackage };
+  return { recycle, pauseMs, settleMs, settingsPackage, sessionId, seatId };
 }
 
 async function mustAct(
@@ -112,17 +122,18 @@ async function main(): Promise<void> {
     defaultTtlSec: Number(env("COMPUTER_TTL_SEC") ?? "600") || 600,
   });
 
-  console.log("Leasing phone seat…");
-  const lease = await engine.execute({
-    type: "lease",
-    params: {
-      kind: "phone",
-      job_id: env("COMPUTER_JOB_ID") ?? `phone-dogfood-${Date.now()}`,
-    },
+  console.log("Claiming phone seat (free lease, else parked acquire)…");
+  const lease = await claimPhoneSeat(engine, {
+    jobId: env("COMPUTER_JOB_ID") ?? `phone-dogfood-${Date.now()}`,
+    sessionId: opts.sessionId,
+    seatId: opts.seatId,
   });
   if (!lease.success) {
-    console.error(`Lease failed: ${lease.error}`);
+    console.error(`Claim failed: ${lease.error}`);
     process.exit(1);
+  }
+  if (lease.data?.via === "acquire") {
+    console.log("Resumed parked phone session.");
   }
 
   const vnc = engine.getVncUrl();

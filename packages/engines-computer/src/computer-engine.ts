@@ -4,6 +4,7 @@ import type {
   ComputerLeaseInfo,
   ComputerObserveResult,
   ComputerSeatKind,
+  GatewaySeat,
 } from "./types.js";
 
 /**
@@ -113,6 +114,39 @@ export class ComputerEngine implements ExecutionEngine {
       return res.ok;
     } catch {
       return false;
+    }
+  }
+
+  /** Inventory from GET /v1/seats (free / leased / parked). */
+  async listSeats(): Promise<EngineResult> {
+    try {
+      const res = await this.request("GET", "/v1/seats");
+      if (!res.ok) {
+        const detail = await this.readBody(res);
+        return {
+          success: false,
+          error: `list seats failed (${res.status}): ${detail}`,
+        };
+      }
+      const body = (await res.json()) as {
+        seats?: GatewaySeat[];
+        free?: number;
+        leased?: number;
+        parked?: number;
+      };
+      const seats = Array.isArray(body.seats) ? body.seats : [];
+      return {
+        success: true,
+        data: {
+          seats,
+          free: body.free,
+          leased: body.leased,
+          parked: body.parked,
+        },
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { success: false, error: message };
     }
   }
 

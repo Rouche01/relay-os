@@ -11,7 +11,10 @@
  * Requires a free phone seat + vision LLM key. Soft-parks by default.
  * Fixed-step Settings path stays: `pnpm --filter @relay/engines-computer dogfood:phone`.
  */
-import { ComputerEngine } from "@relay/engines-computer";
+import {
+  claimPhoneSeat,
+  ComputerEngine,
+} from "@relay/engines-computer";
 import { createLlmClient, parseLlmProviderId } from "@relay/llm";
 import {
   createLlmPhoneDecider,
@@ -19,7 +22,19 @@ import {
   runPhonePolicyLoop,
 } from "../src/index.js";
 
-const DEFAULT_GOAL = `Open the Telegram app. Find and open the chat or channel named "Amsterdam". On the most recent message in that chat, add a love/heart reaction (❤️). Stop with kind "done" only when that heart reaction is clearly visible on the latest message. If Telegram asks for login, 2FA, or you cannot find Amsterdam, use kind "need_human". Prefer launch for Telegram, swipe to scroll chats, long_press a message then tap the heart reaction. Use key back/home only when needed.`;
+const DEFAULT_GOAL = `Open Telegram, then open ONLY the chat/channel whose title is exactly "Amsterdam" (case-insensitive). Do NOT open any other chat (e.g. "Stylens Ops" or whichever chat is pinned/top of the list).
+
+How to find it:
+1. From the chats list, tap Search (magnifying glass) and type Amsterdam, OR swipe the chat list until you see a row whose title text is Amsterdam.
+2. Tap that Amsterdam row only. After opening, verify the top app bar / header title shows Amsterdam. If it shows any other name, press key back and keep searching — never react in the wrong thread.
+3. Only inside the Amsterdam thread — add a ❤️ reaction like this (do NOT long_press):
+   a. Single tap (click) the most recent message once. That opens the reaction dialog / context menu.
+   b. Then tap the ❤️ (love/heart) option in that dialog or menu.
+   c. If the menu did not open, tap the last message once more (still no long_press). Only if a single tap clearly fails twice may you try long_press as a last resort.
+4. kind "done" only when the header still shows Amsterdam AND the ❤️ is clearly visible on the latest message.
+5. kind "need_human" if login/2FA, or Amsterdam cannot be found after searching/scrolling.
+
+Prefer launch for Telegram, type into search, swipe the list, then click/tap message → click/tap ❤️. Use key back/home only to leave a wrong chat, dismiss a wrong menu, or leave search.`;
 
 const DEFAULT_TELEGRAM_PACKAGE = "org.telegram.messenger";
 
@@ -41,6 +56,8 @@ function parseArgs(argv: string[]) {
     env("PHONE_BROWSE_TELEGRAM_PACKAGE") ?? DEFAULT_TELEGRAM_PACKAGE;
   let skipLaunch = false;
   let exitRateMu = Number(env("PHONE_BROWSE_EXIT_MU") ?? "0");
+  let sessionId = env("COMPUTER_SESSION_ID");
+  let seatId = env("COMPUTER_SEAT_ID");
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
@@ -52,6 +69,10 @@ function parseArgs(argv: string[]) {
     else if (a === "--goal" && argv[i + 1]) goal = argv[++i]!;
     else if (a === "--telegram-package" && argv[i + 1]) {
       telegramPackage = argv[++i]!;
+    } else if (a === "--session-id" && argv[i + 1]) {
+      sessionId = argv[++i]!;
+    } else if (a === "--seat-id" && argv[i + 1]) {
+      seatId = argv[++i]!;
     } else if (a === "--help" || a === "-h") {
       console.log(`Usage: phone-browse-dogfood [options]
 
@@ -61,10 +82,13 @@ Options:
   --pause-ms <n>             Pause after lease for Watch (default 4000)
   --telegram-package <pkg>   Package to launch first (default ${DEFAULT_TELEGRAM_PACKAGE})
   --skip-launch              Do not pre-launch Telegram (model must launch)
+  --session-id <id>          Acquire this parked session (skip free lease)
+  --seat-id <id>             Prefer this seat when resuming a parked phone
   --recycle                  Recycle seat instead of soft-park
 
 Env:
   COMPUTER_GATEWAY_URL, COMPUTER_API_TOKEN
+  COMPUTER_SESSION_ID / COMPUTER_SEAT_ID
   GEMINI_API_KEY or ANTHROPIC_API_KEY
   LLM_PROVIDER=gemini|anthropic (default gemini)
 `);
@@ -84,6 +108,8 @@ Env:
     telegramPackage,
     skipLaunch,
     exitRateMu,
+    sessionId,
+    seatId,
   };
 }
 
@@ -112,17 +138,18 @@ async function main(): Promise<void> {
     defaultTtlSec: Number(env("COMPUTER_TTL_SEC") ?? "900") || 900,
   });
 
-  console.log("Leasing phone seat…");
-  const lease = await engine.execute({
-    type: "lease",
-    params: {
-      kind: "phone",
-      job_id: env("COMPUTER_JOB_ID") ?? `phone-browse-${Date.now()}`,
-    },
+  console.log("Claiming phone seat (free lease, else parked acquire)…");
+  const lease = await claimPhoneSeat(engine, {
+    jobId: env("COMPUTER_JOB_ID") ?? `phone-browse-${Date.now()}`,
+    sessionId: opts.sessionId,
+    seatId: opts.seatId,
   });
   if (!lease.success) {
-    console.error(`Lease failed: ${lease.error}`);
+    console.error(`Claim failed: ${lease.error}`);
     process.exit(1);
+  }
+  if (lease.data?.via === "acquire") {
+    console.log("Resumed parked phone session.");
   }
   if (engine.getKind() !== "phone") {
     console.error(
@@ -159,12 +186,12 @@ async function main(): Promise<void> {
       text: opts.goal,
       package: opts.skipLaunch ? undefined : opts.telegramPackage,
       actionMix: {
+        click: 4,
         swipe: 3,
-        click: 3,
-        long_press: 2,
+        type: 3,
+        key: 2,
         launch: 1,
-        type: 1,
-        key: 1,
+        long_press: 0,
       },
     },
     timing: defaultPhoneTiming({

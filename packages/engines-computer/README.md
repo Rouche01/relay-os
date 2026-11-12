@@ -18,7 +18,7 @@ Shared loop chassis: [`@relay/computer-seat-policy`](../computer-seat-policy). C
 
 ### Phone Settings (fixed-step)
 
-Requires a free phone seat in the gateway inventory and an ADB-reachable device.
+Requires a free **or soft-parked** phone seat (ADB-reachable). If none are free, dogfood uses `claimPhoneSeat` to acquire a parked phone.
 
 ```bash
 COMPUTER_GATEWAY_URL=http://localhost:9000 \

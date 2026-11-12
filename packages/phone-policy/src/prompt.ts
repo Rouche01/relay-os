@@ -78,7 +78,8 @@ Rules:
 7. Swipe with type "swipe" and x1,y1,x2,y2 (optional duration_ms). Launch apps with type "launch" and package and/or uri.
 8. ${allowed}
 9. ${formatMix(goal.actionMix)}
-10. Never claim success without visual evidence in the current screenshot.`;
+10. Never claim success without visual evidence in the current screenshot.
+11. When the goal names a specific chat, app, or label, match that exact visible title before acting further. If you opened the wrong item, key "back" and correct course — do not continue the goal in the wrong screen.`;
 }
 
 export function buildPhoneUserPrompt(input: PhoneDecideInput): string {

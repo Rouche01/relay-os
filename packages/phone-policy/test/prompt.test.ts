@@ -18,6 +18,7 @@ describe("phone prompts", () => {
     assert.match(sys, /action\.ref/);
     assert.doesNotMatch(sys, /desktop browser/i);
     assert.doesNotMatch(sys, /pricing/i);
+    assert.match(sys, /exact visible title/i);
   });
 
   it("user prompt includes goal, history, and element list", () => {

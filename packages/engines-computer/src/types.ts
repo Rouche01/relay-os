@@ -108,3 +108,17 @@ export interface ComputerLeaseInfo {
   /** Inventory seat id from gateway when present. */
   seat_id?: string | null;
 }
+
+/** One row from GET /v1/seats. */
+export interface GatewaySeat {
+  id: string;
+  kind?: ComputerSeatKind | string | null;
+  state?: "free" | "leased" | "parked" | string | null;
+  session_id?: string | null;
+  vnc_url?: string | null;
+  job_id?: string | null;
+  agent_id?: string | null;
+  worker_base_url?: string | null;
+  expires_at?: string | null;
+  parked_at?: string | null;
+}
