@@ -3,22 +3,22 @@ name: Phone Policy Split
 overview: Stop stretching @relay/browse-policy for Android app automation—extract a shared computer-seat loop and a dedicated phone policy (prompts, observe/ref, launch/swipe) so desktop browse stays browser-shaped and phone goals (e.g. Telegram) get the right priors.
 todos:
   - id: extract-seat-loop
-    content: "Extract shared seat loop (timing, lease/park, decide→act, observation hook) from browse-policy into a small shared module or @relay/computer-seat-policy"
-    status: pending
+    content: Extract shared seat loop (timing, lease/park, decide→act, observation hook) from browse-policy into a small shared module or @relay/computer-seat-policy
+    status: completed
   - id: phone-policy-pkg
-    content: "Add @relay/phone-policy — phone prompts, action schema, observe-default loop, launch helpers; no Firefox navigate"
+    content: Add @relay/phone-policy — phone prompts, action schema, observe-default loop, launch helpers; no Firefox navigate
     status: pending
   - id: thin-browse-policy
-    content: "Revert browse-policy to desktop-browser focus; remove seatKind phone forks (or keep thin deprecated shim that re-exports phone-policy once)"
+    content: Revert browse-policy to desktop-browser focus; remove seatKind phone forks (or keep thin deprecated shim that re-exports phone-policy once)
     status: pending
   - id: move-dogfood
-    content: "Move phone-browse-dogfood (Telegram experiment) under phone-policy; engines-computer Settings dogfood stays fixed-step"
+    content: Move phone-browse-dogfood (Telegram experiment) under phone-policy; engines-computer Settings dogfood stays fixed-step
     status: pending
   - id: decide-robustness
-    content: "Keep/port kind aliases (action→act) + phone-native decision wording in phone-policy prompts/schema"
+    content: Keep/port kind aliases (action→act) + phone-native decision wording in phone-policy prompts/schema
     status: pending
   - id: docs-pointers
-    content: "READMEs + pointer from computer_phone_seat_bind / desk_phone_seats; note CE stays desktop evidence-only"
+    content: READMEs + pointer from computer_phone_seat_bind / desk_phone_seats; note CE stays desktop evidence-only
     status: pending
 isProject: false
 ---
@@ -41,10 +41,10 @@ Reusing the **loop shape** (goal → human-like wait → observe → one micro-d
 
 ## Decision (locked)
 
-1. **`@relay/engines-computer`** — stays the typed gateway client (already phone-capable). No split needed.
+1. `**@relay/engines-computer**` — stays the typed gateway client (already phone-capable). No split needed.
 2. **Shared seat loop** — extract timing + observe/decide/act/park from browse-policy (new thin package or `packages/computer-seat-policy`).
-3. **`@relay/browse-policy`** — desktop browser only again (or shim deprecated phone entry for one release).
-4. **`@relay/phone-policy`** — phone prompts, defaults (`observe`, swipe settle, launch), dogfood / tasks.
+3. `**@relay/browse-policy**` — desktop browser only again (or shim deprecated phone entry for one release).
+4. `**@relay/phone-policy**` — phone prompts, defaults (`observe`, swipe settle, launch), dogfood / tasks.
 5. **CommunityEngager** — remains desktop evidence-only (unchanged).
 
 ## Architecture
@@ -119,13 +119,13 @@ Prefer **one new package** over burying shared code inside browse-policy so phon
 
 ## Implementation order
 
-1. Extract shared loop + browse-policy uses it (behavior-preserving)  
-2. Add phone-policy + move dogfood + tests  
-3. Remove phone forks from browse-policy  
-4. Docs + deprecation note  
+1. Extract shared loop + browse-policy uses it (behavior-preserving)
+2. Add phone-policy + move dogfood + tests
+3. Remove phone forks from browse-policy
+4. Docs + deprecation note
 
 ## Open choices
 
-1. **Package name:** `@relay/phone-policy` vs `@relay/mobile-policy` vs `@relay/computer-phone-policy`  
-2. **Shared home:** new `@relay/computer-seat-policy` vs `packages/policy-seat/`  
-3. **Shim duration:** hard remove phone from browse-policy in same PR vs one release deprecated re-export  
+1. **Package name:** `@relay/phone-policy` vs `@relay/mobile-policy` vs `@relay/computer-phone-policy`
+2. **Shared home:** `@relay/computer-seat-policy` (**chosen** in extract-seat-loop)
+3. **Shim duration:** hard remove phone from browse-policy in same PR vs one release deprecated re-export

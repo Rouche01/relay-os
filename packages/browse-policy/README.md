@@ -2,6 +2,8 @@
 
 Human-like browse loop for Computer Runtime desks **and phone seats**.
 
+Shared lease / wait / observe / decide / act / park loop lives in `@relay/computer-seat-policy`; this package adds browse (and temporary phone) prompts + adapters.
+
 - Waits between actions are sampled from an exponential (or lognormal) distribution.
 - Each turn builds a prompt from a **fixed goal** + recent history + the current screenshot (phone: optional UIAutomator element list via `observe`).
 - A vision LLM returns the next micro-decision (`act` / `done` / `need_human`).

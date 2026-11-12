@@ -1,28 +1,22 @@
+import type { ComputerSeatKind } from "@relay/engines-computer";
 import type {
-  ComputerActionPayload,
-  ComputerObserveElement,
-  ComputerSeatKind,
-} from "@relay/engines-computer";
+  SeatDecideInput,
+  SeatDecider,
+  SeatDecision,
+  SeatDecisionKind,
+  SeatLoopResult,
+  SeatObservation,
+  SeatStepRecord,
+  SeatTimingConfig,
+  SeatWaitDistribution,
+} from "@relay/computer-seat-policy";
 
-export type BrowseWaitDistribution = "exponential" | "lognormal";
+export type BrowseWaitDistribution = SeatWaitDistribution;
 
 /** How each loop iteration captures the screen. */
 export type BrowseObserveMode = "screenshot" | "observe";
 
-export interface BrowseTimingConfig {
-  /** Rate λ for Exp(λ) inter-action waits (mean ≈ 1/λ seconds when unit is seconds). */
-  actionRateLambda: number;
-  /** Per-step probability of ending the session (exit hazard). */
-  exitRateMu: number;
-  minMs: number;
-  maxMs: number;
-  distribution?: BrowseWaitDistribution;
-  /**
-   * Lognormal σ (log-space). Mean of underlying normal is derived so E[T] ≈ 1/λ
-   * when distribution is lognormal.
-   */
-  lognormalSigma?: number;
-}
+export type BrowseTimingConfig = SeatTimingConfig;
 
 export interface BrowseActionMixPriors {
   click?: number;
@@ -45,61 +39,24 @@ export interface BrowseGoal {
   /**
    * Seat kind for lease + prompts. Default `"desktop"`.
    * `"phone"` skips Firefox navigate and uses phone chrome / swipe priors.
+   * @deprecated Prefer `@relay/phone-policy` once available (see phone_policy_split plan).
    */
   seatKind?: ComputerSeatKind;
 }
 
-export interface BrowseObservation {
-  imageBase64: string;
-  at: string;
-  /** Present when observeMode is `"observe"` (phone UIAutomator tree). */
-  elements?: ComputerObserveElement[];
-  meta?: Record<string, unknown>;
-}
+export type BrowseObservation = SeatObservation;
 
-export type BrowseDecisionKind = "act" | "done" | "need_human";
+export type BrowseDecisionKind = SeatDecisionKind;
 
-export interface BrowseDecision {
-  kind: BrowseDecisionKind;
-  reason?: string;
-  /** Required when kind === "act" */
-  action?: ComputerActionPayload;
-}
+export type BrowseDecision = SeatDecision;
 
-export interface BrowseStepRecord {
-  iteration: number;
-  waitedMs: number;
-  observationAt: string;
-  decision: BrowseDecision;
-  actionOk?: boolean;
-  actionError?: string;
-}
+export type BrowseStepRecord = SeatStepRecord;
 
-export interface BrowseLoopResult {
-  success: boolean;
-  stoppedReason:
-    | "done"
-    | "need_human"
-    | "exit_hazard"
-    | "max_iterations"
-    | "error";
-  error?: string;
-  steps: BrowseStepRecord[];
-  vncUrl?: string;
-  evidencePaths?: string[];
-}
+export type BrowseLoopResult = SeatLoopResult;
 
-export interface BrowseDecideInput {
-  goal: BrowseGoal;
-  observation: BrowseObservation;
-  history: BrowseStepRecord[];
-  iteration: number;
-  maxIterations: number;
-}
+export type BrowseDecideInput = SeatDecideInput<BrowseGoal>;
 
-export interface BrowseDecider {
-  decide(input: BrowseDecideInput): Promise<BrowseDecision>;
-}
+export type BrowseDecider = SeatDecider<BrowseGoal>;
 
 export interface BrowseLoopOptions {
   goal: BrowseGoal;

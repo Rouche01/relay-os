@@ -13,6 +13,7 @@
     "clean": "rm -rf dist dist-test dist-scripts"
   },
   "dependencies": {
+    "@relay/computer-seat-policy": "workspace:*",
     "@relay/engines-computer": "workspace:*",
     "@relay/llm": "workspace:*",
     "@relay/protocol": "workspace:*",

@@ -345,6 +345,9 @@ importers:
 
   packages/browse-policy:
     dependencies:
+      '@relay/computer-seat-policy':
+        specifier: workspace:*
+        version: link:../computer-seat-policy
       '@relay/engines-computer':
         specifier: workspace:*
         version: link:../engines-computer
@@ -363,6 +366,19 @@ importers:
       '@relay/workflow-runtime':
         specifier: workspace:*
         version: link:../workflow-runtime
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/computer-seat-policy:
+    dependencies:
+      '@relay/engines-computer':
+        specifier: workspace:*
+        version: link:../engines-computer
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
