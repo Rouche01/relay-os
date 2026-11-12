@@ -554,6 +554,25 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/phone-policy:
+    dependencies:
+      '@relay/computer-seat-policy':
+        specifier: workspace:*
+        version: link:../computer-seat-policy
+      '@relay/engines-computer':
+        specifier: workspace:*
+        version: link:../engines-computer
+      '@relay/llm':
+        specifier: workspace:*
+        version: link:../llm
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   packages/protocol:
     dependencies:
       yaml:

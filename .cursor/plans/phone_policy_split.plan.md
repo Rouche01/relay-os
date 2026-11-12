@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: phone-policy-pkg
     content: Add @relay/phone-policy — phone prompts, action schema, observe-default loop, launch helpers; no Firefox navigate
-    status: pending
+    status: completed
   - id: thin-browse-policy
     content: Revert browse-policy to desktop-browser focus; remove seatKind phone forks (or keep thin deprecated shim that re-exports phone-policy once)
     status: pending
@@ -16,7 +16,7 @@ todos:
     status: pending
   - id: decide-robustness
     content: Keep/port kind aliases (action→act) + phone-native decision wording in phone-policy prompts/schema
-    status: pending
+    status: completed
   - id: docs-pointers
     content: READMEs + pointer from computer_phone_seat_bind / desk_phone_seats; note CE stays desktop evidence-only
     status: pending

@@ -1,0 +1,159 @@
+import type { LlmClient } from "@relay/llm";
+import {
+  buildPhoneSystemPrompt,
+  buildPhoneUserPrompt,
+} from "./prompt.js";
+import type {
+  PhoneDecideInput,
+  PhoneDecider,
+  PhoneDecision,
+  PhoneDecisionKind,
+} from "./types.js";
+
+/** Phone-first action fields (swipe / launch / ref) listed explicitly for the model. */
+const DECISION_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  additionalProperties: false,
+  required: ["kind"],
+  properties: {
+    kind: {
+      type: "string",
+      enum: ["act", "done", "need_human"],
+    },
+    reason: { type: "string" },
+    action: {
+      type: "object",
+      additionalProperties: false,
+      required: ["type"],
+      properties: {
+        type: { type: "string" },
+        x: { type: "number" },
+        y: { type: "number" },
+        x1: { type: "number" },
+        y1: { type: "number" },
+        x2: { type: "number" },
+        y2: { type: "number" },
+        text: { type: "string" },
+        direction: { type: "string" },
+        amount: { type: "number" },
+        duration_ms: { type: "number" },
+        package: { type: "string" },
+        uri: { type: "string" },
+        ref: { type: "string" },
+      },
+    },
+  },
+};
+
+/** Normalize common model slips (`action` → `act`, etc.). */
+export function normalizeDecisionKind(
+  raw: unknown
+): PhoneDecisionKind | null {
+  if (typeof raw !== "string") return null;
+  const k = raw.trim().toLowerCase().replace(/-/g, "_");
+  if (k === "act" || k === "action") return "act";
+  if (k === "done" || k === "success" || k === "complete") return "done";
+  if (k === "need_human" || k === "needhuman" || k === "human") {
+    return "need_human";
+  }
+  return null;
+}
+
+export function parseDecision(raw: string): PhoneDecision {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`PhoneDecider: LLM returned non-JSON: ${raw.slice(0, 200)}`);
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("PhoneDecider: decision must be an object");
+  }
+  const obj = parsed as Record<string, unknown>;
+  const kind = normalizeDecisionKind(obj.kind);
+  if (!kind) {
+    throw new Error(
+      `PhoneDecider: invalid kind ${JSON.stringify(obj.kind)} (want act|done|need_human)`
+    );
+  }
+
+  if (kind === "act") {
+    const action = obj.action;
+    if (!action || typeof action !== "object") {
+      throw new Error('PhoneDecider: kind "act" requires action');
+    }
+    const a = action as Record<string, unknown>;
+    if (typeof a.type !== "string" || !a.type.trim()) {
+      throw new Error('PhoneDecider: action.type is required');
+    }
+    return {
+      kind,
+      reason: typeof obj.reason === "string" ? obj.reason : undefined,
+      action: {
+        type: a.type,
+        ...(typeof a.x === "number" ? { x: a.x } : {}),
+        ...(typeof a.y === "number" ? { y: a.y } : {}),
+        ...(typeof a.x1 === "number" ? { x1: a.x1 } : {}),
+        ...(typeof a.y1 === "number" ? { y1: a.y1 } : {}),
+        ...(typeof a.x2 === "number" ? { x2: a.x2 } : {}),
+        ...(typeof a.y2 === "number" ? { y2: a.y2 } : {}),
+        ...(typeof a.text === "string" ? { text: a.text } : {}),
+        ...(typeof a.direction === "string" ? { direction: a.direction } : {}),
+        ...(typeof a.amount === "number" ? { amount: a.amount } : {}),
+        ...(typeof a.duration_ms === "number"
+          ? { duration_ms: a.duration_ms }
+          : {}),
+        ...(typeof a.package === "string" ? { package: a.package } : {}),
+        ...(typeof a.uri === "string" ? { uri: a.uri } : {}),
+        ...(typeof a.ref === "string" ? { ref: a.ref } : {}),
+      },
+    };
+  }
+
+  return {
+    kind,
+    reason: typeof obj.reason === "string" ? obj.reason : undefined,
+  };
+}
+
+export function createLlmPhoneDecider(client: LlmClient): PhoneDecider {
+  return {
+    async decide(input: PhoneDecideInput): Promise<PhoneDecision> {
+      const imageUrl = input.observation.imageBase64.startsWith("data:")
+        ? input.observation.imageBase64
+        : `data:image/png;base64,${input.observation.imageBase64}`;
+
+      const result = await client.completeJson({
+        schema: DECISION_SCHEMA,
+        temperature: 0.2,
+        messages: [
+          { role: "system", content: buildPhoneSystemPrompt(input.goal) },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: buildPhoneUserPrompt(input) },
+              { type: "image_url", url: imageUrl },
+            ],
+          },
+        ],
+      });
+
+      return parseDecision(result.text);
+    },
+  };
+}
+
+/** Test helper: fixed sequence of decisions. */
+export function createScriptedPhoneDecider(
+  decisions: PhoneDecision[]
+): PhoneDecider {
+  let i = 0;
+  return {
+    async decide(): Promise<PhoneDecision> {
+      if (i >= decisions.length) {
+        return { kind: "done", reason: "script exhausted" };
+      }
+      return decisions[i++]!;
+    },
+  };
+}
