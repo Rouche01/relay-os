@@ -18,6 +18,7 @@ import {
 import { createLlmClient, parseLlmProviderId } from "@relay/llm";
 import {
   createLlmPhoneDecider,
+  createTelegramPhaseProgressGuard,
   defaultPhoneTiming,
   runPhonePolicyLoop,
 } from "../src/index.js";
@@ -50,7 +51,9 @@ function sleep(ms: number): Promise<void> {
 function parseArgs(argv: string[]) {
   let recycle = false;
   let pauseMs = Number(env("PHONE_BROWSE_PAUSE_MS") ?? "4000");
-  let maxSteps = Number(env("PHONE_BROWSE_MAX_STEPS") ?? "25");
+  let maxSteps = Number(env("PHONE_BROWSE_MAX_STEPS") ?? "15");
+  let stuckAction = Number(env("PHONE_BROWSE_STUCK_ACTION") ?? "3");
+  let stuckScreen = Number(env("PHONE_BROWSE_STUCK_SCREEN") ?? "6");
   let goal = env("PHONE_BROWSE_GOAL") ?? DEFAULT_GOAL;
   let telegramPackage =
     env("PHONE_BROWSE_TELEGRAM_PACKAGE") ?? DEFAULT_TELEGRAM_PACKAGE;
@@ -66,7 +69,11 @@ function parseArgs(argv: string[]) {
     else if (a === "--skip-launch") skipLaunch = true;
     else if (a === "--pause-ms" && argv[i + 1]) pauseMs = Number(argv[++i]);
     else if (a === "--max-steps" && argv[i + 1]) maxSteps = Number(argv[++i]);
-    else if (a === "--goal" && argv[i + 1]) goal = argv[++i]!;
+    else if (a === "--stuck-action" && argv[i + 1]) {
+      stuckAction = Number(argv[++i]);
+    } else if (a === "--stuck-screen" && argv[i + 1]) {
+      stuckScreen = Number(argv[++i]);
+    } else if (a === "--goal" && argv[i + 1]) goal = argv[++i]!;
     else if (a === "--telegram-package" && argv[i + 1]) {
       telegramPackage = argv[++i]!;
     } else if (a === "--session-id" && argv[i + 1]) {
@@ -78,7 +85,9 @@ function parseArgs(argv: string[]) {
 
 Options:
   --goal <text>              Override the phone goal
-  --max-steps <n>            Max policy iterations (default 25)
+  --max-steps <n>            Max policy iterations (default 15)
+  --stuck-action <n>         Same-action streak → stuck (default 3; 0=off)
+  --stuck-screen <n>         Same-screen streak → stuck (default 6; 0=off)
   --pause-ms <n>             Pause after lease for Watch (default 4000)
   --telegram-package <pkg>   Package to launch first (default ${DEFAULT_TELEGRAM_PACKAGE})
   --skip-launch              Do not pre-launch Telegram (model must launch)
@@ -97,13 +106,17 @@ Env:
   }
 
   if (!Number.isFinite(pauseMs) || pauseMs < 0) pauseMs = 4000;
-  if (!Number.isFinite(maxSteps) || maxSteps < 1) maxSteps = 25;
+  if (!Number.isFinite(maxSteps) || maxSteps < 1) maxSteps = 15;
+  if (!Number.isFinite(stuckAction) || stuckAction < 0) stuckAction = 3;
+  if (!Number.isFinite(stuckScreen) || stuckScreen < 0) stuckScreen = 6;
   if (!Number.isFinite(exitRateMu) || exitRateMu < 0) exitRateMu = 0;
 
   return {
     recycle,
     pauseMs,
     maxSteps,
+    stuckAction,
+    stuckScreen,
     goal,
     telegramPackage,
     skipLaunch,
@@ -180,7 +193,18 @@ async function main(): Promise<void> {
     createLlmClient({ provider, model: env("LLM_MODEL") })
   );
 
+  const progressGuard = createTelegramPhaseProgressGuard({
+    onPhase: ({ iteration, phase, stepsInPhase, max }) => {
+      console.log(
+        `  [iter ${iteration}] phase=${phase} (${stepsInPhase}/${max})`
+      );
+    },
+  });
+
   console.log("Running phone-policy loop (observe)…");
+  console.log(
+    `Guards: max-steps=${opts.maxSteps} stuck-action=${opts.stuckAction || "off"} stuck-screen=${opts.stuckScreen || "off"} + Telegram phase budgets`
+  );
   const result = await runPhonePolicyLoop(engine, {
     goal: {
       text: opts.goal,
@@ -208,6 +232,9 @@ async function main(): Promise<void> {
     reuseSession: true,
     heartbeatEachIteration: true,
     recycle: false,
+    maxSameActionStreak: opts.stuckAction > 0 ? opts.stuckAction : undefined,
+    maxSameScreenStreak: opts.stuckScreen > 0 ? opts.stuckScreen : undefined,
+    progressGuard,
     onObservation: async (obs, iteration) => {
       const n = obs.elements?.length ?? 0;
       console.log(

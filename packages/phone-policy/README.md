@@ -60,4 +60,11 @@ GEMINI_API_KEY=… \
 pnpm --filter @relay/phone-policy dogfood:phone-browse
 ```
 
-Override with `--goal "…"`. Watch the physical device (or scrcpy-web on `:6083` if running).
+On Gemini free-tier 429s, switch provider:
+
+```bash
+LLM_PROVIDER=anthropic ANTHROPIC_API_KEY=… \
+pnpm --filter @relay/phone-policy dogfood:phone-browse
+```
+
+Defaults stop early on no-progress: `--max-steps 15`, `--stuck-action 3`, `--stuck-screen 6`, plus Telegram phase budgets (`find_chat` 8 / `in_amsterdam` 6 / `react` 5) via `progressGuard`. Pass `0` for a stuck flag to disable that guard. Override with `--goal "…"`. Watch the physical device (or scrcpy-web on `:6083` if running).

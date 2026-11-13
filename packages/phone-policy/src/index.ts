@@ -44,6 +44,16 @@ export {
 export { runPhonePolicyLoop } from "./loop.js";
 
 export {
+  createTelegramPhaseProgressGuard,
+  DEFAULT_TELEGRAM_PHASE_BUDGETS,
+  observationTextBlob,
+  telegramDogfoodPhase,
+  type TelegramDogfoodPhase,
+  type TelegramPhaseProgressGuardOptions,
+  type TelegramPhaseProgressInfo,
+} from "./dogfood-phases.js";
+
+export {
   phoneGoalTask,
   type PhoneGoalTaskOptions,
 } from "./phone-goal-task.js";
