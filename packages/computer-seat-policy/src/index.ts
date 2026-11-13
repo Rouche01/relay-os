@@ -26,4 +26,6 @@ export {
   captureScreenshotObservation,
 } from "./observe.js";
 
+export { actionFingerprint, defaultScreenSignature } from "./stuck.js";
+
 export { runSeatPolicyLoop } from "./loop.js";

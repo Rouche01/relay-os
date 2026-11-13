@@ -2,6 +2,7 @@ import type {
   ComputerActionPayload,
   ComputerEngine,
 } from "@relay/engines-computer";
+import { actionFingerprint, defaultScreenSignature } from "./stuck.js";
 import { sampleWaitMs, shouldExit } from "./timing.js";
 import type {
   SeatGoalBase,
@@ -11,6 +12,22 @@ import type {
 } from "./types.js";
 
 const sleepDefault = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function stuckResult(
+  steps: SeatStepRecord[],
+  evidencePaths: string[],
+  engine: ComputerEngine,
+  error: string
+): SeatLoopResult {
+  return {
+    success: false,
+    stoppedReason: "stuck",
+    error,
+    steps,
+    evidencePaths: evidencePaths.length ? evidencePaths : undefined,
+    vncUrl: engine.getVncUrl() ?? undefined,
+  };
+}
 
 /**
  * Lease → optional beforeLoop → (wait → observe → decide → act)* → park.
@@ -35,7 +52,16 @@ export async function runSeatPolicyLoop<G extends SeatGoalBase>(
     sleep = sleepDefault,
     random = Math.random,
     onObservation,
+    maxSameActionStreak,
+    maxSameScreenStreak,
+    progressGuard,
   } = options;
+
+  const screenSignature = options.screenSignature ?? defaultScreenSignature;
+  const actionStreakEnabled =
+    typeof maxSameActionStreak === "number" && maxSameActionStreak > 0;
+  const screenStreakEnabled =
+    typeof maxSameScreenStreak === "number" && maxSameScreenStreak > 0;
 
   const steps: SeatStepRecord[] = [];
   const evidencePaths: string[] = [];
@@ -62,6 +88,14 @@ export async function runSeatPolicyLoop<G extends SeatGoalBase>(
   }
 
   let leasedThisRun = false;
+  let prevScreenSig: string | null = null;
+  let screenStreak = 0;
+  let lastActionFp: string | null = null;
+  let actionStreak = 0;
+  let lastAction: ComputerActionPayload | undefined;
+  /** True after at least one successful act this run (screen streak starts then). */
+  let hasActed = false;
+
   try {
     if (!hadSession) {
       const lease = await engine.execute({
@@ -122,11 +156,52 @@ export async function runSeatPolicyLoop<G extends SeatGoalBase>(
         };
       }
       const observation = captured.observation;
+      const sig = screenSignature(observation);
 
       if (onObservation) {
         const path = await onObservation(observation, iteration);
         if (typeof path === "string" && path.trim()) {
           evidencePaths.push(path.trim());
+        }
+      }
+
+      // After an act: update screen streak / reset action streak on screen change.
+      if (hasActed && prevScreenSig != null) {
+        if (sig === prevScreenSig) {
+          if (screenStreakEnabled) {
+            screenStreak += 1;
+            if (screenStreak >= maxSameScreenStreak!) {
+              return stuckResult(
+                steps,
+                evidencePaths,
+                engine,
+                `same screen signature ${screenStreak} times (maxSameScreenStreak=${maxSameScreenStreak})`
+              );
+            }
+          }
+        } else {
+          screenStreak = 0;
+          // Screen changed → reset action streak (plan: intentional).
+          lastActionFp = null;
+          actionStreak = 0;
+        }
+      }
+      prevScreenSig = sig;
+
+      if (progressGuard) {
+        const guard = await progressGuard({
+          iteration,
+          observation,
+          history: steps,
+          lastAction,
+        });
+        if (!guard.ok) {
+          return stuckResult(
+            steps,
+            evidencePaths,
+            engine,
+            guard.error || "progressGuard failed"
+          );
         }
       }
 
@@ -219,6 +294,26 @@ export async function runSeatPolicyLoop<G extends SeatGoalBase>(
         };
       }
       steps.push(record);
+      hasActed = true;
+      lastAction = decision.action;
+
+      if (actionStreakEnabled) {
+        const fp = actionFingerprint(decision.action);
+        if (fp === lastActionFp) {
+          actionStreak += 1;
+        } else {
+          lastActionFp = fp;
+          actionStreak = 1;
+        }
+        if (actionStreak >= maxSameActionStreak!) {
+          return stuckResult(
+            steps,
+            evidencePaths,
+            engine,
+            `same action ${actionStreak} times (maxSameActionStreak=${maxSameActionStreak}): ${fp}`
+          );
+        }
+      }
 
       if (settleAfterAction) {
         await settleAfterAction(decision.action as ComputerActionPayload);
