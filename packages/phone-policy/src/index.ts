@@ -9,6 +9,8 @@ export type {
   PhoneLoopResult,
   PhoneObservation,
   PhoneObserveMode,
+  PhoneProgressGuardContext,
+  PhoneProgressGuardResult,
   PhoneStepRecord,
   PhoneTimingConfig,
   PhoneWaitDistribution,

@@ -5,6 +5,8 @@ import type {
   SeatDecisionKind,
   SeatLoopResult,
   SeatObservation,
+  SeatProgressGuardContext,
+  SeatProgressGuardResult,
   SeatStepRecord,
   SeatTimingConfig,
   SeatWaitDistribution,
@@ -12,6 +14,8 @@ import type {
 
 export type PhoneWaitDistribution = SeatWaitDistribution;
 export type PhoneTimingConfig = SeatTimingConfig;
+export type PhoneProgressGuardContext = SeatProgressGuardContext;
+export type PhoneProgressGuardResult = SeatProgressGuardResult;
 
 /** How each loop iteration captures the screen. Default for phone: `"observe"`. */
 export type PhoneObserveMode = "screenshot" | "observe";
@@ -77,4 +81,22 @@ export interface PhoneLoopOptions {
     observation: PhoneObservation,
     iteration: number
   ) => Promise<string | void> | string | void;
+  /**
+   * Primary stuck guard (pass-through to seat loop).
+   * e.g. 3 = third identical action → `stoppedReason: "stuck"`.
+   */
+  maxSameActionStreak?: number;
+  /**
+   * Loose same-screen backstop (pass-through). Prefer higher than action (e.g. 6).
+   */
+  maxSameScreenStreak?: number;
+  /** Override default element/image screen fingerprint. */
+  screenSignature?: (observation: PhoneObservation) => string;
+  /**
+   * After each observation, before decide (e.g. Telegram phase budgets).
+   * `{ ok: false }` → `stoppedReason: "stuck"`.
+   */
+  progressGuard?: (
+    ctx: PhoneProgressGuardContext
+  ) => PhoneProgressGuardResult | Promise<PhoneProgressGuardResult>;
 }

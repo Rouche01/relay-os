@@ -45,6 +45,10 @@ export async function runPhonePolicyLoop(
     sleep = sleepDefault,
     random = Math.random,
     onObservation,
+    maxSameActionStreak,
+    maxSameScreenStreak,
+    screenSignature,
+    progressGuard,
   } = options;
 
   const goalText = goal.text?.trim();
@@ -75,6 +79,10 @@ export async function runPhonePolicyLoop(
     sleep,
     random,
     onObservation,
+    maxSameActionStreak,
+    maxSameScreenStreak,
+    screenSignature,
+    progressGuard,
     captureObservation: ({ iteration }) =>
       observeMode === "screenshot"
         ? captureScreenshotObservation(engine, iteration)
