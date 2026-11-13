@@ -54,11 +54,24 @@ export interface SeatLoopResult {
     | "need_human"
     | "exit_hazard"
     | "max_iterations"
+    | "stuck"
     | "error";
   error?: string;
   steps: SeatStepRecord[];
   vncUrl?: string;
   evidencePaths?: string[];
+}
+
+/** Result of {@link SeatLoopOptions.progressGuard}. */
+export type SeatProgressGuardResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export interface SeatProgressGuardContext {
+  iteration: number;
+  observation: SeatObservation;
+  history: SeatStepRecord[];
+  lastAction?: ComputerActionPayload;
 }
 
 /** Minimal goal shape required by the shared loop. */
@@ -126,4 +139,27 @@ export interface SeatLoopOptions<G extends SeatGoalBase = SeatGoalBase> {
     observation: SeatObservation,
     iteration: number
   ) => Promise<string | void> | string | void;
+  /**
+   * Primary stuck guard: consecutive identical action fingerprints.
+   * Fire `stoppedReason: "stuck"` when streak reaches this N (e.g. 3 = third repeat).
+   * Omit / unset = disabled.
+   */
+  maxSameActionStreak?: number;
+  /**
+   * Loose backstop: consecutive identical screen signatures after acts.
+   * Prefer a higher N than action streak (e.g. 6). Omit = disabled.
+   */
+  maxSameScreenStreak?: number;
+  /**
+   * Stable screen fingerprint for same-screen streak.
+   * Default (in loop): element list signature, else image prefix hash.
+   */
+  screenSignature?: (observation: SeatObservation) => string;
+  /**
+   * Called after each observation, before decide (e.g. Telegram phase budgets).
+   * `{ ok: false }` → loop returns `stoppedReason: "stuck"`.
+   */
+  progressGuard?: (
+    ctx: SeatProgressGuardContext
+  ) => SeatProgressGuardResult | Promise<SeatProgressGuardResult>;
 }

@@ -8,6 +8,8 @@ export type {
   SeatLoopOptions,
   SeatLoopResult,
   SeatObservation,
+  SeatProgressGuardContext,
+  SeatProgressGuardResult,
   SeatStepRecord,
   SeatTimingConfig,
   SeatWaitDistribution,
