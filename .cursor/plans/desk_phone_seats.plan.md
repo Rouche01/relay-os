@@ -24,7 +24,7 @@ isProject: false
 
 ## Context
 
-Sibling to [`computer_phone_seat_bind.plan.md`](./computer_phone_seat_bind.plan.md) (engines phone bind — done) and [`phone_policy_split.plan.md`](./phone_policy_split.plan.md) (LLM phone goals in `@relay/phone-policy`, browse-policy desktop-only). This plan is **Desk HITL only** — claim/watch/inventory; not CE or policy packs.
+Sibling to [`computer_phone_seat_bind.plan.md`](./computer_phone_seat_bind.plan.md) (engines phone bind — done) and [`phone_policy_split.plan.md`](./phone_policy_split.plan.md) (LLM phone goals in `@relay/phone-policy`, browse-policy desktop-only). This plan is **Desk HITL only** — claim/watch/inventory; not CE or policy packs. Broader CE + Desk + policy adoption: [`seat_policy_ce_desk_wire.plan.md`](./seat_policy_ce_desk_wire.plan.md).
 
 Gateway already returns `kind` + `seat_id` on lease and `GET /v1/seats`, and `/ready` exposes `free_desktop` / `free_phone`. Desk today:
 

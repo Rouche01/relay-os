@@ -133,6 +133,18 @@ Some steps need you: “Approve this draft comment before posting.” That’s *
 
 **Activity** on a draft deep-links here when a run is waiting for you. Seats are a **shared pool** any app can use — not “your personal computer” (that’s a future **My Desk** idea, not in the sidebar yet).
 
+### Seats vs policy packs
+
+Desk Seats are **HITL + Watch** only — they do not run browse/phone policy loops. Agent automation lives in packs / Spec:
+
+| Who drives the seat | Pack / entry | Seat kind |
+|---------------------|--------------|-----------|
+| Spec `computer.browse` / CE computer (planned) | `@relay/browse-policy` | desktop Firefox |
+| Phone dogfood / future Spec phone | `@relay/phone-policy` | Android |
+| You (Open seat / Watch) | none — gateway lease + `vnc_url` | desktop today; phone claim in [desk_phone_seats](../../.cursor/plans/desk_phone_seats.plan.md) |
+
+Wiring map (CE legacy vs Desk vs Spec): [seat_policy_ce_desk_wire](../../.cursor/plans/seat_policy_ce_desk_wire.plan.md).
+
 ---
 
 ## What has to be running

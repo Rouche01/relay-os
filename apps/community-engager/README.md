@@ -15,6 +15,7 @@ Related plans:
 - [Authority + metrics](../../.cursor/plans/community_engager_authority_metrics.plan.md) — warmup, promo-ratio, post-watch, north-star metrics
 - [ThinkPad deploy](../../.cursor/plans/relay_thinkpad_deploy.plan.md) · runbook [`deploy/README.md`](../../deploy/README.md) · [`deploy/SMOKE.md`](../../deploy/SMOKE.md)
 - [Phone policy split](../../.cursor/plans/phone_policy_split.plan.md) — Android automation is `@relay/phone-policy`; **CE computer transport stays desktop evidence-only** (not phone seats)
+- [Seat policy → CE + Desk wire](../../.cursor/plans/seat_policy_ce_desk_wire.plan.md) — when to adopt `@relay/browse-policy` for computer transport vs Desk HITL / phone-policy
 
 ## Lanes (help / presence / create)
 

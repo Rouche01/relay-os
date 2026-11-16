@@ -39,7 +39,7 @@ Phone seats: [`@relay/phone-policy`](../phone-policy) (`phone_goal` / `runPhoneP
 
 `seatKind: "phone"` on browse APIs is removed — callers get an explicit error pointing at phone-policy.
 
-CommunityEngager does **not** use this package for phone; CE computer paths stay desktop evidence-only.
+CommunityEngager does **not** use this package for phone; CE computer paths stay desktop evidence-only. Planned CE opt-in and Desk pairing: [seat_policy_ce_desk_wire](../../.cursor/plans/seat_policy_ce_desk_wire.plan.md).
 
 Inference and pacing live here; the gateway only leases, screenshots, and acts.
 

@@ -9,7 +9,7 @@ Android phone seat policy on top of `@relay/computer-seat-policy`.
 
 Desktop browsing stays in [`@relay/browse-policy`](../browse-policy). Shared loop: [`@relay/computer-seat-policy`](../computer-seat-policy). Fixed-step Settings dogfood stays in `@relay/engines-computer dogfood:phone`.
 
-CommunityEngager stays **desktop evidence-only** — do not wire CE / Reddit execute to phone seats here. Desk HITL claim/watch is a separate plan ([`desk_phone_seats.plan.md`](../../.cursor/plans/desk_phone_seats.plan.md)).
+CommunityEngager stays **desktop evidence-only** — do not wire CE / Reddit execute to phone seats here. Desk HITL claim/watch: [`desk_phone_seats.plan.md`](../../.cursor/plans/desk_phone_seats.plan.md). Full CE + Desk wiring map: [`seat_policy_ce_desk_wire.plan.md`](../../.cursor/plans/seat_policy_ce_desk_wire.plan.md).
 
 ## Quick use
 
