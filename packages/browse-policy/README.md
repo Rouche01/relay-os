@@ -2,12 +2,12 @@
 
 Human-like browse loop for Computer Runtime **desktop** desks (Firefox).
 
-Shared lease / wait / observe / decide / act / park loop lives in `@relay/computer-seat-policy`. Android phone automation lives in `@relay/phone-policy`.
+Shared seat loop (lease / wait / observe / decide / act / park) is [`@useapron/seat`](https://www.npmjs.com/package/@useapron/seat). This package owns **desktop browse prompts + LLM deciders** only. Android phone automation lives in [`@relay/phone-policy`](../phone-policy).
 
 - Waits between actions are sampled from an exponential (or lognormal) distribution.
 - Each turn builds a prompt from a **fixed goal** + recent history + the current screenshot.
 - A vision LLM returns the next micro-decision (`act` / `done` / `need_human`).
-- Desk I/O goes through `@useapron/client` only.
+- Desk I/O goes through [`@useapron/client`](https://www.npmjs.com/package/@useapron/client) only.
 
 ## Quick use
 
@@ -41,7 +41,7 @@ Phone seats: [`@relay/phone-policy`](../phone-policy) (`phone_goal` / `runPhoneP
 
 CommunityEngager does **not** use this package for phone; CE computer paths stay desktop evidence-only. Planned CE opt-in and Desk pairing: [seat_policy_ce_desk_wire](../../.cursor/plans/seat_policy_ce_desk_wire.plan.md).
 
-Inference and pacing live here; the gateway only leases, screenshots, and acts.
+Inference and pacing live here; `@useapron/seat` runs the loop; the gateway only leases, screenshots, and acts.
 
 
 ## Spec v2 (`computer.browse`)

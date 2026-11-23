@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: docs-pointers
     content: "READMEs: seat loop is public @useapron/seat; prompts remain browse-policy / phone-policy"
-    status: pending
+    status: completed
   - id: remove-shim
     content: "After one release window, drop workspace computer-seat-policy source if still shimmed"
     status: pending
@@ -50,7 +50,7 @@ flowchart TB
 
 1. Add `@useapron/seat` ✅ (`^0.1.2`, with `exports.require` / `default`)
 2. Shim `@relay/computer-seat-policy` as re-export of `@useapron/seat` ✅
-3. Update READMEs; keep CE evidence-only desktop semantics unchanged
+3. Update READMEs ✅ — seat loop = `@useapron/seat`; prompts stay browse/phone
 4. Remove shim (`remove-shim`)
 
 ## Out of scope

@@ -1,13 +1,13 @@
 # `@relay/phone-policy`
 
-Android phone seat policy on top of `@relay/computer-seat-policy`.
+Android phone seat policy — **prompts + LLM deciders** on top of [`@useapron/seat`](https://www.npmjs.com/package/@useapron/seat).
 
 - Leases `kind=phone`
 - Default observation: UIAutomator `observe` (+ screenshot)
 - Actions: tap / swipe / long_press / launch / system keys (`back`/`home`/`recents`)
 - **No** Firefox navigate or `ctrl+l`
 
-Desktop browsing stays in [`@relay/browse-policy`](../browse-policy). Shared loop: [`@relay/computer-seat-policy`](../computer-seat-policy). Gateway client: [`@useapron/client`](https://www.npmjs.com/package/@useapron/client).
+Desktop browsing stays in [`@relay/browse-policy`](../browse-policy). Shared seat loop: [`@useapron/seat`](https://www.npmjs.com/package/@useapron/seat). Gateway client: [`@useapron/client`](https://www.npmjs.com/package/@useapron/client). (`@relay/computer-seat-policy` is a deprecated re-export shim.)
 
 CommunityEngager stays **desktop evidence-only** — do not wire CE / Reddit execute to phone seats here. Desk HITL claim/watch: [`desk_phone_seats.plan.md`](../../.cursor/plans/desk_phone_seats.plan.md). Full CE + Desk wiring map: [`seat_policy_ce_desk_wire.plan.md`](../../.cursor/plans/seat_policy_ce_desk_wire.plan.md).
 
