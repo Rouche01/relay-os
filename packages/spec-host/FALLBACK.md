@@ -35,7 +35,7 @@ Pass real engines via `extraEngines` (they replace fixtures):
 
 ```ts
 import { PlaywrightEngine } from "@relay/engines-browser";
-import { ComputerEngine } from "@relay/engines-computer";
+import { ComputerEngine } from "@useapron/client";
 
 await runSpec({
   body,

@@ -35,7 +35,7 @@ await runner.run("browse_goal", {
 });
 ```
 
-Phone seats: [`@relay/phone-policy`](../phone-policy) (`phone_goal` / `runPhonePolicyLoop`). Fixed-step Settings: `pnpm --filter @relay/engines-computer dogfood:phone`.
+Phone seats: [`@relay/phone-policy`](../phone-policy) (`phone_goal` / `runPhonePolicyLoop`). Fixed-step Settings: `pnpm --filter @relay/phone-policy dogfood:phone`.
 
 `seatKind: "phone"` on browse APIs is removed — callers get an explicit error pointing at phone-policy.
 

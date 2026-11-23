@@ -3,7 +3,7 @@
  *
  *   COMPUTER_GATEWAY_URL=http://localhost:9000 \
  *   COMPUTER_API_TOKEN=dev-token \
- *   pnpm --filter @relay/engines-computer dogfood:phone
+ *   pnpm --filter @relay/phone-policy dogfood:phone
  *
  * Needs a free or soft-parked `kind=phone` seat (ADB device up). Soft-parks by
  * default; pass --recycle to wipe. Physical screen is enough if scrcpy-web is
@@ -14,7 +14,7 @@ import {
   ComputerEngine,
   type ComputerActionPayload,
   type ComputerObserveResult,
-} from "../src/index.js";
+} from "@useapron/client";
 
 function env(name: string): string | undefined {
   const v = process.env[name]?.trim();

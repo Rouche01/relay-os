@@ -9,7 +9,7 @@
  *   pnpm --filter @relay/phone-policy dogfood:phone-browse
  *
  * Requires a free phone seat + vision LLM key. Soft-parks by default.
- * Fixed-step Settings path stays: `pnpm --filter @relay/engines-computer dogfood:phone`.
+ * Fixed-step Settings path: `pnpm --filter @relay/phone-policy dogfood:phone`.
  */
 import {
   claimPhoneSeat,

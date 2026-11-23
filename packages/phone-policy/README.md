@@ -7,7 +7,7 @@ Android phone seat policy on top of `@relay/computer-seat-policy`.
 - Actions: tap / swipe / long_press / launch / system keys (`back`/`home`/`recents`)
 - **No** Firefox navigate or `ctrl+l`
 
-Desktop browsing stays in [`@relay/browse-policy`](../browse-policy). Shared loop: [`@relay/computer-seat-policy`](../computer-seat-policy). Fixed-step Settings dogfood stays in `@relay/engines-computer dogfood:phone`.
+Desktop browsing stays in [`@relay/browse-policy`](../browse-policy). Shared loop: [`@relay/computer-seat-policy`](../computer-seat-policy). Gateway client: [`@useapron/client`](https://www.npmjs.com/package/@useapron/client).
 
 CommunityEngager stays **desktop evidence-only** — do not wire CE / Reddit execute to phone seats here. Desk HITL claim/watch: [`desk_phone_seats.plan.md`](../../.cursor/plans/desk_phone_seats.plan.md). Full CE + Desk wiring map: [`seat_policy_ce_desk_wire.plan.md`](../../.cursor/plans/seat_policy_ce_desk_wire.plan.md).
 
@@ -48,7 +48,9 @@ Helpers: `launchPackage`, `openUri`, `launchApp`, `runPhonePolicyLoop`.
 Fixed-step Settings (no LLM):
 
 ```bash
-pnpm --filter @relay/engines-computer dogfood:phone
+COMPUTER_GATEWAY_URL=http://localhost:9000 \
+COMPUTER_API_TOKEN=dev-token \
+pnpm --filter @relay/phone-policy dogfood:phone
 ```
 
 LLM Telegram experiment (Amsterdam ❤️):
