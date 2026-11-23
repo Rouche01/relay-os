@@ -111,7 +111,7 @@ Criteria: lease / park / recycle / `vnc_url` (or Desk-native stream) / seats lis
 - Merging `computer-with-agent` into relay-os for packaging convenience
 - Making local runtime mandatory for Desk
 - On-demand K8s sandboxes from Desk
-- Replacing remote ThinkPad deploy ([`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md))
+- Replacing remote ThinkPad deploy ([`relay_thinkpad_deploy.plan.md`](./archive/relay_thinkpad_deploy.plan.md))
 
 ## Relation to other plans
 
@@ -119,7 +119,7 @@ Criteria: lease / park / recycle / `vnc_url` (or Desk-native stream) / seats lis
 |------|------|
 | [`relay_desk_hitl_shell.plan.md`](./relay_desk_hitl_shell.plan.md) | Desk app; **p4-thinkpad** docs should link here for Local vs Remote |
 | `computer-with-agent` AGENTS.md / BINDING.md | Runtime API + Compose |
-| [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md) | Always-on host deploy (CE, etc.) — complementary, not replaced |
+| [`relay_thinkpad_deploy.plan.md`](./archive/relay_thinkpad_deploy.plan.md) | Always-on host deploy (CE, etc.) — complementary, not replaced |
 
 ## Suggested revisit order
 

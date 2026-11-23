@@ -51,8 +51,8 @@ Plan derived from the GoStylens Reddit dogfood review (2026-10-11). Builds on th
 **Related plans:**
 
 - `[relay_hitl_community_voltmem.plan.md](./relay_hitl_community_voltmem.plan.md)` — core HITL + discover + fanout
-- `[relay_reddit_browser.plan.md](./relay_reddit_browser.plan.md)` — browser scout / session / interstitial
-- `[admin_shell_adapters_226b13a1.plan.md](./admin_shell_adapters_226b13a1.plan.md)` — admin-shell charts / collections
+- `[relay_reddit_browser.plan.md](./archive/relay_reddit_browser.plan.md)` — browser scout / session / interstitial
+- `[admin_shell_adapters_226b13a1.plan.md](./archive/admin_shell_adapters_226b13a1.plan.md)` — admin-shell charts / collections
 - `[relay_manifest_entrypoints_schedules.plan.md](./relay_manifest_entrypoints_schedules.plan.md)` — **entrypoint + cron-like schedules** (relocate post-watch off the engage pipeline; cadence consumes this)
 
 **App:** `[apps/community-engager](../../apps/community-engager)`

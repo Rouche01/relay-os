@@ -39,7 +39,7 @@ todos:
     content: Reddit submit only after approved/edited; intensity-2 requires confirmation; UTM + idempotent job ids
     status: completed
   - id: p3-deploy-ops
-    content: "Deploy path — owned by relay_thinkpad_deploy.plan.md (namespaced ThinkPad tree, VoltMem, systemd among other services, deploy/ runbook) — LIVE 2026-10-01"
+    content: "Deploy path — owned by archive/relay_thinkpad_deploy.plan.md (namespaced ThinkPad tree, VoltMem, systemd among other services, deploy/ runbook) — LIVE 2026-10-01"
     status: completed
   - id: p3-measure
     content: PostHog UTMs on intensity-2; log outcomes; close Notion community experiment with evidence
@@ -102,7 +102,7 @@ Already in `relay-os` (Phases 0–2 landed; Phase 3 **deploy** done):
 - Monorepo: protocol, runtime, feedback-broker, adapters-telegram, action-store, context-engine, llm-controller, engines-browser
 - `apps/community-engager` dogfood path
 - Skeleton `apps/newsletter-migrator` (parked)
-- **ThinkPad dogfood LIVE** — see [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md): `/opt/voltmem` + `/opt/relay-community`, Telegram HITL, systemd/timer, `deploy/` runbook
+- **ThinkPad dogfood LIVE** — see [`archive/relay_thinkpad_deploy.plan.md`](./archive/relay_thinkpad_deploy.plan.md): `/opt/voltmem` + `/opt/relay-community`, Telegram HITL, systemd/timer, `deploy/` runbook
 
 Still open here: **measure** (Phase 3 remainder), product/ownership polish (Phase 4).
 
@@ -184,7 +184,7 @@ Context engine + memory write/read + Reddit read + gated executor.
 
 ### Phase 3 — Deploy & measure
 
-**Deploy — done (2026-10-01):** [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md)
+**Deploy — done (2026-10-01):** [`archive/relay_thinkpad_deploy.plan.md`](./archive/relay_thinkpad_deploy.plan.md)
 
 1. ~~Namespaced ThinkPad root + VoltMem sidecar + Telegram HITL via systemd (one service among many)~~
 2. ~~Land `deploy/` runbook/units in this repo; stylens-ops deploy notes are historical only~~
@@ -284,7 +284,7 @@ E2E (`src/e2e-hitl.ts`, pinned to `SCOUT_SOURCE=fixtures`) now proves isolation 
 
 **Shipped:** `discover` stage (read-only Reddit search + DecisionPort Noul fit) → `choice` HITL promote/skip → `.data/allowlist/subreddits.json` as operational source of truth (seed merged in) with VoltMem mirror facts; scout calls `AllowlistStore.pickScoutSubs` (ranked + optional exploration slot); learn/abort update per-sub scores. Never auto-promotes.
 
-**Decide (shipped):** typed Noul(goal + sub bio) + confidence → proposed list only; HITL promote remains the write gate. Discover stage gating: **auto-skip when postable allowlist is healthy**; force via env/`discover subreddits` trigger. Interstitial / login / composer control Choice also land in CommunityEngager — see [`jev_decide_integration_dd22a99c.plan.md`](./jev_decide_integration_dd22a99c.plan.md) (complete).
+**Decide (shipped):** typed Noul(goal + sub bio) + confidence → proposed list only; HITL promote remains the write gate. Discover stage gating: **auto-skip when postable allowlist is healthy**; force via env/`discover subreddits` trigger. Interstitial / login / composer control Choice also land in CommunityEngager — see [`jev_decide_integration_dd22a99c.plan.md`](./archive/jev_decide_integration_dd22a99c.plan.md) (complete).
 
 ### Phase 7 — Nested manifests (`StageDefinition.fanout`) ✅ shipped
 
@@ -342,7 +342,7 @@ relay-os/
 │   └── engines-browser/
 └── .cursor/plans/
     ├── relay_hitl_community_voltmem.plan.md  ← this file
-    ├── relay_thinkpad_deploy.plan.md         ← ThinkPad dogfood (LIVE)
+    ├── archive/relay_thinkpad_deploy.plan.md         ← ThinkPad dogfood (LIVE)
     └── relay_living_todo_shell.plan.md
 ```
 
@@ -368,7 +368,7 @@ Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.p
 | Risk | Mitigation |
 |------|------------|
 | Three repos stall progress | Freeze newsletter migrator; one community vertical here |
-| Reddit API / policy blocks write | HITL + fixtures + dry-run first; write last; browser/JSON transport → [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md) |
+| Reddit API / policy blocks write | HITL + fixtures + dry-run first; write last; browser/JSON transport → [`relay_reddit_browser.plan.md`](./archive/relay_reddit_browser.plan.md) |
 | VoltMem profile mismatch | Fail-open; free-text facts; tune domains later |
 | Duplicate bots in stylens-ops + Relay | Single Telegram adapter in Relay |
 | Mixing shell scope into this plan | Living todo tracked only in shell plan |
@@ -382,14 +382,14 @@ Then continue in [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.p
 - [x] Telegram is only a Feedback Broker adapter
 - [x] VoltMem influences at least one subsequent draft
 - [x] Approved posts only via executor after `approved`/`edited`
-- [x] Deploy path documented / running (ThinkPad — [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md))
+- [x] Deploy path documented / running (ThinkPad — [`archive/relay_thinkpad_deploy.plan.md`](./archive/relay_thinkpad_deploy.plan.md))
 - [ ] Measure path closed with evidence (PostHog UTMs + Notion experiment)
 - [ ] stylens-ops ownership decided
 
 ## Related
 
-- Reddit browser / scrape transport (no API app): [`relay_reddit_browser.plan.md`](./relay_reddit_browser.plan.md) — **4b ensure_session** + **4a engines** done; next: deploy/smoke
-- ThinkPad deploy: [`relay_thinkpad_deploy.plan.md`](./relay_thinkpad_deploy.plan.md)
+- Reddit browser / scrape transport (no API app): [`relay_reddit_browser.plan.md`](./archive/relay_reddit_browser.plan.md) — **4b ensure_session** + **4a engines** done; next: deploy/smoke
+- ThinkPad deploy: [`archive/relay_thinkpad_deploy.plan.md`](./archive/relay_thinkpad_deploy.plan.md)
 - Living todo shell: [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md)
 - README: [`README.md`](../../README.md)
 - Architecture: [`ARCHITECTURE.md`](../../ARCHITECTURE.md)

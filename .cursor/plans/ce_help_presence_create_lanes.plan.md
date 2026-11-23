@@ -30,13 +30,13 @@ isProject: true
 
 ## Context
 
-Legacy CE is optimized as a **help desk**: scout rewards advice language (`HELP_RE` / `wantsHelp` / `problemFit`), ICP is wardrobe systems, and **fit checks / hauls / WAYWT are downranked or skipped** (`HAUL_FLEX_RE`, `megathreadPolicy: skip`). Drafting is **reply-only** ([`draft_proposed_posts_f299b392.plan.md`](./draft_proposed_posts_f299b392.plan.md) explicitly excluded top-level posts).
+Legacy CE is optimized as a **help desk**: scout rewards advice language (`HELP_RE` / `wantsHelp` / `problemFit`), ICP is wardrobe systems, and **fit checks / hauls / WAYWT are downranked or skipped** (`HAUL_FLEX_RE`, `megathreadPolicy: skip`). Drafting is **reply-only** ([`draft_proposed_posts_f299b392.plan.md`](./archive/draft_proposed_posts_f299b392.plan.md) explicitly excluded top-level posts).
 
 That is good for soft GoStylens plugs and low ban risk. It is weak for Reddit **visibility** and **follower growth**, where sharp takes on fashion threads and occasional original posts win.
 
 Authority rails already exist ([`community_engager_authority_metrics.plan.md`](./community_engager_authority_metrics.plan.md)): warmup, promo ratio, cadence, post-watch, visibility, VoltMem. This plan **adds lanes** on top of those rails — it does not replace HITL / dry-run / notify-only defaults.
 
-**Related:** [`karma_per_contribution_2ca98e41.plan.md`](./karma_per_contribution_2ca98e41.plan.md) (karma/post by contribution — extend by `kind`), [`notify_only_redditapis_scout.plan.md`](./notify_only_redditapis_scout.plan.md).
+**Related:** [`karma_per_contribution_2ca98e41.plan.md`](./karma_per_contribution_2ca98e41.plan.md) (karma/post by contribution — extend by `kind`), [`notify_only_redditapis_scout.plan.md`](./archive/notify_only_redditapis_scout.plan.md).
 
 ## Goals
 

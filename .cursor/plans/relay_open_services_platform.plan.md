@@ -127,4 +127,4 @@ Two directions — do not collapse them:
 - [`ARCHITECTURE.md`](../../ARCHITECTURE.md) — API engine / MCP checkbox
 - [`packages/protocol/src/service-descriptor.ts`](../../packages/protocol/src/service-descriptor.ts)
 - [`packages/spec-scaffold/src/needs.ts`](../../packages/spec-scaffold/src/needs.ts)
-- [`notify_only_redditapis_scout.plan.md`](./notify_only_redditapis_scout.plan.md)
+- [`notify_only_redditapis_scout.plan.md`](./archive/notify_only_redditapis_scout.plan.md)

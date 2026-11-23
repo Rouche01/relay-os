@@ -46,7 +46,7 @@ isProject: true
 
 # Desk — Spec/App workspace UX (implementation)
 
-Prototype: Flowstep [Relay Desk](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe) screens `Specs — library`, `Specs — new`, `Workspace — Design/Verify/Ship/Activity` (2026-10-31). Design system + copy rules: [`apps/relay-desk/DESIGN.md`](../../apps/relay-desk/DESIGN.md) (incl. § Copy). Follow-on to [`desk_spec_surface_ux.plan.md`](./desk_spec_surface_ux.plan.md) (single-surface operability, done) and `p2-desk-app-lifecycle` in [`relay_spec_to_working_app.plan.md`](./relay_spec_to_working_app.plan.md) (Apps lifecycle backend, done). Personal computer surface is a separate backlog: [`desk_my_desk.plan.md`](./desk_my_desk.plan.md).
+Prototype: Flowstep [Relay Desk](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe) screens `Specs — library`, `Specs — new`, `Workspace — Design/Verify/Ship/Activity` (2026-10-31). Design system + copy rules: [`apps/relay-desk/DESIGN.md`](../../apps/relay-desk/DESIGN.md) (incl. § Copy). Follow-on to [`desk_spec_surface_ux.plan.md`](./archive/desk_spec_surface_ux.plan.md) (single-surface operability, done) and `p2-desk-app-lifecycle` in [`relay_spec_to_working_app.plan.md`](./relay_spec_to_working_app.plan.md) (Apps lifecycle backend, done). Personal computer surface is a separate backlog: [`desk_my_desk.plan.md`](./desk_my_desk.plan.md).
 
 ## Problem
 

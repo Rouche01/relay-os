@@ -31,7 +31,7 @@ isProject: true
 
 - `[community_engager_authority_metrics.plan.md](./community_engager_authority_metrics.plan.md)` — authority program; owns enroll + domain logic for post-watch; **relocates** pipeline placement here
 - `[relay_hitl_community_voltmem.plan.md](./relay_hitl_community_voltmem.plan.md)` — core HITL + fanout runtime
-- `[admin_shell_adapters_226b13a1.plan.md](./admin_shell_adapters_226b13a1.plan.md)` — admin discovery of schedules later
+- `[admin_shell_adapters_226b13a1.plan.md](./archive/admin_shell_adapters_226b13a1.plan.md)` — admin discovery of schedules later
 
 **Packages / app:** `@relay/protocol`, `@relay/runtime`, host (CLI / future scheduler), `[apps/community-engager](../../apps/community-engager)`
 

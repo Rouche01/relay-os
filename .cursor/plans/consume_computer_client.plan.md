@@ -3,19 +3,19 @@ name: Consume computer-with-agent client
 overview: "Thin follow-on: depend on published @useapron/client from npm; shim then remove @relay/engines-computer. Canonical extract/publish lives in the runtime repo."
 todos:
   - id: add-npm-dep
-    content: "Add @useapron/client npm dep to engines-computer or direct consumers; green typecheck + CE/policy tests"
+    content: Add @useapron/client npm dep to engines-computer or direct consumers; green typecheck + CE/policy tests
     status: completed
   - id: shim-package
-    content: "Make @relay/engines-computer a thin re-export (+ optional ExecutionEngine adapter) of @useapron/client"
+    content: Make @relay/engines-computer a thin re-export (+ optional ExecutionEngine adapter) of @useapron/client
     status: completed
   - id: switch-deps
-    content: "computer-seat-policy, browse-policy, phone-policy, community-engager depend on @useapron/client (or shim); drop workspace engines-computer source"
+    content: computer-seat-policy, browse-policy, phone-policy, community-engager depend on @useapron/client (or shim); drop workspace engines-computer source
     status: pending
   - id: docs-pointers
-    content: "engines-computer README → points at npm @useapron/client + computer-with-agent BINDING; Desk/LAPTOP notes if needed"
+    content: engines-computer README → points at npm @useapron/client + computer-with-agent BINDING; Desk/LAPTOP notes if needed
     status: pending
   - id: remove-shim
-    content: "After one release window, delete @relay/engines-computer; import @useapron/client everywhere"
+    content: After one release window, delete @relay/engines-computer; import @useapron/client everywhere
     status: pending
 isProject: false
 ---
