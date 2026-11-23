@@ -2,7 +2,7 @@ import path from "node:path";
 import {
   ComputerEngine,
   ComputerTaskRunner,
-} from "@relay/engines-computer";
+} from "@useapron/client";
 import type { CommunityDraft } from "../../types.js";
 import type { ComputerRunSession } from "./computer-run-session.js";
 

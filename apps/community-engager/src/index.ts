@@ -6,7 +6,7 @@ import {
   createContextEngine,
   type ContextEngine,
 } from "@relay/context-engine";
-import { ComputerEngine } from "@relay/engines-computer";
+import { ComputerEngine } from "@useapron/client";
 import {
   FeedbackBroker,
   type FeedbackAdapter,

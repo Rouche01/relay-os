@@ -12,7 +12,7 @@
     "clean": "rm -rf dist dist-test"
   },
   "dependencies": {
-    "@relay/engines-computer": "workspace:*"
+    "@useapron/client": "^0.1.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { AgentContext, SpecV2Body } from "@relay/protocol";
-import { ComputerEngine } from "@relay/engines-computer";
+import { ComputerEngine } from "@useapron/client";
 import {
   lowerSpecV2,
   SPEC_V2_BROWSE_NEED_HUMAN_PREFIX,

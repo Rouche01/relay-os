@@ -17,7 +17,7 @@ import {
 } from "../../reddit/write/computer-dry-run.js";
 import type { ComputerRunSession } from "../../reddit/write/computer-run-session.js";
 import { executeJobId } from "../../reddit/scout/scout-live.js";
-import type { ComputerEngine } from "@relay/engines-computer";
+import type { ComputerEngine } from "@useapron/client";
 import { recordAttribution } from "./attribution.js";
 import { applyUtmLinks } from "../draft/soft-cta.js";
 import { formatUtmLog, resolveExecuteUtm } from "./utm.js";

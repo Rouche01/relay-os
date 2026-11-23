@@ -2,7 +2,7 @@ import type {
   ComputerActionPayload,
   ComputerObserveElement,
   ComputerSeatKind,
-} from "@relay/engines-computer";
+} from "@useapron/client";
 
 export type SeatWaitDistribution = "exponential" | "lognormal";
 

@@ -8,7 +8,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
-import { ComputerEngine } from "@relay/engines-computer";
+import { ComputerEngine } from "@useapron/client";
 import { resetAppConfigCache } from "../src/app-config.js";
 import { getCommunityConfig } from "../src/reddit/config.js";
 import { runComputerDryRunEvidence } from "../src/reddit/write/computer-dry-run.js";

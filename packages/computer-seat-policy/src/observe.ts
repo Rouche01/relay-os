@@ -1,7 +1,7 @@
 import type {
   ComputerEngine,
   ComputerObserveElement,
-} from "@relay/engines-computer";
+} from "@useapron/client";
 import type { CaptureObservationResult } from "./types.js";
 
 /** Screenshot-only observation (desktop desks). */

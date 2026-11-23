@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ComputerEngine } from "@relay/engines-computer";
+import { ComputerEngine } from "@useapron/client";
 import { createScriptedPhoneDecider } from "../src/decide.js";
 import { runPhonePolicyLoop } from "../src/loop.js";
 import { defaultPhoneTiming } from "../src/timing.js";

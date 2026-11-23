@@ -1,5 +1,5 @@
-import type { ComputerEngine } from "@relay/engines-computer";
-import { navigateToUrl } from "@relay/engines-computer";
+import type { ComputerEngine } from "@useapron/client";
+import { navigateToUrl } from "@useapron/client";
 import {
   captureScreenshotObservation,
   runSeatPolicyLoop,

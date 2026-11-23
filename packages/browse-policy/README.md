@@ -7,12 +7,12 @@ Shared lease / wait / observe / decide / act / park loop lives in `@relay/comput
 - Waits between actions are sampled from an exponential (or lognormal) distribution.
 - Each turn builds a prompt from a **fixed goal** + recent history + the current screenshot.
 - A vision LLM returns the next micro-decision (`act` / `done` / `need_human`).
-- Desk I/O goes through `@relay/engines-computer` only.
+- Desk I/O goes through `@useapron/client` only.
 
 ## Quick use
 
 ```ts
-import { ComputerEngine, ComputerTaskRunner } from "@relay/engines-computer";
+import { ComputerEngine, ComputerTaskRunner } from "@useapron/client";
 import { createLlmClient } from "@relay/llm";
 import {
   browseGoalTask,

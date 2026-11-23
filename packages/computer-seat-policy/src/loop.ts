@@ -1,7 +1,7 @@
 import type {
   ComputerActionPayload,
   ComputerEngine,
-} from "@relay/engines-computer";
+} from "@useapron/client";
 import { actionFingerprint, defaultScreenSignature } from "./stuck.js";
 import { sampleWaitMs, shouldExit } from "./timing.js";
 import type {

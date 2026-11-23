@@ -14,7 +14,7 @@ CommunityEngager stays **desktop evidence-only** — do not wire CE / Reddit exe
 ## Quick use
 
 ```ts
-import { ComputerEngine, ComputerTaskRunner } from "@relay/engines-computer";
+import { ComputerEngine, ComputerTaskRunner } from "@useapron/client";
 import { createLlmClient } from "@relay/llm";
 import {
   createLlmPhoneDecider,

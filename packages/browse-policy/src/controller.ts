@@ -18,7 +18,7 @@ import {
   resolveRefs,
   type WorkflowStepsBag,
 } from "@relay/workflow-runtime";
-import { ComputerEngine } from "@relay/engines-computer";
+import { ComputerEngine } from "@useapron/client";
 import { runBrowsePolicyLoop } from "./loop.js";
 import { defaultBrowseTiming } from "./timing.js";
 import type {

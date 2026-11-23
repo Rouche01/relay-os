@@ -4,7 +4,7 @@ import type {
   ComputerTask,
   ComputerTaskContext,
   ComputerTaskResult,
-} from "@relay/engines-computer";
+} from "@useapron/client";
 import { runPhonePolicyLoop } from "./loop.js";
 import { defaultPhoneTiming } from "./timing.js";
 import type {

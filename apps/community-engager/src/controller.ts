@@ -4,7 +4,7 @@ import {
   type ActionStore,
 } from "@relay/action-store";
 import type { ContextEngine } from "@relay/context-engine";
-import type { ComputerEngine } from "@relay/engines-computer";
+import type { ComputerEngine } from "@useapron/client";
 import {
   isAbortResponse,
   isEditResponse,

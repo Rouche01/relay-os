@@ -10,7 +10,7 @@ Shared **computer-seat** loop used by desktop and phone policy packs:
 |------|---------|
 | Desktop Firefox | [`@relay/browse-policy`](../browse-policy) |
 | Android phone | [`@relay/phone-policy`](../phone-policy) |
-| Gateway client | [`@relay/engines-computer`](../engines-computer) |
+| Gateway client | [`@useapron/client`](https://www.npmjs.com/package/@useapron/client) |
 
 Policy prompts / Spec wiring stay in those packs, not here. See [`.cursor/plans/phone_policy_split.plan.md`](../../.cursor/plans/phone_policy_split.plan.md).
 

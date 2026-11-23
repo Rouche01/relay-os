@@ -38,9 +38,6 @@ importers:
       '@relay/engines-browser':
         specifier: workspace:*
         version: link:../../packages/engines-browser
-      '@relay/engines-computer':
-        specifier: workspace:*
-        version: link:../../packages/engines-computer
       '@relay/engines-decide':
         specifier: workspace:*
         version: link:../../packages/engines-decide
@@ -62,6 +59,9 @@ importers:
       '@relay/spec-store':
         specifier: workspace:*
         version: link:../../packages/spec-store
+      '@useapron/client':
+        specifier: ^0.1.2
+        version: 0.1.2
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -348,9 +348,6 @@ importers:
       '@relay/computer-seat-policy':
         specifier: workspace:*
         version: link:../computer-seat-policy
-      '@relay/engines-computer':
-        specifier: workspace:*
-        version: link:../engines-computer
       '@relay/llm':
         specifier: workspace:*
         version: link:../llm
@@ -366,6 +363,9 @@ importers:
       '@relay/workflow-runtime':
         specifier: workspace:*
         version: link:../workflow-runtime
+      '@useapron/client':
+        specifier: ^0.1.2
+        version: 0.1.2
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -376,9 +376,9 @@ importers:
 
   packages/computer-seat-policy:
     dependencies:
-      '@relay/engines-computer':
-        specifier: workspace:*
-        version: link:../engines-computer
+      '@useapron/client':
+        specifier: ^0.1.2
+        version: 0.1.2
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -562,12 +562,12 @@ importers:
       '@relay/computer-seat-policy':
         specifier: workspace:*
         version: link:../computer-seat-policy
-      '@relay/engines-computer':
-        specifier: workspace:*
-        version: link:../engines-computer
       '@relay/llm':
         specifier: workspace:*
         version: link:../llm
+      '@useapron/client':
+        specifier: ^0.1.2
+        version: 0.1.2
     devDependencies:
       '@types/node':
         specifier: ^22.0.0

@@ -31,7 +31,7 @@
     "@relay/admin-shell": "workspace:*",
     "@relay/context-engine": "workspace:*",
     "@relay/engines-browser": "workspace:*",
-    "@relay/engines-computer": "workspace:*",
+    "@useapron/client": "^0.1.2",
     "@relay/engines-decide": "workspace:*",
     "@relay/feedback-broker": "workspace:*",
     "@relay/llm": "workspace:*",

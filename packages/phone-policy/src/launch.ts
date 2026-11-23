@@ -1,4 +1,4 @@
-import type { ComputerEngine } from "@relay/engines-computer";
+import type { ComputerEngine } from "@useapron/client";
 
 export interface PhoneLaunchResult {
   success: boolean;

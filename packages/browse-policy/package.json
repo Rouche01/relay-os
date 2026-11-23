@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@relay/computer-seat-policy": "workspace:*",
-    "@relay/engines-computer": "workspace:*",
+    "@useapron/client": "^0.1.2",
     "@relay/llm": "workspace:*",
     "@relay/protocol": "workspace:*",
     "@relay/runtime": "workspace:*",

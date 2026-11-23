@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: switch-deps
     content: computer-seat-policy, browse-policy, phone-policy, community-engager depend on @useapron/client (or shim); drop workspace engines-computer source
-    status: pending
+    status: completed
   - id: docs-pointers
     content: engines-computer README → points at npm @useapron/client + computer-with-agent BINDING; Desk/LAPTOP notes if needed
     status: pending
@@ -87,10 +87,10 @@ Policy packs keep importing `@relay/engines-computer` until `switch-deps`.
 
 **CJS note:** relay packages emit CommonJS. `@useapron/client@0.1.2` ships `exports.require` / `default` so Node can `require()` the ESM client. Dep is `^0.1.2`; the temporary pnpm patch is removed.
 
-### 3 — Direct deps + remove source
+### 3 — Direct deps ✅
 
-- Point seat-policy / browse / phone / CE at `@useapron/client` (semver)
-- Delete engine implementation from relay-os; keep shim one release if desired
+- seat-policy / browse / phone / CE import `@useapron/client` (`^0.1.2`) directly
+- `@relay/engines-computer` remains as a thin shim + dogfood:phone for one release
 - Then remove shim (`remove-shim`)
 
 ## Out of scope

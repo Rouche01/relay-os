@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ComputerEngine } from "@relay/engines-computer";
+import { ComputerEngine } from "@useapron/client";
 import { runSeatPolicyLoop } from "../src/loop.js";
 import { defaultSeatTiming } from "../src/timing.js";
 import type { SeatDecision, SeatObservation } from "../src/types.js";

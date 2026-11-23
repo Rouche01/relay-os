@@ -1,4 +1,4 @@
-import type { ComputerObserveElement } from "@relay/engines-computer";
+import type { ComputerObserveElement } from "@useapron/client";
 import type {
   PhoneActionMixPriors,
   PhoneDecideInput,

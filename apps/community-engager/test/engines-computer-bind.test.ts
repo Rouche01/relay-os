@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import { ComputerEngine } from "@relay/engines-computer";
+import { ComputerEngine } from "@useapron/client";
 import type { ContextEngine } from "@relay/context-engine";
 import { resetAppConfigCache } from "../src/app-config.js";
 import {

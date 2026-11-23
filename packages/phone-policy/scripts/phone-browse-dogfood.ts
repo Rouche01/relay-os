@@ -14,7 +14,7 @@
 import {
   claimPhoneSeat,
   ComputerEngine,
-} from "@relay/engines-computer";
+} from "@useapron/client";
 import { createLlmClient, parseLlmProviderId } from "@relay/llm";
 import {
   createLlmPhoneDecider,

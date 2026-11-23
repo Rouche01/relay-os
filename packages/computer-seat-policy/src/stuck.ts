@@ -1,4 +1,4 @@
-import type { ComputerActionPayload } from "@relay/engines-computer";
+import type { ComputerActionPayload } from "@useapron/client";
 import type { SeatObservation } from "./types.js";
 
 /** Default screen fingerprint: element list, else image length + edges. */

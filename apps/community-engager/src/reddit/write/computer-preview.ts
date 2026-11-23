@@ -3,7 +3,7 @@ import {
   ComputerEngine,
   ComputerTaskRunner,
   type ComputerTaskResult,
-} from "@relay/engines-computer";
+} from "@useapron/client";
 import type { CommunityDraft } from "../../types.js";
 import type { CommunityRuntimeConfig } from "../config.js";
 import { createComputerEngine } from "./computer-dry-run.js";

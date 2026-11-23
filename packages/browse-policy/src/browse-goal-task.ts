@@ -4,7 +4,7 @@ import type {
   ComputerTask,
   ComputerTaskContext,
   ComputerTaskResult,
-} from "@relay/engines-computer";
+} from "@useapron/client";
 import { runBrowsePolicyLoop } from "./loop.js";
 import { defaultBrowseTiming } from "./timing.js";
 import type {
