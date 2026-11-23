@@ -8,6 +8,7 @@ Phase **p4** runbook: install Desk on a Mac, point it at a **remote** computer-w
 | [`DESIGN.md`](./DESIGN.md) | Console vs Spec, gateway topology |
 | [computer-with-agent `AGENTS.md`](file:///Users/richardemate/Projects/computer-with-agent/AGENTS.md) | Compose workers, gateway env, ThinkPad port bind |
 | [computer-with-agent `BINDING.md`](file:///Users/richardemate/Projects/computer-with-agent/BINDING.md) | Lease / park / recycle HTTP |
+| [`@useapron/client`](https://www.npmjs.com/package/@useapron/client) | Typed gateway client used by CE / seat policies (Desk talks HTTP directly for seats) |
 | [`deploy/CADDY.md`](../../deploy/CADDY.md) | Tailscale `.hsv` aliases + trusting Caddy’s local CA |
 | [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md) | Optional guided local runtime (deferred) |
 
@@ -131,7 +132,7 @@ pnpm --filter @relay/apps-community-engager start
 # or: FEEDBACK_ADAPTER=desk --adapter=desk
 ```
 
-Desk Settings **DESK_HITL_URL** must reach that bridge (Tailscale hostname if CE is not local). Computer path is evidence-oriented; see CE README / engines-computer notes.
+Desk Settings **DESK_HITL_URL** must reach that bridge (Tailscale hostname if CE is not local). Computer path is evidence-oriented; CE uses [`@useapron/client`](https://www.npmjs.com/package/@useapron/client) against the same gateway contract as [`BINDING.md`](file:///Users/richardemate/Projects/computer-with-agent/BINDING.md).
 
 ## 5. Troubleshooting
 

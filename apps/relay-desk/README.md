@@ -11,7 +11,7 @@ Package: `@relay/apps-relay-desk`
 - Node 22+ / pnpm 9+ (monorepo root)
 - [Rust](https://rustup.rs/) stable (`rustup default stable`)
 - macOS: Xcode CLT / Xcode
-- computer-with-agent gateway for seats (local or remote — see below)
+- computer-with-agent gateway for seats (local or remote — see below); agent/policy code uses [`@useapron/client`](https://www.npmjs.com/package/@useapron/client), Desk uses gateway HTTP + `vnc_url`
 
 ## Gateway profiles (local or remote)
 

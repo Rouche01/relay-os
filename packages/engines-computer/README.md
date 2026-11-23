@@ -1,12 +1,40 @@
 # `@relay/engines-computer`
 
-Thin shim over published [`@useapron/client`](https://www.npmjs.com/package/@useapron/client) (Computer Runtime gateway client). Prefer `@useapron/client` in new code; this package re-exports it and adds `toExecutionEngine` for `@relay/protocol` bind sites.
+**Deprecated shim** — prefer [`@useapron/client`](https://www.npmjs.com/package/@useapron/client) directly.
 
-Upstream gateway: [computer-with-agent](https://github.com/) — lease / screenshot / observe / action / park / recycle.
+Policy packs and CommunityEngager already depend on `@useapron/client`. This package remains for one release as:
 
-Supports seat **`kind: "desktop" | "phone"`**. Omit `kind` on lease for desktop (existing callers unchanged). Phone seats use the same `vnc_url` field for HITL (noVNC or scrcpy-web).
+- a re-export barrel of `@useapron/client` (compat for any lingering imports)
+- `toExecutionEngine` / `toEngineResult` for `@relay/protocol` bind sites
+- fixed-step `dogfood:phone` (Settings on a phone seat)
 
-Upstream contract notes: `computer-with-agent` `AGENTS.md` / `BINDING.md` (phone actions, observe, inventory).
+It will be removed in the `remove-shim` step of [consume_computer_client](../../.cursor/plans/consume_computer_client.plan.md).
+
+## Canonical references
+
+| Doc | Owns |
+|-----|------|
+| [`@useapron/client` on npm](https://www.npmjs.com/package/@useapron/client) | Typed HTTP client — install / API |
+| [computer-with-agent `BINDING.md`](file:///Users/richardemate/Projects/computer-with-agent/BINDING.md) | Lease / park / recycle / observe / action HTTP |
+| [computer-with-agent `AGENTS.md`](file:///Users/richardemate/Projects/computer-with-agent/AGENTS.md) | Compose workers, gateway env, seats |
+
+Seat kinds: `desktop` \| `phone`. Omit `kind` on lease for desktop. Phone HITL uses the same `vnc_url` field (noVNC or scrcpy-web).
+
+## New code
+
+```ts
+import { ComputerEngine, ComputerTaskRunner } from "@useapron/client";
+```
+
+Optional protocol adapter (this package only):
+
+```ts
+import { ComputerEngine } from "@useapron/client";
+import { toExecutionEngine } from "@relay/engines-computer";
+
+const client = new ComputerEngine({ baseUrl, token });
+const engine = toExecutionEngine(client); // ExecutionEngine for bindEngines
+```
 
 ## Dogfood
 
@@ -14,9 +42,9 @@ Upstream contract notes: `computer-with-agent` `AGENTS.md` / `BINDING.md` (phone
 |------|---------|------|
 | Fixed-step Settings | this package `dogfood:phone` | Lease phone → launch Settings → observe → park (no LLM) |
 | LLM phone goal | [`@relay/phone-policy`](../phone-policy) `dogfood:phone-browse` | Telegram / custom goal via `runPhonePolicyLoop` |
-| Desktop browse | [`@relay/browse-policy`](../browse-policy) | Firefox desks only (`computer.browse` / `browse_goal`) |
+| Desktop browse | [`@relay/browse-policy`](../browse-policy) | Firefox desks (`computer.browse` / `browse_goal`) |
 
-Shared loop chassis: [`@relay/computer-seat-policy`](../computer-seat-policy). CommunityEngager computer transport stays **desktop evidence-only** (not phone).
+Shared loop: [`@relay/computer-seat-policy`](../computer-seat-policy). CommunityEngager computer transport stays **desktop evidence-only** (not phone).
 
 ### Phone Settings (fixed-step)
 
@@ -27,8 +55,6 @@ COMPUTER_GATEWAY_URL=http://localhost:9000 \
 COMPUTER_API_TOKEN=dev-token \
 pnpm --filter @relay/engines-computer dogfood:phone
 ```
-
-What it does:
 
 1. Lease `{ kind: "phone" }`
 2. Print `Watch: {vnc_url}` (or “watch the physical device”)

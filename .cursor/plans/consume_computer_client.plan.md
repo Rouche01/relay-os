@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: docs-pointers
     content: engines-computer README → points at npm @useapron/client + computer-with-agent BINDING; Desk/LAPTOP notes if needed
-    status: pending
+    status: completed
   - id: remove-shim
     content: After one release window, delete @relay/engines-computer; import @useapron/client everywhere
     status: pending
