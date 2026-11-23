@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: shim-package
     content: "Make @relay/engines-computer a thin re-export (+ optional ExecutionEngine adapter) of @useapron/client"
-    status: pending
+    status: completed
   - id: switch-deps
     content: "computer-seat-policy, browse-policy, phone-policy, community-engager depend on @useapron/client (or shim); drop workspace engines-computer source"
     status: pending
@@ -76,14 +76,16 @@ Dogfood scripts under `engines-computer/scripts` either move to examples in the 
 
 Run typecheck + existing computer tests against the registry package.
 
-### 2 — Shim
+### 2 — Shim ✅
 
-`packages/engines-computer` becomes:
+`packages/engines-computer` is now:
 
-- re-export public client symbols
-- optional `toExecutionEngine(client)` / class that `implements ExecutionEngine` mapping local `ComputerResult` → `EngineResult`
+- re-export of public `@useapron/client` symbols
+- `toExecutionEngine` / `toEngineResult` for `@relay/protocol` bind sites
 
-Policy packs can keep importing `@relay/engines-computer` briefly.
+Policy packs keep importing `@relay/engines-computer` until `switch-deps`.
+
+**CJS note:** relay packages emit CommonJS. `@useapron/client@0.1.2` ships `exports.require` / `default` so Node can `require()` the ESM client. Dep is `^0.1.2`; the temporary pnpm patch is removed.
 
 ### 3 — Direct deps + remove source
 

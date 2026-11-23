@@ -441,8 +441,8 @@ importers:
         specifier: workspace:*
         version: link:../protocol
       '@useapron/client':
-        specifier: ^0.1.1
-        version: 0.1.1
+        specifier: ^0.1.2
+        version: 0.1.2
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -1572,8 +1572,8 @@ packages:
   '@types/retry@0.12.0':
     resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
 
-  '@useapron/client@0.1.1':
-    resolution: {integrity: sha512-ipLzoQ+ZcL3bkzPQzOnT9nAUh8LXeF/qD10cQbfBnE5fTbZ5QTDLtTFq+7JD99CQmOe/tDVBZmfm4fjUttWEmg==}
+  '@useapron/client@0.1.2':
+    resolution: {integrity: sha512-s7RnH0Kk1VRx++BpWTAuxqvIMVG0T+BgpjMXqJ9nr36w0qsu4lRmIKAY49Fg7LVokcjbQJFCY1051k7ULHLptg==}
     engines: {node: '>=18'}
 
   '@voltmem/client@0.6.2':
@@ -2876,7 +2876,7 @@ snapshots:
 
   '@types/retry@0.12.0': {}
 
-  '@useapron/client@0.1.1': {}
+  '@useapron/client@0.1.2': {}
 
   '@voltmem/client@0.6.2': {}
 

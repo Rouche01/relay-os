@@ -9,9 +9,12 @@
  * default; pass --recycle to wipe. Physical screen is enough if scrcpy-web is
  * not configured — print Watch URL either way.
  */
-import { claimPhoneSeat } from "../src/claim-phone-seat.js";
-import { ComputerEngine } from "../src/computer-engine.js";
-import type { ComputerActionPayload } from "../src/types.js";
+import {
+  claimPhoneSeat,
+  ComputerEngine,
+  type ComputerActionPayload,
+  type ComputerObserveResult,
+} from "../src/index.js";
 
 function env(name: string): string | undefined {
   const v = process.env[name]?.trim();
@@ -190,11 +193,12 @@ async function main(): Promise<void> {
     if (!obs.success) {
       throw new Error(`observe failed: ${obs.error}`);
     }
-    const count = obs.data?.element_count ?? obs.data?.elements?.length ?? 0;
+    const obsData = obs.data as ComputerObserveResult | undefined;
+    const count = obsData?.element_count ?? obsData?.elements?.length ?? 0;
     console.log(`  ok  observe · elements=${count}`);
 
     let aboutRef = findAboutRef(
-      obs.data?.elements as Array<Record<string, unknown>> | undefined
+      obsData?.elements as Array<Record<string, unknown>> | undefined
     );
 
     if (!aboutRef) {
@@ -221,10 +225,13 @@ async function main(): Promise<void> {
         throw new Error(`observe failed: ${obs.error}`);
       }
       aboutRef = findAboutRef(
-        obs.data?.elements as Array<Record<string, unknown>> | undefined
+        (obs.data as ComputerObserveResult | undefined)?.elements as
+          | Array<Record<string, unknown>>
+          | undefined
       );
+      const second = obs.data as ComputerObserveResult | undefined;
       console.log(
-        `  ok  observe · elements=${obs.data?.element_count ?? "?"} · aboutRef=${aboutRef ?? "none"}`
+        `  ok  observe · elements=${second?.element_count ?? "?"} · aboutRef=${aboutRef ?? "none"}`
       );
     } else {
       console.log(`3. skip swipe (About ref=${aboutRef})`);

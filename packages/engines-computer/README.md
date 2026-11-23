@@ -1,6 +1,8 @@
 # `@relay/engines-computer`
 
-Typed HTTP client for the [computer-with-agent](https://github.com/) Computer Runtime gateway: lease / screenshot / observe / action / park / recycle.
+Thin shim over published [`@useapron/client`](https://www.npmjs.com/package/@useapron/client) (Computer Runtime gateway client). Prefer `@useapron/client` in new code; this package re-exports it and adds `toExecutionEngine` for `@relay/protocol` bind sites.
+
+Upstream gateway: [computer-with-agent](https://github.com/) — lease / screenshot / observe / action / park / recycle.
 
 Supports seat **`kind: "desktop" | "phone"`**. Omit `kind` on lease for desktop (existing callers unchanged). Phone seats use the same `vnc_url` field for HITL (noVNC or scrcpy-web).
 
