@@ -366,6 +366,9 @@ importers:
       '@useapron/client':
         specifier: ^0.1.2
         version: 0.1.2
+      '@useapron/seat':
+        specifier: ^0.1.2
+        version: 0.1.2
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -376,7 +379,7 @@ importers:
 
   packages/computer-seat-policy:
     dependencies:
-      '@useapron/client':
+      '@useapron/seat':
         specifier: ^0.1.2
         version: 0.1.2
     devDependencies:
@@ -550,6 +553,9 @@ importers:
         specifier: workspace:*
         version: link:../llm
       '@useapron/client':
+        specifier: ^0.1.2
+        version: 0.1.2
+      '@useapron/seat':
         specifier: ^0.1.2
         version: 0.1.2
     devDependencies:
@@ -1558,6 +1564,10 @@ packages:
 
   '@useapron/client@0.1.2':
     resolution: {integrity: sha512-s7RnH0Kk1VRx++BpWTAuxqvIMVG0T+BgpjMXqJ9nr36w0qsu4lRmIKAY49Fg7LVokcjbQJFCY1051k7ULHLptg==}
+    engines: {node: '>=18'}
+
+  '@useapron/seat@0.1.2':
+    resolution: {integrity: sha512-fRCasBUo7ffzWY5i00IYYlTx7fSx2DTDNyIdybwQcUgBAjOnJTYfvdd1CLy7EvUKzM2ccTYit1Wxgc/kSyfzSw==}
     engines: {node: '>=18'}
 
   '@voltmem/client@0.6.2':
@@ -2861,6 +2871,10 @@ snapshots:
   '@types/retry@0.12.0': {}
 
   '@useapron/client@0.1.2': {}
+
+  '@useapron/seat@0.1.2':
+    dependencies:
+      '@useapron/client': 0.1.2
 
   '@voltmem/client@0.6.2': {}
 

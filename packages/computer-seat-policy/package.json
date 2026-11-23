@@ -12,7 +12,7 @@
     "clean": "rm -rf dist dist-test"
   },
   "dependencies": {
-    "@useapron/client": "^0.1.2"
+    "@useapron/seat": "^0.1.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -1,18 +1,14 @@
 # `@relay/computer-seat-policy`
 
-Shared **computer-seat** loop used by desktop and phone policy packs:
+**Deprecated shim** — prefer [`@useapron/seat`](https://www.npmjs.com/package/@useapron/seat) directly.
 
-- Human-like wait sampling (`SeatTimingConfig`)
-- Lease → optional setup → observe → decide → act → park
-- Observation hooks (`captureScreenshotObservation` / `captureObserveObservation`)
+Re-exports the shared seat loop (wait → observe → decide → act → park) from `@useapron/seat`. Prompts / LLM deciders stay in the policy packs.
 
 | Pack | Package |
 |------|---------|
 | Desktop Firefox | [`@relay/browse-policy`](../browse-policy) |
 | Android phone | [`@relay/phone-policy`](../phone-policy) |
+| Seat loop | [`@useapron/seat`](https://www.npmjs.com/package/@useapron/seat) |
 | Gateway client | [`@useapron/client`](https://www.npmjs.com/package/@useapron/client) |
 
-Policy prompts / Spec wiring stay in those packs, not here. See [`.cursor/plans/phone_policy_split.plan.md`](../../.cursor/plans/phone_policy_split.plan.md).
-
-**Apps:** CommunityEngager + Relay Desk adoption map — [`.cursor/plans/seat_policy_ce_desk_wire.plan.md`](../../.cursor/plans/seat_policy_ce_desk_wire.plan.md) (CE → browse-policy desktop; Desk Seats = HITL/Watch; Spec `computer.browse` already; phone via Desk HITL + phone-policy, not CE Reddit).
-
+See [`.cursor/plans/consume_seat_loop.plan.md`](../../.cursor/plans/consume_seat_loop.plan.md). CE + Desk wiring: [`.cursor/plans/seat_policy_ce_desk_wire.plan.md`](../../.cursor/plans/seat_policy_ce_desk_wire.plan.md).

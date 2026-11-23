@@ -1,3 +1,9 @@
+/**
+ * `@relay/computer-seat-policy` — thin shim over published `@useapron/seat`.
+ *
+ * Prefer `@useapron/seat` in new code. Prompts / LLM deciders stay in
+ * `@relay/browse-policy` and `@relay/phone-policy`.
+ */
 export type {
   CaptureObservationResult,
   SeatDecideInput,
@@ -13,19 +19,15 @@ export type {
   SeatStepRecord,
   SeatTimingConfig,
   SeatWaitDistribution,
-} from "./types.js";
+} from "@useapron/seat";
 
 export {
-  defaultSeatTiming,
-  sampleWaitMs,
-  shouldExit,
-} from "./timing.js";
-
-export {
+  actionFingerprint,
   captureObserveObservation,
   captureScreenshotObservation,
-} from "./observe.js";
-
-export { actionFingerprint, defaultScreenSignature } from "./stuck.js";
-
-export { runSeatPolicyLoop } from "./loop.js";
+  defaultScreenSignature,
+  defaultSeatTiming,
+  runSeatPolicyLoop,
+  sampleWaitMs,
+  shouldExit,
+} from "@useapron/seat";

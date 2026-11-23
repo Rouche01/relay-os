@@ -15,8 +15,9 @@
   },
   "dependencies": {
     "@relay/computer-seat-policy": "workspace:*",
+    "@relay/llm": "workspace:*",
     "@useapron/client": "^0.1.2",
-    "@relay/llm": "workspace:*"
+    "@useapron/seat": "^0.1.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

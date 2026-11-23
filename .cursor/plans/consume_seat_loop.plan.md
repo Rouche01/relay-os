@@ -4,10 +4,10 @@ overview: "Thin follow-on: depend on @useapron/seat from computer-with-agent; sh
 todos:
   - id: depend-seat
     content: "Add @useapron/seat (+ @useapron/client) deps; green typecheck for computer-seat-policy / browse / phone"
-    status: pending
+    status: completed
   - id: shim-policy
     content: "Make @relay/computer-seat-policy a thin re-export of @useapron/seat (or delete and point browse/phone at @useapron/seat)"
-    status: pending
+    status: completed
   - id: docs-pointers
     content: "READMEs: seat loop is public @useapron/seat; prompts remain browse-policy / phone-policy"
     status: pending
@@ -48,9 +48,10 @@ flowchart TB
 
 ## Phased delivery
 
-1. Add `@useapron/seat` (and ensure `@useapron/client` is resolvable)
-2. Shim or replace `packages/computer-seat-policy`
+1. Add `@useapron/seat` ✅ (`^0.1.2`, with `exports.require` / `default`)
+2. Shim `@relay/computer-seat-policy` as re-export of `@useapron/seat` ✅
 3. Update READMEs; keep CE evidence-only desktop semantics unchanged
+4. Remove shim (`remove-shim`)
 
 ## Out of scope
 
