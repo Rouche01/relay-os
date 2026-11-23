@@ -440,6 +440,9 @@ importers:
       '@relay/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@useapron/client':
+        specifier: ^0.1.1
+        version: 0.1.1
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -523,7 +526,7 @@ importers:
     dependencies:
       '@google/genai':
         specifier: latest
-        version: 3.0.0
+        version: 3.6.1
       '@relay/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -1226,8 +1229,8 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
 
-  '@google/genai@3.0.0':
-    resolution: {integrity: sha512-0o2uBXPWBNUu0jWg2Id5iBtCnsd7lnxKPQfnijKvNublG/zj40CToERvz/eyfNjzzXt2kwuvxpouLUrRCZ2WUQ==}
+  '@google/genai@3.6.1':
+    resolution: {integrity: sha512-DQIkZkl+VoZc+RUSaJ41vRuywjQDpP0t/oUf5/ddQhNW6JsPjVULW2EgHmuJ1mrr6ACtrmUdPlqtNXF1yfKySg==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
@@ -1568,6 +1571,10 @@ packages:
 
   '@types/retry@0.12.0':
     resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
+
+  '@useapron/client@0.1.1':
+    resolution: {integrity: sha512-ipLzoQ+ZcL3bkzPQzOnT9nAUh8LXeF/qD10cQbfBnE5fTbZ5QTDLtTFq+7JD99CQmOe/tDVBZmfm4fjUttWEmg==}
+    engines: {node: '>=18'}
 
   '@voltmem/client@0.6.2':
     resolution: {integrity: sha512-zhb2okslBDcj1cdAt/UxN4GhFdquLxCM6DJIu155QNuB8gGBm+6e9Ktw9Sab/YJ8lEUFSNQvaeGbm1omUzBy6w==}
@@ -2588,7 +2595,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@google/genai@3.0.0':
+  '@google/genai@3.6.1':
     dependencies:
       google-auth-library: 10.6.2
       p-retry: 4.6.2
@@ -2868,6 +2875,8 @@ snapshots:
       csstype: 3.2.3
 
   '@types/retry@0.12.0': {}
+
+  '@useapron/client@0.1.1': {}
 
   '@voltmem/client@0.6.2': {}
 
