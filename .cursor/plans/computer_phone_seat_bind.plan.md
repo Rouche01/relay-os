@@ -1,6 +1,6 @@
 ---
 name: Computer Phone Seat Bind
-overview: Extend @relay/engines-computer to lease and drive computer-with-agent phone seats (kind=phone, swipe/observe/ref). LLM phone goals later moved to @relay/phone-policy (see phone_policy_split); browse-policy is desktop-only again.
+overview: Extend @relay/engines-computer to lease and drive apron phone seats (kind=phone, swipe/observe/ref). LLM phone goals later moved to @relay/phone-policy (see phone_policy_split); browse-policy is desktop-only again.
 todos:
   - id: engine-kind-lease
     content: "ComputerEngine: lease kind (desktop|phone), surface kind/seat_id/vnc_url; default desktop"
@@ -18,16 +18,16 @@ todos:
     content: Small runnable dogfood (script or task) — lease phone, print HITL URL, run short goal, park
     status: completed
   - id: docs-note
-    content: Package READMEs + pointer back to computer-with-agent AGENTS.md phone bind notes
+    content: Package READMEs + pointer back to apron AGENTS.md phone bind notes
     status: completed
 isProject: false
 ---
 
-# Bind Relay to computer-with-agent phone seats
+# Bind Relay to apron phone seats
 
 ## Context (already shipped upstream)
 
-[computer-with-agent](file:///Users/richardemate/Projects/computer-with-agent) now supports:
+[apron](file:///Users/richardemate/Projects/apron) now supports:
 
 - Inventory seats with `kind: "desktop" | "phone"`
 - `POST /v1/sessions` with `{ "kind": "phone" }`
@@ -40,7 +40,7 @@ isProject: false
 
 ## Repo decision (locked)
 
-**Work in relay-os only** for this plan. Do not change computer-with-agent unless a contract bug is found.
+**Work in relay-os only** for this plan. Do not change apron unless a contract bug is found.
 
 | Package | Role |
 |---------|------|
@@ -59,7 +59,7 @@ flowchart LR
     BP[browse-policy phone goal]
     CE[ComputerEngine]
   end
-  subgraph cwa [computer-with-agent]
+  subgraph cwa [apron]
     GW[Gateway kind filter]
     Phone[phone-1 ADB worker]
   end
@@ -141,7 +141,7 @@ Prereq on machine: A55 reachable via ADB to whatever hosts `phone-1` (local uvic
 
 ## Desk / deploy follow-ons (relay-os owned)
 
-Tracked here so computer-with-agent HITL can stay Watch-only:
+Tracked here so apron HITL can stay Watch-only:
 
 | Item | Notes |
 |------|--------|
@@ -150,12 +150,12 @@ Tracked here so computer-with-agent HITL can stay Watch-only:
 
 ## Non-goals
 
-- Changing computer-with-agent gateway/worker contracts
+- Changing apron gateway/worker contracts
 - iOS / Appium / Phone Harness cloud adapter (upstream phase 3)
 - Wiring CommunityEngager or Reddit flows to phone
 - Auto CAPTCHA / 2FA
 - Requiring scrcpy-web before dogfood (physical screen is enough)
-- Implementing Desk take-over or live ThinkPad Caddy in the computer-with-agent scrcpy Compose PR
+- Implementing Desk take-over or live ThinkPad Caddy in the apron scrcpy Compose PR
 
 ## Dogfood checklist
 
@@ -170,7 +170,7 @@ Tracked here so computer-with-agent HITL can stay Watch-only:
 
 - **Desk phone claim/watch:** [`desk_phone_seats.plan.md`](./desk_phone_seats.plan.md) (HITL URL / claim only — unchanged by policy split)
 - **Policy split (done):** [`phone_policy_split.plan.md`](./phone_policy_split.plan.md) — `@relay/computer-seat-policy` + `@relay/phone-policy`; browse-policy thinned
-- **scrcpy-web on :6083:** computer-with-agent `.cursor/plans/phone_scrcpy_web_hitl.plan.md` (upstream; not CE)
+- **scrcpy-web on :6083:** apron `.cursor/plans/phone_scrcpy_web_hitl.plan.md` (upstream; not CE)
 
 ## Open choices (resolve in first PR)
 

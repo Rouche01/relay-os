@@ -1,6 +1,6 @@
 ---
 name: Browse Policy Loop
-overview: Add a relay-os browse policy loop that samples exponential human-like waits, observes via ComputerEngine screenshots, generates the next micro-prompt from goal + observation, and acts—without changing computer-with-agent.
+overview: Add a relay-os browse policy loop that samples exponential human-like waits, observes via ComputerEngine screenshots, generates the next micro-prompt from goal + observation, and acts—without changing apron.
 todos:
   - id: scaffold-package
     content: Scaffold @relay/browse-policy with types, Exp/mu sampler, and unit tests
@@ -24,7 +24,7 @@ isProject: false
 
 ## Decisions (locked)
 
-- **Repo:** [relay-os](/Users/richardemate/Projects/relay-os) only — no [computer-with-agent](/Users/richardemate/Projects/computer-with-agent) changes.
+- **Repo:** [relay-os](/Users/richardemate/Projects/relay-os) only — no [apron](/Users/richardemate/Projects/apron) changes.
 - **Home:** new package `@relay/browse-policy` (policy + timing + prompt loop). Desktop I/O stays in [`packages/engines-computer`](packages/engines-computer).
 - **First dogfood:** standalone `browse_goal` ComputerTask that calls the loop (prove on a live gateway seat before Spec wiring).
 - **Observation:** screenshot-first (vision). Prompt each turn from fixed goal + recent history + current PNG — not hand-written directional click scripts.
@@ -39,7 +39,7 @@ flowchart TD
   timing[ExpSampler]
   llm[VisionDecisionClient]
   engine[ComputerEngine]
-  gw[computer-with-agent gateway]
+  gw[apron gateway]
 
   goal --> loop
   timing -->|"wait ms"| loop
@@ -98,7 +98,7 @@ Add `BrowsePolicyController` implementing `AppController` (same interface as [`W
 
 ## Out of scope
 
-- Gateway/API changes in computer-with-agent
+- Gateway/API changes in apron
 - Fitting λ from production analytics (document later)
 - a11y-tree observe (screenshot-only until gateway gains richer observe)
 - Replacing `WorkflowController` for all Specs

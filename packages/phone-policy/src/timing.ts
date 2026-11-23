@@ -2,7 +2,7 @@ import {
   defaultSeatTiming,
   sampleWaitMs,
   shouldExit,
-} from "@relay/computer-seat-policy";
+} from "@useapron/seat";
 import type { PhoneTimingConfig } from "./types.js";
 
 export { sampleWaitMs, shouldExit };

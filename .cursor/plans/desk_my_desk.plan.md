@@ -60,7 +60,7 @@ After those screens: resolve the questions below, then write a separate *impleme
 ## Open questions (design + later runtime)
 
 - **Persistence.** Always-on dedicated worker, start/stop with Desk, or sleep with explicit wake? Files and session must survive a Desk restart — how?
-- **Runtime shape.** New computer-with-agent profile that is excluded from `/v1/seats`, or a different host entirely? Must not be implementable as “a Seat we never recycle.”
+- **Runtime shape.** New apron profile that is excluded from `/v1/seats`, or a different host entirely? Must not be implementable as “a Seat we never recycle.”
 - **Actions catalog.** Same verbs as Spec steps (`api.request`, `llm.generate`, …), a smaller personal set, or something new?
 - **Apps from here.** Can My Desk launch an approved App in-place, or only deep-link to Apps / Seats?
 - **Identity.** One My Desk per human per Desk install, or attachable later?

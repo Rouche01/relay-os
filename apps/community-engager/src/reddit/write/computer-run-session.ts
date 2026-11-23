@@ -21,7 +21,7 @@ export interface ComputerRunLeaseResult {
 }
 
 /**
- * Build the stable Computer Runtime job_id for one engage parent run.
+ * Build the stable Apron job_id for one engage parent run.
  * Gateway reattaches a parked worker when the same job_id is leased again.
  */
 export function engageJobId(runSessionId: string): string {

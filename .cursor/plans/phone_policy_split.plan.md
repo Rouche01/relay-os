@@ -64,7 +64,7 @@ flowchart TB
   BP --> Loop
   PP --> Loop
   Loop --> Eng
-  Eng --> GW[computer-with-agent gateway]
+  Eng --> GW[apron gateway]
 ```
 
 ## Phase 1 — Extract shared loop
@@ -101,11 +101,11 @@ Prefer **one new package** over burying shared code inside browse-policy so phon
 - `computer_phone_seat_bind` follow-up marks policy split **done**; package table points at `@relay/phone-policy`
 - `desk_phone_seats` stays HITL-only; notes phone-policy vs CE desktop evidence-only
 - CE README related-plans pointer: no phone wiring
-- Upstream scrcpy-web plan remains computer-with-agent
+- Upstream scrcpy-web plan remains apron
 
 ## Non-goals
 
-- Rewriting computer-with-agent contracts
+- Rewriting apron contracts
 - Wiring CE / Reddit to phone
 - Spec `computer.phone` verb (later; design once phone-policy is stable)
 - Guaranteeing Telegram ❤️ reliability (experiment only)

@@ -1,5 +1,5 @@
 /**
- * Ensure noVNC query flags match computer-with-agent lease defaults.
+ * Ensure noVNC query flags match apron lease defaults.
  */
 export function withVncViewerParams(vncUrl: string): string {
   try {

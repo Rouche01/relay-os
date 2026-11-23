@@ -1,5 +1,5 @@
 ---
-name: Consume computer-with-agent client
+name: Consume apron client
 overview: "Done: relay-os consumes published @useapron/client; @relay/engines-computer shim removed."
 todos:
   - id: add-npm-dep
@@ -12,7 +12,7 @@ todos:
     content: computer-seat-policy, browse-policy, phone-policy, community-engager depend on @useapron/client (or shim); drop workspace engines-computer source
     status: completed
   - id: docs-pointers
-    content: engines-computer README → points at npm @useapron/client + computer-with-agent BINDING; Desk/LAPTOP notes if needed
+    content: engines-computer README → points at npm @useapron/client + apron BINDING; Desk/LAPTOP notes if needed
     status: completed
   - id: remove-shim
     content: After one release window, delete @relay/engines-computer; import @useapron/client everywhere
@@ -22,13 +22,13 @@ isProject: false
 
 # Consume `@useapron/client` ✅
 
-**Canonical plan:** [computer-with-agent `ts_client_sdk.plan.md`](../../../computer-with-agent/.cursor/plans/ts_client_sdk.plan.md).
+**Canonical plan:** [apron `ts_client_sdk.plan.md`](../../../apron/.cursor/plans/ts_client_sdk.plan.md).
 
 ## Outcome
 
 | Decision | Choice |
 |----------|--------|
-| **Owner of client** | `computer-with-agent` → npm `@useapron/client` |
+| **Owner of client** | `apron` → npm `@useapron/client` |
 | **relay-os role** | Direct consumer (`^0.1.2`) |
 | **Shim** | `@relay/engines-computer` **deleted** |
 | **Protocol** | `ComputerEngine` used structurally where `ExecutionEngine` is needed; no `@relay/*` in the client |
@@ -43,7 +43,7 @@ isProject: false
 | `@relay/phone-policy` | `@useapron/client` |
 | `apps/community-engager` | `@useapron/client` |
 
-Gateway contract: [BINDING.md](file:///Users/richardemate/Projects/computer-with-agent/BINDING.md).
+Gateway contract: [BINDING.md](file:///Users/richardemate/Projects/apron/BINDING.md).
 
 ## References
 

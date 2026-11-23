@@ -10,7 +10,7 @@ import type {
   SeatStepRecord,
   SeatTimingConfig,
   SeatWaitDistribution,
-} from "@relay/computer-seat-policy";
+} from "@useapron/seat";
 
 export type PhoneWaitDistribution = SeatWaitDistribution;
 export type PhoneTimingConfig = SeatTimingConfig;

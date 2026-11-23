@@ -1,6 +1,6 @@
 ---
 name: Desk Phone Seats
-overview: Teach Relay Desk’s Seats console to claim, watch, and inventory computer-with-agent phone seats (kind=phone, scrcpy-web vnc_url) without changing CommunityEngager, browse-policy, or phone-policy—operators can HITL phone the same way they do desktop.
+overview: Teach Relay Desk’s Seats console to claim, watch, and inventory apron phone seats (kind=phone, scrcpy-web vnc_url) without changing CommunityEngager, browse-policy, or phone-policy—operators can HITL phone the same way they do desktop.
 todos:
   - id: desk-types-lease-kind
     content: "Gateway types + leaseSession(kind); surface kind/seat_id on ComputerLease, GatewaySeat, SeatState"
@@ -41,7 +41,7 @@ Watch / HITL auto-open already open whatever `vnc_url` is present — so **agent
 ## Repo decision (locked)
 
 - **Work in `apps/relay-desk` only** (plus tiny type docs if needed).
-- Do **not** change computer-with-agent unless a Desk contract bug is found.
+- Do **not** change apron unless a Desk contract bug is found.
 - Do **not** wire CommunityEngager or Spec “Computer” binding to phone in this plan (CE remains desktop evidence-only; agent automation uses `@relay/phone-policy` / engines dogfood separately).
 - Default claim remains **desktop** so existing muscle memory is unchanged.
 
@@ -54,7 +54,7 @@ flowchart LR
     Pool[Pool rows kind badge]
     Watch[Watch / HITL WebView]
   end
-  subgraph gw [computer-with-agent]
+  subgraph gw [apron]
     Sessions["POST /v1/sessions kind"]
     Seats["GET /v1/seats"]
   end

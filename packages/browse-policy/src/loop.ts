@@ -3,7 +3,7 @@ import { navigateToUrl } from "@useapron/client";
 import {
   captureScreenshotObservation,
   runSeatPolicyLoop,
-} from "@relay/computer-seat-policy";
+} from "@useapron/seat";
 import type { BrowseLoopOptions, BrowseLoopResult } from "./types.js";
 
 const sleepDefault = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -12,7 +12,7 @@ const sleepDefault = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
  * Screenshot → sample human-like wait → vision decide → act, until stop.
  * Desktop Firefox desks only. Phone automation: `@relay/phone-policy`.
  *
- * Implementation delegates to `@relay/computer-seat-policy`.
+ * Implementation delegates to `@useapron/seat`.
  */
 export async function runBrowsePolicyLoop(
   engine: ComputerEngine,

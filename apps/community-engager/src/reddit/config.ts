@@ -98,7 +98,7 @@ export type RedditTransport =
   | "oauth"
   | "json"
   | "fixtures"
-  /** Computer Runtime gateway — dry-run evidence only (never posts). */
+  /** Apron gateway — dry-run evidence only (never posts). */
   | "computer";
 
 /** COMMUNITY_DISCOVER=auto|force|off (true→force, false→off). */
@@ -268,7 +268,7 @@ export interface VisibilityRuntimeConfig {
  * Resolved CommunityEngager runtime config (policy file + env secrets/overrides).
  * Nested to mirror `config/default.json`. Use {@link getCommunityConfig}.
  */
-/** Computer Runtime gateway (sibling computer-with-agent). */
+/** Apron gateway (sibling apron). */
 export interface ComputerRuntimeConfig {
   /** Gateway origin, e.g. http://127.0.0.1:9000 */
   gatewayUrl: string;

@@ -2,10 +2,10 @@ import {
   defaultSeatTiming,
   sampleWaitMs,
   shouldExit,
-} from "@relay/computer-seat-policy";
+} from "@useapron/seat";
 import type { BrowseTimingConfig } from "./types.js";
 
-/** @deprecated Prefer importing sampleWaitMs / shouldExit from @relay/computer-seat-policy directly. */
+/** @deprecated Prefer importing sampleWaitMs / shouldExit from @useapron/seat. */
 export { sampleWaitMs, shouldExit };
 
 export function defaultBrowseTiming(

@@ -5,7 +5,7 @@ import { getComputerChallengeSession } from "./computer-challenge-session.js";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * FeedbackBroker auto-resolver: poll the parked Computer Runtime desktop
+ * FeedbackBroker auto-resolver: poll the parked Apron desktop
  * until classify says feed (or forceRecheckPageClass in tests), then proceed.
  * Credential prompts are never auto-won — confirmation + login|interstitial only.
  *

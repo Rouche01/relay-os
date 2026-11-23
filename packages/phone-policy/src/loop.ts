@@ -6,7 +6,7 @@ import {
   captureObserveObservation,
   captureScreenshotObservation,
   runSeatPolicyLoop,
-} from "@relay/computer-seat-policy";
+} from "@useapron/seat";
 import { launchApp } from "./launch.js";
 import type {
   PhoneLoopOptions,

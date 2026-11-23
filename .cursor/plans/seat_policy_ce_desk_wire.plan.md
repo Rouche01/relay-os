@@ -143,7 +143,7 @@ Desk should document: “Watch works for whichever kind the gateway leased; Open
 - CE Reddit on Android / Telegram-as-Reddit-client
 - Embedding policy loops inside Desk React
 - Replacing Playwright session ensure with browse-policy overnight
-- Changing computer-with-agent contracts beyond existing kind/seat_id
+- Changing apron contracts beyond existing kind/seat_id
 
 ## Pointers
 

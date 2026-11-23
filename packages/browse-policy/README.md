@@ -1,6 +1,6 @@
 # `@relay/browse-policy`
 
-Human-like browse loop for Computer Runtime **desktop** desks (Firefox).
+Human-like browse loop for Apron **desktop** desks (Firefox).
 
 Shared seat loop (lease / wait / observe / decide / act / park) is [`@useapron/seat`](https://www.npmjs.com/package/@useapron/seat). This package owns **desktop browse prompts + LLM deciders** only. Android phone automation lives in [`@relay/phone-policy`](../phone-policy).
 

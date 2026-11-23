@@ -14,10 +14,9 @@
     "clean": "rm -rf dist dist-test dist-scripts"
   },
   "dependencies": {
-    "@relay/computer-seat-policy": "workspace:*",
+    "@useapron/seat": "^0.1.2",
     "@relay/llm": "workspace:*",
-    "@useapron/client": "^0.1.2",
-    "@useapron/seat": "^0.1.2"
+    "@useapron/client": "^0.1.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

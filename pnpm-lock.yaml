@@ -345,9 +345,6 @@ importers:
 
   packages/browse-policy:
     dependencies:
-      '@relay/computer-seat-policy':
-        specifier: workspace:*
-        version: link:../computer-seat-policy
       '@relay/llm':
         specifier: workspace:*
         version: link:../llm
@@ -366,19 +363,6 @@ importers:
       '@useapron/client':
         specifier: ^0.1.2
         version: 0.1.2
-      '@useapron/seat':
-        specifier: ^0.1.2
-        version: 0.1.2
-    devDependencies:
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.20.4
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-
-  packages/computer-seat-policy:
-    dependencies:
       '@useapron/seat':
         specifier: ^0.1.2
         version: 0.1.2
@@ -546,9 +530,6 @@ importers:
 
   packages/phone-policy:
     dependencies:
-      '@relay/computer-seat-policy':
-        specifier: workspace:*
-        version: link:../computer-seat-policy
       '@relay/llm':
         specifier: workspace:*
         version: link:../llm

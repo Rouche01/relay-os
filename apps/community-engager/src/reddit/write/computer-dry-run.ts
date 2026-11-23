@@ -36,7 +36,7 @@ export interface ComputerDryRunOptions {
 }
 
 /**
- * Open the thread URL on a Computer Runtime desktop and capture evidence.
+ * Open the thread URL on a Apron desktop and capture evidence.
  * Never posts a comment.
  *
  * With `runSession`: ensureLeased (reattach) → open + capture → soft park.

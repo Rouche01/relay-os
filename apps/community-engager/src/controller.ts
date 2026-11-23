@@ -1256,7 +1256,7 @@ export class CommunityEngagerController implements AppController {
   }
 
   /**
-   * Computer Runtime ensure_session: open Reddit on the warm desktop, classify,
+   * Apron ensure_session: open Reddit on the warm desktop, classify,
    * park + confirmation HITL when login/CAPTCHA needed. Never auto-solves.
    */
   private async runEnsureSessionComputer(ctx: AgentContext): Promise<void> {
@@ -1584,7 +1584,7 @@ export class CommunityEngagerController implements AppController {
   }
 
   /**
-   * Close any headed Chromium hand-off and park a Computer Runtime challenge
+   * Close any headed Chromium hand-off and park a Apron challenge
    * for FeedbackBroker confirmation (VNC + Approve).
    */
   private async handOffDiscoverChallengeToComputer(

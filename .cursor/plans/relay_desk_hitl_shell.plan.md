@@ -1,12 +1,12 @@
 ---
 name: Relay Desk — HITL operator shell
-overview: Add apps/relay-desk (Tauri) as a desktop operator shell — living-todo / intent later, Feedback Broker HITL now, embed computer-with-agent noVNC (vnc_url) when a human must watch or act. Watch (stream only) is separate from Acquire (exclusive lease). Keep computer-with-agent as the runtime sibling; no RFB client in v1.
+overview: Add apps/relay-desk (Tauri) as a desktop operator shell — living-todo / intent later, Feedback Broker HITL now, embed apron noVNC (vnc_url) when a human must watch or act. Watch (stream only) is separate from Acquire (exclusive lease). Keep apron as the runtime sibling; no RFB client in v1.
 todos:
   - id: p0-scaffold
     content: Scaffold apps/relay-desk (Tauri + web UI) in relay-os monorepo; package name @relay/apps-relay-desk; document run in apps/relay-desk/README.md
     status: completed
   - id: p1-gateway-client
-    content: Settings for COMPUTER_GATEWAY_URL + COMPUTER_API_TOKEN; lease/acquire/heartbeat/release against computer-with-agent; open WebView on lease.vnc_url (autoconnect+resize=scale)
+    content: Settings for COMPUTER_GATEWAY_URL + COMPUTER_API_TOKEN; lease/acquire/heartbeat/release against apron; open WebView on lease.vnc_url (autoconnect+resize=scale)
     status: completed
   - id: p1-seat-ui
     content: Minimal UI — connect to gateway, show free/leased/parked, open seat window, heartbeat while focused, soft-release on close
@@ -45,20 +45,20 @@ todos:
     content: "Implement sidebar + Spec scaffold in Desk (match Flowstep); full Spec compile deferred to intent/living-todo plans"
     status: completed
   - id: p4-thinkpad
-    content: Document laptop install + env pointing at cu-gateway.hsv / 127.0.0.1 gateway; cross-link computer-with-agent AGENTS.md deploy
+    content: Document laptop install + env pointing at cu-gateway.hsv / 127.0.0.1 gateway; cross-link apron AGENTS.md deploy
     status: completed
   - id: p1.5-gateway-list
-    content: "computer-with-agent GET /v1/seats + Desk Gateway pool rows (Watch/Acquire/Recycle)"
+    content: "apron GET /v1/seats + Desk Gateway pool rows (Watch/Acquire/Recycle)"
     status: completed
   - id: out-of-scope-v1
-    content: "Explicit non-goals v1: native RFB client, LLM inside the desk app, on-demand K8s sandboxes, merging computer-with-agent into relay-os, in-main VNC mosaic (multi separate OS windows OK later via Seat inventory)"
+    content: "Explicit non-goals v1: native RFB client, LLM inside the desk app, on-demand K8s sandboxes, merging apron into relay-os, in-main VNC mosaic (multi separate OS windows OK later via Seat inventory)"
     status: pending
 isProject: true
 ---
 
 # Relay Desk — HITL operator shell (Tauri)
 
-Canonical plan for a **desktop operator surface** that pairs Relay HITL with **computer-with-agent** streams. Sibling of [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md), [`relay_hitl_community_voltmem.plan.md`](./relay_hitl_community_voltmem.plan.md), and the computer runtime at `~/Projects/computer-with-agent` ([`AGENTS.md`](file:///Users/richardemate/Projects/computer-with-agent/AGENTS.md) / Computer Runtime API plan).
+Canonical plan for a **desktop operator surface** that pairs Relay HITL with **apron** streams. Sibling of [`relay_living_todo_shell.plan.md`](./relay_living_todo_shell.plan.md), [`relay_hitl_community_voltmem.plan.md`](./relay_hitl_community_voltmem.plan.md), and the computer runtime at `~/Projects/apron` ([`AGENTS.md`](file:///Users/richardemate/Projects/apron/AGENTS.md) / Apron API plan).
 
 ## Thesis fit
 
@@ -70,7 +70,7 @@ Today negotiation is Telegram/CLI. **Relay Desk** is the same protocol in a nati
 User (Desk app)
     → Feedback Broker adapter (desktop)
     → CommunityEngager / AgentRuntime
-    → engines-computer → computer-with-agent gateway
+    → engines-computer → apron gateway
     → WAITING_USER + { vnc_url, session_id, job_id }
     → Desk: card + WebView(noVNC)
     → Approve / abort → runtime continues
@@ -80,11 +80,11 @@ User (Desk app)
 
 | Repo / path | Owns |
 |-------------|------|
-| `~/Projects/computer-with-agent` | Workers, gateway, noVNC, Compose, `desk.hsv` deploy |
+| `~/Projects/apron` | Workers, gateway, noVNC, Compose, `desk.hsv` deploy |
 | **`relay-os/apps/relay-desk`** (this plan) | Tauri shell, HITL UI, embed `vnc_url`, later intent stub |
 | `relay-os/packages/*` | protocol, feedback-broker, engines-computer (already) |
 
-**Do not** put the Tauri app inside `computer-with-agent`. **Do not** merge the computer runtime into relay-os for v1.
+**Do not** put the Tauri app inside `apron`. **Do not** merge the computer runtime into relay-os for v1.
 
 ## Why Tauri + noVNC (not native RFB)
 
@@ -156,7 +156,7 @@ Lease-only is too blunt for HITL and multi-worker ops. Add a **Watch** path besi
 
 - Today `/health` exposes aggregate `free` / `leased` / `parked` only — not per-worker `vnc_url`
 - Add a small **seat list** (or enrich health) returning workers/sessions: id, state (`free` \| `leased` \| `parked`), `vnc_url`, optional `job_id` / `session_id`
-- Lives in `computer-with-agent`; Desk consumes it — still no multi-tile dashboard in v1 (picker → one stream)
+- Lives in `apron`; Desk consumes it — still no multi-tile dashboard in v1 (picker → one stream)
 
 **Success:** Operator picks desk1/desk2 (or pastes `vnc_url`) and streams without taking a lease; can Acquire later if they need to drive.
 
@@ -191,7 +191,7 @@ Scaffold UI stays until **Phase 5**.
 ### Phase 4 — ThinkPad / laptop docs (done)
 
 - **Done:** [`apps/relay-desk/LAPTOP.md`](../../apps/relay-desk/LAPTOP.md) — Mac install, Remote (`https://cu-gateway.hsv`) vs Local (`127.0.0.1:9000`), hosts + Caddy CA, CE `REDDIT_TRANSPORT=computer` + desk adapter, troubleshooting
-- Cross-links: computer-with-agent [`AGENTS.md`](file:///Users/richardemate/Projects/computer-with-agent/AGENTS.md) / [`BINDING.md`](file:///Users/richardemate/Projects/computer-with-agent/BINDING.md), [`deploy/CADDY.md`](../../deploy/CADDY.md)
+- Cross-links: apron [`AGENTS.md`](file:///Users/richardemate/Projects/apron/AGENTS.md) / [`BINDING.md`](file:///Users/richardemate/Projects/apron/BINDING.md), [`deploy/CADDY.md`](../../deploy/CADDY.md)
 - Local same-machine guided install: deferred to [`relay_desk_local_runtime.plan.md`](./relay_desk_local_runtime.plan.md)
 
 ### Phase 5 — Implement Flowstep UI (done)
@@ -211,12 +211,12 @@ Main window matches [`apps/relay-desk/DESIGN.md`](../../apps/relay-desk/DESIGN.m
 - LLM / vision loop inside Desk
 - On-demand K8s/Docker provisioner in Desk
 - Replacing `apps/relay-shell` web Spec UI wholesale
-- Merging `computer-with-agent` into this monorepo
+- Merging `apron` into this monorepo
 - Multi-tile / mosaic VNC dashboard (one stream + seat picker only)
 
 ## Dependencies
 
-- computer-with-agent gateway healthy (local Compose or ThinkPad `desk.hsv`)
+- apron gateway healthy (local Compose or ThinkPad `desk.hsv`)
 - `@relay/engines-computer` + CommunityEngager computer dry-run (already landed)
 - Feedback Broker patterns from HITL plan
 

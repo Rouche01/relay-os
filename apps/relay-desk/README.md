@@ -1,6 +1,6 @@
 # Relay Desk
 
-Desktop **HITL operator shell** (Tauri 2 + Preact). Pairs CommunityEngager feedback with an embedded [computer-with-agent](file:///Users/richardemate/Projects/computer-with-agent) noVNC seat (`vnc_url`).
+Desktop **HITL operator shell** (Tauri 2 + Preact). Pairs CommunityEngager feedback with an embedded [apron](file:///Users/richardemate/Projects/apron) noVNC seat (`vnc_url`).
 
 **How it works (plain language):** [`GUIDE.md`](./GUIDE.md) — Seats · Build · Apps, ship checklist, glossary.
 
@@ -11,11 +11,11 @@ Package: `@relay/apps-relay-desk`
 - Node 22+ / pnpm 9+ (monorepo root)
 - [Rust](https://rustup.rs/) stable (`rustup default stable`)
 - macOS: Xcode CLT / Xcode
-- computer-with-agent gateway for seats (local or remote — see below); agent/policy code uses [`@useapron/client`](https://www.npmjs.com/package/@useapron/client), Desk uses gateway HTTP + `vnc_url`
+- apron gateway for seats (local or remote — see below); agent/policy code uses [`@useapron/client`](https://www.npmjs.com/package/@useapron/client), Desk uses gateway HTTP + `vnc_url`
 
 ## Gateway profiles (local or remote)
 
-Desk talks to **any** computer-with-agent gateway over HTTP. Same app, two common setups:
+Desk talks to **any** apron gateway over HTTP. Same app, two common setups:
 
 | Profile | `COMPUTER_GATEWAY_URL` | When |
 |---------|------------------------|------|
@@ -94,4 +94,4 @@ In Desk Settings: **DESK_SPEC_API_URL** → **Probe Spec**. Scaffold uses the sh
 | Local runtime (optional) | [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md) |
 | Design | [`DESIGN.md`](./DESIGN.md) · [Flowstep](https://app.flowstep.ai/file?activeFileId=a7a26c2d-f42b-4309-955c-7f931d81c6fe) |
 
-Runtime stays in `computer-with-agent`; streams open in a **separate** WebView (no native RFB in v1). Sidebar: **Console** (operator bento) · **Spec** (scaffold).
+Runtime stays in `apron`; streams open in a **separate** WebView (no native RFB in v1). Sidebar: **Console** (operator bento) · **Spec** (scaffold).

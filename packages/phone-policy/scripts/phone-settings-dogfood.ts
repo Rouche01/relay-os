@@ -1,5 +1,5 @@
 /**
- * Watchable phone-seat dogfood against computer-with-agent.
+ * Watchable phone-seat dogfood against apron.
  *
  *   COMPUTER_GATEWAY_URL=http://localhost:9000 \
  *   COMPUTER_API_TOKEN=dev-token \
@@ -158,7 +158,7 @@ async function main(): Promise<void> {
       "Gateway did not confirm a phone seat (kind missing or not phone)."
     );
     console.error(
-      "Update computer-with-agent, ensure inventory has a free kind=phone worker,"
+      "Update apron, ensure inventory has a free kind=phone worker,"
     );
     console.error("then check: curl -s -H \"Authorization: Bearer $COMPUTER_API_TOKEN\" \"$COMPUTER_GATEWAY_URL/v1/seats\" | jq .");
     try {

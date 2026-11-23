@@ -1,13 +1,13 @@
 # Relay Desk — laptop install (Mac → ThinkPad or local)
 
-Phase **p4** runbook: install Desk on a Mac, point it at a **remote** computer-with-agent gateway (ThinkPad / Tailscale) or a **local** Compose stack. Runtime deploy details stay in the sibling repo.
+Phase **p4** runbook: install Desk on a Mac, point it at a **remote** apron gateway (ThinkPad / Tailscale) or a **local** Compose stack. Runtime deploy details stay in the sibling repo.
 
 | Doc | Owns |
 |-----|------|
 | This file | Desk on the laptop: build, Settings, hosts, CE dogfood |
 | [`DESIGN.md`](./DESIGN.md) | Console vs Spec, gateway topology |
-| [computer-with-agent `AGENTS.md`](file:///Users/richardemate/Projects/computer-with-agent/AGENTS.md) | Compose workers, gateway env, ThinkPad port bind |
-| [computer-with-agent `BINDING.md`](file:///Users/richardemate/Projects/computer-with-agent/BINDING.md) | Lease / park / recycle HTTP |
+| [apron `AGENTS.md`](file:///Users/richardemate/Projects/apron/AGENTS.md) | Compose workers, gateway env, ThinkPad port bind |
+| [apron `BINDING.md`](file:///Users/richardemate/Projects/apron/BINDING.md) | Lease / park / recycle HTTP |
 | [`@useapron/client`](https://www.npmjs.com/package/@useapron/client) | Typed gateway client used by CE / seat policies (Desk talks HTTP directly for seats) |
 | [`deploy/CADDY.md`](../../deploy/CADDY.md) | Tailscale `.hsv` aliases + trusting Caddy’s local CA |
 | [`.cursor/plans/relay_desk_local_runtime.plan.md`](../../.cursor/plans/relay_desk_local_runtime.plan.md) | Optional guided local runtime (deferred) |
@@ -80,7 +80,7 @@ Older docs may say `desk.hsv` / `desk1.hsv` / `desk2.hsv` — same pattern; use 
 
 ### Remote checklist
 
-1. **ThinkPad** — computer-with-agent Compose up; gateway healthy; ports on loopback; Caddy terminates TLS for `cu-gateway.hsv` (and noVNC hosts). See AGENTS.md “ThinkPad / Caddy”.
+1. **ThinkPad** — apron Compose up; gateway healthy; ports on loopback; Caddy terminates TLS for `cu-gateway.hsv` (and noVNC hosts). See AGENTS.md “ThinkPad / Caddy”.
 2. **Laptop `/etc/hosts`** (or MagicDNS) — map names to the ThinkPad **Tailscale IP**:
 
    ```text
@@ -96,7 +96,7 @@ Older docs may say `desk.hsv` / `desk1.hsv` / `desk2.hsv` — same pattern; use 
 
 ### Local checklist
 
-1. In `~/Projects/computer-with-agent`: `.env` from `.env.example`, then `docker compose up --build -d`.
+1. In `~/Projects/apron`: `.env` from `.env.example`, then `docker compose up --build -d`.
 2. `curl -s http://127.0.0.1:9000/health` → `free` / `workers`.
 3. Desk Settings: `http://127.0.0.1:9000` + matching token (often `dev-token`).
 
@@ -132,7 +132,7 @@ pnpm --filter @relay/apps-community-engager start
 # or: FEEDBACK_ADAPTER=desk --adapter=desk
 ```
 
-Desk Settings **DESK_HITL_URL** must reach that bridge (Tailscale hostname if CE is not local). Computer path is evidence-oriented; CE uses [`@useapron/client`](https://www.npmjs.com/package/@useapron/client) against the same gateway contract as [`BINDING.md`](file:///Users/richardemate/Projects/computer-with-agent/BINDING.md).
+Desk Settings **DESK_HITL_URL** must reach that bridge (Tailscale hostname if CE is not local). Computer path is evidence-oriented; CE uses [`@useapron/client`](https://www.npmjs.com/package/@useapron/client) against the same gateway contract as [`BINDING.md`](file:///Users/richardemate/Projects/apron/BINDING.md).
 
 ## 5. Troubleshooting
 
@@ -147,6 +147,6 @@ Desk Settings **DESK_HITL_URL** must reach that bridge (Tailscale hostname if CE
 
 ## 6. What Desk does *not* install
 
-- Bundling computer-with-agent into the Tauri `.app` — out of scope; see local-runtime plan  
+- Bundling apron into the Tauri `.app` — out of scope; see local-runtime plan  
 - Spec compiler — **Spec** sidebar surface is scaffold only  
 - Replacing ThinkPad CE/systemd deploy — [`relay_thinkpad_deploy.plan.md`](../../.cursor/plans/relay_thinkpad_deploy.plan.md)  

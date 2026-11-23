@@ -36,7 +36,7 @@ export interface ClassifyComputerFrameOptions {
 }
 
 /**
- * Classify a Computer Runtime screenshot into the same PageClass vocabulary
+ * Classify a Apron screenshot into the same PageClass vocabulary
  * as Playwright interstitial decide. No DOM — text DecisionPort + hints only.
  * Never auto-solves CAPTCHAs.
  *

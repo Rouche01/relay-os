@@ -153,7 +153,7 @@ const engageParentStages: AgenticAppManifest["stages"] = [
     {
       name: "ensure_session",
       description:
-        "Ensure Reddit session (browser cookie jar, or Computer Runtime desktop login)",
+        "Ensure Reddit session (browser cookie jar, or Apron desktop login)",
       engine: "browser",
       feedback_points: [
         {

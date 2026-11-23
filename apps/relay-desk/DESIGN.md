@@ -53,7 +53,7 @@ Build / Apps workspace follows [`desk_spec_workspace_ux.plan.md`](../../.cursor/
 
 ## Gateway topology (locked)
 
-Desk is a **client** of computer-with-agent. The gateway may be:
+Desk is a **client** of apron. The gateway may be:
 
 | Profile | Typical URL | Notes |
 |---------|-------------|--------|

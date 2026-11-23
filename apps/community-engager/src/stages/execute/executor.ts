@@ -176,7 +176,7 @@ export async function executeApproved(
     );
   }
 
-  // Computer Runtime: always evidence-only (never posts), even if REDDIT_DRY_RUN=false.
+  // Apron: always evidence-only (never posts), even if REDDIT_DRY_RUN=false.
   if (writeTransport === "computer" || cfg.reddit.transport === "computer") {
     const runSession = opts.computerRun;
     const engine =
