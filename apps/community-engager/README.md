@@ -33,6 +33,20 @@ Cadence budgets (`config/default.json` → `cadence`): `maxHelpPerDay`, `maxPres
 
 Presence requires playbook `presenceEnabled`. Create requires `allowsOriginalPosts` + cooldown; remodel is notify-only (always skip automated submit).
 
+### Lane personas (draft voice)
+
+Help / presence / create prompts load packs from [`src/policy/persona.ts`](./src/policy/persona.ts) (see [lane personas plan](../../.cursor/plans/ce_lane_personas.plan.md)). Policy knobs in `config/default.json` → `draft` (override in `config/local.json`):
+
+| Key | Default | Env |
+|-----|---------|-----|
+| `personaEnabled` | `true` | `COMMUNITY_PERSONA_ENABLED` |
+| `archetypeOverlay` | `true` (help only) | `COMMUNITY_PERSONA_ARCHETYPE_OVERLAY` |
+| `helpPersonaId` | `help.default` | `COMMUNITY_PERSONA_HELP_ID` |
+| `presencePersonaId` | `presence.default` | `COMMUNITY_PERSONA_PRESENCE_ID` |
+| `createPersonaId` | `create.default` | `COMMUNITY_PERSONA_CREATE_ID` |
+
+Set `personaEnabled` / `COMMUNITY_PERSONA_ENABLED=false` to fall back to static Voice-only prompts (kill switch). Playbook stays compliance-only (rules / plugs); personality is not per-sub in v1.
+
 ### HITL persona spot-check (help drafts)
 
 Before Approve, a fast pass on voice (not just promo):
@@ -287,7 +301,7 @@ Join records: `{REDDIT_DATA_DIR}/attribution/<jobId>.json`.
 
 | Layer | What goes there |
 |-------|-----------------|
-| [`config/default.json`](./config/default.json) | Policy defaults (warmup, promo, postWatch, cadence, visibility, discover, scout, jobs, LP URL) |
+| [`config/default.json`](./config/default.json) | Policy defaults (warmup, promo, postWatch, cadence, visibility, discover, scout, jobs, LP URL, draft personas) |
 | `config/local.json` | Optional machine overrides (gitignored; copy [`local.example.json`](./config/local.example.json)) |
 | [`.env`](./.env) | Secrets, paths, dry-run / browser host toggles |
 | Env vars | Still override any policy key when set (CI / one-offs) |

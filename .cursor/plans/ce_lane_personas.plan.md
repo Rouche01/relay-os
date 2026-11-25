@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: config-readme
     content: Config/env knobs (enable pack, optional override path); README note linking lanes plan; keep defaults conservative
-    status: pending
+    status: completed
 isProject: true
 ---
 
@@ -144,4 +144,4 @@ Optional **archetype overlay** (help only): map scout-ish signals (e.g. ICP/syst
 
 1. **Authorized facts:** ~~ship empty in v1?~~ **Decided:** empty arrays on defaults; operators can add later via pack overrides.
 2. **Archetype overlay:** ~~v1 or follow-up?~~ **Decided:** ship in help prompt via `classifyHelpThreadArchetype` (ICP → systems, thin body → thin_ask).
-3. **Kill switch:** config flag to fall back to today’s static Voice block?
+3. **Kill switch:** ~~config flag?~~ **Decided:** `draft.personaEnabled` / `COMMUNITY_PERSONA_ENABLED=false` → static Voice fallback.

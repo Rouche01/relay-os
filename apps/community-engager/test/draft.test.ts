@@ -203,6 +203,16 @@ describe("buildDraftPrompt", () => {
     assert.match(prompt, /do not invent garments/i);
   });
 
+  it("persona kill switch falls back to static Voice without persona block", () => {
+    const prompt = buildDraftPrompt(draft(), undefined, {
+      personaEnabled: false,
+    });
+    assert.doesNotMatch(prompt, /Persona \(help\.default\)/);
+    assert.doesNotMatch(prompt, /Thread archetype/);
+    assert.match(prompt, /thoughtful commenter/);
+    assert.match(prompt, /Ban AI\/coach\/retail tells/);
+  });
+
   it("adds photo constraints for image / deictic posts", () => {
     const prompt = buildDraftPrompt(
       draft({

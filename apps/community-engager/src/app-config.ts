@@ -64,9 +64,27 @@ export interface PostFileConfig {
   mode?: PostMode | string;
 }
 
+/**
+ * Draft / remodel voice policy (lane personas).
+ * Secrets stay in env; pack ids are policy only.
+ */
 export interface DraftFileConfig {
-  /** Reserved for future draft/intensity policy. */
-  [key: string]: unknown;
+  /**
+   * Inject lane persona packs into help/presence/create prompts.
+   * Default true. Set false to fall back to static Voice-only prompts.
+   */
+  personaEnabled?: boolean;
+  /**
+   * Help-lane thread archetype overlay (systems / thin_ask / general).
+   * Default true. Ignored when personaEnabled is false.
+   */
+  archetypeOverlay?: boolean;
+  /** Pack id override (default `help.default`). */
+  helpPersonaId?: string;
+  /** Pack id override (default `presence.default`). */
+  presencePersonaId?: string;
+  /** Pack id override (default `create.default`). */
+  createPersonaId?: string;
 }
 
 export interface PromoFileConfig {
@@ -210,7 +228,7 @@ export interface CommunityAppConfig {
   post: {
     mode: string;
   };
-  draft: DraftFileConfig;
+  draft: Required<DraftFileConfig>;
 }
 
 export interface LoadAppConfigOptions {
@@ -311,7 +329,13 @@ const BUILTIN_DEFAULTS: CommunityAppConfig = {
     /** Local default auto; deploy sets COMMUNITY_POST_MODE=manual. */
     mode: "auto",
   },
-  draft: {},
+  draft: {
+    personaEnabled: true,
+    archetypeOverlay: true,
+    helpPersonaId: "help.default",
+    presencePersonaId: "presence.default",
+    createPersonaId: "create.default",
+  },
 };
 
 let cached: CommunityAppConfig | null = null;
@@ -529,7 +553,26 @@ function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
     post: {
       mode: normalizePostMode(raw.post?.mode ?? BUILTIN_DEFAULTS.post.mode),
     },
-    draft: raw.draft ?? {},
+    draft: normalizeDraftConfig(raw.draft),
+  };
+}
+
+function normalizeDraftConfig(
+  raw: DraftFileConfig | undefined
+): Required<DraftFileConfig> {
+  const d = raw ?? {};
+  return {
+    personaEnabled: d.personaEnabled !== false,
+    archetypeOverlay: d.archetypeOverlay !== false,
+    helpPersonaId: String(
+      d.helpPersonaId?.trim() || BUILTIN_DEFAULTS.draft.helpPersonaId
+    ),
+    presencePersonaId: String(
+      d.presencePersonaId?.trim() || BUILTIN_DEFAULTS.draft.presencePersonaId
+    ),
+    createPersonaId: String(
+      d.createPersonaId?.trim() || BUILTIN_DEFAULTS.draft.createPersonaId
+    ),
   };
 }
 

@@ -71,5 +71,11 @@
   "post": {
     "mode": "auto"
   },
-  "draft": {}
+  "draft": {
+    "personaEnabled": true,
+    "archetypeOverlay": true,
+    "helpPersonaId": "help.default",
+    "presencePersonaId": "presence.default",
+    "createPersonaId": "create.default"
+  }
 }

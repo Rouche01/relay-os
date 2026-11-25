@@ -97,6 +97,8 @@ describe("getCommunityConfig policy + env override", () => {
     delete process.env.COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX;
     delete process.env.COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX_PER_DAY;
     delete process.env.COMMUNITY_POST_MODE;
+    delete process.env.COMMUNITY_PERSONA_ENABLED;
+    delete process.env.COMMUNITY_PERSONA_HELP_ID;
   });
 
   it("uses file policy when env is unset", () => {
@@ -117,6 +119,8 @@ describe("getCommunityConfig policy + env override", () => {
     assert.equal(cfg.discover.onEmptyScoutMax, 2);
     assert.equal(cfg.discover.onEmptyScoutMaxPerDay, 3);
     assert.equal(cfg.postMode, "manual");
+    assert.equal(cfg.draft.personaEnabled, true);
+    assert.equal(cfg.draft.helpPersonaId, "help.default");
   });
 
   it("lets env win over file policy", () => {
@@ -126,6 +130,7 @@ describe("getCommunityConfig policy + env override", () => {
       scout: { source: "browser" },
       discover: { onEmptyScout: "off", onEmptyScoutMax: 1 },
       post: { mode: "auto" },
+      draft: { personaEnabled: true, helpPersonaId: "help.default" },
     });
     const cfg = getCommunityConfig(
       {
@@ -136,6 +141,8 @@ describe("getCommunityConfig policy + env override", () => {
         COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX: "2",
         COMMUNITY_DISCOVER_ON_EMPTY_SCOUT_MAX_PER_DAY: "5",
         COMMUNITY_POST_MODE: "manual",
+        COMMUNITY_PERSONA_ENABLED: "false",
+        COMMUNITY_PERSONA_HELP_ID: "help.default",
       },
       { appConfig }
     );
@@ -146,6 +153,8 @@ describe("getCommunityConfig policy + env override", () => {
     assert.equal(cfg.discover.onEmptyScoutMax, 2);
     assert.equal(cfg.discover.onEmptyScoutMaxPerDay, 5);
     assert.equal(cfg.postMode, "manual");
+    assert.equal(cfg.draft.personaEnabled, false);
+    assert.equal(cfg.draft.helpPersonaId, "help.default");
   });
 
   it("parsePostMode accepts aliases", () => {

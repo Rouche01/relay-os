@@ -15,6 +15,7 @@ import {
   type LanePersona,
 } from "../../policy/persona.js";
 import type { SubredditPlaybook } from "../../policy/playbook.js";
+import { getCommunityConfig } from "../../reddit/config.js";
 import {
   engageKindOf,
   type CommunityDraft,
@@ -27,6 +28,40 @@ import {
   normalizeLpBase,
   PRODUCT_RE,
 } from "./soft-cta.js";
+
+/** Static help Voice when `draft.personaEnabled` is false (kill switch). */
+const HELP_VOICE_FALLBACK: string[] = [
+  "Voice (required):",
+  "- Sound like a thoughtful commenter: casual, specific, a little opinionated. Write how a human types on Reddit.",
+  "- Open by engaging the actual ask (quote or paraphrase one concrete detail from title/body).",
+  "- One main suggestion OR one clear take. Optionally one short follow-up question only when something real is missing (fit, rise, budget, dressiness).",
+  "- 2-5 short sentences. Contractions are fine (I'd / you're / that's).",
+  "- Ban AI/coach/retail tells: numbered frameworks (1) 2) 3)), \"Hey -\", \"Happy to help/unpack\",",
+  "  \"simple approach\", \"game changer\", \"I'd love to\", \"feel free to\", \"as an AI\",",
+  "  \"great question\", \"From the pic/pics, yeah\", \"you'd want\", \"check out X or Y\",",
+  "  polished catalog copy, semicolon-stacked brand pitches, forced coach closers after a full answer,",
+  "  bullet templates, and generic capsule/wardrobe sermons that fit any post.",
+  "- Em dashes and en dashes: never. Prefer commas, periods, or parentheses.",
+  "- No markdown headings, no hashtags, no emoji stacks.",
+  "",
+];
+
+/** Static presence Voice when personas are disabled. */
+const PRESENCE_VOICE_FALLBACK: string[] = [
+  "Voice (required):",
+  "- 1-2 short sentences (3 only if still casual). Contractions fine (I'd / you're / that's).",
+  "- Default for outfit / OOTD / \"look\" posts: compliment + one concrete detail you actually notice (color, shoes, bag, socks, vibe).",
+  "- Do NOT coach. Ban stylist/systems talk: proportions, silhouette, rotation, anchor piece, mixing textures,",
+  "  building a wardrobe, elevating the look, dressing up/down frameworks, \"if you're building…\".",
+  "- A tip is rare; only when OP clearly asked for feedback. Never unsolicited advice on a flex/OOTD post.",
+  "- Optional light humor is OK if it lands clean; never mean-spirited roast of OP.",
+  "- Do not open with \"Great question\", \"Happy to help\", \"From the pic\", \"Love this\", or coach frameworks.",
+  "- Ban AI/retail tells: numbered lists, \"game changer\", \"feel free to\", \"you'd want\", \"check out X\",",
+  "  bullet templates, capsule sermons, polished catalog copy.",
+  "- Em dashes and en dashes: never. Prefer commas, periods, or parentheses.",
+  "- No markdown headings, no hashtags, no emoji stacks, no links.",
+  "",
+];
 
 export { PRODUCT_RE } from "./soft-cta.js";
 
@@ -218,10 +253,12 @@ export function buildDraftPrompt(
     imageAttached?: boolean;
     /** Number of attached gallery / OP images. */
     imageCount?: number;
-    /** Override help persona pack (tests / future config). */
-    persona?: LanePersona;
-    /** Skip thread-archetype overlay (tests). Default: include. */
+    /** Override help persona pack (tests / config). */
+    persona?: LanePersona | null;
+    /** Skip thread-archetype overlay (tests). Default: config / true. */
     includeArchetypeOverlay?: boolean;
+    /** Kill switch override; default from getCommunityConfig().draft.personaEnabled. */
+    personaEnabled?: boolean;
   }
 ): string {
   const { opText, memorySection, mediaSection } = sharedThreadContext(
@@ -231,19 +268,47 @@ export function buildDraftPrompt(
   );
   const lp = normalizeLpBase(opts?.lpBaseUrl ?? "https://gostylens.app");
   const pb = opts?.playbook;
+  const draftCfg = getCommunityConfig().draft;
+  const personaEnabled =
+    opts?.personaEnabled ?? draftCfg.personaEnabled !== false;
   const persona =
-    opts?.persona ??
-    resolvePersona({ kind: "help" });
-  const personaSection = formatPersonaForPrompt(persona);
-  const archetypeSection =
-    opts?.includeArchetypeOverlay === false
-      ? []
-      : formatHelpArchetypeOverlay(
-          classifyHelpThreadArchetype({
-            threadTitle: draft.threadTitle,
-            opText: draft.opText,
-          })
-        );
+    opts?.persona === null
+      ? null
+      : opts?.persona ??
+        (personaEnabled
+          ? resolvePersona({
+              kind: "help",
+              personaId: draftCfg.helpPersonaId,
+            })
+          : null);
+  const personaSection =
+    persona != null ? formatPersonaForPrompt(persona) : [];
+  const includeArchetype =
+    persona != null &&
+    (opts?.includeArchetypeOverlay ?? draftCfg.archetypeOverlay !== false);
+  const archetypeSection = includeArchetype
+    ? formatHelpArchetypeOverlay(
+        classifyHelpThreadArchetype({
+          threadTitle: draft.threadTitle,
+          opText: draft.opText,
+        })
+      )
+    : [];
+  const voiceSection =
+    persona != null
+      ? [
+          "Voice (required):",
+          "- Follow the persona stance, judgment, and rhythm above.",
+          "- Ban AI/coach/retail tells: numbered frameworks (1) 2) 3)), \"Hey -\", \"Happy to help/unpack\",",
+          "  \"simple approach\", \"game changer\", \"I'd love to\", \"feel free to\", \"as an AI\",",
+          "  \"great question\", \"From the pic/pics, yeah\", \"you'd want\", \"check out X or Y\",",
+          "  polished catalog copy, semicolon-stacked brand pitches, forced coach closers after a full answer,",
+          "  bullet templates, and generic capsule/wardrobe sermons that fit any post.",
+          "- Em dashes and en dashes: never. Prefer commas, periods, or parentheses.",
+          "- No markdown headings, no hashtags, no emoji stacks.",
+          "",
+        ]
+      : HELP_VOICE_FALLBACK;
   const playbookSection = pb
     ? [
         "Subreddit playbook (required):",
@@ -264,22 +329,18 @@ export function buildDraftPrompt(
       ]
     : [];
 
+  const authorizedFactsRule =
+    persona != null
+      ? "- Only use authorized personal facts listed in the persona block; if none, invent nothing personal."
+      : "- Do not invent a personal story, shops, or prices you were not given.";
+
   return [
     "You write one Reddit comment as a regular person in a fashion/styling sub, not a coach or chatbot.",
     "Product context (only for intensity rules below): GoStylens is a small styling helper. Stay help-first.",
     "",
     ...personaSection,
     ...archetypeSection,
-    "Voice (required):",
-    "- Follow the persona stance, judgment, and rhythm above.",
-    "- Ban AI/coach/retail tells: numbered frameworks (1) 2) 3)), \"Hey -\", \"Happy to help/unpack\",",
-    "  \"simple approach\", \"game changer\", \"I'd love to\", \"feel free to\", \"as an AI\",",
-    "  \"great question\", \"From the pic/pics, yeah\", \"you'd want\", \"check out X or Y\",",
-    "  polished catalog copy, semicolon-stacked brand pitches, forced coach closers after a full answer,",
-    "  bullet templates, and generic capsule/wardrobe sermons that fit any post.",
-    "- Em dashes and en dashes: never. Prefer commas, periods, or parentheses.",
-    "- No markdown headings, no hashtags, no emoji stacks.",
-    "",
+    ...voiceSection,
     ...warmupSection,
     ...playbookSection,
     ...mediaSection,
@@ -300,7 +361,7 @@ export function buildDraftPrompt(
       ? "- The image is attached; treat it as primary evidence. Do not answer the title in the abstract while ignoring what they showed."
       : "- If the body is empty/thin and the title refers to specific items/photos, do not invent those items.",
     "- Do not invent prices, shops, or a personal story you were not given (readable text in an attached image is allowed).",
-    "- Only use authorized personal facts listed in the persona block; if none, invent nothing personal.",
+    authorizedFactsRule,
     "- Keep draftText under 900 characters.",
     "",
     `Subreddit: r/${draft.subreddit}`,
@@ -326,8 +387,9 @@ export function buildPresenceDraftPrompt(
     playbook?: SubredditPlaybook;
     imageAttached?: boolean;
     imageCount?: number;
-    /** Override presence persona pack (tests / future config). */
-    persona?: LanePersona;
+    /** Override presence persona pack (tests / config). */
+    persona?: LanePersona | null;
+    personaEnabled?: boolean;
   }
 ): string {
   const { opText, memorySection, mediaSection } = sharedThreadContext(
@@ -336,9 +398,36 @@ export function buildPresenceDraftPrompt(
     { imageAttached: opts?.imageAttached, imageCount: opts?.imageCount }
   );
   const pb = opts?.playbook;
+  const draftCfg = getCommunityConfig().draft;
+  const personaEnabled =
+    opts?.personaEnabled ?? draftCfg.personaEnabled !== false;
   const persona =
-    opts?.persona ?? resolvePersona({ kind: "presence" });
-  const personaSection = formatPersonaForPrompt(persona);
+    opts?.persona === null
+      ? null
+      : opts?.persona ??
+        (personaEnabled
+          ? resolvePersona({
+              kind: "presence",
+              personaId: draftCfg.presencePersonaId,
+            })
+          : null);
+  const personaSection =
+    persona != null ? formatPersonaForPrompt(persona) : [];
+  const voiceSection =
+    persona != null
+      ? [
+          "Voice (required):",
+          "- Follow the persona stance, judgment, and rhythm above.",
+          "- Do NOT coach. Ban stylist/systems talk: proportions, silhouette, rotation, anchor piece, mixing textures,",
+          "  building a wardrobe, elevating the look, dressing up/down frameworks, \"if you're building…\".",
+          "- Do not open with \"Great question\", \"Happy to help\", \"From the pic\", \"Love this\", or coach frameworks.",
+          "- Ban AI/retail tells: numbered lists, \"game changer\", \"feel free to\", \"you'd want\", \"check out X\",",
+          "  bullet templates, capsule sermons, polished catalog copy.",
+          "- Em dashes and en dashes: never. Prefer commas, periods, or parentheses.",
+          "- No markdown headings, no hashtags, no emoji stacks, no links.",
+          "",
+        ]
+      : PRESENCE_VOICE_FALLBACK;
   const playbookSection = pb
     ? [
         "Subreddit playbook (required):",
@@ -348,22 +437,17 @@ export function buildPresenceDraftPrompt(
         "",
       ]
     : [];
+  const authorizedFactsRule =
+    persona != null
+      ? "- Only use authorized personal facts listed in the persona block; if none, invent nothing personal."
+      : "- Do not invent a personal story, shops, or prices you were not given.";
 
   return [
     "You write one short Reddit comment as a regular person in a fashion sub; presence lane, not advice-coach mode.",
     "Goal: sound like a friendly scroll-by comment. Prefer a simple compliment or one liked detail. Earn a glance, not a consult.",
     "",
     ...personaSection,
-    "Voice (required):",
-    "- Follow the persona stance, judgment, and rhythm above.",
-    "- Do NOT coach. Ban stylist/systems talk: proportions, silhouette, rotation, anchor piece, mixing textures,",
-    "  building a wardrobe, elevating the look, dressing up/down frameworks, \"if you're building…\".",
-    "- Do not open with \"Great question\", \"Happy to help\", \"From the pic\", \"Love this\", or coach frameworks.",
-    "- Ban AI/retail tells: numbered lists, \"game changer\", \"feel free to\", \"you'd want\", \"check out X\",",
-    "  bullet templates, capsule sermons, polished catalog copy.",
-    "- Em dashes and en dashes: never. Prefer commas, periods, or parentheses.",
-    "- No markdown headings, no hashtags, no emoji stacks, no links.",
-    "",
+    ...voiceSection,
     "PRESENCE MODE (required):",
     "- Intensity must be 0.",
     "- Do not mention GoStylens, any product, app, tool, or URL.",
@@ -377,7 +461,7 @@ export function buildPresenceDraftPrompt(
       ? "- The image is attached; name something visible you like. Do not ignore the outfit for abstract fashion theory."
       : "- If the body is thin and they posted a photo, keep it light from the title vibe; do not invent garments.",
     "- Do not invent prices, shops, or a personal story you were not given (readable text in an attached image is allowed).",
-    "- Only use authorized personal facts listed in the persona block; if none, invent nothing personal.",
+    authorizedFactsRule,
     "- Keep draftText under 280 characters.",
     "",
     `Subreddit: r/${draft.subreddit}`,
@@ -402,8 +486,9 @@ export function buildDraftPromptForKind(
     playbook?: SubredditPlaybook;
     imageAttached?: boolean;
     imageCount?: number;
-    persona?: LanePersona;
+    persona?: LanePersona | null;
     includeArchetypeOverlay?: boolean;
+    personaEnabled?: boolean;
   }
 ): string {
   if (presenceForcesIntensity0(draft)) {
@@ -412,6 +497,7 @@ export function buildDraftPromptForKind(
       imageAttached: opts?.imageAttached,
       imageCount: opts?.imageCount,
       persona: opts?.persona,
+      personaEnabled: opts?.personaEnabled,
     });
   }
   return buildDraftPrompt(draft, memoryBlock, opts);

@@ -31,6 +31,22 @@ describe("create remodel helpers", () => {
     assert.doesNotMatch(prompt, /—/);
   });
 
+  it("buildRemodelPrompt respects persona kill switch", () => {
+    const prompt = buildRemodelPrompt(
+      [
+        {
+          title: "Fit check",
+          body: "x",
+          permalink: "https://reddit.com/r/x/comments/y",
+        },
+      ],
+      "fashion",
+      { personaEnabled: false }
+    );
+    assert.doesNotMatch(prompt, /Persona \(create\.default\)/);
+    assert.match(prompt, /Voice: first-person/);
+  });
+
   it("stubRemodel produces original-looking title/body", () => {
     const out = stubRemodel(
       [{ title: "Fit check: linen shirt + wide pants", body: "Went out…" }],

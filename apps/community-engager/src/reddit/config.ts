@@ -212,6 +212,15 @@ export interface ProductRuntimeConfig {
   lpBaseUrl: string;
 }
 
+/** Draft / remodel lane-persona policy. */
+export interface DraftRuntimeConfig {
+  personaEnabled: boolean;
+  archetypeOverlay: boolean;
+  helpPersonaId: string;
+  presencePersonaId: string;
+  createPersonaId: string;
+}
+
 /** block = force intensity 0; warn = allow but surface in HITL. */
 export type PromoOnExceed = "block" | "warn";
 
@@ -302,6 +311,7 @@ export interface CommunityRuntimeConfig {
   scout: ScoutRuntimeConfig;
   jobs: JobsRuntimeConfig;
   product: ProductRuntimeConfig;
+  draft: DraftRuntimeConfig;
 }
 
 export function parseDiscoverMode(raw: string | undefined): DiscoverMode {
@@ -804,6 +814,33 @@ export function getCommunityConfig(
         env,
         "GOSTYLENS_LP_BASE_URL",
         policy.product.lpBaseUrl
+      ),
+    },
+    draft: {
+      personaEnabled: envBool(
+        env,
+        "COMMUNITY_PERSONA_ENABLED",
+        policy.draft?.personaEnabled !== false
+      ),
+      archetypeOverlay: envBool(
+        env,
+        "COMMUNITY_PERSONA_ARCHETYPE_OVERLAY",
+        policy.draft?.archetypeOverlay !== false
+      ),
+      helpPersonaId: envString(
+        env,
+        "COMMUNITY_PERSONA_HELP_ID",
+        policy.draft?.helpPersonaId ?? "help.default"
+      ),
+      presencePersonaId: envString(
+        env,
+        "COMMUNITY_PERSONA_PRESENCE_ID",
+        policy.draft?.presencePersonaId ?? "presence.default"
+      ),
+      createPersonaId: envString(
+        env,
+        "COMMUNITY_PERSONA_CREATE_ID",
+        policy.draft?.createPersonaId ?? "create.default"
       ),
     },
   };

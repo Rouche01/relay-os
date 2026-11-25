@@ -102,6 +102,13 @@ function baseCfg(dataDir: string): CommunityRuntimeConfig {
     },
     jobs: { maxJobs: 3, delayMs: 0 },
     product: { lpBaseUrl: "https://gostylens.app" },
+    draft: {
+      personaEnabled: true,
+      archetypeOverlay: true,
+      helpPersonaId: "help.default",
+      presencePersonaId: "presence.default",
+      createPersonaId: "create.default",
+    },
   };
 }
 

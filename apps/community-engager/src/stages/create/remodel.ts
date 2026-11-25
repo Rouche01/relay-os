@@ -11,6 +11,7 @@ import {
   resolvePersona,
   type LanePersona,
 } from "../../policy/persona.js";
+import { getCommunityConfig } from "../../reddit/config.js";
 import type { CreateProposal } from "../../types.js";
 import type { WinnerCandidate } from "./winner-scout.js";
 
@@ -197,10 +198,23 @@ function createRemodelLlmClient(
 export function buildRemodelPrompt(
   sources: Array<{ title: string; body: string; permalink: string }>,
   subreddit: string,
-  opts?: { persona?: LanePersona }
+  opts?: { persona?: LanePersona | null; personaEnabled?: boolean }
 ): string {
-  const persona = opts?.persona ?? resolvePersona({ kind: "create" });
-  const personaSection = formatPersonaForPrompt(persona).join("\n");
+  const draftCfg = getCommunityConfig().draft;
+  const personaEnabled =
+    opts?.personaEnabled ?? draftCfg.personaEnabled !== false;
+  const persona =
+    opts?.persona === null
+      ? null
+      : opts?.persona ??
+        (personaEnabled
+          ? resolvePersona({
+              kind: "create",
+              personaId: draftCfg.createPersonaId,
+            })
+          : null);
+  const personaLines =
+    persona != null ? formatPersonaForPrompt(persona) : [];
   const sourceBlock = sources
     .map(
       (s, i) =>
@@ -208,19 +222,28 @@ export function buildRemodelPrompt(
     )
     .join("\n\n");
 
+  const voiceLine =
+    persona != null
+      ? "Follow the create persona stance, judgment, and rhythm above."
+      : "Voice: first-person, concrete, no product plugs, no links.";
+
   return [
     "You remodel winning Reddit fashion posts into ORIGINAL proposals.",
     "Never copy titles or sentences. Extract structure only.",
     "No product plugs, no links, intensity 0.",
     "",
-    personaSection,
+    ...personaLines,
+    voiceLine,
+    "",
     `Subreddit: r/${subreddit}`,
     "",
     "Winning posts to learn from (do not copy):",
     sourceBlock,
     "",
     "Produce patternSummary, title, and body for a new top-level post.",
-    "Only use authorized personal facts from the persona block; if none, invent no biography.",
+    persona != null
+      ? "Only use authorized personal facts from the persona block; if none, invent no biography."
+      : "Invent no personal biography beyond what the remodeled pattern needs.",
   ].join("\n");
 }
 
