@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: deep-read-unknown
     content: Confirm comment counts on deep-read when listing omits numComments; lean on deep-read for thin-body + help-title candidates
-    status: pending
+    status: completed
   - id: create-score-gate
     content: Wire winner-scout DEFAULT_MIN_SCORE (upvote/score) alongside min comments + min age
     status: pending

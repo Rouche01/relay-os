@@ -21,6 +21,7 @@ import {
 import type { RedditListingPost } from "../client.js";
 import { getCommunityConfig } from "../config.js";
 import { inferOpMedia } from "../../stages/draft/op-media.js";
+import { hasUnknownCommentCount } from "./extract-listing.js";
 import {
   FASHION_PRESENCE_RE,
   HELP_RE,
@@ -271,8 +272,8 @@ export function scoreListingStats(
 }
 
 /**
- * Prefer deep-reading posts where the feed snippet is thin but the title
- * looks like a real help ask — that's where shallow scout misses.
+ * Prefer deep-reading posts where the feed snippet is thin, comment count is
+ * unknown, or the title looks like a real help/fashion ask — shallow scout misses.
  */
 export function pickDeepReadCandidates(
   posts: RedditListingPost[],
@@ -297,14 +298,19 @@ export function pickDeepReadCandidates(
       const pb = playbookForSub(post.subreddit, opts?.playbookFor);
       const mega = isMegathread(post.title);
       const thinBody = post.selftext.trim().length < 80;
+      const unknownComments = hasUnknownCommentCount(post);
       if (kind === "presence") {
         const { score } = scorePresencePost(post, { playbook: pb });
         const total = presenceScoreTotal(score);
         const fashionTitle = FASHION_PRESENCE_RE.test(post.title);
         let priority = 0;
-        if (thinBody && (total >= 3 || fashionTitle)) priority = 3;
+        // Unknown comment counts need thread deep-read before competition scoring.
+        if (thinBody && unknownComments && (fashionTitle || total >= 2)) {
+          priority = 4;
+        } else if (thinBody && (total >= 3 || fashionTitle)) priority = 3;
+        else if (unknownComments && fashionTitle) priority = 3;
         else if (thinBody && total >= 2) priority = 2;
-        else if (fashionTitle) priority = 1;
+        else if (fashionTitle || unknownComments) priority = 1;
         return { post, priority, total };
       }
       const { score } = scoreRedditPost(post, {
@@ -314,9 +320,12 @@ export function pickDeepReadCandidates(
       const total = scoreTotal(score);
       const helpTitle = HELP_RE.test(post.title);
       let priority = 0;
-      if (thinBody && (total >= 3 || helpTitle)) priority = 3;
+      if (thinBody && unknownComments && (helpTitle || total >= 2)) {
+        priority = 4;
+      } else if (thinBody && (total >= 3 || helpTitle)) priority = 3;
+      else if (unknownComments && helpTitle) priority = 3;
       else if (thinBody && total >= 2) priority = 2;
-      else if (helpTitle) priority = 1;
+      else if (helpTitle || unknownComments) priority = 1;
       return { post, priority, total };
     })
     .filter((r) => r.priority > 0)

@@ -15,6 +15,7 @@ import {
 } from "../config.js";
 import { createRedditBrowserEngine } from "../session/browser-session.js";
 import {
+  applyDeepReadEnrichment,
   extractListingRowsFromDocument,
   extractPostBodyFromDocument,
   LISTING_READY_SELECTOR,
@@ -183,9 +184,7 @@ async function deepReadPosts(
 
       const body = await page.evaluate(extractPostBodyFromDocument);
       const existing = byId.get(candidate.id);
-      if (existing && body.selftext && body.selftext.length > existing.selftext.length) {
-        existing.selftext = body.selftext;
-        if (body.title) existing.title = body.title;
+      if (existing && applyDeepReadEnrichment(existing, body)) {
         enriched += 1;
       }
     } catch (err) {
@@ -458,6 +457,7 @@ export async function scoutRedditBrowser(
         const candidates = pickDeepReadCandidates(posts, deepReadMax, {
           excludeIds,
           playbookFor,
+          kind: opts.kind ?? "help",
         });
         if (candidates.length > 0) {
           try {

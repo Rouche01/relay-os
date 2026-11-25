@@ -129,13 +129,14 @@ export function listingUrl(subreddit: string, sort: "new" | "hot" = "new"): stri
 export const LISTING_READY_SELECTOR = "shreddit-post";
 
 /**
- * Full OP body from a post permalink page (www.reddit).
+ * Full OP body (+ comment count when present) from a post permalink page.
  * Runs in the browser via page.evaluate — must stay self-contained.
  */
 export function extractPostBodyFromDocument(): {
   id: string;
   title: string;
   selftext: string;
+  numComments?: number;
 } {
   const el = document.querySelector("shreddit-post");
   const name = el?.getAttribute("id") || "";
@@ -160,5 +161,58 @@ export function extractPostBodyFromDocument(): {
     if (t.length > 80) selftext = t.slice(0, 4000);
   }
 
-  return { id, title, selftext };
+  const commentRaw =
+    el?.getAttribute("comment-count") ||
+    el?.getAttribute("number-of-comments") ||
+    "";
+  const commentN = Number(commentRaw);
+  const numComments = Number.isFinite(commentN) ? commentN : undefined;
+
+  return { id, title, selftext, numComments };
+}
+
+/**
+ * Merge deep-read thread fields onto a listing post (body + comment count).
+ * Returns true when anything meaningful changed.
+ */
+export function applyDeepReadEnrichment(
+  existing: RedditListingPost,
+  body: {
+    title?: string;
+    selftext?: string;
+    numComments?: number;
+  }
+): boolean {
+  let changed = false;
+  if (body.selftext && body.selftext.length > existing.selftext.length) {
+    existing.selftext = body.selftext;
+    changed = true;
+  }
+  if (body.title?.trim() && body.title.trim() !== existing.title) {
+    existing.title = body.title.trim();
+    changed = true;
+  }
+  if (
+    typeof body.numComments === "number" &&
+    Number.isFinite(body.numComments) &&
+    body.numComments >= 0
+  ) {
+    if (
+      existing.numComments === undefined ||
+      existing.numComments === null ||
+      existing.numComments !== body.numComments
+    ) {
+      existing.numComments = body.numComments;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+/** True when listing omitted a usable comment count (optimistic competition). */
+export function hasUnknownCommentCount(
+  post: Pick<RedditListingPost, "numComments">
+): boolean {
+  const n = post.numComments;
+  return n === undefined || n === null || !Number.isFinite(n);
 }
