@@ -114,6 +114,62 @@ export const DRAFT_EVAL_CASES: DraftEvalCase[] = [
     forceIntensity0: true,
     intensity: 0,
   },
+  // Help cases tuned for personaFit: generic coach / invented story should fail scoreDraft.
+  {
+    id: "persona-systems-peer",
+    subreddit: "femalefashionadvice",
+    threadTitle: "How do I stop buying random pieces that never match?",
+    opText:
+      "I want a wardrobe system for work + weekend. Budget exists but I need a process, not a haul list.",
+    // Stub grounds via title paraphrase; keep tokens present in the title.
+    mustGroundIn: ["pieces", "match"],
+    bannedPhrases: [
+      "here's a simple framework",
+      "three-step",
+      "3-step",
+      "step 1:",
+      "as a stylist",
+      "elevate the look",
+      "build your wardrobe",
+    ],
+    maxIntensity: 0,
+    forceIntensity0: true,
+    intensity: 0,
+  },
+  {
+    id: "persona-thin-no-story",
+    subreddit: "malefashionadvice",
+    threadTitle: "Interview outfit tips for tech office?",
+    opText: "Business casual. Thanks.",
+    mustGroundIn: ["interview", "office"],
+    bannedPhrases: [
+      "when i wore",
+      "in my experience as",
+      "happy to help",
+      "great question",
+      "feel free to",
+    ],
+    maxIntensity: 0,
+    forceIntensity0: true,
+    intensity: 0,
+  },
+  {
+    id: "persona-disagree-fit",
+    subreddit: "femalefashionadvice",
+    threadTitle: "Should I buy this oversized blazer for a bank interview?",
+    opText:
+      "I love the oversized look but the interview is conservative finance. Is it ok if I belt it?",
+    mustGroundIn: ["blazer", "interview"],
+    bannedPhrases: [
+      "elevate the look",
+      "as a stylist",
+      "here's a simple framework",
+      "game changer",
+    ],
+    maxIntensity: 0,
+    forceIntensity0: true,
+    intensity: 0,
+  },
   {
     id: "presence-fit-check",
     kind: "presence",

@@ -18,6 +18,22 @@ export const SHARED_AI_TELL_PHRASES = [
   "simple approach",
 ] as const;
 
+/**
+ * Extra tells that clash with help.default peer persona (stylist funnel / same-y coach).
+ * Applied via eval-case `bannedPhrases` (not global, so stubs stay flexible).
+ */
+export const PERSONA_COACH_TELL_PHRASES = [
+  "here's a simple framework",
+  "three-step",
+  "3-step",
+  "step 1:",
+  "as a stylist",
+  "elevate the look",
+  "build your wardrobe",
+  "when i wore",
+  "in my experience as",
+] as const;
+
 export type DraftScoreSeverity = "fail" | "warn";
 
 export interface DraftScoreFinding {

@@ -6,6 +6,11 @@ export interface DraftJudgeScores {
   threadFit: number;
   soundsHuman: number;
   specificity: number;
+  /**
+   * 1-5 how well the reply matches lane persona (peer judgment vs stylist funnel).
+   * Help: concrete peer, one take, no frameworks. Presence: glance, not consult.
+   */
+  personaFit: number;
   rationale?: string;
 }
 
@@ -24,12 +29,17 @@ const JUDGE_SCHEMA: Record<string, unknown> = {
       type: "integer",
       description: "1-5 how concrete and grounded in the post",
     },
+    personaFit: {
+      type: "integer",
+      description:
+        "1-5 peer wardrobe voice vs stylist funnel / same-y coach (lane persona)",
+    },
     rationale: {
       type: "string",
       description: "One short sentence on the scores",
     },
   },
-  required: ["threadFit", "soundsHuman", "specificity"],
+  required: ["threadFit", "soundsHuman", "specificity", "personaFit"],
 };
 
 function clampScore(n: unknown): number | null {
@@ -46,10 +56,27 @@ export async function judgeDraft(input: {
   evalCase: DraftEvalCase;
   draft: CommunityDraft;
 }): Promise<DraftJudgeScores> {
+  const kind = input.evalCase.kind ?? "help";
+  const personaRubric =
+    kind === "presence"
+      ? [
+          "personaFit (presence): score high for a short glance (compliment + one noticed detail).",
+          "Score low for coaching, systems talk, multi-sentence advice essays, or product plugs.",
+        ]
+      : [
+          "personaFit (help): score high for a practical wardrobe peer: one strong take, grounded judgment,",
+          "  asks when context is missing instead of guessing, no stylist funnel.",
+          "Score low for numbered frameworks, capsule sermons that fit any post, Happy-to-help openers,",
+          "  or invented personal stories / shops / prices.",
+        ];
+
   const prompt = [
     "Score this Reddit fashion reply for an offline eval. Be strict about AI/coach tone.",
     "Return JSON only matching the schema (scores 1-5).",
     "",
+    ...personaRubric,
+    "",
+    `Lane: ${kind}`,
     `Subreddit: r/${input.evalCase.subreddit}`,
     `Title: ${input.evalCase.threadTitle}`,
     `OP: ${input.evalCase.opText || "(empty)"}`,
@@ -79,7 +106,13 @@ export async function judgeDraft(input: {
   const threadFit = clampScore(parsed.threadFit);
   const soundsHuman = clampScore(parsed.soundsHuman);
   const specificity = clampScore(parsed.specificity);
-  if (threadFit == null || soundsHuman == null || specificity == null) {
+  const personaFit = clampScore(parsed.personaFit);
+  if (
+    threadFit == null ||
+    soundsHuman == null ||
+    specificity == null ||
+    personaFit == null
+  ) {
     throw new Error("judge scores missing or invalid");
   }
 
@@ -87,6 +120,7 @@ export async function judgeDraft(input: {
     threadFit,
     soundsHuman,
     specificity,
+    personaFit,
     rationale:
       typeof parsed.rationale === "string" ? parsed.rationale.trim() : undefined,
   };

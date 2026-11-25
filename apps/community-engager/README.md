@@ -9,6 +9,7 @@ First Relay dogfood app: discover fashion/styling subreddits (HITL promote onto 
 Related plans:
 
 - [Help / Presence / Create lanes](../../.cursor/plans/ce_help_presence_create_lanes.plan.md) — per-lane entrypoints, schedules, create remodel
+- [Lane personas](../../.cursor/plans/ce_lane_personas.plan.md) — draft voice packs (help / presence / create)
 - [Notify-only + redditapis scout](../../.cursor/plans/notify_only_redditapis_scout.plan.md) — manual post mode + read-only third-party listings
 - [HITL + CommunityEngager + VoltMem](../../.cursor/plans/relay_hitl_community_voltmem.plan.md) — Phase 6 discovery + nested fanout
 - [Reddit browser / scrape transport](../../.cursor/plans/relay_reddit_browser.plan.md) — browser scout, ensure_session, interstitial HITL
@@ -31,6 +32,19 @@ One scheduler/ops host; **independent entrypoints** (no mixed-lane scout):
 Cadence budgets (`config/default.json` → `cadence`): `maxHelpPerDay`, `maxPresencePerDay`, `maxPromoPerDay`, `maxCreatePerWeek`, plus per-lane cron / `maxJobsPerRun*` / schedule enable flags. Env mirrors: `COMMUNITY_CADENCE_MAX_PRESENCE_PER_DAY`, `COMMUNITY_CADENCE_SCHEDULE_PRESENCE_ENABLED`, etc.
 
 Presence requires playbook `presenceEnabled`. Create requires `allowsOriginalPosts` + cooldown; remodel is notify-only (always skip automated submit).
+
+### HITL persona spot-check (help drafts)
+
+Before Approve, a fast pass on voice (not just promo):
+
+| Abort / Edit if… | Prefer Approve when… |
+|------------------|----------------------|
+| Numbered framework / capsule sermon that fits any post | One concrete take tied to this OP |
+| Stylist funnel (“Happy to help”, “elevate the look”) | Peer tone; may disagree on fit for the job |
+| Invented personal story, shops, or prices | Grounded in title/body/photo only |
+| Same-y coach closer after a full answer | Stops when the ask is answered |
+
+Offline: `pnpm eval:drafts` (deterministic) · `--judge` adds `threadFit/soundsHuman/specificity/personaFit` (advisory; `--strict-judge` fails any score &lt; 3).
 
 ## Notify-only mode (recommended deploy)
 

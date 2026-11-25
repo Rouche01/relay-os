@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: eval-hitl
     content: Add personaFit (or voiceConsistency) to draft-judge + a few help eval fixtures; document HITL spot-check rubric
-    status: pending
+    status: completed
   - id: config-readme
     content: Config/env knobs (enable pack, optional override path); README note linking lanes plan; keep defaults conservative
     status: pending

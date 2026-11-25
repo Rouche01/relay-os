@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { DRAFT_EVAL_CASES } from "../src/eval/draft-cases.js";
+import { judgeDraft } from "../src/eval/draft-judge.js";
 import {
+  PERSONA_COACH_TELL_PHRASES,
   scoreDraft,
   SHARED_AI_TELL_PHRASES,
 } from "../src/eval/draft-score.js";
 import { draftReply } from "../src/stages/draft/drafter.js";
+import type { LlmClient } from "@relay/llm";
 import type { CommunityDraft } from "../src/types.js";
 
 const savedGemini = process.env.GEMINI_API_KEY;
@@ -96,6 +99,56 @@ describe("scoreDraft", () => {
 
   it("exports a non-empty shared ban list", () => {
     assert.ok(SHARED_AI_TELL_PHRASES.length >= 5);
+    assert.ok(PERSONA_COACH_TELL_PHRASES.length >= 3);
+  });
+
+  it("fails stylist-funnel copy on persona-tuned help cases", () => {
+    const personaCase = DRAFT_EVAL_CASES.find(
+      (c) => c.id === "persona-systems-peer"
+    );
+    assert.ok(personaCase);
+    const scored = scoreDraft(
+      draft({
+        draftText:
+          "Here's a simple framework. Step 1: elevate the look. As a stylist I'd build your wardrobe around neutrals.",
+        intensity: 0,
+      }),
+      personaCase
+    );
+    assert.equal(scored.ok, false);
+    assert.ok(scored.findings.some((f) => f.id === "banned_phrase"));
+  });
+});
+
+describe("judgeDraft personaFit", () => {
+  it("parses personaFit alongside existing dims", async () => {
+    const fake: LlmClient = {
+      provider: "gemini",
+      async completeJson() {
+        return {
+          text: JSON.stringify({
+            threadFit: 4,
+            soundsHuman: 5,
+            specificity: 4,
+            personaFit: 5,
+            rationale: "peer voice",
+          }),
+          provider: "gemini",
+          model: "test",
+        };
+      },
+    };
+    const scores = await judgeDraft({
+      client: fake,
+      evalCase: DRAFT_EVAL_CASES.find((c) => c.id === "persona-systems-peer")!,
+      draft: draft({
+        draftText:
+          "On matching pieces I'd pick one work constraint first, then stop buying almosts.",
+      }),
+    });
+    assert.equal(scores.personaFit, 5);
+    assert.equal(scores.threadFit, 4);
+    assert.equal(scores.soundsHuman, 5);
   });
 });
 
@@ -112,6 +165,7 @@ describe("draft eval stub smoke", () => {
           subreddit: evalCase.subreddit,
           threadUrl: `https://reddit.com/r/${evalCase.subreddit}/comments/eval`,
           threadTitle: evalCase.threadTitle,
+          kind: evalCase.kind ?? "help",
           opText: evalCase.opText,
           ...(evalCase.opMediaHint
             ? { opMediaHint: evalCase.opMediaHint }

@@ -116,10 +116,13 @@ async function main(): Promise<void> {
           evalCase,
           draft: outcome.draft,
         });
-        judgeNote = ` judge=${j.threadFit}/${j.soundsHuman}/${j.specificity}`;
+        judgeNote = ` judge=${j.threadFit}/${j.soundsHuman}/${j.specificity}/${j.personaFit}`;
         if (
           args.strictJudge &&
-          (j.threadFit < 3 || j.soundsHuman < 3 || j.specificity < 3)
+          (j.threadFit < 3 ||
+            j.soundsHuman < 3 ||
+            j.specificity < 3 ||
+            j.personaFit < 3)
         ) {
           judgeFailCount += 1;
           judgeNote += " FAIL";
