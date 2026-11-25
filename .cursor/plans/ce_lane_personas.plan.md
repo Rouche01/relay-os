@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: presence-create-light
     content: Light presence + create voice packs (presence stays short/anti-coach; create = writer POV on remodel)—no theatrical character
-    status: pending
+    status: completed
   - id: eval-hitl
     content: Add personaFit (or voiceConsistency) to draft-judge + a few help eval fixtures; document HITL spot-check rubric
     status: pending

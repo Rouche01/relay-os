@@ -326,6 +326,8 @@ export function buildPresenceDraftPrompt(
     playbook?: SubredditPlaybook;
     imageAttached?: boolean;
     imageCount?: number;
+    /** Override presence persona pack (tests / future config). */
+    persona?: LanePersona;
   }
 ): string {
   const { opText, memorySection, mediaSection } = sharedThreadContext(
@@ -334,6 +336,9 @@ export function buildPresenceDraftPrompt(
     { imageAttached: opts?.imageAttached, imageCount: opts?.imageCount }
   );
   const pb = opts?.playbook;
+  const persona =
+    opts?.persona ?? resolvePersona({ kind: "presence" });
+  const personaSection = formatPersonaForPrompt(persona);
   const playbookSection = pb
     ? [
         "Subreddit playbook (required):",
@@ -345,16 +350,14 @@ export function buildPresenceDraftPrompt(
     : [];
 
   return [
-    "You write one short Reddit comment as a regular person in a fashion sub — presence lane, not advice-coach mode.",
+    "You write one short Reddit comment as a regular person in a fashion sub; presence lane, not advice-coach mode.",
     "Goal: sound like a friendly scroll-by comment. Prefer a simple compliment or one liked detail. Earn a glance, not a consult.",
     "",
+    ...personaSection,
     "Voice (required):",
-    "- 1-2 short sentences (3 only if still casual). Contractions fine (I'd / you're / that's).",
-    "- Default for outfit / OOTD / \"look\" posts: compliment + one concrete detail you actually notice (color, shoes, bag, socks, vibe).",
+    "- Follow the persona stance, judgment, and rhythm above.",
     "- Do NOT coach. Ban stylist/systems talk: proportions, silhouette, rotation, anchor piece, mixing textures,",
     "  building a wardrobe, elevating the look, dressing up/down frameworks, \"if you're building…\".",
-    "- A tip is rare — only when OP clearly asked for feedback. Never unsolicited advice on a flex/OOTD post.",
-    "- Optional light humor is OK if it lands clean; never mean-spirited roast of OP.",
     "- Do not open with \"Great question\", \"Happy to help\", \"From the pic\", \"Love this\", or coach frameworks.",
     "- Ban AI/retail tells: numbered lists, \"game changer\", \"feel free to\", \"you'd want\", \"check out X\",",
     "  bullet templates, capsule sermons, polished catalog copy.",
@@ -371,9 +374,10 @@ export function buildPresenceDraftPrompt(
     "Content rules:",
     "- React to *this* thread only; ground the comment in the title, body, and attached image when present.",
     opts?.imageAttached
-      ? "- The image is attached — name something visible you like. Do not ignore the outfit for abstract fashion theory."
-      : "- If the body is thin and they posted a photo, keep it light from the title vibe — do not invent garments.",
+      ? "- The image is attached; name something visible you like. Do not ignore the outfit for abstract fashion theory."
+      : "- If the body is thin and they posted a photo, keep it light from the title vibe; do not invent garments.",
     "- Do not invent prices, shops, or a personal story you were not given (readable text in an attached image is allowed).",
+    "- Only use authorized personal facts listed in the persona block; if none, invent nothing personal.",
     "- Keep draftText under 280 characters.",
     "",
     `Subreddit: r/${draft.subreddit}`,
@@ -407,6 +411,7 @@ export function buildDraftPromptForKind(
       playbook: opts?.playbook,
       imageAttached: opts?.imageAttached,
       imageCount: opts?.imageCount,
+      persona: opts?.persona,
     });
   }
   return buildDraftPrompt(draft, memoryBlock, opts);

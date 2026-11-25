@@ -415,10 +415,13 @@ describe("buildPresenceDraftPrompt", () => {
     assert.match(prompt, /PRESENCE MODE/);
     assert.match(prompt, /Intensity must be 0/);
     assert.match(prompt, /Do not mention GoStylens/);
+    assert.match(prompt, /Persona \(presence\.default\)/);
     assert.match(prompt, /1-2 short sentences/);
-    assert.match(prompt, /compliment \+ one concrete detail/i);
+    assert.match(prompt, /compliment \+ one (concrete|visible) detail/i);
     assert.match(prompt, /Do NOT coach/i);
+    assert.match(prompt, /Authorized personal facts: none/);
     assert.doesNotMatch(prompt, /Soft-CTA pattern/);
+    assert.doesNotMatch(prompt, /—/);
   });
 
   it("generateDraftViaLlm routes presence prompts", async () => {

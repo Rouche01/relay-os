@@ -6,6 +6,11 @@ import {
   type LlmClient,
   type LlmProviderId,
 } from "@relay/llm";
+import {
+  formatPersonaForPrompt,
+  resolvePersona,
+  type LanePersona,
+} from "../../policy/persona.js";
 import type { CreateProposal } from "../../types.js";
 import type { WinnerCandidate } from "./winner-scout.js";
 
@@ -42,7 +47,7 @@ const PATTERN_SCHEMA: Record<string, unknown> = {
  */
 export async function remodelWinnersToProposal(
   winners: WinnerCandidate[],
-  opts?: { nowMs?: number; client?: LlmClient }
+  opts?: { nowMs?: number; client?: LlmClient; persona?: LanePersona }
 ): Promise<RemodelResult | null> {
   if (winners.length === 0) return null;
   const primary = winners[0]!;
@@ -60,7 +65,10 @@ export async function remodelWinnersToProposal(
   if (opts?.client || remodelLlmConfigured()) {
     try {
       const client = opts?.client ?? createRemodelLlmClient();
-      const parsed = await generateRemodelViaLlm(client, sources, subreddit);
+      const parsed = await generateRemodelViaLlm(client, sources, subreddit, {
+        persona: opts?.persona,
+      });
+
       const provider =
         parsed.provider === "anthropic" ? "anthropic" : "gemini";
       return {
@@ -182,10 +190,45 @@ function createRemodelLlmClient(
   return createLlmClient({ provider, apiKey });
 }
 
+/**
+ * Create-lane remodel prompt: pattern extract + original title/body.
+ * Light writer POV from {@link resolvePersona} create pack.
+ */
+export function buildRemodelPrompt(
+  sources: Array<{ title: string; body: string; permalink: string }>,
+  subreddit: string,
+  opts?: { persona?: LanePersona }
+): string {
+  const persona = opts?.persona ?? resolvePersona({ kind: "create" });
+  const personaSection = formatPersonaForPrompt(persona).join("\n");
+  const sourceBlock = sources
+    .map(
+      (s, i) =>
+        `### Source ${i + 1}\nTitle: ${s.title}\nURL: ${s.permalink}\nBody:\n${s.body || "(link/image post)"}`
+    )
+    .join("\n\n");
+
+  return [
+    "You remodel winning Reddit fashion posts into ORIGINAL proposals.",
+    "Never copy titles or sentences. Extract structure only.",
+    "No product plugs, no links, intensity 0.",
+    "",
+    personaSection,
+    `Subreddit: r/${subreddit}`,
+    "",
+    "Winning posts to learn from (do not copy):",
+    sourceBlock,
+    "",
+    "Produce patternSummary, title, and body for a new top-level post.",
+    "Only use authorized personal facts from the persona block; if none, invent no biography.",
+  ].join("\n");
+}
+
 async function generateRemodelViaLlm(
   client: LlmClient,
   sources: Array<{ title: string; body: string; permalink: string }>,
-  subreddit: string
+  subreddit: string,
+  opts?: { persona?: LanePersona }
 ): Promise<{
   patternSummary: string;
   title: string;
@@ -194,20 +237,7 @@ async function generateRemodelViaLlm(
   provider: LlmProviderId;
   model: string;
 }> {
-  const sourceBlock = sources
-    .map(
-      (s, i) =>
-        `### Source ${i + 1}\nTitle: ${s.title}\nURL: ${s.permalink}\nBody:\n${s.body || "(link/image post)"}`
-    )
-    .join("\n\n");
-
-  const prompt =
-    `You remodel winning Reddit fashion posts into ORIGINAL proposals. ` +
-    `Never copy titles or sentences. Extract structure only. ` +
-    `Voice: first-person, concrete, no product plugs, no links.\n\n` +
-    `Subreddit: r/${subreddit}\n\n` +
-    `Winning posts to learn from (do not copy):\n${sourceBlock}\n\n` +
-    `Produce patternSummary, title, and body for a new top-level post.`;
+  const prompt = buildRemodelPrompt(sources, subreddit, opts);
 
   const result = await client.completeJson({
     messages: [{ role: "user", content: prompt }],

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createProposalToDraft } from "../src/stages/create/proposal-to-draft.js";
-import { stubRemodel } from "../src/stages/create/remodel.js";
+import {
+  buildRemodelPrompt,
+  stubRemodel,
+} from "../src/stages/create/remodel.js";
 import {
   createCooldownActive,
 } from "../src/stages/create/winner-scout.js";
@@ -9,6 +12,25 @@ import type { CreateProposal } from "../src/types.js";
 import { formatManualPostNotify } from "../src/stages/execute/manual-notify.js";
 
 describe("create remodel helpers", () => {
+  it("buildRemodelPrompt injects create persona (writer POV, no plugs)", () => {
+    const prompt = buildRemodelPrompt(
+      [
+        {
+          title: "Fit check: linen shirt",
+          body: "Went out…",
+          permalink: "https://reddit.com/r/malefashionadvice/comments/x",
+        },
+      ],
+      "malefashionadvice"
+    );
+    assert.match(prompt, /Persona \(create\.default\)/);
+    assert.match(prompt, /first-person/i);
+    assert.match(prompt, /No product plugs/);
+    assert.match(prompt, /Authorized personal facts: none/);
+    assert.match(prompt, /do not copy/i);
+    assert.doesNotMatch(prompt, /—/);
+  });
+
   it("stubRemodel produces original-looking title/body", () => {
     const out = stubRemodel(
       [{ title: "Fit check: linen shirt + wide pants", body: "Went out…" }],
