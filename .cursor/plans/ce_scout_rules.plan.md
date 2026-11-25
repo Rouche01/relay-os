@@ -4,7 +4,7 @@ overview: Retune CommunityEngager opportunity selection so lanes prefer engaged-
 todos:
   - id: competition-soft
     content: Replace binary low-comment preference with sweet-spot / soft competition signal; crowded threads need stronger ICP (help) or takeRoom (presence); optional per-sub caps via playbook
-    status: pending
+    status: completed
   - id: freshness-age
     content: Revisit scout.maxAgeHours (default 6) vs score freshness; lane-aware or raised window so good mid-age threads are not hard-dropped
     status: pending
@@ -154,6 +154,6 @@ Many seeds keep `presenceEnabled` / `allowsOriginalPosts` false. Scoring upgrade
 
 ## Open questions
 
-1. Exact help/presence sweet-spot numbers (start 3–25 / 3–35?) — lock in implementation with tests.
+1. Exact help/presence sweet-spot numbers — **Decided:** help ≤25 / presence ≤35; cold ≤2 (rationale only); crowded help needs ICP or total ≥6.
 2. Default `maxAgeHours`: 12 vs 24 for help?
 3. Per-sub competition overrides in playbook v1 or follow-up?

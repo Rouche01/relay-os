@@ -55,7 +55,10 @@ export interface OpportunityScore {
   freshnessOk: boolean;
   /** Can help without the app first */
   valueWithoutApp: boolean;
-  /** Thread still has room to contribute (low comment competition) */
+  /**
+   * Engaged-but-reachable comment band (sweet spot), or crowded with ICP credit.
+   * Not "fewer comments always better."
+   */
   competition: boolean;
   /** Matches GoStylens ICP (wardrobe/system/planning, not haul/flex) */
   icpFit: boolean;
@@ -81,7 +84,9 @@ export interface PresenceScore {
   fashionFit: boolean;
   /** Room for a short concrete take (invite, photo, or substance) */
   takeRoom: boolean;
-  /** Thread still has room to contribute */
+  /**
+   * Engaged-but-reachable comment band (sweet spot), or crowded with takeRoom credit.
+   */
   competition: boolean;
   /** Thread is fresh enough */
   freshnessOk: boolean;

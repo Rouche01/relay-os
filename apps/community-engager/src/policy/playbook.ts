@@ -28,6 +28,11 @@ export interface SubredditPlaybook {
   allowsOriginalPosts: boolean;
   /** Min days between create posts on this sub. Default 7. */
   createCooldownDays: number;
+  /**
+   * Optional comment-count ceiling before a thread is "crowded" (lane defaults apply when unset).
+   * Crowded help still scores competition when ICP-fit; crowded presence when takeRoom.
+   */
+  competitionSweetMax?: number;
 }
 
 export const DEFAULT_PLAYBOOK: SubredditPlaybook = {
@@ -51,6 +56,7 @@ export type PlaybookInput = {
   presenceEnabled?: boolean | string;
   allowsOriginalPosts?: boolean | string;
   createCooldownDays?: number;
+  competitionSweetMax?: number;
 };
 
 export function normalizePlaybook(
@@ -79,6 +85,11 @@ export function normalizePlaybook(
       raw.createCooldownDays,
       base.createCooldownDays
     ),
+    ...(typeof raw.competitionSweetMax === "number" &&
+    Number.isFinite(raw.competitionSweetMax) &&
+    raw.competitionSweetMax > 0
+      ? { competitionSweetMax: Math.floor(raw.competitionSweetMax) }
+      : {}),
   };
 }
 

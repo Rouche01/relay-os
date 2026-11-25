@@ -5,10 +5,8 @@ import type {
   PresenceScore,
 } from "../../types.js";
 import {
-  ACTIONABLE_SCORE_MIN,
   DEFAULT_ENGAGE_KIND,
   EMPTY_OPPORTUNITY_SCORE,
-  isActionable,
   isPresenceActionable,
   normalizeEngageKind,
   presenceScoreTotal,
@@ -26,6 +24,7 @@ import { inferOpMedia } from "../../stages/draft/op-media.js";
 import {
   FASHION_PRESENCE_RE,
   HELP_RE,
+  isHelpOpportunityActionable,
   isMegathread,
   scorePresencePost,
   scoreRedditPost,
@@ -141,11 +140,12 @@ export function listingPostsToDrafts(
         };
       }
 
-      const { score, rationale } = scoreRedditPost(post, {
+      const { score, rationale, competitionBand } = scoreRedditPost(post, {
         scoreMegathread: mega && pb.megathreadPolicy !== "skip",
         maxAgeMs: maxAgeOpt,
+        playbook: pb,
       });
-      if (!isActionable(score)) return null;
+      if (!isHelpOpportunityActionable(score, competitionBand)) return null;
       const playbookNote =
         mega && pb.megathreadPolicy === "help_only"
           ? "megathread help_only (intensity 0)"
@@ -244,13 +244,14 @@ export function scoreListingStats(
       continue;
     }
     const mega = isMegathread(post.title);
-    const { score } = scoreRedditPost(post, {
+    const { score, competitionBand } = scoreRedditPost(post, {
       scoreMegathread: mega && pb.megathreadPolicy !== "skip",
+      playbook: pb,
     });
     const total = scoreTotal(score);
-    if (total >= ACTIONABLE_SCORE_MIN) actionable += 1;
+    if (isHelpOpportunityActionable(score, competitionBand)) actionable += 1;
     else if (
-      total >= ACTIONABLE_SCORE_MIN - 2 ||
+      total >= 3 ||
       HELP_RE.test(`${post.title}\n${post.selftext}`)
     ) {
       nearMiss += 1;
@@ -298,6 +299,7 @@ export function pickDeepReadCandidates(
       }
       const { score } = scoreRedditPost(post, {
         scoreMegathread: mega && pb.megathreadPolicy !== "skip",
+        playbook: pb,
       });
       const total = scoreTotal(score);
       const helpTitle = HELP_RE.test(post.title);

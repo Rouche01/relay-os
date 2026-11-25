@@ -40,11 +40,40 @@ export const FASHION_PRESENCE_RE =
 export const TAKE_INVITE_RE =
   /\b(rate|thoughts|honest|feedback|opinion|does (this|it)|too (much|little|casual|dressy)|ok\?|what do you think|how (does|do|'s|is)|any (tips?|ideas)|roast|be brutal)\b/i;
 
-/** Max top-level-ish comment count still considered “room to contribute”. */
-export const COMPETITION_MAX_COMMENTS = 12;
+/**
+ * Help-lane sweet-spot ceiling: comments at or below this earn competition.
+ * Above = crowded (needs ICP or total ≥ {@link CROWDED_HELP_MIN_TOTAL}).
+ */
+export const HELP_COMPETITION_SWEET_MAX = 25;
 
-/** Presence threads often draw more comments; slightly looser than help. */
-export const PRESENCE_COMPETITION_MAX_COMMENTS = 20;
+/** Presence-lane sweet-spot ceiling (busier visibility threads). */
+export const PRESENCE_COMPETITION_SWEET_MAX = 35;
+
+/**
+ * Below/equal this count is "cold" (still earns competition; room to contribute).
+ * Used for rationale / future ranking — not a hard kill.
+ */
+export const COMPETITION_COLD_MAX = 2;
+
+/**
+ * Crowded help without ICP still enqueues only when total ≥ this
+ * (competition dim is false, so other dims must carry).
+ */
+export const CROWDED_HELP_MIN_TOTAL = 6;
+
+/**
+ * @deprecated Alias of {@link HELP_COMPETITION_SWEET_MAX} (sweet-spot ceiling).
+ * Prefer the named constant; kept for older tests/callers.
+ */
+export const COMPETITION_MAX_COMMENTS = HELP_COMPETITION_SWEET_MAX;
+
+/**
+ * @deprecated Alias of {@link PRESENCE_COMPETITION_SWEET_MAX}.
+ */
+export const PRESENCE_COMPETITION_MAX_COMMENTS = PRESENCE_COMPETITION_SWEET_MAX;
+
+/** Comment-count band for scout competition. */
+export type CompetitionBand = "unknown" | "cold" | "sweet" | "crowded";
 
 /** Legacy default when caller does not pass maxAgeMs (48h). Scout prefers cfg.scout.maxAgeHours. */
 export const DEFAULT_FRESH_MS = 48 * 60 * 60 * 1000;
@@ -68,10 +97,13 @@ export function scoreRedditPost(
     scoreMegathread?: boolean;
     /** Max age for freshnessOk (ms). Default {@link DEFAULT_FRESH_MS}. */
     maxAgeMs?: number;
+    /** Optional playbook (sweet-max override). */
+    playbook?: SubredditPlaybook;
   }
 ): {
   score: OpportunityScore;
   rationale: string;
+  competitionBand: CompetitionBand;
 } {
   const text = `${post.title}\n${post.selftext}`;
   const policy = getSubredditPolicy(post.subreddit);
@@ -101,7 +133,6 @@ export function scoreRedditPost(
     !brandOnly &&
     post.selftext.length + post.title.length > 40;
 
-  const competition = scoreCompetition(post);
   // ICP is wardrobe/system/planning language — not every "how should I" help ask.
   const icpFit =
     !skipMega &&
@@ -116,6 +147,15 @@ export function scoreRedditPost(
     !brandOnly &&
     rulesOk &&
     (PLUG_NATURAL_RE.test(text) || (problemFit && valueWithoutApp && wantsHelp));
+
+  const sweetMax =
+    opts?.playbook?.competitionSweetMax ?? HELP_COMPETITION_SWEET_MAX;
+  const band = competitionBand(post.numComments, sweetMax);
+  const competition = scoreCompetitionSweet({
+    numComments: post.numComments,
+    sweetMax,
+    crowdedOk: icpFit,
+  });
 
   const score: OpportunityScore = {
     problemFit,
@@ -138,8 +178,7 @@ export function scoreRedditPost(
   if (freshnessOk) bits.push(`fresh (<${freshHours}h)`);
   else bits.push("stale");
   if (valueWithoutApp) bits.push("value without app");
-  if (competition) bits.push("low competition");
-  else bits.push("high competition");
+  bits.push(`competition=${band}${competition ? "+" : "-"}`);
   if (icpFit) bits.push("ICP fit");
   else bits.push("weak ICP");
   if (plugNaturalness) bits.push("plug feels natural");
@@ -147,12 +186,44 @@ export function scoreRedditPost(
   if (policy?.note) bits.push(policy.note);
   bits.push(`total ${scoreTotalLocal(score)}/${SCORE_MAX} (need ≥${ACTIONABLE_SCORE_MIN})`);
 
-  return { score, rationale: bits.join("; ") };
+  return { score, rationale: bits.join("; "), competitionBand: band };
 }
 
 /**
- * True when the thread still has room for a helpful reply.
- * Unknown comment count (browser extract) → optimistic true.
+ * Classify comment-count band for competition scoring.
+ * Unknown → optimistic "unknown" (treated like reachable).
+ */
+export function competitionBand(
+  numComments: number | null | undefined,
+  sweetMax: number = HELP_COMPETITION_SWEET_MAX,
+  coldMax: number = COMPETITION_COLD_MAX
+): CompetitionBand {
+  const n = numComments;
+  if (n === undefined || n === null || !Number.isFinite(n)) return "unknown";
+  if (n < 0) return "unknown";
+  if (n > sweetMax) return "crowded";
+  if (n <= coldMax) return "cold";
+  return "sweet";
+}
+
+/**
+ * Soft competition: true in cold/sweet/unknown, or crowded when `crowdedOk`.
+ */
+export function scoreCompetitionSweet(opts: {
+  numComments?: number | null;
+  sweetMax?: number;
+  /** When crowded, still award competition (help: ICP; presence: takeRoom). */
+  crowdedOk?: boolean;
+}): boolean {
+  const sweetMax = opts.sweetMax ?? HELP_COMPETITION_SWEET_MAX;
+  const band = competitionBand(opts.numComments, sweetMax);
+  if (band === "unknown" || band === "cold" || band === "sweet") return true;
+  return Boolean(opts.crowdedOk);
+}
+
+/**
+ * Legacy helper: true when count ≤ max (unknown → true).
+ * Prefer {@link scoreCompetitionSweet} for lane scoring.
  */
 export function scoreCompetition(
   post: RedditListingPost,
@@ -161,6 +232,22 @@ export function scoreCompetition(
   const n = post.numComments;
   if (n === undefined || n === null || !Number.isFinite(n)) return true;
   return n >= 0 && n <= maxComments;
+}
+
+/**
+ * Help enqueue gate: actionable total + crowded bar
+ * (crowded without ICP needs total ≥ {@link CROWDED_HELP_MIN_TOTAL}).
+ */
+export function isHelpOpportunityActionable(
+  score: OpportunityScore,
+  competitionBand: CompetitionBand
+): boolean {
+  const total = scoreTotalLocal(score);
+  if (total < ACTIONABLE_SCORE_MIN) return false;
+  if (competitionBand === "crowded" && !score.icpFit && total < CROWDED_HELP_MIN_TOTAL) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -177,6 +264,7 @@ export function scorePresencePost(
 ): {
   score: PresenceScore;
   rationale: string;
+  competitionBand: CompetitionBand;
 } {
   const text = `${post.title}\n${post.selftext}`;
   const policy = getSubredditPolicy(post.subreddit);
@@ -206,10 +294,13 @@ export function scorePresencePost(
       hasVisualHook ||
       (bodySubstance && HAUL_FLEX_RE.test(text) === false));
 
-  const competition = scoreCompetition(
-    post,
-    PRESENCE_COMPETITION_MAX_COMMENTS
-  );
+  const sweetMax = pb.competitionSweetMax ?? PRESENCE_COMPETITION_SWEET_MAX;
+  const band = competitionBand(post.numComments, sweetMax);
+  const competition = scoreCompetitionSweet({
+    numComments: post.numComments,
+    sweetMax,
+    crowdedOk: takeRoom,
+  });
   const freshnessOk = ageMs >= 0 && ageMs <= freshMs;
   const allowlisted = policy?.rulesOk ?? false;
   const rulesOk = allowlisted && pb.presenceEnabled === true;
@@ -241,8 +332,7 @@ export function scorePresencePost(
   else bits.push("sub not allowlisted / rules risky");
   if (freshnessOk) bits.push(`fresh (<${freshHours}h)`);
   else bits.push("stale");
-  if (competition) bits.push("low competition");
-  else bits.push("high competition");
+  bits.push(`competition=${band}${competition ? "+" : "-"}`);
   if (voiceFit) bits.push("voice fit");
   else bits.push("voice blocked");
   if (policy?.note) bits.push(policy.note);
@@ -250,7 +340,7 @@ export function scorePresencePost(
     `total ${presenceScoreTotalLocal(score)}/${PRESENCE_SCORE_MAX} (need ≥${PRESENCE_ACTIONABLE_MIN})`
   );
 
-  return { score, rationale: bits.join("; ") };
+  return { score, rationale: bits.join("; "), competitionBand: band };
 }
 
 /** Image/gallery / non-self posts where a short outfit take is natural. */
