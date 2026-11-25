@@ -4,7 +4,7 @@ overview: Give CommunityEngager a richer, lane-aware commenter voice—especiall
 todos:
   - id: persona-shape
     content: Define LanePersona type (stance, rhythm, bans, optional authorizedFacts) + defaults for help / presence / create; keep playbook as compliance-only
-    status: pending
+    status: completed
   - id: help-prompt-wire
     content: Inject help persona into buildDraftPrompt; optional thread-archetype overlay from scout signals (ICP/systems vs thin ask); preserve no-invented-story rule
     status: pending
@@ -142,6 +142,6 @@ Optional **archetype overlay** (help only): map scout-ish signals (e.g. ICP/syst
 
 ## Open questions (resolve before/during implement)
 
-1. **Authorized facts:** ship empty in v1, or seed 1–2 brand-safe lines (e.g. “uses GoStylens as founder — only when intensity ≥1”)?
+1. **Authorized facts:** ~~ship empty in v1?~~ **Decided:** empty arrays on defaults; operators can add later via pack overrides.
 2. **Archetype overlay:** v1 or follow-up once help pack lands?
 3. **Kill switch:** config flag to fall back to today’s static Voice block?
