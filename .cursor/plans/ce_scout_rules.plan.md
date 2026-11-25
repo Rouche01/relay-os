@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: create-score-gate
     content: Wire winner-scout DEFAULT_MIN_SCORE (upvote/score) alongside min comments + min age
-    status: pending
+    status: completed
   - id: tests-readme
     content: Update score/map-drafts/winner-scout tests + README scout table; link personas plan as complementary (voice ≠ selection)
     status: pending

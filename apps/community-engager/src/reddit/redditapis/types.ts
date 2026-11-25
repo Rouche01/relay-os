@@ -25,6 +25,8 @@ export interface RedditApisPost {
   text?: string;
   subreddit?: string;
   comments?: number;
+  /** Net score / upvotes when the API provides it. */
+  score?: number;
   created_utc?: number;
   stickied?: boolean;
   locked?: boolean;

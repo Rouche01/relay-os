@@ -47,6 +47,7 @@ export function mapRedditApisPost(post: RedditApisPost): RedditListingPost | nul
   const mediaUrl = resolveRedditApisMediaUrl(post);
   const linkOrPermalink = mediaUrl || permalink;
   const numComments = Number(post.comments);
+  const score = Number(post.score);
   const createdUtc = Number(post.created_utc);
   const isSelf =
     typeof post.is_self === "boolean"
@@ -66,6 +67,7 @@ export function mapRedditApisPost(post: RedditApisPost): RedditListingPost | nul
     createdUtc: Number.isFinite(createdUtc) ? createdUtc : 0,
     author: String(post.author ?? ""),
     numComments: Number.isFinite(numComments) ? numComments : undefined,
+    score: Number.isFinite(score) ? score : undefined,
     ...(isSelf !== undefined ? { isSelf } : {}),
   };
 }

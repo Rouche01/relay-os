@@ -115,6 +115,7 @@ function mapListingChildren(
         numComments: Number.isFinite(Number(d.num_comments))
           ? Number(d.num_comments)
           : undefined,
+        score: Number.isFinite(Number(d.score)) ? Number(d.score) : undefined,
         ...(imageUrl ? { imageUrl } : {}),
       };
     })

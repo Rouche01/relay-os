@@ -6,10 +6,34 @@ import {
   stubRemodel,
 } from "../src/stages/create/remodel.js";
 import {
+  CREATE_WINNER_MIN_COMMENTS,
+  CREATE_WINNER_MIN_SCORE,
   createCooldownActive,
+  passesWinnerGates,
 } from "../src/stages/create/winner-scout.js";
+import type { RedditListingPost } from "../src/reddit/client.js";
 import type { CreateProposal } from "../src/types.js";
 import { formatManualPostNotify } from "../src/stages/execute/manual-notify.js";
+
+function winnerPost(
+  overrides: Partial<RedditListingPost> = {}
+): RedditListingPost {
+  const nowSec = Math.floor(Date.now() / 1000);
+  return {
+    id: "w1",
+    name: "t3_w1",
+    subreddit: "malefashionadvice",
+    title: "What I learned rotating three jackets",
+    selftext: "Long enough body for a remodel seed.",
+    url: "https://www.reddit.com/r/malefashionadvice/comments/w1",
+    permalink: "https://www.reddit.com/r/malefashionadvice/comments/w1",
+    createdUtc: nowSec - 5 * 86_400,
+    author: "op",
+    numComments: CREATE_WINNER_MIN_COMMENTS + 2,
+    score: CREATE_WINNER_MIN_SCORE + 10,
+    ...overrides,
+  };
+}
 
 describe("create remodel helpers", () => {
   it("buildRemodelPrompt injects create persona (writer POV, no plugs)", () => {
@@ -56,6 +80,44 @@ describe("create remodel helpers", () => {
     assert.ok(out.title.length > 8);
     assert.ok(out.body.includes("r/malefashionadvice"));
     assert.ok(!out.body.includes("linen shirt + wide pants"));
+  });
+
+  it("passesWinnerGates requires comments + score when known", () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    assert.equal(passesWinnerGates(winnerPost(), { nowSec }), true);
+    assert.equal(
+      passesWinnerGates(
+        winnerPost({ score: CREATE_WINNER_MIN_SCORE - 1 }),
+        { nowSec }
+      ),
+      false
+    );
+    assert.equal(
+      passesWinnerGates(
+        winnerPost({ numComments: CREATE_WINNER_MIN_COMMENTS - 1 }),
+        { nowSec }
+      ),
+      false
+    );
+    // Unknown score still ok when comments + age clear (browser listings).
+    assert.equal(
+      passesWinnerGates(winnerPost({ score: undefined }), { nowSec }),
+      true
+    );
+    assert.equal(
+      passesWinnerGates(
+        winnerPost({ createdUtc: nowSec - 86_400 }),
+        { nowSec }
+      ),
+      false
+    );
+    assert.equal(
+      passesWinnerGates(
+        winnerPost({ createdUtc: nowSec - 86_400 }),
+        { nowSec, skipAge: true }
+      ),
+      true
+    );
   });
 
   it("createCooldownActive gates same-sub create within window", () => {

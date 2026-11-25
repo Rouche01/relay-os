@@ -18,6 +18,11 @@ export interface RedditListingPost {
   /** Present on JSON/OAuth listings; omitted when browser extract lacks it. */
   numComments?: number;
   /**
+   * Net upvotes (Reddit `score`) when the listing transport provides it.
+   * Used by create winner-scout min-score gate; often missing on browser extract.
+   */
+  score?: number;
+  /**
    * True for text/self posts. False for link/image/gallery (when known).
    * Used to flag photo-led threads when the CDN URL is missing.
    */
@@ -79,6 +84,7 @@ export class RedditClient {
         numComments: Number.isFinite(Number(d.num_comments))
           ? Number(d.num_comments)
           : undefined,
+        score: Number.isFinite(Number(d.score)) ? Number(d.score) : undefined,
         ...(imageUrl ? { imageUrl } : {}),
       };
     });
