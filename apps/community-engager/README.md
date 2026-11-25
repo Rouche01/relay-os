@@ -9,7 +9,8 @@ First Relay dogfood app: discover fashion/styling subreddits (HITL promote onto 
 Related plans:
 
 - [Help / Presence / Create lanes](../../.cursor/plans/ce_help_presence_create_lanes.plan.md) — per-lane entrypoints, schedules, create remodel
-- [Lane personas](../../.cursor/plans/ce_lane_personas.plan.md) — draft voice packs (help / presence / create)
+- [Scout rules](../../.cursor/plans/ce_scout_rules.plan.md) — opportunity selection (age, soft competition, takeRoom, create score)
+- [Lane personas](../../.cursor/plans/ce_lane_personas.plan.md) — draft voice packs (help / presence / create); **voice ≠ selection**
 - [Notify-only + redditapis scout](../../.cursor/plans/notify_only_redditapis_scout.plan.md) — manual post mode + read-only third-party listings
 - [HITL + CommunityEngager + VoltMem](../../.cursor/plans/relay_hitl_community_voltmem.plan.md) — Phase 6 discovery + nested fanout
 - [Reddit browser / scrape transport](../../.cursor/plans/relay_reddit_browser.plan.md) — browser scout, ensure_session, interstitial HITL
@@ -31,11 +32,23 @@ One scheduler/ops host; **independent entrypoints** (no mixed-lane scout):
 
 Cadence budgets (`config/default.json` → `cadence`): `maxHelpPerDay`, `maxPresencePerDay`, `maxPromoPerDay`, `maxCreatePerWeek`, plus per-lane cron / `maxJobsPerRun*` / schedule enable flags. Env mirrors: `COMMUNITY_CADENCE_MAX_PRESENCE_PER_DAY`, `COMMUNITY_CADENCE_SCHEDULE_PRESENCE_ENABLED`, etc.
 
-Presence requires playbook `presenceEnabled`. Create requires `allowsOriginalPosts` + cooldown; remodel is notify-only (always skip automated submit).
+Presence requires playbook `presenceEnabled`. Create requires `allowsOriginalPosts` + cooldown; remodel is notify-only (always skip automated submit). Many seeds keep those flags false — scoring upgrades do not surface presence/create until playbooks allow.
+
+### Scout selection (per lane)
+
+Selection is independent of draft personas ([scout rules](../../.cursor/plans/ce_scout_rules.plan.md) vs [lane personas](../../.cursor/plans/ce_lane_personas.plan.md)).
+
+| Lane | Age hard-drop | Competition | Actionable gate | Notes |
+|------|---------------|-------------|-----------------|-------|
+| Help | `scout.maxAgeHours` **12h** (`REDDIT_SCOUT_MAX_AGE_HOURS`) | Soft sweet-spot ≤**25** comments; cold ≤2 still ok | Score ≥**5/8**; crowded (>25) needs **ICP** or total ≥**6** | Deep-read fills unknown `numComments` / thin bodies before enqueue |
+| Presence | `scout.maxAgeHoursPresence` **8h** (`REDDIT_SCOUT_MAX_AGE_HOURS_PRESENCE`) | Soft sweet-spot ≤**35**; crowded needs takeRoom | Score ≥**4/6** + **`takeRoom`** required | Silent haul/flex without invite does not enqueue |
+| Create | Winner age ≥**3d** (not the engage age window) | Min engagement (**≥8** comments), not a max | **≥50** score when known + comments + age | Unknown score allowed (browser listings); notify-only remodel |
+
+Optional playbook `competitionSweetMax` overrides the comment ceiling per sub. Code: [`score.ts`](./src/reddit/scout/score.ts), [`map-drafts.ts`](./src/reddit/scout/map-drafts.ts), [`winner-scout.ts`](./src/stages/create/winner-scout.ts).
 
 ### Lane personas (draft voice)
 
-Help / presence / create prompts load packs from [`src/policy/persona.ts`](./src/policy/persona.ts) (see [lane personas plan](../../.cursor/plans/ce_lane_personas.plan.md)). Policy knobs in `config/default.json` → `draft` (override in `config/local.json`):
+Help / presence / create prompts load packs from [`src/policy/persona.ts`](./src/policy/persona.ts) (see [lane personas plan](../../.cursor/plans/ce_lane_personas.plan.md)). Personas shape **how** we reply after a thread is selected; they do not change scout filters. Policy knobs in `config/default.json` → `draft` (override in `config/local.json`):
 
 | Key | Default | Env |
 |-----|---------|-----|
@@ -263,7 +276,9 @@ Pause state is process-local on the daemon; evidence under `{REDDIT_DATA_DIR}/sc
 | `scout.maxAgeHours` (default 12) | Help / default hard-drop age (hours); rank remaining by score then newest. `REDDIT_SCOUT_MAX_AGE_HOURS` |
 | `scout.maxAgeHoursPresence` (default 8) | Presence-lane hard-drop (tighter). `REDDIT_SCOUT_MAX_AGE_HOURS_PRESENCE` |
 | Scout order | Keyed `auto`: redditapis → json → oauth → fixtures. No key: browser → json → oauth → fixtures |
-| Allowlist + score ≥5/8 | problemFit, help, rules, freshness, value, competition, icpFit, plugNaturalness |
+| Help score ≥5/8 (soft competition) | problemFit, help, rules, freshness, value, competition (sweet ≤25 / crowded+ICP), icpFit, plugNaturalness — see **Scout selection** |
+| Presence score ≥4/6 + takeRoom | fashionFit, takeRoom, rules, freshness, competition (sweet ≤35), voiceFit |
+| Create winner gates | ≥8 comments, ≥3d age, ≥50 score when known (`CREATE_WINNER_*` in winner-scout) |
 | CAPTCHAs are never auto-solved | Detect, then escalate to a human or degrade quietly |
 | Discovery proposes, humans promote | A newly researched sub is not postable until approved |
 | Warmup forces intensity 0 | Until account age / karma / help-comment thresholds (`warmup` in config) |

@@ -18,6 +18,46 @@ describe("resolveScoutMaxAgeHours", () => {
     assert.equal(resolveScoutMaxAgeHours("presence"), 8);
     assert.equal(resolveScoutMaxAgeHours("create"), 12);
   });
+
+  it("drops presence posts outside the tighter age window", () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const posts = mapRedditApisPosts([
+      {
+        id: "pold",
+        name: "t3_pold",
+        title: "Fit check — dinner outfit",
+        author: "op",
+        permalink: "/r/malefashionadvice/comments/pold/fit/",
+        text: "Too dressy? Honest thoughts.",
+        subreddit: "malefashionadvice",
+        comments: 3,
+        created_utc: nowSec - 10 * 3600,
+        url: "https://i.redd.it/abc.jpg",
+        is_self: false,
+      },
+      {
+        id: "pfresh",
+        name: "t3_pfresh",
+        title: "Fit check — dinner outfit",
+        author: "op",
+        permalink: "/r/malefashionadvice/comments/pfresh/fit/",
+        text: "Too dressy? Honest thoughts.",
+        subreddit: "malefashionadvice",
+        comments: 3,
+        created_utc: nowSec - 2 * 3600,
+        url: "https://i.redd.it/abc.jpg",
+        is_self: false,
+      },
+    ]);
+    const drafts = listingPostsToDrafts(posts, 5, {
+      kind: "presence",
+      playbookFor: () => ({ ...DEFAULT_PLAYBOOK, presenceEnabled: true }),
+      maxAgeHours: 8,
+      nowMs: Date.now(),
+    });
+    assert.equal(drafts.length, 1);
+    assert.equal(drafts[0]!.id, "reddit-pfresh");
+  });
 });
 
 describe("redditapis → listingPostsToDrafts pipeline", () => {

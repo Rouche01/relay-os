@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: tests-readme
     content: Update score/map-drafts/winner-scout tests + README scout table; link personas plan as complementary (voice ≠ selection)
-    status: pending
+    status: completed
 isProject: true
 ---
 

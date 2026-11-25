@@ -121,6 +121,47 @@ describe("listingPostsToDrafts kind", () => {
     );
     assert.equal(drafts.length, 0);
   });
+
+  it("presence lane drops silent haul/flex without takeRoom", () => {
+    const drafts = listingPostsToDrafts(
+      [
+        listingPost({
+          title: "Today's fit",
+          selftext: "New jacket finally arrived.",
+          url: "https://i.redd.it/abc.jpg",
+          isSelf: false,
+          numComments: 4,
+        }),
+      ],
+      3,
+      {
+        kind: "presence",
+        playbookFor: () => ({
+          ...DEFAULT_PLAYBOOK,
+          presenceEnabled: true,
+        }),
+      }
+    );
+    assert.equal(drafts.length, 0);
+  });
+
+  it("help lane keeps crowded ICP threads past sweet-spot comments", () => {
+    const drafts = listingPostsToDrafts(
+      [
+        listingPost({
+          title: "How do I build a work capsule wardrobe?",
+          selftext:
+            "Need a simple system for outfits that work together for the office — looking for advice.",
+          numComments: 40,
+        }),
+      ],
+      3,
+      { playbookFor: () => DEFAULT_PLAYBOOK }
+    );
+    assert.ok(drafts.length >= 1, "crowded + ICP help should still enqueue");
+    assert.equal(drafts[0]!.score?.icpFit, true);
+    assert.equal(drafts[0]!.score?.competition, true);
+  });
 });
 
 describe("listingPostsToDrafts opText", () => {
