@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: freshness-age
     content: Revisit scout.maxAgeHours (default 6) vs score freshness; lane-aware or raised window so good mid-age threads are not hard-dropped
-    status: pending
+    status: completed
   - id: presence-takeroom
     content: Require takeRoom in isPresenceActionable (or equivalent hard gate) so silent haul/flex cannot enqueue
     status: pending
@@ -155,5 +155,5 @@ Many seeds keep `presenceEnabled` / `allowsOriginalPosts` false. Scoring upgrade
 ## Open questions
 
 1. Exact help/presence sweet-spot numbers — **Decided:** help ≤25 / presence ≤35; cold ≤2 (rationale only); crowded help needs ICP or total ≥6.
-2. Default `maxAgeHours`: 12 vs 24 for help?
+2. Default `maxAgeHours` — **Decided:** help/default **12h**, presence **8h** (`maxAgeHoursPresence`).
 3. Per-sub competition overrides in playbook v1 or follow-up?

@@ -47,7 +47,10 @@ export interface ScoutFileConfig {
   scrollRounds?: number;
   deepReadMax?: number;
   subBudgetMs?: number;
+  /** Help / default listing hard-drop age (hours). Default 12. */
   maxAgeHours?: number;
+  /** Presence-lane hard-drop age (hours). Default 8 (tighter than help). */
+  maxAgeHoursPresence?: number;
 }
 
 export interface JobsFileConfig {
@@ -214,8 +217,10 @@ export interface CommunityAppConfig {
     scrollRounds: number;
     deepReadMax: number;
     subBudgetMs: number;
-    /** Prefer posts newer than this many hours (default 6). */
+    /** Help / default listing hard-drop age (hours). Default 12. */
     maxAgeHours: number;
+    /** Presence-lane hard-drop age (hours). Default 8. */
+    maxAgeHoursPresence: number;
   };
   jobs: {
     maxJobs: number;
@@ -316,7 +321,8 @@ const BUILTIN_DEFAULTS: CommunityAppConfig = {
     scrollRounds: 4,
     deepReadMax: 5,
     subBudgetMs: 45_000,
-    maxAgeHours: 6,
+    maxAgeHours: 12,
+    maxAgeHoursPresence: 8,
   },
   jobs: {
     maxJobs: 3,
@@ -539,6 +545,13 @@ function normalizeConfig(raw: CommunityAppConfig): CommunityAppConfig {
       maxAgeHours: Math.max(
         1,
         nonNegInt(raw.scout.maxAgeHours, BUILTIN_DEFAULTS.scout.maxAgeHours)
+      ),
+      maxAgeHoursPresence: Math.max(
+        1,
+        nonNegInt(
+          raw.scout.maxAgeHoursPresence,
+          BUILTIN_DEFAULTS.scout.maxAgeHoursPresence
+        )
       ),
     },
     jobs: {

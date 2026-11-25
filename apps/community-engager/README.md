@@ -260,7 +260,8 @@ Pause state is process-local on the daemon; evidence under `{REDDIT_DATA_DIR}/sc
 | `REDDIT_DRY_RUN=true` | Safe default — logs only |
 | `COMMUNITY_POST_MODE=manual` | Deploy default in `community.env.example` — skip execute, notify for human post |
 | `SCOUT_SOURCE=redditapis` | Read-only listings via `REDDITAPIS_API_KEY` (no Reddit login). With key + `auto`, prefers redditapis over browser |
-| `scout.maxAgeHours` (default 6) | Hard-drop listing posts older than N hours; rank remaining by score then newest. Override with `REDDIT_SCOUT_MAX_AGE_HOURS` |
+| `scout.maxAgeHours` (default 12) | Help / default hard-drop age (hours); rank remaining by score then newest. `REDDIT_SCOUT_MAX_AGE_HOURS` |
+| `scout.maxAgeHoursPresence` (default 8) | Presence-lane hard-drop (tighter). `REDDIT_SCOUT_MAX_AGE_HOURS_PRESENCE` |
 | Scout order | Keyed `auto`: redditapis → json → oauth → fixtures. No key: browser → json → oauth → fixtures |
 | Allowlist + score ≥5/8 | problemFit, help, rules, freshness, value, competition, icpFit, plugNaturalness |
 | CAPTCHAs are never auto-solved | Detect, then escalate to a human or degrade quietly |

@@ -59,7 +59,8 @@
     "scrollRounds": 4,
     "deepReadMax": 5,
     "subBudgetMs": 45000,
-    "maxAgeHours": 6
+    "maxAgeHours": 12,
+    "maxAgeHoursPresence": 8
   },
   "jobs": {
     "maxJobs": 3,

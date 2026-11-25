@@ -33,7 +33,8 @@ describe("app-config", () => {
     assert.equal(cfg.warmup.minHelpComments, 10);
     assert.equal(cfg.jobs.maxJobs, 3);
     assert.equal(cfg.scout.delayMs, 8000);
-    assert.equal(cfg.scout.maxAgeHours, 6);
+    assert.equal(cfg.scout.maxAgeHours, 12);
+    assert.equal(cfg.scout.maxAgeHoursPresence, 8);
     assert.equal(cfg.postWatch.enabled, true);
     assert.equal(cfg.postWatch.firstCheckAfterHours, 1);
     assert.equal(cfg.postWatch.minAgeHours, 1);

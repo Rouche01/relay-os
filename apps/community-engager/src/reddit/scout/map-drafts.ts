@@ -42,6 +42,16 @@ function capOpText(selftext: string): string {
   return trimmed.slice(0, OP_TEXT_MAX_CHARS);
 }
 
+/** Lane-aware scout hard-drop age (hours). */
+export function resolveScoutMaxAgeHours(kind?: EngageKind | string | null): number {
+  const cfg = getCommunityConfig().scout;
+  const lane = normalizeEngageKind(kind ?? DEFAULT_ENGAGE_KIND);
+  if (lane === "presence") {
+    return Math.max(1, cfg.maxAgeHoursPresence ?? 8);
+  }
+  return Math.max(1, cfg.maxAgeHours ?? 12);
+}
+
 export interface ListingScoreStats {
   scanned: number;
   actionable: number;
@@ -55,7 +65,7 @@ export interface ListingPostsToDraftsOptions {
   playbookFor?: (subreddit: string) => SubredditPlaybook;
   /**
    * Drop posts older than this many hours (hard filter).
-   * Default: `getCommunityConfig().scout.maxAgeHours` (6).
+   * Default: help `scout.maxAgeHours` (12); presence `scout.maxAgeHoursPresence` (8).
    * Pass `0` to disable the age filter (tests / research).
    */
   maxAgeHours?: number;
@@ -107,7 +117,7 @@ export function listingPostsToDrafts(
   const maxAgeHours =
     opts?.maxAgeHours !== undefined
       ? opts.maxAgeHours
-      : getCommunityConfig().scout.maxAgeHours;
+      : resolveScoutMaxAgeHours(kind);
   const maxAgeMs =
     maxAgeHours > 0 ? maxAgeHours * MS_PER_HOUR : Number.POSITIVE_INFINITY;
   const maxAgeOpt = Number.isFinite(maxAgeMs) ? maxAgeMs : undefined;

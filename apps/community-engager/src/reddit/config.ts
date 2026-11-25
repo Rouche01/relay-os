@@ -197,10 +197,15 @@ export interface ScoutRuntimeConfig {
   deepReadMax: number;
   subBudgetMs: number;
   /**
-   * Drop listing posts older than this (hours) before ranking.
-   * Prefer fresh help threads over high-scoring stale ones. Default 6.
+   * Help / default listing hard-drop (hours) before ranking. Default 12.
+   * Override: `REDDIT_SCOUT_MAX_AGE_HOURS`.
    */
   maxAgeHours: number;
+  /**
+   * Presence-lane hard-drop (hours). Default 8 (tighter than help).
+   * Override: `REDDIT_SCOUT_MAX_AGE_HOURS_PRESENCE`.
+   */
+  maxAgeHoursPresence: number;
 }
 
 export interface JobsRuntimeConfig {
@@ -487,6 +492,12 @@ export function getCommunityConfig(
     env,
     "REDDIT_SCOUT_MAX_AGE_HOURS",
     policy.scout.maxAgeHours,
+    { allowZero: false, min: 1 }
+  );
+  const scoutMaxAgeHoursPresence = envNumber(
+    env,
+    "REDDIT_SCOUT_MAX_AGE_HOURS_PRESENCE",
+    policy.scout.maxAgeHoursPresence ?? 8,
     { allowZero: false, min: 1 }
   );
 
@@ -802,6 +813,7 @@ export function getCommunityConfig(
       deepReadMax: scoutDeepReadMax,
       subBudgetMs: scoutSubBudgetMs,
       maxAgeHours: scoutMaxAgeHours,
+      maxAgeHoursPresence: scoutMaxAgeHoursPresence,
     },
     jobs: {
       maxJobs: envNumber(env, "COMMUNITY_MAX_JOBS", policy.jobs.maxJobs, {
