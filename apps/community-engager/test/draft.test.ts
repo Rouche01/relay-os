@@ -165,6 +165,9 @@ describe("buildDraftPrompt", () => {
     assert.match(prompt, /Human aborted a hard sell last week/);
     assert.match(prompt, /Intensity rules:/);
     assert.match(prompt, /Soft-CTA pattern/);
+    assert.match(prompt, /Persona \(help\.default\)/);
+    assert.match(prompt, /Authorized personal facts: none/);
+    assert.match(prompt, /Only use authorized personal facts/);
     assert.match(prompt, /Voice \(required\)/);
     assert.match(prompt, /Ban AI\/coach\/retail tells/);
     assert.match(prompt, /Em dashes and en dashes: never/);
@@ -175,6 +178,29 @@ describe("buildDraftPrompt", () => {
     assert.match(prompt, /Do not mention GoStylens/);
     assert.match(prompt, /mention by name only/);
     assert.match(prompt, /founder disclosure/);
+  });
+
+  it("adds systems archetype overlay for ICP wardrobe language", () => {
+    const prompt = buildDraftPrompt(
+      draft({
+        threadTitle: "How do I build a work capsule wardrobe?",
+        opText:
+          "Looking for a simple wardrobe system, not brand recs. Pieces that work together.",
+      })
+    );
+    assert.match(prompt, /Thread archetype \(systems/);
+    assert.match(prompt, /planning constraint/);
+  });
+
+  it("adds thin-ask overlay when body is short", () => {
+    const prompt = buildDraftPrompt(
+      draft({
+        threadTitle: "Help with interview outfits?",
+        opText: "Thanks",
+      })
+    );
+    assert.match(prompt, /Thread archetype \(thin ask\)/);
+    assert.match(prompt, /do not invent garments/i);
   });
 
   it("adds photo constraints for image / deictic posts", () => {
@@ -192,6 +218,7 @@ describe("buildDraftPrompt", () => {
     assert.doesNotMatch(prompt, /from the pics…/i);
     assert.doesNotMatch(prompt, /—/);
     assert.match(prompt, /live taping/);
+    assert.match(prompt, /Thread archetype \(thin ask\)/);
   });
 });
 

@@ -7,6 +7,13 @@ import {
   type LlmContentPart,
   type LlmProviderId,
 } from "@relay/llm";
+import {
+  classifyHelpThreadArchetype,
+  formatHelpArchetypeOverlay,
+  formatPersonaForPrompt,
+  resolvePersona,
+  type LanePersona,
+} from "../../policy/persona.js";
 import type { SubredditPlaybook } from "../../policy/playbook.js";
 import {
   engageKindOf,
@@ -211,6 +218,10 @@ export function buildDraftPrompt(
     imageAttached?: boolean;
     /** Number of attached gallery / OP images. */
     imageCount?: number;
+    /** Override help persona pack (tests / future config). */
+    persona?: LanePersona;
+    /** Skip thread-archetype overlay (tests). Default: include. */
+    includeArchetypeOverlay?: boolean;
   }
 ): string {
   const { opText, memorySection, mediaSection } = sharedThreadContext(
@@ -220,6 +231,19 @@ export function buildDraftPrompt(
   );
   const lp = normalizeLpBase(opts?.lpBaseUrl ?? "https://gostylens.app");
   const pb = opts?.playbook;
+  const persona =
+    opts?.persona ??
+    resolvePersona({ kind: "help" });
+  const personaSection = formatPersonaForPrompt(persona);
+  const archetypeSection =
+    opts?.includeArchetypeOverlay === false
+      ? []
+      : formatHelpArchetypeOverlay(
+          classifyHelpThreadArchetype({
+            threadTitle: draft.threadTitle,
+            opText: draft.opText,
+          })
+        );
   const playbookSection = pb
     ? [
         "Subreddit playbook (required):",
@@ -244,11 +268,10 @@ export function buildDraftPrompt(
     "You write one Reddit comment as a regular person in a fashion/styling sub, not a coach or chatbot.",
     "Product context (only for intensity rules below): GoStylens is a small styling helper. Stay help-first.",
     "",
+    ...personaSection,
+    ...archetypeSection,
     "Voice (required):",
-    "- Sound like a thoughtful commenter: casual, specific, a little opinionated. Write how a human types on Reddit.",
-    "- Open by engaging the actual ask (quote or paraphrase one concrete detail from title/body).",
-    "- One main suggestion OR one clear take. Optionally one short follow-up question only when something real is missing (fit, rise, budget, dressiness).",
-    "- 2-5 short sentences. Contractions are fine (I'd / you're / that's).",
+    "- Follow the persona stance, judgment, and rhythm above.",
     "- Ban AI/coach/retail tells: numbered frameworks (1) 2) 3)), \"Hey -\", \"Happy to help/unpack\",",
     "  \"simple approach\", \"game changer\", \"I'd love to\", \"feel free to\", \"as an AI\",",
     "  \"great question\", \"From the pic/pics, yeah\", \"you'd want\", \"check out X or Y\",",
@@ -274,9 +297,10 @@ export function buildDraftPrompt(
     "Content rules:",
     "- Answer *this* thread only; ground every tip in the title, body, and attached image when present.",
     opts?.imageAttached
-      ? "- The image is attached — treat it as primary evidence. Do not answer the title in the abstract while ignoring what they showed."
+      ? "- The image is attached; treat it as primary evidence. Do not answer the title in the abstract while ignoring what they showed."
       : "- If the body is empty/thin and the title refers to specific items/photos, do not invent those items.",
     "- Do not invent prices, shops, or a personal story you were not given (readable text in an attached image is allowed).",
+    "- Only use authorized personal facts listed in the persona block; if none, invent nothing personal.",
     "- Keep draftText under 900 characters.",
     "",
     `Subreddit: r/${draft.subreddit}`,
@@ -374,6 +398,8 @@ export function buildDraftPromptForKind(
     playbook?: SubredditPlaybook;
     imageAttached?: boolean;
     imageCount?: number;
+    persona?: LanePersona;
+    includeArchetypeOverlay?: boolean;
   }
 ): string {
   if (presenceForcesIntensity0(draft)) {

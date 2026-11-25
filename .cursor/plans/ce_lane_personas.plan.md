@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: help-prompt-wire
     content: Inject help persona into buildDraftPrompt; optional thread-archetype overlay from scout signals (ICP/systems vs thin ask); preserve no-invented-story rule
-    status: pending
+    status: completed
   - id: presence-create-light
     content: Light presence + create voice packs (presence stays short/anti-coach; create = writer POV on remodel)—no theatrical character
     status: pending
@@ -143,5 +143,5 @@ Optional **archetype overlay** (help only): map scout-ish signals (e.g. ICP/syst
 ## Open questions (resolve before/during implement)
 
 1. **Authorized facts:** ~~ship empty in v1?~~ **Decided:** empty arrays on defaults; operators can add later via pack overrides.
-2. **Archetype overlay:** v1 or follow-up once help pack lands?
+2. **Archetype overlay:** ~~v1 or follow-up?~~ **Decided:** ship in help prompt via `classifyHelpThreadArchetype` (ICP → systems, thin body → thin_ask).
 3. **Kill switch:** config flag to fall back to today’s static Voice block?

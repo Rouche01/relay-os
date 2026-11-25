@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  classifyHelpThreadArchetype,
   DEFAULT_CREATE_PERSONA,
   DEFAULT_HELP_PERSONA,
   DEFAULT_PRESENCE_PERSONA,
+  formatHelpArchetypeOverlay,
   formatPersonaForPrompt,
   getPersonaById,
   hasAuthorizedFacts,
@@ -78,18 +80,58 @@ describe("formatPersonaForPrompt / hasAuthorizedFacts", () => {
     assert.match(text, /Stance:/);
     assert.match(text, /Judgment:/);
     assert.match(text, /Authorized personal facts: none/);
+    assert.doesNotMatch(text, /—/);
     assert.equal(hasAuthorizedFacts(DEFAULT_HELP_PERSONA), false);
   });
 
   it("lists authorizedFacts when present", () => {
     const withFacts: LanePersona = {
       ...DEFAULT_HELP_PERSONA,
-      authorizedFacts: ["Founder of GoStylens — mention only when intensity ≥ 1."],
+      authorizedFacts: [
+        "Founder of GoStylens; mention only when intensity >= 1.",
+      ],
     };
     assert.equal(hasAuthorizedFacts(withFacts), true);
     assert.match(
       formatPersonaForPrompt(withFacts).join("\n"),
       /Founder of GoStylens/
+    );
+  });
+});
+
+describe("classifyHelpThreadArchetype", () => {
+  it("labels ICP wardrobe language as systems", () => {
+    assert.equal(
+      classifyHelpThreadArchetype({
+        threadTitle: "Capsule wardrobe for work",
+        opText: "Need a cohesive closet plan and pieces that work together.",
+      }),
+      "systems"
+    );
+    assert.match(
+      formatHelpArchetypeOverlay("systems").join("\n"),
+      /planning constraint/
+    );
+  });
+
+  it("labels short bodies as thin_ask", () => {
+    assert.equal(
+      classifyHelpThreadArchetype({
+        threadTitle: "Any tips for interviews?",
+        opText: "Help",
+      }),
+      "thin_ask"
+    );
+  });
+
+  it("labels longer non-ICP help as general", () => {
+    assert.equal(
+      classifyHelpThreadArchetype({
+        threadTitle: "What shoes for a wedding?",
+        opText:
+          "I'm a guest at an outdoor wedding next month and already own black oxfords but wonder if loafers are better in heat.",
+      }),
+      "general"
     );
   });
 });

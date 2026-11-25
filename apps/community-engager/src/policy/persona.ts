@@ -3,11 +3,15 @@
  * Playbook stays compliance-only (rules, plugs, megathreads); personality lives here.
  */
 
+import { ICP_RE } from "../reddit/scout/score.js";
 import {
   DEFAULT_ENGAGE_KIND,
   normalizeEngageKind,
   type EngageKind,
 } from "../types.js";
+
+/** Help-thread flavor for a short prompt overlay (no scout schema change). */
+export type HelpThreadArchetype = "systems" | "thin_ask" | "general";
 
 /**
  * Commenter voice for one engagement lane.
@@ -41,14 +45,14 @@ export const DEFAULT_HELP_PERSONA: LanePersona = {
   judgment: [
     "Prioritize fit, rise, proportion, and use-case over brand names.",
     "Prefer one strong suggestion (or one clear take) over multi-step frameworks.",
-    "If rise, budget, dressiness, or body context is missing, say so — do not guess.",
+    "If rise, budget, dressiness, or body context is missing, say so; do not guess.",
     "Disagree gently when the ask is off (wrong silhouette for the job) instead of soft-agreeing.",
   ],
   rhythm: [
     "Open by engaging one concrete detail from the title, body, or photo.",
-    "2–5 short sentences; contractions are fine.",
+    "2-5 short sentences; contractions are fine.",
     "Optional one clarifying question only when something real is missing.",
-    "Lead with help; product mentions follow intensity rules elsewhere — never open with a pitch.",
+    "Lead with help; product mentions follow intensity rules elsewhere, never open with a pitch.",
   ],
   bans: [
     "Stylist-funnel openers and closers (Happy to help, great question, feel free to).",
@@ -66,12 +70,12 @@ export const DEFAULT_PRESENCE_PERSONA: LanePersona = {
     "Friendly scroll-by commenter: notice one real detail, earn a glance, never a consult.",
   judgment: [
     "Default to compliment + one visible detail (color, shoes, bag, socks, vibe).",
-    "A tip only when OP clearly asked for feedback — never unsolicited coaching on flex/OOTD.",
+    "A tip only when OP clearly asked for feedback; never unsolicited coaching on flex/OOTD.",
     "Humor rare and kind; never mean-spirited.",
   ],
   rhythm: [
-    "1–2 short sentences (3 only if still casual).",
-    "Keep under a glance length — presence is not an advice essay.",
+    "1-2 short sentences (3 only if still casual).",
+    "Keep under a glance length; presence is not an advice essay.",
   ],
   bans: [
     "Stylist/systems talk: proportions frameworks, rotation, elevating the look, building a wardrobe.",
@@ -86,7 +90,7 @@ export const DEFAULT_CREATE_PERSONA: LanePersona = {
   id: "create.default",
   lane: "create",
   stance:
-    "Real first-person poster remodeling a winning pattern — specific, not a brand voice.",
+    "Real first-person poster remodeling a winning pattern; specific, not a brand voice.",
   judgment: [
     "Extract structure/angle from sources; never paste title or body.",
     "Ground the post in concrete wardrobe detail; skip soft product plugs in v1.",
@@ -151,7 +155,51 @@ export function hasAuthorizedFacts(persona: LanePersona): boolean {
 }
 
 /**
- * Prompt-ready bullets (for later draft-llm wire). Does not include global anti-AI lists.
+ * Classify help-thread flavor from title+body (same ICP/HELP heuristics as scout).
+ * Used only as a short prompt overlay; does not change scout scores.
+ */
+export function classifyHelpThreadArchetype(input: {
+  threadTitle?: string | null;
+  opText?: string | null;
+}): HelpThreadArchetype {
+  const text = `${input.threadTitle ?? ""}\n${input.opText ?? ""}`.trim();
+  if (!text) return "thin_ask";
+  if (ICP_RE.test(text)) return "systems";
+  const bodyLen = (input.opText ?? "").trim().length;
+  if (bodyLen < 40) return "thin_ask";
+  return "general";
+}
+
+/** 2-3 prompt lines keyed by help archetype. */
+export function formatHelpArchetypeOverlay(
+  archetype: HelpThreadArchetype
+): string[] {
+  switch (archetype) {
+    case "systems":
+      return [
+        "Thread archetype (systems / wardrobe planning):",
+        "- Answer the planning constraint first (roles, budget, closet gaps).",
+        "- One concrete next step beats a full capsule lecture.",
+        "",
+      ];
+    case "thin_ask":
+      return [
+        "Thread archetype (thin ask):",
+        "- Body is thin; do not invent garments, photos, or context.",
+        "- Give one usable tip from the title, or ask one clarifying question.",
+        "",
+      ];
+    default:
+      return [
+        "Thread archetype (general help):",
+        "- Stay tied to this OP's occasion and constraints; skip generic wardrobe sermons.",
+        "",
+      ];
+  }
+}
+
+/**
+ * Prompt-ready bullets for draft-llm. Does not include global anti-AI lists.
  */
 export function formatPersonaForPrompt(persona: LanePersona): string[] {
   const facts =
@@ -161,7 +209,7 @@ export function formatPersonaForPrompt(persona: LanePersona): string[] {
           ...persona.authorizedFacts.map((f) => `- ${f}`),
         ]
       : [
-          "Authorized personal facts: none — do not invent a personal story, shops, or prices.",
+          "Authorized personal facts: none. Do not invent a personal story, shops, or prices.",
         ];
 
   return [
@@ -174,5 +222,6 @@ export function formatPersonaForPrompt(persona: LanePersona): string[] {
     "Persona bans:",
     ...persona.bans.map((b) => `- ${b}`),
     ...facts,
+    "",
   ];
 }
