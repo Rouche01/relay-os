@@ -77,12 +77,13 @@ export const ACTIONABLE_SCORE_MIN = 5;
 
 /**
  * Presence-lane score (equal weight 1 each).
- * Actionable when {@link presenceScoreTotal} ≥ {@link PRESENCE_ACTIONABLE_MIN} (4/6).
+ * Actionable when {@link isPresenceActionable}: takeRoom + rulesOk + voiceFit
+ * and total ≥ {@link PRESENCE_ACTIONABLE_MIN} (4/6).
  */
 export interface PresenceScore {
   /** Fit check / outfit / style opinion / tippable fashion */
   fashionFit: boolean;
-  /** Room for a short concrete take (invite, photo, or substance) */
+  /** Room for a short concrete take (invite, photo, or substance) — hard gate */
   takeRoom: boolean;
   /**
    * Engaged-but-reachable comment band (sweet spot), or crowded with takeRoom credit.
@@ -214,12 +215,14 @@ export function presenceScoreTotal(score: PresenceScore): number {
 
 /**
  * Act only when ≥ {@link PRESENCE_ACTIONABLE_MIN}/{@link PRESENCE_SCORE_MAX}
- * and hard gates pass: playbook presence on (`rulesOk`) + voice fit.
+ * and hard gates pass: playbook presence on (`rulesOk`) + voice fit + takeRoom
+ * (blocks silent haul/flex with no invite or visual hook).
  */
 export function isPresenceActionable(score: PresenceScore): boolean {
   return (
     score.rulesOk &&
     score.voiceFit &&
+    score.takeRoom &&
     presenceScoreTotal(score) >= PRESENCE_ACTIONABLE_MIN
   );
 }

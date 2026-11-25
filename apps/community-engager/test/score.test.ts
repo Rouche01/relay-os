@@ -292,5 +292,20 @@ describe("scorePresencePost", () => {
     });
     const { score } = scorePresencePost(flex, { playbook: presencePb });
     assert.equal(score.takeRoom, false);
+    assert.ok(!isPresenceActionable(score));
+  });
+
+  it("hard-gates takeRoom even when other dims would clear 4/6", () => {
+    // fashionFit + competition + freshness + rules + voice = 5 without takeRoom
+    const score = {
+      fashionFit: true,
+      takeRoom: false,
+      competition: true,
+      freshnessOk: true,
+      rulesOk: true,
+      voiceFit: true,
+    };
+    assert.ok(presenceScoreTotal(score) >= PRESENCE_ACTIONABLE_MIN);
+    assert.equal(isPresenceActionable(score), false);
   });
 });

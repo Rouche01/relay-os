@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: presence-takeroom
     content: Require takeRoom in isPresenceActionable (or equivalent hard gate) so silent haul/flex cannot enqueue
-    status: pending
+    status: completed
   - id: deep-read-unknown
     content: Confirm comment counts on deep-read when listing omits numComments; lean on deep-read for thin-body + help-title candidates
     status: pending
